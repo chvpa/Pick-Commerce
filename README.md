@@ -94,11 +94,15 @@ raíz, donde no hay `wrangler.jsonc` ni el binario de wrangler.
 
 Configuración de cada proyecto en el dashboard de Cloudflare:
 
-| Ajuste         | `pick-demo`                       | `pick-admin`                       |
-| -------------- | --------------------------------- | ---------------------------------- |
-| Root directory | `/`                               | `/`                                |
-| Build command  | `pnpm --filter @pick/demo build`  | `pnpm --filter @pick/admin build`  |
-| Deploy command | `pnpm --filter @pick/demo deploy` | `pnpm --filter @pick/admin deploy` |
+| Ajuste         | `pick-demo`                           | `pick-admin`                           |
+| -------------- | ------------------------------------- | -------------------------------------- |
+| Root directory | `/`                                   | `/`                                    |
+| Build command  | `pnpm --filter @pick/demo run build`  | `pnpm --filter @pick/admin run build`  |
+| Deploy command | `pnpm --filter @pick/demo run deploy` | `pnpm --filter @pick/admin run deploy` |
+
+El `run` no es opcional: `deploy` es un comando built-in de pnpm, así que
+`pnpm --filter <app> deploy` falla con `ERR_PNPM_INVALID_DEPLOY_TARGET` sin
+llegar nunca al script del paquete.
 
 Desde local, con `wrangler login` hecho:
 
@@ -110,7 +114,7 @@ pnpm deploy:admin    # construye y despliega el Admin
 Para validar la configuración sin publicar nada:
 
 ```bash
-pnpm --filter @pick/demo exec wrangler deploy -c dist/client/wrangler.json --dry-run
+pnpm --filter @pick/demo run deploy --dry-run
 ```
 
 ### KV de sesiones

@@ -23,8 +23,8 @@
     "db:reset": "supabase db reset",
     "db:push": "supabase db push",
     "db:types": "supabase gen types typescript --local > packages/commerce-types/src/database.generated.ts",
-    "deploy:demo": "pnpm --filter @pick/demo build && pnpm --filter @pick/demo deploy",
-    "deploy:admin": "pnpm --filter @pick/admin build && pnpm --filter @pick/admin deploy"
+    "deploy:demo": "pnpm --filter @pick/demo run build && pnpm --filter @pick/demo run deploy",
+    "deploy:admin": "pnpm --filter @pick/admin run build && pnpm --filter @pick/admin run deploy"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
