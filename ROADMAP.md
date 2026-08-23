@@ -18,11 +18,11 @@
 
 # Resumen
 
-| Versión | Objetivo                                    | Estado | Avance |
-| ------- | ------------------------------------------- | -----: | -----: |
-| v1      | Commerce Core vendible + primer piloto real |   TODO |     0% |
-| v2      | Operación avanzada, AI Commerce y escala    |   TODO |     0% |
-| v3      | MCP, intelligence layer y expansión LATAM   |   TODO |     0% |
+| Versión | Objetivo                                    |      Estado | Avance |
+| ------- | ------------------------------------------- | ----------: | -----: |
+| v1      | Commerce Core vendible + primer piloto real | IN PROGRESS |     8% |
+| v2      | Operación avanzada, AI Commerce y escala    |        TODO |     0% |
+| v3      | MCP, intelligence layer y expansión LATAM   |        TODO |     0% |
 
 ---
 
@@ -45,7 +45,7 @@
 
 ## Fase 0 — Foundation
 
-**Avance: 85%**
+**Avance: 100%**
 
 Objetivo: repositorio, tooling, CI y estructura base funcionando.
 
@@ -61,8 +61,8 @@ Objetivo: repositorio, tooling, CI y estructura base funcionando.
 - [x] Configurar variables de entorno y secrets.
 - [x] Configurar build local.
 - [x] Configurar CI mínimo.
-- [~] Configurar deploy inicial a Cloudflare. Config de wrangler validada con `--dry-run` en ambas apps y comandos de deploy documentados en el README. Falta: crear el KV namespace `SESSION` que exige `@astrojs/cloudflare`, y correr el primer deploy con credenciales.
-- [!] Crear Supabase project de desarrollo. Bloqueado: requiere decidir organización y aprobar el costo. La estructura local (`supabase/`, migraciones) ya está lista.
+- [x] Configurar deploy inicial a Cloudflare. Deploy por push funcionando desde Workers Builds.
+- [x] Crear Supabase project de desarrollo. Proyecto `snnbkqesjiooejaccqhg` creado y verificado (auth responde, publishable y secret key válidas). Las credenciales viven en `.env`, fuera de git.
 - [x] Definir migraciones/versionado de schema.
 - [x] Confirmar que `AGENTS.md`, `PROJECT.md`, `ROADMAP.md`, `DECISIONS.md` y `ENGINEERING_HARNESS.md` forman parte del repo.
 
@@ -678,6 +678,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -----------: | -------------: |
 | —          | Roadmap inicial                                                                                                                                                                         | —      |           0% |             0% |
 | 2026-08-23 | Fase 0: monorepo pnpm, TypeScript/ESLint/Prettier, Tailwind v4, paquetes `@pick/commerce-types` y `@pick/commerce-core`, apps `admin` y `demo`, CI y estructura de migraciones Supabase | Fase 0 |           0% |            85% |
+| 2026-08-23 | Fase 0 cerrada: deploy a Cloudflare Workers por push y proyecto Supabase de desarrollo verificado                                                                                       | Fase 0 |          85% |           100% |
 
 ---
 
