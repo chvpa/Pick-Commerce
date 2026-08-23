@@ -1,0 +1,19 @@
+---
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  href: string;
+  class?: string;
+}
+
+const { href, class: className } = Astro.props;
+---
+
+<h3 class={cn('text-sm font-medium leading-snug text-fg', className)}>
+  <a
+    href={href}
+    class="cursor-pointer after:absolute after:inset-0 after:content-[''] hover:underline focus-visible:outline-none"
+  >
+    <slot />
+  </a>
+</h3>

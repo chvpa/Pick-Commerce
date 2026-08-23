@@ -87,12 +87,18 @@ importers:
       '@astrojs/preact':
         specifier: ^6.0.4
         version: 6.0.4(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(preact@10.29.8)(rollup@4.62.5)(supports-color@10.2.2)(yaml@2.9.0)
+      '@pick/commerce-astro':
+        specifier: workspace:*
+        version: link:../../packages/commerce-astro
       '@pick/commerce-core':
         specifier: workspace:*
         version: link:../../packages/commerce-core
       '@pick/commerce-types':
         specifier: workspace:*
         version: link:../../packages/commerce-types
+      '@pick/commerce-ui':
+        specifier: workspace:*
+        version: link:../../packages/commerce-ui
       astro:
         specifier: ^7.2.4
         version: 7.2.4(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0)
@@ -116,6 +122,28 @@ importers:
         specifier: ^4.125.0
         version: 4.125.0
 
+  packages/commerce-astro:
+    dependencies:
+      '@pick/commerce-core':
+        specifier: workspace:*
+        version: link:../commerce-core
+      '@pick/commerce-types':
+        specifier: workspace:*
+        version: link:../commerce-types
+      '@pick/commerce-ui':
+        specifier: workspace:*
+        version: link:../commerce-ui
+    devDependencies:
+      '@astrojs/check':
+        specifier: ^0.9.10
+        version: 0.9.10(prettier-plugin-astro@0.14.1)(prettier@3.9.6)(typescript@6.0.3)
+      astro:
+        specifier: ^7.2.4
+        version: 7.2.4(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/commerce-core:
     dependencies:
       '@pick/commerce-types':
@@ -130,6 +158,19 @@ importers:
         version: 6.0.3
 
   packages/commerce-types:
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/commerce-ui:
+    dependencies:
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      tailwind-merge:
+        specifier: ^3.4.1
+        version: 3.6.0
     devDependencies:
       typescript:
         specifier: ^6.0.3
@@ -2893,6 +2934,9 @@ packages:
     resolution: {integrity: sha512-ekx94z1rRc5LDi6oSUaeRnYhd0UOJxdtQCL2rF8xpWxD3TPAsISWOrxezqGovqS38GRZOdpDfvQe3ts6F7nsng==}
     engines: {node: '>=16'}
     hasBin: true
+
+  tailwind-merge@3.6.0:
+    resolution: {integrity: sha512-uxL7qAVQriqRQPAyK3pj66VqskWqoZ37PW94jwOTwNfq/z9oyu1V+eqrZqtR2+fCiXdYOZe/Modt8GtvqNzu+w==}
 
   tailwindcss@4.3.3:
     resolution: {integrity: sha512-gOhV3P7ufE62QDGg1zVaTgCR+EtPv92k2nIhVcVKcLmxT1sUBsQGhnZj175j+MqRt4zLF7ic+sCYjfhxMxj7YQ==}
@@ -5970,6 +6014,8 @@ snapshots:
       csso: 5.0.5
       picocolors: 1.1.1
       sax: 1.6.1
+
+  tailwind-merge@3.6.0: {}
 
   tailwindcss@4.3.3: {}
 

@@ -1,0 +1,40 @@
+---
+import type { Money } from '@pick/commerce-types';
+import { discountPercent, formatMoney } from '@pick/commerce-core';
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  value: Money;
+  /** Precio anterior. Si no representa una oferta real, se ignora. */
+  compareAt?: Money;
+  /** Locale del store. El core cae a `es-PY` si no se indica. */
+  locale?: string;
+  showDiscount?: boolean;
+  class?: string;
+}
+
+const { value, compareAt, locale, showDiscount = true, class: className } = Astro.props;
+
+const discount = compareAt ? discountPercent(value, compareAt) : null;
+const onSale = discount !== null;
+---
+
+<p class={cn('flex flex-wrap items-baseline gap-x-2 gap-y-1', className)}>
+  <span class={cn('text-base font-medium', onSale && 'text-sale')}>
+    {formatMoney(value, locale)}
+  </span>
+
+  {
+    onSale && compareAt && (
+      <>
+        {/* `<s>` comunica el tachado; el texto oculto evita que un lector de
+            pantalla lea un número suelto sin contexto. */}
+        <s class="text-fg-subtle text-sm">
+          <span class="sr-only">Precio anterior: </span>
+          {formatMoney(compareAt, locale)}
+        </s>
+        {showDiscount && <span class="text-sale text-xs font-medium">-{discount}%</span>}
+      </>
+    )
+  }
+</p>

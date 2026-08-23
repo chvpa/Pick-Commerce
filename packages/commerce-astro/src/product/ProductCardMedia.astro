@@ -1,0 +1,49 @@
+---
+import type { ProductImage } from '@pick/commerce-types';
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  image?: ProductImage;
+  /** `true` sólo para las primeras cards del PLP: evita diferir el LCP. */
+  priority?: boolean;
+  class?: string;
+}
+
+const { image, priority = false, class: className } = Astro.props;
+---
+
+<div
+  class={cn(
+    'relative overflow-hidden rounded-md bg-surface-sunken',
+    'aspect-(--aspect-product)',
+    className,
+  )}
+>
+  {
+    image ? (
+      <img
+        src={image.url}
+        alt={image.alt}
+        width={image.width}
+        height={image.height}
+        loading={priority ? 'eager' : 'lazy'}
+        fetchpriority={priority ? 'high' : 'auto'}
+        decoding="async"
+        class="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.02] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+      />
+    ) : (
+      /* Sin imagen la card conserva su altura: el grid no salta. */
+      <div
+        class="flex h-full w-full items-center justify-center text-xs text-fg-subtle"
+        aria-hidden="true"
+      >
+        Sin imagen
+      </div>
+    )
+  }
+
+  {/* Slot para badges: "Nuevo", "-30%", "Sin stock". */}
+  <div class="absolute top-2 left-2 flex flex-col items-start gap-1">
+    <slot name="badge" />
+  </div>
+</div>

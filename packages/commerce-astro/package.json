@@ -1,0 +1,30 @@
+{
+  "name": "@pick/commerce-astro",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./product/ProductCard.astro": "./src/product/ProductCard.astro",
+    "./product/ProductCardMedia.astro": "./src/product/ProductCardMedia.astro",
+    "./product/ProductCardBody.astro": "./src/product/ProductCardBody.astro",
+    "./product/ProductCardTitle.astro": "./src/product/ProductCardTitle.astro",
+    "./product/ProductGrid.astro": "./src/product/ProductGrid.astro",
+    "./product/Price.astro": "./src/product/Price.astro"
+  },
+  "scripts": {
+    "typecheck": "astro check"
+  },
+  "dependencies": {
+    "@pick/commerce-core": "workspace:*",
+    "@pick/commerce-types": "workspace:*",
+    "@pick/commerce-ui": "workspace:*"
+  },
+  "peerDependencies": {
+    "astro": "^7.2.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "astro": "^7.2.4",
+    "typescript": "^6.0.3"
+  }
+}

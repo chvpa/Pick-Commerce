@@ -1,9 +1,12 @@
 ---
-import { formatMoney, money } from '@pick/commerce-core';
-import { HydrationProbe } from '../components/HydrationProbe.tsx';
+import Price from '@pick/commerce-astro/product/Price.astro';
+import ProductCard from '@pick/commerce-astro/product/ProductCard.astro';
+import ProductCardBody from '@pick/commerce-astro/product/ProductCardBody.astro';
+import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astro';
+import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
+import ProductGrid from '@pick/commerce-astro/product/ProductGrid.astro';
+import { mockProducts } from '../lib/mock-catalog.ts';
 import '../styles/global.css';
-
-const samplePrice = formatMoney(money(89900, 'PYG'));
 ---
 
 <!doctype html>
@@ -14,15 +17,47 @@ const samplePrice = formatMoney(money(89900, 'PYG'));
     <title>Pick Commerce · Demo</title>
     <meta name="description" content="Storefront demo de Pick Commerce." />
   </head>
-  <body class="bg-white text-neutral-900 antialiased">
-    <main class="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-4 px-6">
-      <p class="text-sm font-medium text-neutral-500">Pick Commerce</p>
-      <h1 class="text-3xl font-semibold tracking-tight">Storefront demo</h1>
-      <p class="text-neutral-600">
-        Shell de Fase 0. El core compartido responde:
-        <span class="font-medium text-neutral-900">{samplePrice}</span>
-      </p>
-      <div><HydrationProbe client:load /></div>
+  <body class="bg-surface text-fg antialiased">
+    <main class="mx-auto max-w-(--container-content) px-6 py-16">
+      <header class="mb-10 flex flex-col gap-2">
+        <p class="text-sm text-fg-muted">Pick Commerce</p>
+        <h1 class="font-display text-3xl font-semibold">Catálogo</h1>
+        <p class="text-sm text-fg-muted">
+          {mockProducts.length} productos · datos mock, sin backend
+        </p>
+      </header>
+
+      <ProductGrid>
+        {
+          mockProducts.map((product, index) => {
+            const variant = product.variants[0];
+            if (!variant) return null;
+            const soldOut = variant.availableQuantity === 0;
+
+            return (
+              <ProductCard>
+                <ProductCardMedia image={product.images[0]} priority={index < 4}>
+                  {soldOut && (
+                    <span
+                      slot="badge"
+                      class="rounded-xs border border-border bg-surface px-2 py-1 text-2xs font-medium text-fg-muted"
+                    >
+                      Sin stock
+                    </span>
+                  )}
+                </ProductCardMedia>
+                <ProductCardBody>
+                  {product.brand && <p class="text-xs text-fg-subtle">{product.brand}</p>}
+                  <ProductCardTitle href={`/productos/${product.handle}`}>
+                    {product.title}
+                  </ProductCardTitle>
+                  <Price value={variant.price} compareAt={variant.compareAtPrice} />
+                </ProductCardBody>
+              </ProductCard>
+            );
+          })
+        }
+      </ProductGrid>
     </main>
   </body>
 </html>

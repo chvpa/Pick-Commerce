@@ -1,0 +1,27 @@
+---
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+{
+  /*
+  La card no es un link: el link vive en el título y se estira sobre toda la
+  card con `after:absolute`. Así el área clickeable es la card entera pero los
+  controles que se agreguen después (swatches, wishlist, add to cart) siguen
+  siendo accionables, en vez de quedar anidados dentro de un `<a>`.
+*/
+}
+<article
+  class={cn(
+    'group relative flex flex-col gap-3',
+    'rounded-sm focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-accent',
+    className,
+  )}
+>
+  <slot />
+</article>

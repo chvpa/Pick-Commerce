@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addMoney, currencyDecimals, formatMoney, money, toMajorUnits } from './money.ts';
+import {
+  addMoney,
+  currencyDecimals,
+  discountPercent,
+  formatMoney,
+  money,
+  toMajorUnits,
+} from './money.ts';
 
 test('currencyDecimals respeta la moneda', () => {
   assert.equal(currencyDecimals('PYG'), 0);
@@ -26,4 +33,17 @@ test('formatMoney usa los decimales de cada moneda', () => {
 
 test('addMoney rechaza mezclar monedas', () => {
   assert.throws(() => addMoney(money(1, 'USD'), money(1, 'PYG')), TypeError);
+});
+
+test('discountPercent redondea hacia abajo y descarta el no-descuento', () => {
+  assert.equal(discountPercent(money(70, 'USD'), money(100, 'USD')), 30);
+  // 29,7 % real no debe mostrarse como 30 %.
+  assert.equal(discountPercent(money(70.3, 'USD'), money(100, 'USD')), 29);
+  assert.equal(discountPercent(money(100, 'USD'), money(100, 'USD')), null);
+  assert.equal(discountPercent(money(120, 'USD'), money(100, 'USD')), null);
+});
+
+test('discountPercent no divide por cero ni acepta monedas mezcladas', () => {
+  assert.equal(discountPercent(money(10, 'USD'), money(0, 'USD')), null);
+  assert.throws(() => discountPercent(money(1, 'USD'), money(2, 'PYG')), TypeError);
 });

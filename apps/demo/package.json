@@ -16,7 +16,9 @@
     "@pick/commerce-core": "workspace:*",
     "@pick/commerce-types": "workspace:*",
     "astro": "^7.2.4",
-    "preact": "^10.29.8"
+    "preact": "^10.29.8",
+    "@pick/commerce-ui": "workspace:*",
+    "@pick/commerce-astro": "workspace:*"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

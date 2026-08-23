@@ -31,12 +31,22 @@ export type FieldSource = 'COMMERCE' | 'ERP';
 
 export type ProductStatus = 'draft' | 'active' | 'inactive' | 'archived';
 
+export interface ProductImage {
+  readonly url: string;
+  /** Texto alternativo. Vacío sólo si la imagen es decorativa. */
+  readonly alt: string;
+  readonly width?: number;
+  readonly height?: number;
+}
+
 export interface ProductVariant {
   readonly id: string;
   readonly sku: string;
   readonly barcode?: string;
   readonly title: string;
   readonly price: Money;
+  /** Precio anterior, cuando la variante está en oferta. Sirve para mostrar el descuento. */
+  readonly compareAtPrice?: Money;
   /** Coste unitario, cuando el comercio lo registra. Habilita métricas de margen. */
   readonly cost?: Money;
   /** Espejo de inventario: nunca es autoridad si el ERP posee el stock. Ver ADR-009. */
@@ -52,6 +62,7 @@ export interface Product extends TenantScoped {
   readonly brand?: string;
   readonly categoryId?: string;
   readonly status: ProductStatus;
+  readonly images: readonly ProductImage[];
   readonly variants: readonly ProductVariant[];
   /** Agrupa productos hermanos (p. ej. mismo modelo en otro color). Ver ADR-026. */
   readonly productGroupId?: string;

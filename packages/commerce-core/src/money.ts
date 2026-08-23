@@ -50,3 +50,20 @@ export function addMoney(a: Money, b: Money): Money {
   }
   return { amount: a.amount + b.amount, currency: a.currency };
 }
+
+/**
+ * Porcentaje de descuento entre el precio actual y el precio anterior.
+ * Devuelve `null` cuando no hay oferta que mostrar, para que la UI no tenga que
+ * decidir si un 0 % es "sin descuento" o "descuento nulo".
+ */
+export function discountPercent(current: Money, compareAt: Money): number | null {
+  if (current.currency !== compareAt.currency) {
+    throw new TypeError(
+      `No se puede comparar precios de distinta moneda: ${current.currency} vs ${compareAt.currency}`,
+    );
+  }
+  if (compareAt.amount <= 0 || current.amount >= compareAt.amount) return null;
+
+  // Se redondea hacia abajo: mostrar "30 %" con un 29,7 % real exagera la oferta.
+  return Math.floor(((compareAt.amount - current.amount) / compareAt.amount) * 100);
+}

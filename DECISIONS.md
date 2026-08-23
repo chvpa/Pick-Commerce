@@ -683,3 +683,73 @@ contexto.
 
 **Revisar si**
 `typescript-eslint` y `@astrojs/check` amplían su rango a TypeScript 7.
+
+---
+
+## ADR-032 — Componentes estáticos en `.astro`, Preact sólo para islands
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted
+
+**Contexto**
+La primera versión de Product Card se escribió como componente Preact en
+`@pick/commerce-ui`. Al renderizarla desde una página `.astro` se descubrió que
+**no se puede pasar markup como prop a un componente de framework**: un badge
+pasado como string aparece en el HTML, el mismo badge como elemento JSX se
+descarta en silencio. Las expresiones de `.astro` no producen vnodes de Preact.
+
+Esto rompe el eje "slots" que PROJECT.md §17 exige como forma de customización.
+
+**Decisión**
+
+- Los componentes de presentación estática se escriben en `.astro` y viven en
+  `@pick/commerce-astro`. Usan `<slot />`, que sí funciona.
+- Preact queda reservado para islands con interactividad real: Add to Cart,
+  Variant Selector, Quantity, Cart Drawer, filtros de PLP, búsqueda.
+- `@pick/commerce-ui` conserva los tokens y utilidades compartidas (`cn`) y
+  alojará esas islands. Al no contener `.astro`, el Admin puede consumirlo.
+
+**Por qué**
+Coincide con ADR-001 y con el reparto de paquetes de PROJECT.md §5, que ya
+distingue `commerce-ui` de `commerce-astro`. Además, la PLP resultante envía
+**cero JavaScript**: el HTML generado no tiene un solo `<script>`.
+
+**Consecuencias**
+
+- Un componente que exista en ambos mundos (por ejemplo Price, estático en PLP y
+  reactivo dentro del selector de variante del PDP) tendrá dos envoltorios de
+  markup. Es aceptable porque la lógica real vive en `@pick/commerce-core` y se
+  testea una sola vez; el envoltorio duplicado son ~20 líneas.
+- La versión Preact de cada componente se crea recién cuando una island la
+  necesita, no por anticipado.
+
+**Revisar si**
+Astro habilita pasar vnodes como props a componentes de framework, o el
+storefront necesita hidratación tan extendida que mantener dos capas deje de
+compensar.
+
+---
+
+## ADR-033 — Tokens de diseño como CSS de Tailwind v4
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted
+
+**Contexto**
+Tailwind v4 define el tema en CSS con `@theme`, no en `tailwind.config.js`. Los
+presets necesitan redefinir el sistema visual sin tocar los componentes.
+
+**Decisión**
+Los tokens viven en `@pick/commerce-ui/tokens.css` y son **semánticos**
+(`--color-fg-muted`, `--color-sale`, `--aspect-product`), no nombres de color.
+Un preset redefine variables; no sobreescribe clases.
+
+`tokens.css` incluye su propio `@source '../'` porque Tailwind no escanea
+`node_modules`, y los paquetes del workspace llegan al app por symlink: sin eso
+las clases usadas dentro de los componentes no se generan.
+
+**Consecuencias**
+
+- Agregar un paquete con componentes obliga a incluir su `@source`.
+- `--aspect-product` permite que moda use retrato y ferretería cuadrado sin
+  forkear la Product Card, según el principio de un solo Core.
