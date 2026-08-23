@@ -1,0 +1,28 @@
+---
+import { formatMoney, money } from '@pick/commerce-core';
+import { HydrationProbe } from '../components/HydrationProbe.tsx';
+import '../styles/global.css';
+
+const samplePrice = formatMoney(money(89900, 'PYG'));
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pick Commerce · Demo</title>
+    <meta name="description" content="Storefront demo de Pick Commerce." />
+  </head>
+  <body class="bg-white text-neutral-900 antialiased">
+    <main class="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-4 px-6">
+      <p class="text-sm font-medium text-neutral-500">Pick Commerce</p>
+      <h1 class="text-3xl font-semibold tracking-tight">Storefront demo</h1>
+      <p class="text-neutral-600">
+        Shell de Fase 0. El core compartido responde:
+        <span class="font-medium text-neutral-900">{samplePrice}</span>
+      </p>
+      <div><HydrationProbe client:load /></div>
+    </main>
+  </body>
+</html>

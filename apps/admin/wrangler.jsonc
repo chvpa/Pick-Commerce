@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pick-admin",
+  "compatibility_date": "2026-08-01",
+  // El Admin es una SPA: se sirve como assets estáticos, sin Worker propio.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+  },
+}
