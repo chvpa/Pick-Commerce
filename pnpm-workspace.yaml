@@ -2,12 +2,9 @@ packages:
   - 'packages/*'
   - 'apps/*'
 
+# Scripts de instalación permitidos. pnpm bloquea el resto por defecto:
+# un paquete nuevo que quiera ejecutar código al instalarse tiene que listarse acá.
 allowBuilds:
-  esbuild: set this to true or false
-  sharp: set this to true or false
-  workerd: set this to true or false
-
-onlyBuiltDependencies:
-  - esbuild
-  - sharp
-  - workerd
+  esbuild: true
+  sharp: true
+  workerd: true
