@@ -87,11 +87,44 @@ promociones y migraciones. Ver ENGINEERING_HARNESS.md §5–6.
 
 ## Deploy
 
-Ambas apps corren sobre Cloudflare Workers:
+Ambas apps corren sobre Cloudflare Workers, cada una con su propio Worker. El
+monorepo tiene dos apps, así que **hacen falta dos proyectos de Workers Builds**,
+y cada uno debe apuntar sólo a su app: el comando de deploy no puede correr en la
+raíz, donde no hay `wrangler.jsonc` ni el binario de wrangler.
+
+Configuración de cada proyecto en el dashboard de Cloudflare:
+
+| Ajuste         | `pick-demo`                       | `pick-admin`                       |
+| -------------- | --------------------------------- | ---------------------------------- |
+| Root directory | `/`                               | `/`                                |
+| Build command  | `pnpm --filter @pick/demo build`  | `pnpm --filter @pick/admin build`  |
+| Deploy command | `pnpm --filter @pick/demo deploy` | `pnpm --filter @pick/admin deploy` |
+
+Desde local, con `wrangler login` hecho:
 
 ```bash
-pnpm --filter @pick/demo deploy
-pnpm --filter @pick/admin deploy
+pnpm deploy:demo     # construye y despliega el storefront
+pnpm deploy:admin    # construye y despliega el Admin
 ```
 
-Requiere `wrangler login` o `CLOUDFLARE_API_TOKEN` en el entorno.
+Para validar la configuración sin publicar nada:
+
+```bash
+pnpm --filter @pick/demo exec wrangler deploy -c dist/client/wrangler.json --dry-run
+```
+
+### KV de sesiones
+
+`@astrojs/cloudflare` declara siempre un binding `SESSION` sobre KV. El
+storefront todavía no usa sesiones, pero el binding viaja en la config, así que
+el primer deploy necesita que el namespace exista:
+
+```bash
+pnpm --filter @pick/demo exec wrangler kv namespace create SESSION
+```
+
+Ese comando devuelve un id. Agregarlo a `apps/demo/wrangler.jsonc`:
+
+```jsonc
+"kv_namespaces": [{ "binding": "SESSION", "id": "<id devuelto>" }]
+```

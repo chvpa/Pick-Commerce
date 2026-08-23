@@ -61,7 +61,7 @@ Objetivo: repositorio, tooling, CI y estructura base funcionando.
 - [x] Configurar variables de entorno y secrets.
 - [x] Configurar build local.
 - [x] Configurar CI mínimo.
-- [~] Configurar deploy inicial a Cloudflare. Wrangler configurado en ambas apps; falta ejecutar el primer deploy con credenciales de la cuenta.
+- [~] Configurar deploy inicial a Cloudflare. Config de wrangler validada con `--dry-run` en ambas apps y comandos de deploy documentados en el README. Falta: crear el KV namespace `SESSION` que exige `@astrojs/cloudflare`, y correr el primer deploy con credenciales.
 - [!] Crear Supabase project de desarrollo. Bloqueado: requiere decidir organización y aprobar el costo. La estructura local (`supabase/`, migraciones) ya está lista.
 - [x] Definir migraciones/versionado de schema.
 - [x] Confirmar que `AGENTS.md`, `PROJECT.md`, `ROADMAP.md`, `DECISIONS.md` y `ENGINEERING_HARNESS.md` forman parte del repo.
