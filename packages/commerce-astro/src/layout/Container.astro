@@ -1,0 +1,22 @@
+---
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  /** `wide` para secciones full-bleed; `content` es el ancho de lectura. */
+  width?: 'content' | 'wide';
+  as?: 'div' | 'section' | 'main' | 'header' | 'footer';
+  class?: string;
+}
+
+const { width = 'content', as: Tag = 'div', class: className } = Astro.props;
+---
+
+<Tag
+  class={cn(
+    'mx-auto w-full px-4 sm:px-6',
+    width === 'wide' ? 'max-w-(--container-wide)' : 'max-w-(--container-content)',
+    className,
+  )}
+>
+  <slot />
+</Tag>

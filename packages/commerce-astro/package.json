@@ -9,7 +9,10 @@
     "./product/ProductCardBody.astro": "./src/product/ProductCardBody.astro",
     "./product/ProductCardTitle.astro": "./src/product/ProductCardTitle.astro",
     "./product/ProductGrid.astro": "./src/product/ProductGrid.astro",
-    "./product/Price.astro": "./src/product/Price.astro"
+    "./product/Price.astro": "./src/product/Price.astro",
+    "./layout/Container.astro": "./src/layout/Container.astro",
+    "./layout/Header.astro": "./src/layout/Header.astro",
+    "./layout/Footer.astro": "./src/layout/Footer.astro"
   },
   "scripts": {
     "typecheck": "astro check"

@@ -1,0 +1,22 @@
+---
+import { cn } from '@pick/commerce-ui';
+import Container from './Container.astro';
+
+interface Props {
+  storeName: string;
+  class?: string;
+}
+
+const { storeName, class: className } = Astro.props;
+const year = new Date().getFullYear();
+---
+
+<footer class={cn('mt-20 border-t border-border bg-surface-sunken', className)}>
+  <Container class="flex flex-col gap-8 py-12">
+    <slot />
+    <p class="text-xs text-fg-subtle">
+      © {year}
+      {storeName}
+    </p>
+  </Container>
+</footer>

@@ -807,3 +807,38 @@ medio que entre por ERP, CSV o upload debe registrarlas.
   (`cloudflare-binding`), que optimiza en runtime. Es lo correcto para un
   catálogo remoto; `'compile'` sólo serviría si todas las imágenes fueran
   locales y las rutas prerenderizadas.
+
+---
+
+## ADR-035 — El alta al carrito entra por un módulo, no por props
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted
+
+**Contexto**
+`AddToCart` es una island y necesita ejecutar una acción asíncrona. El patrón
+habitual sería recibir el handler por props, pero la documentación de Astro lo
+prohíbe: las funciones _"can only be used during the component's server
+rendering and cannot be used to provide interactivity"_. Una función que baje
+desde `.astro` no existe en el browser.
+
+**Decisión**
+La acción entra por `@pick/commerce-ui/cart/add-to-cart`, un módulo con una
+única función `addToCart(input): Promise<void>`. En Fase 1 sólo emite un
+`CustomEvent`; en Fase 5 se reemplaza su cuerpo por la llamada real al cart
+service, sin tocar ningún componente.
+
+El contrato es asíncrono desde ahora aunque todavía no haya red, para que el
+botón implemente pending y error de entrada y no se agreguen después.
+
+**Por qué no un registry ni inyección de dependencias**
+Hay una sola implementación. Un registro de handlers sería una abstracción sin
+segundo caso, justo lo que descarta la regla anti-overengineering. Un módulo con
+una función es el seam mínimo que permite el reemplazo en un solo archivo.
+
+**Consecuencias**
+
+- Ninguna island puede recibir callbacks desde una página `.astro`; el patrón se
+  repetirá en Cart Drawer, filtros de PLP y búsqueda.
+- El evento `pick:add-to-cart` permite que un storefront reaccione (abrir el
+  drawer, analytics) sin acoplarse al Core.

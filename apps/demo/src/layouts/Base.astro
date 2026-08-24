@@ -1,0 +1,35 @@
+---
+import Header from '@pick/commerce-astro/layout/Header.astro';
+import Footer from '@pick/commerce-astro/layout/Footer.astro';
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const STORE_NAME = 'Pick Demo';
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="canonical" href={Astro.url.pathname} />
+  </head>
+  <body class="flex min-h-dvh flex-col bg-surface text-fg antialiased">
+    <Header storeName={STORE_NAME}>
+      <a slot="nav" href="/" class="cursor-pointer hover:underline">Catálogo</a>
+    </Header>
+
+    <main class="flex-1">
+      <slot />
+    </main>
+
+    <Footer storeName={STORE_NAME} />
+  </body>
+</html>

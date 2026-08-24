@@ -79,21 +79,21 @@ Objetivo: repositorio, tooling, CI y estructura base funcionando.
 
 ## Fase 1 — Design System y Commerce UI base
 
-**Avance: 20%**
+**Avance: 40%**
 
 Objetivo: construir los LEGO visuales reutilizables.
 
 - [ ] Instalar/configurar shadcn + Base UI en Admin/UI package cuando corresponda.
 - [x] Definir tokens base: color, typography, spacing, radius, container. En `@pick/commerce-ui/tokens.css`, semánticos y CSS-first (ADR-033).
 - [ ] Crear primitives UI esenciales.
-- [ ] Crear layout primitives.
-- [ ] Crear Header y Footer base.
+- [x] Crear layout primitives. `Container` con anchos `content`/`wide` por token.
+- [x] Crear Header y Footer base. Nav y acciones por slot: el Core no impone categorías.
 - [x] Crear Product Card. Composición con slots: Media/Body/Title + badge.
 - [x] Crear Product Price. Precio, compare-at tachado accesible y % de descuento.
 - [ ] Crear Product Image/Gallery base.
 - [ ] Crear Variant Selector.
-- [ ] Crear Quantity Selector.
-- [ ] Crear Add to Cart.
+- [x] Crear Quantity Selector. Island Preact, topeado por stock, con `aria-live`.
+- [x] Crear Add to Cart. Island con pending/success/error/disabled y doble submit bloqueado por ref (ADR-022).
 - [x] Crear Product Grid.
 - [ ] Crear Product Carousel.
 - [ ] Crear Cart Drawer.
@@ -680,6 +680,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-23 | Fase 0: monorepo pnpm, TypeScript/ESLint/Prettier, Tailwind v4, paquetes `@pick/commerce-types` y `@pick/commerce-core`, apps `admin` y `demo`, CI y estructura de migraciones Supabase | Fase 0 |           0% |            85% |
 | 2026-08-23 | Fase 0 cerrada: deploy a Cloudflare Workers por push y proyecto Supabase de desarrollo verificado                                                                                       | Fase 0 |          85% |           100% |
 | 2026-08-23 | Fase 1: tokens de diseño, `@pick/commerce-astro` con Product Card/Price/Grid y PLP demo con catálogo mock                                                                               | Fase 1 |           0% |            20% |
+| 2026-08-23 | Fase 1: layout (Container/Header/Footer), primeras islands (Quantity, Add to Cart) y PDP demo                                                                                           | Fase 1 |          20% |            40% |
 
 ---
 

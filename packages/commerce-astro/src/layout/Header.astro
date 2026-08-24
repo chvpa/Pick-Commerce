@@ -1,0 +1,32 @@
+---
+import { cn } from '@pick/commerce-ui';
+import Container from './Container.astro';
+
+interface Props {
+  storeName: string;
+  homeHref?: string;
+  class?: string;
+}
+
+const { storeName, homeHref = '/', class: className } = Astro.props;
+---
+
+<header class={cn('border-b border-border bg-surface', className)}>
+  <Container class="flex h-16 items-center justify-between gap-6">
+    <a
+      href={homeHref}
+      class="font-display cursor-pointer text-base font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+    >
+      {storeName}
+    </a>
+
+    {/* La navegación la aporta el storefront: el Core no impone categorías. */}
+    <nav aria-label="Principal" class="flex items-center gap-6 text-sm">
+      <slot name="nav" />
+    </nav>
+
+    <div class="flex items-center gap-2">
+      <slot name="actions" />
+    </div>
+  </Container>
+</header>
