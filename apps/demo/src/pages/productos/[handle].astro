@@ -1,7 +1,7 @@
 ---
+import Breadcrumb from '@pick/commerce-astro/navigation/Breadcrumb.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
-import Price from '@pick/commerce-astro/product/Price.astro';
-import { AddToCart } from '@pick/commerce-ui';
+import { ProductPurchase } from '@pick/commerce-ui';
 import { Image } from 'astro:assets';
 import Base from '../../layouts/Base.astro';
 import { mockProducts } from '../../lib/mock-catalog.ts';
@@ -14,12 +14,18 @@ export function getStaticPaths() {
 }
 
 const { product } = Astro.props;
-const variant = product.variants[0]!;
 const image = product.images[0];
+
+/* Los swatches los aporta el storefront: el catálogo guarda "Azul", no un hex. */
+const COLOR_SWATCHES = { Azul: '#2f4858', Negro: '#26262b', Blanco: '#e8e6e1', Verde: '#3f5f46' };
 ---
 
 <Base title={`${product.title} · Pick Demo`} description={product.description}>
-  <Container class="grid gap-10 py-12 md:grid-cols-2 md:gap-16">
+  <Container class="py-6">
+    <Breadcrumb items={[{ label: 'Catálogo', href: '/' }, { label: product.title }]} />
+  </Container>
+
+  <Container class="grid gap-10 pb-12 md:grid-cols-2 md:gap-16">
     <div class="overflow-hidden rounded-md bg-surface-sunken aspect-(--aspect-product)">
       {
         image ? (
@@ -49,28 +55,15 @@ const image = product.images[0];
       <div class="flex flex-col gap-2">
         {product.brand && <p class="text-sm text-fg-subtle">{product.brand}</p>}
         <h1 class="font-display text-2xl font-semibold tracking-tight">{product.title}</h1>
-        <Price value={variant.price} compareAt={variant.compareAtPrice} class="text-lg" />
       </div>
-
-      <dl class="flex flex-col gap-1 text-sm text-fg-muted">
-        <div class="flex gap-2">
-          <dt>SKU</dt>
-          <dd class="text-fg">{variant.sku}</dd>
-        </div>
-        <div class="flex gap-2">
-          <dt>Disponible</dt>
-          <dd class="text-fg">{variant.availableQuantity}</dd>
-        </div>
-      </dl>
 
       {
         /*
-        Única island de la página: el resto es HTML estático.
-        `client:idle` porque agregar al carrito no es la primera acción del
-        usuario, así que no compite con el render inicial.
+        Única island de la página. Contiene precio, selector y alta al carrito
+        porque los tres comparten estado, y Astro no lo pasa entre islands.
       */
       }
-      <AddToCart client:idle variantId={variant.id} available={variant.availableQuantity} />
+      <ProductPurchase client:idle variants={product.variants} swatches={COLOR_SWATCHES} />
     </div>
   </Container>
 </Base>

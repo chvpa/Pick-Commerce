@@ -12,7 +12,8 @@
     "./product/Price.astro": "./src/product/Price.astro",
     "./layout/Container.astro": "./src/layout/Container.astro",
     "./layout/Header.astro": "./src/layout/Header.astro",
-    "./layout/Footer.astro": "./src/layout/Footer.astro"
+    "./layout/Footer.astro": "./src/layout/Footer.astro",
+    "./navigation/Breadcrumb.astro": "./src/navigation/Breadcrumb.astro"
   },
   "scripts": {
     "typecheck": "astro check"

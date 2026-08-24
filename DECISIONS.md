@@ -842,3 +842,61 @@ una función es el seam mínimo que permite el reemplazo en un solo archivo.
   repetirá en Cart Drawer, filtros de PLP y búsqueda.
 - El evento `pick:add-to-cart` permite que un storefront reaccione (abrir el
   drawer, analytics) sin acoplarse al Core.
+
+---
+
+## ADR-036 — Base UI como capa de primitives del Admin
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted
+
+**Contexto**
+`PROJECT.md` §4 nombra shadcn y Base UI para el Admin. La motivación planteada
+era que Base UI optimiza mejor que Radix. Se verificó antes de aceptarla.
+
+**Qué dicen los datos**
+
+- La documentación de Base UI **no hace ninguna afirmación** sobre bundle size ni
+  tree-shaking. Sus ventajas declaradas son ser headless, accesible y componible.
+- `@base-ui/react` y `radix-ui` declaran ambos `sideEffects: false`, que es lo
+  que habilita el tree-shaking. En ese eje son equivalentes.
+- El tamaño desempaquetado no es comparable: `radix-ui` (105 KB) es un
+  re-export delgado sobre ~30 paquetes que se instalan igual, mientras
+  `@base-ui/react` (9,5 MB) trae todos los componentes en un paquete con ESM,
+  CJS y tipos. Ninguno de los dos números predice el bundle final.
+
+**La premisa no se sostiene: no hay diferencia de optimización demostrable.**
+
+Además, el eje está mal elegido para dónde se aplica. Esto es el **Admin**, una
+SPA autenticada sin SEO: `PROJECT.md` §2.8 dice que el Admin prioriza
+productividad y mantenibilidad, no bytes. El presupuesto de performance que
+importa es el del storefront, y el storefront no usa ninguna de las dos.
+
+**Decisión**
+Usar Base UI igual, pero por los motivos correctos:
+
+- lo mantiene el equipo que creó Radix, Material UI y Floating UI, incluido el
+  autor original de Radix;
+- API unificada en un solo paquete en vez de ~30 dependencias separadas, lo que
+  simplifica versionado y upgrades;
+- está estable en 1.7.0 y en desarrollo activo;
+- ya figura en `PROJECT.md`, así que mantenerlo evita una divergencia entre el
+  documento y el código.
+
+**Corrección de un dato previo**
+Se reportó antes que Base UI estaba en `1.0.0-rc.0` y por lo tanto no era
+estable. Era incorrecto: ese es el paquete viejo `@base-ui-components/react`,
+congelado tras el renombre. El paquete vigente es **`@base-ui/react`, estable en
+1.7.0**.
+
+**Consecuencias**
+
+- Aplica sólo al Admin. El storefront usa componentes propios: shadcn es
+  React-only y los componentes estáticos son `.astro` con cero JavaScript.
+- Al instalar, usar la CLI de shadcn (`init --monorepo`, `add -c apps/admin`),
+  que copia el código fuente al repo. No transcribir componentes a mano.
+
+**Revisar si**
+Base UI introduce fricción real con la CLI de shadcn, o si aparece una medición
+concreta de bundle que cambie el análisis. En cualquiera de los dos casos, Radix
+es el reemplazo directo.

@@ -165,6 +165,9 @@ importers:
 
   packages/commerce-ui:
     dependencies:
+      '@pick/commerce-core':
+        specifier: workspace:*
+        version: link:../commerce-core
       '@pick/commerce-types':
         specifier: workspace:*
         version: link:../commerce-types
