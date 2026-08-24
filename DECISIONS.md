@@ -1114,3 +1114,54 @@ se intercepta y no hay recarga completa.
 **Costo**
 `ClientRouter` son 16,3 KB / 5,6 KB gzip, y sólo los paga `/catalogo`. La home y
 el PDP no lo cargan: verificado en el HTML generado.
+
+---
+
+## ADR-043 — shadcn sobre Base UI en el Admin: procedimiento verificado
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted — implementa ADR-036
+
+**Confirmación de la duda que quedó abierta**
+shadcn **sí** soporta Base UI, y desde julio de 2026 es su opción por defecto;
+Radix sigue soportado. No se elige con un registry ni un namespace aparte sino
+con el flag `-b base` en `init`, que queda persistido en `components.json` como
+`"style": "base-nova"`. El paquete que instala es `@base-ui/react ^1.7.0`,
+exactamente el que nombraba ADR-036.
+
+**Procedimiento**
+
+```bash
+cd apps/admin
+pnpm dlx shadcn@latest init -b base -p nova -y --no-reinstall
+pnpm dlx shadcn@latest add button -y
+```
+
+Tres trampas encontradas al ejecutarlo:
+
+1. **`baseUrl` rompe el typecheck.** La guía oficial de shadcn para Vite manda
+   agregar `baseUrl` al tsconfig, pero en TypeScript 6 eso es el error TS5101.
+   Alcanza con `paths`, que desde TS 4 se resuelve relativo al tsconfig.
+2. **`--monorepo` no es lo que parece**: scaffoldea un monorepo nuevo con
+   Turborepo. Para agregar a un workspace existente se corre desde `apps/admin`,
+   o desde la raíz con `-c apps/admin`.
+3. **El alias de Vite necesita `fileURLToPath`.** Con `new URL(...).pathname`,
+   en Windows y con un espacio en la ruta del repo, el alias resuelve a
+   `/C:/.../Pick%20commerce/...` y el build muere con `os error 123`.
+
+**Alcance**
+Los componentes viven en `apps/admin/src/components/ui`, **no** en
+`@pick/commerce-ui`: ese paquete es Preact y shadcn es React. Un
+`@pick/admin-ui` compartido sería abstracción especulativa mientras haya una
+sola app React.
+
+**Dependencias que arrastra el init**, no declaradas antes en el stack:
+`class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`,
+`tw-animate-css`, `@fontsource-variable/geist`, y — la menos obvia — `shadcn`
+como dependencia de **runtime**, porque `styles.css` hace
+`@import "shadcn/tailwind.css"`.
+
+**Nota de tamaño**
+El Admin queda en 72,9 KB gzip de JavaScript. Es aceptable: `PROJECT.md` §2.8
+dice que el Admin prioriza productividad y mantenibilidad, y el presupuesto de
+performance que importa es el del storefront.

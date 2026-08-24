@@ -79,11 +79,11 @@ Objetivo: repositorio, tooling, CI y estructura base funcionando.
 
 ## Fase 1 — Design System y Commerce UI base
 
-**Avance: 92%**
+**Avance: 96%**
 
 Objetivo: construir los LEGO visuales reutilizables.
 
-- [ ] Instalar/configurar shadcn + Base UI en Admin/UI package cuando corresponda.
+- [x] Instalar/configurar shadcn + Base UI en Admin/UI package cuando corresponda. Sólo en el Admin: shadcn es React y `@pick/commerce-ui` es Preact.
 - [x] Definir tokens base: color, typography, spacing, radius, container. En `@pick/commerce-ui/tokens.css`, semánticos y CSS-first (ADR-033).
 - [x] Crear primitives UI esenciales. `Button` y `Badge`, con las recetas de clases compartidas entre la capa `.astro` y la Preact.
 - [x] Crear layout primitives. `Container` con anchos `content`/`wide` por token.
