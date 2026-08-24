@@ -14,9 +14,10 @@ const year = new Date().getFullYear();
 <footer class={cn('mt-20 border-t border-border bg-surface-sunken', className)}>
   <Container class="flex flex-col gap-8 py-12">
     <slot />
-    <p class="text-xs text-fg-subtle">
-      © {year}
-      {storeName}
-    </p>
+    {
+      /* Una sola expresión: Astro colapsa el espacio entre dos expresiones
+        adyacentes y saldría "© 2026Pick Demo". */
+    }
+    <p class="text-xs text-fg-subtle">{`© ${year} ${storeName}`}</p>
   </Container>
 </footer>

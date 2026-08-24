@@ -13,7 +13,10 @@
     "./layout/Container.astro": "./src/layout/Container.astro",
     "./layout/Header.astro": "./src/layout/Header.astro",
     "./layout/Footer.astro": "./src/layout/Footer.astro",
-    "./navigation/Breadcrumb.astro": "./src/navigation/Breadcrumb.astro"
+    "./navigation/Breadcrumb.astro": "./src/navigation/Breadcrumb.astro",
+    "./primitives/Button.astro": "./src/primitives/Button.astro",
+    "./primitives/Badge.astro": "./src/primitives/Badge.astro",
+    "./product/ProductGallery.astro": "./src/product/ProductGallery.astro"
   },
   "scripts": {
     "typecheck": "astro check"

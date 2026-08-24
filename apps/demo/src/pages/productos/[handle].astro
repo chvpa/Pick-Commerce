@@ -1,8 +1,8 @@
 ---
 import Breadcrumb from '@pick/commerce-astro/navigation/Breadcrumb.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
+import ProductGallery from '@pick/commerce-astro/product/ProductGallery.astro';
 import { ProductPurchase } from '@pick/commerce-ui';
-import { Image } from 'astro:assets';
 import Base from '../../layouts/Base.astro';
 import { mockProducts } from '../../lib/mock-catalog.ts';
 
@@ -14,7 +14,6 @@ export function getStaticPaths() {
 }
 
 const { product } = Astro.props;
-const image = product.images[0];
 
 /* Los swatches los aporta el storefront: el catálogo guarda "Azul", no un hex. */
 const COLOR_SWATCHES = { Azul: '#2f4858', Negro: '#26262b', Blanco: '#e8e6e1', Verde: '#3f5f46' };
@@ -26,30 +25,7 @@ const COLOR_SWATCHES = { Azul: '#2f4858', Negro: '#26262b', Blanco: '#e8e6e1', V
   </Container>
 
   <Container class="grid gap-10 pb-12 md:grid-cols-2 md:gap-16">
-    <div class="overflow-hidden rounded-md bg-surface-sunken aspect-(--aspect-product)">
-      {
-        image ? (
-          <Image
-            src={image.url}
-            alt={image.alt}
-            width={image.width}
-            height={image.height}
-            layout="constrained"
-            sizes="(min-width: 768px) 50vw, 100vw"
-            loading="eager"
-            fetchpriority="high"
-            class="h-full w-full object-cover"
-          />
-        ) : (
-          <div
-            class="flex h-full w-full items-center justify-center text-xs text-fg-subtle"
-            aria-hidden="true"
-          >
-            Sin imagen
-          </div>
-        )
-      }
-    </div>
+    <ProductGallery images={product.images} title={product.title} id={product.handle} />
 
     <div class="flex flex-col gap-6">
       <div class="flex flex-col gap-2">

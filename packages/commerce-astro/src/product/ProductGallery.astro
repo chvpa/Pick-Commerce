@@ -1,0 +1,107 @@
+---
+import { Image } from 'astro:assets';
+import type { ProductImage } from '@pick/commerce-types';
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  images: readonly ProductImage[];
+  /** Nombre del producto: da contexto al `aria-label` de la galería. */
+  title: string;
+  /**
+   * Prefijo de los anclas. Se deriva del handle del producto y no de un valor
+   * aleatorio, para que dos builds del mismo contenido den el mismo HTML y no
+   * invaliden la caché en cada deploy.
+   */
+  id: string;
+  class?: string;
+}
+
+const { images, title, id, class: className } = Astro.props;
+---
+
+{
+  /*
+  Galería sin JavaScript: la tira principal es un contenedor con scroll-snap y
+  las miniaturas son anchors a cada imagen. Al navegar al ancla el browser
+  desplaza el contenedor, no la página.
+
+  Se resolvió así en vez de con una island porque `astro:assets` sólo existe en
+  `.astro`: una galería en Preact tendría que volver a `<img>` crudo y perder
+  srcset y conversión de formato, justo en el componente más pesado del PDP.
+*/
+}
+{
+  images.length === 0 ? (
+    <div
+      class={cn(
+        'flex items-center justify-center rounded-md bg-surface-sunken text-xs text-fg-subtle',
+        'aspect-(--aspect-product)',
+        className,
+      )}
+      aria-hidden="true"
+    >
+      Sin imagen
+    </div>
+  ) : (
+    <div class={cn('flex flex-col gap-3', className)}>
+      <div
+        id={id}
+        role="group"
+        aria-label={`Imágenes de ${title}`}
+        tabindex="0"
+        class={cn(
+          'flex snap-x snap-mandatory overflow-x-auto rounded-md bg-surface-sunken',
+          'scroll-smooth motion-reduce:scroll-auto',
+          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+          // Oculta la barra sin impedir el scroll por teclado o gesto.
+          '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        )}
+      >
+        {images.map((image, index) => (
+          <figure id={`${id}-${index}`} class="w-full shrink-0 snap-center">
+            <Image
+              src={image.url}
+              alt={image.alt}
+              width={image.width}
+              height={image.height}
+              layout="constrained"
+              sizes="(min-width: 768px) 50vw, 100vw"
+              loading={index === 0 ? 'eager' : 'lazy'}
+              fetchpriority={index === 0 ? 'high' : 'auto'}
+              decoding="async"
+              class="aspect-(--aspect-product) h-full w-full object-cover"
+            />
+          </figure>
+        ))}
+      </div>
+
+      {images.length > 1 && (
+        <ul class="flex gap-2" aria-label="Miniaturas">
+          {images.map((image, index) => (
+            <li>
+              <a
+                href={`#${id}-${index}`}
+                class={cn(
+                  'block w-16 shrink-0 cursor-pointer overflow-hidden rounded-sm border border-border',
+                  'hover:border-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                )}
+              >
+                <Image
+                  src={image.url}
+                  alt={`Ver imagen ${index + 1} de ${images.length}`}
+                  width={image.width}
+                  height={image.height}
+                  widths={[128]}
+                  sizes="64px"
+                  loading="lazy"
+                  decoding="async"
+                  class="aspect-(--aspect-product) h-full w-full object-cover"
+                />
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}

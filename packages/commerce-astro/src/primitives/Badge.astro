@@ -1,0 +1,14 @@
+---
+import { badgeVariants, type BadgeTone } from '@pick/commerce-ui';
+
+interface Props {
+  tone?: BadgeTone;
+  class?: string;
+}
+
+const { tone, class: className } = Astro.props;
+---
+
+<span class={badgeVariants({ tone, className })}>
+  <slot />
+</span>

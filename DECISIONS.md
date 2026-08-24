@@ -900,3 +900,58 @@ congelado tras el renombre. El paquete vigente es **`@base-ui/react`, estable en
 Base UI introduce fricción real con la CLI de shadcn, o si aparece una medición
 concreta de bundle que cambie el análisis. En cualquiera de los dos casos, Radix
 es el reemplazo directo.
+
+---
+
+## ADR-037 — El estilo compartido son recetas de clases, no componentes
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted
+
+**Contexto**
+ADR-032 dejó el storefront con dos capas de render que no pueden compartir
+componentes: `.astro` estático y Preact hidratado. El botón de "Agregar al
+carrito" vive en Preact y el resto de los botones en `.astro`, así que el estilo
+corría riesgo de divergir.
+
+**Decisión**
+El estilo vive en funciones agnósticas de framework —`buttonVariants()`,
+`badgeVariants()`— que devuelven un string de clases. `Button.astro` y los
+botones Preact las consumen; ninguna de las dos capas redefine el estilo.
+
+**Por qué no `cva`**
+Con dos recetas y tres variantes cada una, una función con dos objetos de
+lookup son veinte líneas. `cva` se justifica cuando aparezcan variantes
+compuestas reales.
+
+**Consecuencias**
+La duplicación que ADR-032 aceptaba queda acotada al markup. El estilo, que es
+lo que efectivamente diverge con el tiempo, tiene un solo origen.
+
+---
+
+## ADR-038 — La galería de producto es CSS, no una island
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted
+
+**Contexto**
+Una galería con miniaturas parece pedir JavaScript. Pero `astro:assets` sólo
+existe en `.astro`: una galería en Preact tendría que volver a `<img>` crudo y
+perder srcset y conversión de formato — justo en el componente más pesado del
+PDP, y contra ADR-034.
+
+**Decisión**
+La tira principal es un contenedor con `scroll-snap` y las miniaturas son
+anchors a cada imagen. Al navegar al ancla el browser desplaza el contenedor.
+Cero JavaScript, funciona sin hidratar y conserva `<Image />`.
+
+**Consecuencias**
+
+- Los anclas se derivan del handle del producto, no de un valor aleatorio: dos
+  builds del mismo contenido dan el mismo HTML y no invalidan la caché.
+  Verificado comparando el hash de dos builds consecutivos.
+- El contenedor lleva `tabindex="0"` y `role="group"` para que sea alcanzable
+  por teclado, y `motion-reduce:scroll-auto`.
+- Un zoom o un lightbox sí necesitarían una island; se agrega cuando se pidan,
+  sobre este marcado.

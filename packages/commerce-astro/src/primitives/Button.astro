@@ -1,0 +1,32 @@
+---
+import { buttonVariants, type ButtonSize, type ButtonVariant } from '@pick/commerce-ui';
+import type { HTMLAttributes } from 'astro/types';
+
+interface Props extends Omit<HTMLAttributes<'button'>, 'type' | 'class'> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  /** Con `href` se renderiza un `<a>`: un link que navega no es un `<button>`. */
+  href?: string;
+  type?: 'button' | 'submit' | 'reset';
+  class?: string;
+}
+
+const { variant, size, href, type = 'button', class: className, ...rest } = Astro.props;
+const classes = buttonVariants({ variant, size, className });
+---
+
+{
+  /* Dos ramas en vez de una etiqueta dinámica: `<a>` y `<button>` no comparten
+    atributos, y un tipo unión deja `type` ambiguo para TypeScript. */
+}
+{
+  href ? (
+    <a href={href} class={classes} {...rest}>
+      <slot />
+    </a>
+  ) : (
+    <button type={type} class={classes} {...rest}>
+      <slot />
+    </button>
+  )
+}

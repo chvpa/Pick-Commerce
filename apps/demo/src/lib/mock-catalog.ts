@@ -18,6 +18,18 @@ export const mockProducts: readonly Product[] = [
     brand: 'Norte',
     images: [
       { url: '/products/campera.jpg', alt: 'Campera cortaviento azul', width: 900, height: 1200 },
+      {
+        url: '/products/campera-2.jpg',
+        alt: 'Campera cortaviento azul, vista de espalda',
+        width: 900,
+        height: 1200,
+      },
+      {
+        url: '/products/campera-3.jpg',
+        alt: 'Campera cortaviento azul, detalle del cuello',
+        width: 900,
+        height: 1200,
+      },
     ],
     variants: [
       {

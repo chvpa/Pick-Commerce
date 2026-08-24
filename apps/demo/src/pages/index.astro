@@ -1,4 +1,5 @@
 ---
+import Badge from '@pick/commerce-astro/primitives/Badge.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import Price from '@pick/commerce-astro/product/Price.astro';
 import ProductCard from '@pick/commerce-astro/product/ProductCard.astro';
@@ -30,14 +31,7 @@ import { mockProducts } from '../lib/mock-catalog.ts';
           return (
             <ProductCard>
               <ProductCardMedia image={product.images[0]} priority={index < 4}>
-                {soldOut && (
-                  <span
-                    slot="badge"
-                    class="rounded-xs border border-border bg-surface px-2 py-1 text-2xs font-medium text-fg-muted"
-                  >
-                    Sin stock
-                  </span>
-                )}
+                {soldOut && <Badge slot="badge">Sin stock</Badge>}
               </ProductCardMedia>
               <ProductCardBody>
                 {product.brand && <p class="text-xs text-fg-subtle">{product.brand}</p>}

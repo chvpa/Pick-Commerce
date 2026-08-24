@@ -1,6 +1,7 @@
 import { useRef, useState } from 'preact/hooks';
 import { addToCart } from '../cart/add-to-cart.ts';
 import { cn } from '../lib/cn.ts';
+import { buttonVariants } from '../recipes/button.ts';
 import { QuantitySelector } from './QuantitySelector.tsx';
 
 type Status = 'idle' | 'pending' | 'success' | 'error';
@@ -66,15 +67,11 @@ export function AddToCart({
         onClick={handleClick}
         disabled={soldOut || busy}
         aria-busy={busy}
-        className={cn(
-          'inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md px-6',
-          'text-sm font-medium transition-colors',
-          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-          soldOut
-            ? 'cursor-not-allowed bg-surface-sunken text-fg-subtle'
-            : 'bg-accent text-accent-fg hover:bg-accent-hover',
-          busy && 'cursor-wait opacity-80',
-        )}
+        className={buttonVariants({
+          variant: soldOut ? 'secondary' : 'primary',
+          size: 'lg',
+          className: cn(soldOut && 'cursor-not-allowed text-fg-subtle', busy && 'cursor-wait'),
+        })}
       >
         {busy ? (
           <span
