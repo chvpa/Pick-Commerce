@@ -1027,3 +1027,90 @@ Fase 2.
 **Consecuencias**
 Agregar una island al barrel vuelve a unir los chunks sin que nada falle. Al
 crear una island nueva hay que agregarle su `exports`.
+
+---
+
+## ADR-041 — `cn` con config recortada de tailwind-merge
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted
+
+**Contexto**
+El chunk más grande del storefront pesaba 28,6 KB y se descargaba en toda página
+con al menos una island. Rollup lo había bautizado `jsxRuntime.module.js` por
+uno de sus miembros, lo que desvió el diagnóstico hacia Preact.
+
+Medición del contenido real: 27.319 de 28.610 bytes (95,5 %) eran clsx más la
+config por defecto de tailwind-merge; sólo 419 bytes eran el jsx factory de
+Preact. No había `preact/compat` ni duplicación entre chunks.
+
+**Decisión**
+`cn` pasa a `createTailwindMerge` con los grupos de utilidades que el design
+system usa. La documentación de tailwind-merge señala `createTailwindMerge` como
+el camino soportado para dejar la config por defecto fuera del bundle;
+`extendTailwindMerge`, en cambio, la conserva.
+
+**Medido**
+
+|       |               antes |              después |
+| ----- | ------------------: | -------------------: |
+| chunk | 28.610 B / 9.181 gz |   9.315 B / 3.991 gz |
+| home  |                   — | 31.862 B / 14.147 gz |
+| PDP   |                   — | 36.162 B / 16.125 gz |
+
+**El riesgo y su mitigación**
+Un grupo no declarado deja de resolver conflictos **sin error ni warning**. El
+test de `cn` compara la versión recortada contra el tailwind-merge completo
+sobre las combinaciones reales de las recetas: si alguna diverge, falla ahí. Al
+exponer una utilidad nueva como override hay que agregar su grupo y un caso.
+
+**Corrección de una medición previa**
+Se había contado `signals.module.js` (7,8 KB) como parte del payload. No lo es:
+el renderer de `@astrojs/preact` lo trae con un `import()` dinámico condicionado
+a `data-preact-signals`, y ninguna island pasa signals. Verificado: no aparece
+en el HTML ni hay `modulepreload`.
+
+---
+
+## ADR-042 — PLP sin recarga completa: form GET más `ClientRouter` acotado
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted
+
+**Contexto**
+ADR-024 exige filtros server-side y las reglas UX exigen no recargar la página
+entera al filtrar. Las dos cosas parecen incompatibles.
+
+**Alternativas descartadas, con evidencia**
+
+- **Página prerenderizada**: en Cloudflare no ve el query string. Comprobado:
+  devuelve `q=""` ante `?q=x`. Por eso la PLP es `prerender = false`.
+- **Astro Actions**: su runtime sólo expone POST. Un POST no da URL compartible
+  ni cacheable. Actions es para mutaciones, no para leer un listado.
+- **Server islands**: la URL de fetch se hornea en build sin los search params y
+  su `Astro.url` apunta a `/_server-islands/...`, así que no ve los filtros.
+- **Island que hace fetch y reemplaza el grid**: habría que escribir a mano el
+  fetch, el `pushState`, el back/forward, el estado pending y el anuncio a
+  lectores de pantalla. Más código y más bundle que `ClientRouter`, y encima no
+  funciona sin JavaScript.
+
+**Decisión**
+`<form method="get">` nativo más `<ClientRouter />` **sólo en la PLP**. Sin
+JavaScript el usuario pulsa "Aplicar" y todo funciona; con JavaScript el submit
+se intercepta y no hay recarga completa.
+
+**Detalles que muerden**
+
+- El `<form>` va vacío y los controles se asocian con `form="plp"`. Así el mismo
+  panel es sidebar en desktop y disclosure en mobile sin duplicar inputs, que
+  mandaría cada valor dos veces.
+- `page` **no** es un campo del form: cambiar un filtro debe volver a la página
+  1. `sort` **sí**, o se perdería al filtrar.
+- `ClientRouter` hace `scrollTo(0,0)` y manda el foco al `<body>`. Se corrige en
+  `astro:after-swap` restaurando scroll y foco, con `preventScroll` — sin él el
+  foco vuelve a desplazar la página.
+- El total va en el `<title>` porque el announcer del router lo lee al navegar.
+
+**Costo**
+`ClientRouter` son 16,3 KB / 5,6 KB gzip, y sólo los paga `/catalogo`. La home y
+el PDP no lo cargan: verificado en el HTML generado.

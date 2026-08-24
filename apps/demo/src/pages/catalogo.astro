@@ -12,6 +12,7 @@ import ProductGrid from '@pick/commerce-astro/product/ProductGrid.astro';
 import SearchInput from '@pick/commerce-astro/catalog/SearchInput.astro';
 import SortSelect from '@pick/commerce-astro/catalog/SortSelect.astro';
 import { queryCatalog, type CatalogSort } from '@pick/commerce-core';
+import { ClientRouter } from 'astro:transitions';
 import Base from '../layouts/Base.astro';
 import { mockProducts } from '../lib/mock-catalog.ts';
 
@@ -50,7 +51,19 @@ const result = queryCatalog(mockProducts, { filters, sort, search, page, perPage
 const activeCount = Object.values(filters).reduce((n, values) => n + values.length, 0);
 ---
 
-<Base title="Catálogo · Pick Demo" description="Catálogo completo del storefront demo.">
+{
+  /*
+  ClientRouter sólo en esta ruta: intercepta el submit del form GET y los links
+  de paginación, así los filtros se resuelven en el servidor pero sin recarga
+  completa. El resto del sitio no paga esos ~5,6 KB.
+  El total va en el <title> porque el announcer del router lo lee al navegar.
+*/
+}
+<Base
+  title={`Catálogo (${result.total}) · Pick Demo`}
+  description="Catálogo completo del storefront demo."
+>
+  <ClientRouter />
   <Container class="flex flex-col gap-6 py-10">
     <div class="flex flex-col gap-4">
       <h1 class="font-display text-2xl font-semibold tracking-tight">Catálogo</h1>
@@ -65,40 +78,59 @@ const activeCount = Object.values(filters).reduce((n, values) => n + values.leng
         `page` queda fuera a propósito — cambiar un filtro vuelve a la 1.
       */
       }
-      <form
-        method="get"
-        action="/catalogo"
-        class="flex flex-col gap-1 md:sticky md:top-6 md:self-start"
-      >
+      {
+        /*
+        El form va vacío y los controles se asocian con `form="plp"`. Así el
+        mismo panel sirve de sidebar en desktop y de disclosure en mobile sin
+        duplicar inputs, que mandaría cada valor dos veces.
+        `page` queda fuera a propósito: cambiar un filtro vuelve a la página 1.
+      */
+      }
+      <form id="plp" method="get" action="/catalogo" class="hidden">
         <input type="hidden" name="q" value={search} />
-
-        <div class="flex items-center justify-between pb-2">
-          <h2 class="text-sm font-semibold">Filtros</h2>
-          {
-            activeCount > 0 && (
-              <a href="/catalogo" class="text-xs text-fg-muted underline hover:text-fg">
-                Limpiar ({activeCount})
-              </a>
-            )
-          }
-        </div>
-
-        {
-          result.facets
-            .filter((facet) => FACET_NAMES.includes(facet.name as (typeof FACET_NAMES)[number]))
-            .map((facet) => <FacetAccordion facet={facet} label={FACET_LABELS[facet.name]} />)
-        }
-
-        <div class="flex flex-col gap-3 pt-4">
-          <SortSelect value={sort} />
-          <button
-            type="submit"
-            class="h-10 cursor-pointer rounded-md bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            Aplicar
-          </button>
-        </div>
       </form>
+
+      <details class="plp-filtros md:sticky md:top-6 md:self-start" open={activeCount > 0}>
+        <summary
+          class="mb-3 flex cursor-pointer list-none items-center justify-between rounded-md border border-border px-4 py-2 text-sm font-medium md:hidden"
+        >
+          <span>{activeCount > 0 ? `Filtros (${activeCount})` : 'Filtros'}</span>
+          <span aria-hidden="true">▾</span>
+        </summary>
+
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center justify-between pb-2">
+            <h2 class="text-sm font-semibold">Filtros</h2>
+            {
+              activeCount > 0 && (
+                <a href="/catalogo" class="text-xs text-fg-muted underline hover:text-fg">
+                  Limpiar ({activeCount})
+                </a>
+              )
+            }
+          </div>
+
+          {
+            result.facets
+              .filter((facet) => FACET_NAMES.includes(facet.name as (typeof FACET_NAMES)[number]))
+              .map((facet) => (
+                <FacetAccordion facet={facet} form="plp" label={FACET_LABELS[facet.name]} />
+              ))
+          }
+
+          <div class="flex flex-col gap-3 pt-4">
+            <SortSelect value={sort} form="plp" />
+            {/* Visible siempre: es el camino que funciona sin JavaScript. */}
+            <button
+              form="plp"
+              type="submit"
+              class="h-10 cursor-pointer rounded-md bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              Aplicar
+            </button>
+          </div>
+        </div>
+      </details>
 
       <div class="flex flex-col gap-6">
         <p class="text-sm text-fg-muted" aria-live="polite">
@@ -150,3 +182,36 @@ const activeCount = Object.values(filters).reduce((n, values) => n + values.leng
     </div>
   </Container>
 </Base>
+
+<style>
+  /* En desktop el panel es un sidebar siempre visible: se ignora el estado del
+     <details> y se oculta su disparador. En mobile queda como disclosure, sin
+     una línea de JavaScript. */
+  @media (min-width: 768px) {
+    .plp-filtros > div {
+      display: flex !important;
+    }
+  }
+</style>
+
+<script is:inline>
+  // Mejora progresiva: sin esto el usuario pulsa "Aplicar" y todo funciona igual.
+  addEventListener('change', (event) => {
+    const target = event.target;
+    if (!target || !target.form || target.form.id !== 'plp') return;
+    // ClientRouter hace scrollTo(0,0) y manda el foco al body al navegar; se
+    // guarda a dónde volver antes de que eso pase.
+    sessionStorage.setItem('plp:restaurar', JSON.stringify({ id: target.id, y: window.scrollY }));
+    target.form.requestSubmit();
+  });
+
+  addEventListener('astro:after-swap', () => {
+    const raw = sessionStorage.getItem('plp:restaurar');
+    if (!raw) return;
+    sessionStorage.removeItem('plp:restaurar');
+    const { id, y } = JSON.parse(raw);
+    window.scrollTo({ top: y, behavior: 'instant' });
+    // Sin preventScroll el foco vuelve a desplazar la página.
+    if (id) document.getElementById(id)?.focus({ preventScroll: true });
+  });
+</script>

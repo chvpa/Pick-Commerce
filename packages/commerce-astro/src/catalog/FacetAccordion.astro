@@ -4,6 +4,13 @@ import { cn } from '@pick/commerce-ui';
 
 interface Props {
   facet: Facet;
+  /**
+   * `id` del form al que pertenecen los checkboxes. Permite que los controles
+   * vivan fuera del `<form>`, que es lo que habilita reusar el mismo panel de
+   * filtros en el sidebar de desktop y en el drawer de mobile sin duplicar
+   * inputs — y duplicarlos mandaría cada valor dos veces.
+   */
+  form?: string;
   /** Etiqueta legible. Sin ella se usa el nombre técnico del atributo. */
   label?: string;
   /** ADR-023: los grupos arrancan colapsados salvo que el preset diga otra cosa. */
@@ -13,7 +20,7 @@ interface Props {
   class?: string;
 }
 
-const { facet, label, open = false, visible = 6, class: className } = Astro.props;
+const { facet, form, label, open = false, visible = 6, class: className } = Astro.props;
 
 const head = facet.values.slice(0, visible);
 const tail = facet.values.slice(visible);
@@ -49,6 +56,8 @@ const tail = facet.values.slice(visible);
             )}
           >
             <input
+              form={form}
+              id={`f-${facet.name}-${value.value}`}
               type="checkbox"
               name={facet.name}
               value={value.value}
@@ -81,6 +90,8 @@ const tail = facet.values.slice(visible);
                     )}
                   >
                     <input
+                      form={form}
+                      id={`f-${facet.name}-${value.value}`}
                       type="checkbox"
                       name={facet.name}
                       value={value.value}

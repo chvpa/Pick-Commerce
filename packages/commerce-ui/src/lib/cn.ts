@@ -40,9 +40,7 @@ const twMerge = createTailwindMerge(() => ({
 
     // Tipografía. `text-` es ambiguo: `text-sm` es tamaño y `text-fg` es color,
     // así que el tamaño se enumera y el resto cae en color.
-    'font-size': [
-      { text: ['2xs', 'xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl'] },
-    ],
+    'font-size': [{ text: ['2xs', 'xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl'] }],
     'text-color': [{ text: [validators.isAny] }],
     'font-weight': [{ font: ['thin', 'light', 'normal', 'medium', 'semibold', 'bold'] }],
 
