@@ -8,9 +8,22 @@
  * defecto, sin uppercase decorativo, sin gradients ni glows, radius contenido.
  */
 
-/* Tailwind no escanea node_modules, y este paquete llega al app por symlink del
- * workspace. Sin esto, las clases de los componentes no se generan. */
+/*
+ * Tailwind no escanea node_modules y los paquetes del workspace llegan por
+ * symlink, así que hay que declarar dónde buscar clases. Sin esto el fallo es
+ * silencioso y feo: el HTML sale con la clase, el CSS sin la regla, y nadie se
+ * entera hasta que alguien mira la página.
+ *
+ * Se declaran acá y no en cada app justamente para que ninguna pueda olvidarlo.
+ * Un `@source` que apunte a un paquete no instalado se ignora sin error, así
+ * que listar `commerce-astro` no rompe a quien sólo use `commerce-ui`.
+ *
+ * ponytail: rutas relativas dentro del monorepo. Al publicar los paquetes a un
+ * registry esto deja de resolver y hay que enviar CSS compilado — mismo
+ * disparador que ADR-029.
+ */
 @source '../';
+@source '../../../commerce-astro/src';
 
 @theme {
   /* --- Color ---------------------------------------------------------------

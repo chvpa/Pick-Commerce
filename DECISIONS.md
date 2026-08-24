@@ -1165,3 +1165,40 @@ como dependencia de **runtime**, porque `styles.css` hace
 El Admin queda en 72,9 KB gzip de JavaScript. Es aceptable: `PROJECT.md` §2.8
 dice que el Admin prioriza productividad y mantenibilidad, y el presupuesto de
 performance que importa es el del storefront.
+
+---
+
+## ADR-044 — Los `@source` de Tailwind se declaran en `tokens.css`, no en cada app
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted
+
+**Contexto**
+Tailwind v4 no escanea `node_modules`, y los paquetes del workspace llegan a las
+apps por symlink. `tokens.css` declaraba `@source` sólo para `commerce-ui`, así
+que las clases que sólo existen dentro de `commerce-astro` nunca se generaban.
+
+**El fallo es silencioso y por eso peligroso.** El HTML sale con la clase, el
+CSS sin la regla, y nada falla: ni el build, ni el typecheck, ni el lint. Se
+detectó porque `aspect-(--aspect-product)` había desaparecido del CSS, dejando
+las imágenes de producto sin relación de aspecto — es decir, reintroduciendo el
+layout shift que ADR-034 existía para evitar.
+
+**Decisión**
+`tokens.css` declara el `@source` de todos los paquetes `@pick/*` con
+componentes, no sólo el suyo. Se pone ahí y no en cada app justamente para que
+ninguna pueda olvidarlo.
+
+**Por qué es seguro**
+Verificado: un `@source` que apunta a un paquete inexistente se ignora sin error
+ni warning, y el build sigue. Listar `commerce-astro` no rompe a un storefront
+que sólo use `commerce-ui`.
+
+**Deuda**
+Las rutas son relativas dentro del monorepo. Al publicar los paquetes a un
+registry dejan de resolver y habrá que enviar CSS compilado — mismo disparador
+que ADR-029.
+
+**Regla que queda**
+Un paquete nuevo con componentes necesita su línea de `@source` en `tokens.css`.
+Sin ella sus estilos no existen, y nada avisa.

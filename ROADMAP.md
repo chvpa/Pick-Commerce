@@ -20,7 +20,7 @@
 
 | Versión | Objetivo                                    |      Estado | Avance |
 | ------- | ------------------------------------------- | ----------: | -----: |
-| v1      | Commerce Core vendible + primer piloto real | IN PROGRESS |     8% |
+| v1      | Commerce Core vendible + primer piloto real | IN PROGRESS |    16% |
 | v2      | Operación avanzada, AI Commerce y escala    |        TODO |     0% |
 | v3      | MCP, intelligence layer y expansión LATAM   |        TODO |     0% |
 
@@ -79,7 +79,7 @@ Objetivo: repositorio, tooling, CI y estructura base funcionando.
 
 ## Fase 1 — Design System y Commerce UI base
 
-**Avance: 96%**
+**Avance: 100%**
 
 Objetivo: construir los LEGO visuales reutilizables.
 
@@ -104,7 +104,7 @@ Objetivo: construir los LEGO visuales reutilizables.
 - [x] Crear Hero/Banner.
 - [x] Crear Category Section.
 - [x] Crear Breadcrumb. Con JSON-LD `BreadcrumbList` y `aria-current`.
-- [ ] Confirmar support de variants, slots, tokens, props y `className`.
+- [x] Confirmar support de variants, slots, tokens, props y `className`. Auditado y fijado con un test: 21 componentes `.astro` y 6 islands. Override de tokens verificado sin tocar componentes.
 
 **Definition of Done**
 
@@ -686,6 +686,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-23 | Fase 1: Hero/Banner/Categorías/Carrusel, Cart Drawer con store persistido y separación de chunks por island                                                                             | Fase 1 |          65% |            80% |
 | 2026-08-23 | Fase 1: catálogo facetado server-side sobre ruta on-demand, con búsqueda, orden y paginación                                                                                            | Fase 1 |          80% |            88% |
 | 2026-08-23 | Fase 1: PLP sin full reload con ClientRouter acotado, drawer mobile sin JS, y JS del storefront reducido 27%                                                                            | Fase 1 |          88% |            92% |
+| 2026-08-23 | Fase 1 cerrada: shadcn sobre Base UI en el Admin, contrato de customización fijado con test, y regresión de tokens corregida                                                            | Fase 1 |          92% |           100% |
 
 ---
 

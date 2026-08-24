@@ -9,6 +9,7 @@ import { QuantitySelector } from '../product/QuantitySelector.tsx';
 export interface CartDrawerProps {
   locale?: string;
   checkoutHref?: string;
+  className?: string;
 }
 
 /**
@@ -22,7 +23,7 @@ export interface CartDrawerProps {
  * no comparte estado entre islands, y `CartDrawer` vive en el layout mientras
  * `AddToCart` vive en el PDP.
  */
-export function CartDrawer({ locale, checkoutHref = '/checkout' }: CartDrawerProps) {
+export function CartDrawer({ locale, checkoutHref = '/checkout', className }: CartDrawerProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [lines, setLines] = useState<readonly CartLine[]>([]);
   const [open, setOpen] = useState(false);
@@ -68,6 +69,7 @@ export function CartDrawer({ locale, checkoutHref = '/checkout' }: CartDrawerPro
       className={cn(
         'ml-auto h-dvh max-h-none w-full max-w-md border-l border-border bg-surface p-0 text-fg',
         'backdrop:bg-black/40',
+        className,
       )}
     >
       <div className="flex h-full flex-col">
