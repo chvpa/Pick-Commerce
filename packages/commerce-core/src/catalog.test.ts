@@ -1,0 +1,116 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import type { Product, ProductVariant } from '@pick/commerce-types';
+import { buildFacets, lowestPrice, queryCatalog } from './catalog.ts';
+import { money } from './money.ts';
+
+function variant(id: string, attrs: Record<string, string>, price: number): ProductVariant {
+  return {
+    id,
+    sku: `SKU-${id}`,
+    title: id,
+    price: money(price, 'PYG'),
+    availableQuantity: 5,
+    attributes: attrs,
+  };
+}
+
+function product(id: string, title: string, brand: string, variants: ProductVariant[]): Product {
+  return {
+    tenantId: 't',
+    storeId: 's',
+    id,
+    handle: id,
+    title,
+    brand,
+    status: 'active',
+    images: [],
+    variants,
+  };
+}
+
+const catalog: Product[] = [
+  product('p1', 'Campera azul', 'Norte', [variant('a', { color: 'Azul', size: 'M' }, 300)]),
+  product('p2', 'Campera negra', 'Norte', [variant('b', { color: 'Negro', size: 'M' }, 500)]),
+  product('p3', 'Zapatilla negra', 'Ruta', [variant('c', { color: 'Negro', size: '41' }, 100)]),
+];
+
+test('filtra por atributo y por marca', () => {
+  assert.deepEqual(
+    queryCatalog(catalog, { filters: { color: ['Negro'] } }).items.map((p) => p.id),
+    ['p2', 'p3'],
+  );
+  assert.deepEqual(
+    queryCatalog(catalog, { filters: { brand: ['Ruta'] } }).items.map((p) => p.id),
+    ['p3'],
+  );
+});
+
+test('varios valores de una faceta son OR; facetas distintas son AND', () => {
+  assert.equal(queryCatalog(catalog, { filters: { color: ['Azul', 'Negro'] } }).total, 3);
+  assert.equal(queryCatalog(catalog, { filters: { color: ['Negro'], brand: ['Norte'] } }).total, 1);
+});
+
+test('el count de una faceta ignora su propia selección', () => {
+  // Con "Negro" activo, la faceta color debe seguir mostrando cuántos hay en
+  // Azul: si se aplicara su propio filtro, Azul daría 0 y sería inseleccionable.
+  const facets = buildFacets(catalog, { color: ['Negro'] });
+  const color = facets.find((f) => f.name === 'color');
+  assert.deepEqual(color?.values, [
+    { value: 'Azul', count: 1, selected: false },
+    { value: 'Negro', count: 2, selected: true },
+  ]);
+
+  // La faceta brand sí respeta el filtro de color, que es de otra faceta.
+  const brand = facets.find((f) => f.name === 'brand');
+  assert.deepEqual(brand?.values, [
+    { value: 'Norte', count: 1, selected: false },
+    { value: 'Ruta', count: 1, selected: false },
+  ]);
+});
+
+test('ordena por precio usando la variante más barata', () => {
+  assert.deepEqual(
+    queryCatalog(catalog, { sort: 'price-asc' }).items.map((p) => p.id),
+    ['p3', 'p1', 'p2'],
+  );
+  assert.deepEqual(
+    queryCatalog(catalog, { sort: 'price-desc' }).items.map((p) => p.id),
+    ['p2', 'p1', 'p3'],
+  );
+  assert.equal(lowestPrice(catalog[0]!)?.amount, 300);
+});
+
+test('la búsqueda cruza título, marca y SKU, y exige todos los términos', () => {
+  assert.equal(queryCatalog(catalog, { search: 'campera' }).total, 2);
+  assert.equal(queryCatalog(catalog, { search: 'campera negra' }).total, 1);
+  assert.equal(queryCatalog(catalog, { search: 'ruta' }).total, 1);
+  assert.equal(queryCatalog(catalog, { search: 'SKU-c' }).total, 1);
+  assert.equal(queryCatalog(catalog, { search: '   ' }).total, 3);
+});
+
+test('pagina y acota una página fuera de rango a la última con resultados', () => {
+  const page2 = queryCatalog(catalog, { perPage: 2, page: 2 });
+  assert.deepEqual(
+    page2.items.map((p) => p.id),
+    ['p3'],
+  );
+  assert.equal(page2.pageCount, 2);
+
+  // Pasa al sacar filtros estando en una página alta: devuelve la última, no vacío.
+  const fuera = queryCatalog(catalog, { perPage: 2, page: 99 });
+  assert.equal(fuera.page, 2);
+  assert.equal(fuera.items.length, 1);
+
+  const cero = queryCatalog(catalog, { perPage: 2, page: 0 });
+  assert.equal(cero.page, 1);
+});
+
+test('un filtro sin resultados devuelve vacío pero conserva las facetas', () => {
+  const r = queryCatalog(catalog, { filters: { color: ['Fucsia'] } });
+  assert.equal(r.total, 0);
+  assert.equal(r.items.length, 0);
+  assert.equal(r.pageCount, 1);
+  // Sin facetas el usuario no podría deshacer el filtro desde la UI.
+  assert.ok(r.facets.length > 0);
+});

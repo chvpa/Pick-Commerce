@@ -1,0 +1,73 @@
+---
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  page: number;
+  pageCount: number;
+  /** URL actual: se conserva el resto de los parámetros al cambiar de página. */
+  url: URL;
+  class?: string;
+}
+
+const { page, pageCount, url, class: className } = Astro.props;
+
+function hrefFor(target: number): string {
+  const next = new URL(url);
+  if (target <= 1) next.searchParams.delete('page');
+  else next.searchParams.set('page', String(target));
+  return `${next.pathname}${next.search}`;
+}
+
+/* Ventana de páginas alrededor de la actual: con 200 páginas no se listan las 200. */
+const WINDOW = 2;
+const from = Math.max(1, page - WINDOW);
+const to = Math.min(pageCount, page + WINDOW);
+const pages = Array.from({ length: to - from + 1 }, (_, i) => from + i);
+
+const link =
+  'inline-flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-md border px-3 text-sm ' +
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+---
+
+{
+  pageCount > 1 && (
+    <nav aria-label="Paginación" class={cn('flex flex-wrap items-center gap-2', className)}>
+      {page > 1 && (
+        <a
+          href={hrefFor(page - 1)}
+          rel="prev"
+          class={cn(link, 'border-border hover:border-border-strong')}
+        >
+          Anterior
+        </a>
+      )}
+
+      {from > 1 && <span class="px-1 text-sm text-fg-subtle">…</span>}
+
+      {pages.map((n) =>
+        n === page ? (
+          <span aria-current="page" class={cn(link, 'border-fg font-medium')}>
+            {n}
+          </span>
+        ) : (
+          <a href={hrefFor(n)} class={cn(link, 'border-border hover:border-border-strong')}>
+            <span class="sr-only">Página </span>
+            {n}
+          </a>
+        ),
+      )}
+
+      {to < pageCount && <span class="px-1 text-sm text-fg-subtle">…</span>}
+
+      {page < pageCount && (
+        <a
+          href={hrefFor(page + 1)}
+          rel="next"
+          class={cn(link, 'border-border hover:border-border-strong')}
+        >
+          Siguiente
+        </a>
+      )}
+    </nav>
+  )
+}

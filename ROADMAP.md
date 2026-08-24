@@ -79,7 +79,7 @@ Objetivo: repositorio, tooling, CI y estructura base funcionando.
 
 ## Fase 1 — Design System y Commerce UI base
 
-**Avance: 80%**
+**Avance: 88%**
 
 Objetivo: construir los LEGO visuales reutilizables.
 
@@ -97,9 +97,9 @@ Objetivo: construir los LEGO visuales reutilizables.
 - [x] Crear Product Grid.
 - [x] Crear Product Carousel. Scroll-snap sin JavaScript, como la galería.
 - [x] Crear Cart Drawer. `<dialog>` nativo: foco, Escape y backdrop los da el browser.
-- [ ] Crear Search UI.
-- [ ] Crear Filter UI.
-- [ ] Crear PLP faceted filters con accordion, counts, URL state y mobile drawer.
+- [x] Crear Search UI. `<form method="get">` nativo: busca sin JavaScript y deja la consulta en la URL.
+- [x] Crear Filter UI. Accordion con `<details>` nativo, counts y "Ver más" anidado, sin JavaScript.
+- [~] Crear PLP faceted filters con accordion, counts, URL state y mobile drawer. Filtros, orden, búsqueda y paginación server-side sobre ruta on-demand, verificados por HTTP. Falta el drawer mobile y evitar el full page reload.
 - [x] Crear swatches/linked colors UI configurable. El color CSS lo aporta el storefront: el catálogo guarda "Azul", no un hex.
 - [x] Crear Hero/Banner.
 - [x] Crear Category Section.
@@ -684,6 +684,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-23 | Fase 1: Variant Selector con swatches, derivación de opciones en el core con tests, y Breadcrumb con JSON-LD                                                                            | Fase 1 |          40% |            55% |
 | 2026-08-23 | Fase 1: recetas de clases compartidas, primitives Button/Badge y Product Gallery sin JavaScript                                                                                         | Fase 1 |          55% |            65% |
 | 2026-08-23 | Fase 1: Hero/Banner/Categorías/Carrusel, Cart Drawer con store persistido y separación de chunks por island                                                                             | Fase 1 |          65% |            80% |
+| 2026-08-23 | Fase 1: catálogo facetado server-side sobre ruta on-demand, con búsqueda, orden y paginación                                                                                            | Fase 1 |          80% |            88% |
 
 ---
 

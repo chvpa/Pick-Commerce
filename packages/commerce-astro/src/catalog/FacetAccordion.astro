@@ -1,0 +1,102 @@
+---
+import type { Facet } from '@pick/commerce-core';
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  facet: Facet;
+  /** Etiqueta legible. Sin ella se usa el nombre técnico del atributo. */
+  label?: string;
+  /** ADR-023: los grupos arrancan colapsados salvo que el preset diga otra cosa. */
+  open?: boolean;
+  /** Cuántos valores mostrar antes de plegar el resto detrás de "Ver más". */
+  visible?: number;
+  class?: string;
+}
+
+const { facet, label, open = false, visible = 6, class: className } = Astro.props;
+
+const head = facet.values.slice(0, visible);
+const tail = facet.values.slice(visible);
+---
+
+{
+  /*
+  `<details>` nativo: accordion sin JavaScript, con teclado y semántica de
+  expandido/colapsado que el browser ya expone a los lectores de pantalla.
+*/
+}
+<details
+  open={open || facet.values.some((v) => v.selected)}
+  class={cn('border-b border-border', className)}
+>
+  <summary
+    class="flex cursor-pointer list-none items-center justify-between py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+  >
+    <span class="capitalize">{label ?? facet.name}</span>
+    <span aria-hidden="true" class="text-fg-subtle transition-transform">▾</span>
+  </summary>
+
+  <ul class="flex flex-col gap-1 pb-3">
+    {
+      head.map((value) => (
+        <li>
+          {/* Un valor con 0 resultados se deshabilita, salvo que esté activo:
+              si no, no habría forma de quitarlo. */}
+          <label
+            class={cn(
+              'flex cursor-pointer items-center gap-2 py-1 text-sm',
+              value.count === 0 && 'text-fg-subtle',
+            )}
+          >
+            <input
+              type="checkbox"
+              name={facet.name}
+              value={value.value}
+              checked={value.selected}
+              disabled={value.count === 0 && !value.selected}
+              class="size-4 cursor-pointer accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            />
+            <span class="flex-1">{value.value}</span>
+            <span class="text-xs text-fg-subtle tabular-nums">{value.count}</span>
+          </label>
+        </li>
+      ))
+    }
+
+    {
+      tail.length > 0 && (
+        <li>
+          {/* "Ver más" anidado: otro `<details>`, sin JavaScript. */}
+          <details>
+            <summary class="cursor-pointer py-1 text-xs text-fg-muted underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+              Ver {tail.length} más
+            </summary>
+            <ul class="flex flex-col gap-1">
+              {tail.map((value) => (
+                <li>
+                  <label
+                    class={cn(
+                      'flex cursor-pointer items-center gap-2 py-1 text-sm',
+                      value.count === 0 && 'text-fg-subtle',
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      name={facet.name}
+                      value={value.value}
+                      checked={value.selected}
+                      disabled={value.count === 0 && !value.selected}
+                      class="size-4 cursor-pointer accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    />
+                    <span class="flex-1">{value.value}</span>
+                    <span class="text-xs text-fg-subtle tabular-nums">{value.count}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </li>
+      )
+    }
+  </ul>
+</details>

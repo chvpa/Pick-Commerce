@@ -20,7 +20,11 @@
     "./content/Hero.astro": "./src/content/Hero.astro",
     "./content/Banner.astro": "./src/content/Banner.astro",
     "./content/CategorySection.astro": "./src/content/CategorySection.astro",
-    "./product/ProductCarousel.astro": "./src/product/ProductCarousel.astro"
+    "./product/ProductCarousel.astro": "./src/product/ProductCarousel.astro",
+    "./catalog/FacetAccordion.astro": "./src/catalog/FacetAccordion.astro",
+    "./catalog/SearchInput.astro": "./src/catalog/SearchInput.astro",
+    "./catalog/Pagination.astro": "./src/catalog/Pagination.astro",
+    "./catalog/SortSelect.astro": "./src/catalog/SortSelect.astro"
   },
   "scripts": {
     "typecheck": "astro check"
