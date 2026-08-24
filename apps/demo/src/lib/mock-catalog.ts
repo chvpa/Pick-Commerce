@@ -136,3 +136,26 @@ export const mockProducts: readonly Product[] = [
     ],
   },
 ];
+
+export const mockCategories = [
+  {
+    label: 'Camperas',
+    href: '/catalogo?categoria=camperas',
+    image: { url: '/products/campera.jpg', alt: '', width: 900, height: 1200 },
+  },
+  {
+    label: 'Calzado',
+    href: '/catalogo?categoria=calzado',
+    image: { url: '/products/zapatilla.jpg', alt: '', width: 900, height: 1200 },
+  },
+  {
+    label: 'Remeras',
+    href: '/catalogo?categoria=remeras',
+    image: { url: '/products/remera.jpg', alt: '', width: 900, height: 1200 },
+  },
+  {
+    label: 'Accesorios',
+    href: '/catalogo?categoria=accesorios',
+    image: { url: '/products/campera-3.jpg', alt: '', width: 900, height: 1200 },
+  },
+] as const;

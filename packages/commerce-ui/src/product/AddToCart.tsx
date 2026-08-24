@@ -1,4 +1,5 @@
 import { useRef, useState } from 'preact/hooks';
+import type { Money } from '@pick/commerce-types';
 import { addToCart } from '../cart/add-to-cart.ts';
 import { cn } from '../lib/cn.ts';
 import { buttonVariants } from '../recipes/button.ts';
@@ -8,6 +9,10 @@ type Status = 'idle' | 'pending' | 'success' | 'error';
 
 export interface AddToCartProps {
   variantId: string;
+  /** Snapshot que guardará la línea: el carrito no vuelve al catálogo. */
+  title: string;
+  price: Money;
+  imageUrl?: string;
   /** Stock disponible. En 0 el botón queda deshabilitado con motivo visible. */
   available: number;
   label?: string;
@@ -24,6 +29,9 @@ export interface AddToCartProps {
  */
 export function AddToCart({
   variantId,
+  title,
+  price,
+  imageUrl,
   available,
   label = 'Agregar al carrito',
   showQuantity = true,
@@ -45,7 +53,7 @@ export function AddToCart({
     setStatus('pending');
 
     try {
-      await addToCart({ variantId, quantity });
+      await addToCart({ variantId, quantity, title, price, imageUrl });
       setStatus('success');
       successTimer.current = setTimeout(() => setStatus('idle'), 2500);
     } catch {

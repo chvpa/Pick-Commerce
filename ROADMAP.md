@@ -79,7 +79,7 @@ Objetivo: repositorio, tooling, CI y estructura base funcionando.
 
 ## Fase 1 — Design System y Commerce UI base
 
-**Avance: 65%**
+**Avance: 80%**
 
 Objetivo: construir los LEGO visuales reutilizables.
 
@@ -95,14 +95,14 @@ Objetivo: construir los LEGO visuales reutilizables.
 - [x] Crear Quantity Selector. Island Preact, topeado por stock, con `aria-live`.
 - [x] Crear Add to Cart. Island con pending/success/error/disabled y doble submit bloqueado por ref (ADR-022).
 - [x] Crear Product Grid.
-- [ ] Crear Product Carousel.
-- [ ] Crear Cart Drawer.
+- [x] Crear Product Carousel. Scroll-snap sin JavaScript, como la galería.
+- [x] Crear Cart Drawer. `<dialog>` nativo: foco, Escape y backdrop los da el browser.
 - [ ] Crear Search UI.
 - [ ] Crear Filter UI.
 - [ ] Crear PLP faceted filters con accordion, counts, URL state y mobile drawer.
 - [x] Crear swatches/linked colors UI configurable. El color CSS lo aporta el storefront: el catálogo guarda "Azul", no un hex.
-- [ ] Crear Hero/Banner.
-- [ ] Crear Category Section.
+- [x] Crear Hero/Banner.
+- [x] Crear Category Section.
 - [x] Crear Breadcrumb. Con JSON-LD `BreadcrumbList` y `aria-current`.
 - [ ] Confirmar support de variants, slots, tokens, props y `className`.
 
@@ -683,6 +683,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-23 | Fase 1: layout (Container/Header/Footer), primeras islands (Quantity, Add to Cart) y PDP demo                                                                                           | Fase 1 |          20% |            40% |
 | 2026-08-23 | Fase 1: Variant Selector con swatches, derivación de opciones en el core con tests, y Breadcrumb con JSON-LD                                                                            | Fase 1 |          40% |            55% |
 | 2026-08-23 | Fase 1: recetas de clases compartidas, primitives Button/Badge y Product Gallery sin JavaScript                                                                                         | Fase 1 |          55% |            65% |
+| 2026-08-23 | Fase 1: Hero/Banner/Categorías/Carrusel, Cart Drawer con store persistido y separación de chunks por island                                                                             | Fase 1 |          65% |            80% |
 
 ---
 

@@ -1,0 +1,49 @@
+---
+import Badge from '@pick/commerce-astro/primitives/Badge.astro';
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import Price from '@pick/commerce-astro/product/Price.astro';
+import ProductCard from '@pick/commerce-astro/product/ProductCard.astro';
+import ProductCardBody from '@pick/commerce-astro/product/ProductCardBody.astro';
+import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astro';
+import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
+import ProductGrid from '@pick/commerce-astro/product/ProductGrid.astro';
+import Base from '../layouts/Base.astro';
+import { mockProducts } from '../lib/mock-catalog.ts';
+---
+
+<Base title="Catálogo · Pick Demo" description="Storefront demo de Pick Commerce.">
+  <Container class="py-12">
+    <header class="mb-10 flex flex-col gap-2">
+      <p class="text-sm text-fg-muted">Pick Commerce</p>
+      <h1 class="font-display text-3xl font-semibold">Catálogo</h1>
+      <p class="text-sm text-fg-muted">
+        {mockProducts.length} productos · datos mock, sin backend
+      </p>
+    </header>
+
+    <ProductGrid>
+      {
+        mockProducts.map((product, index) => {
+          const variant = product.variants[0];
+          if (!variant) return null;
+          const soldOut = variant.availableQuantity === 0;
+
+          return (
+            <ProductCard>
+              <ProductCardMedia image={product.images[0]} priority={index < 4}>
+                {soldOut && <Badge slot="badge">Sin stock</Badge>}
+              </ProductCardMedia>
+              <ProductCardBody>
+                {product.brand && <p class="text-xs text-fg-subtle">{product.brand}</p>}
+                <ProductCardTitle href={`/productos/${product.handle}`}>
+                  {product.title}
+                </ProductCardTitle>
+                <Price value={variant.price} compareAt={variant.compareAtPrice} />
+              </ProductCardBody>
+            </ProductCard>
+          );
+        })
+      }
+    </ProductGrid>
+  </Container>
+</Base>

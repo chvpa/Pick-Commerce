@@ -16,7 +16,11 @@
     "./navigation/Breadcrumb.astro": "./src/navigation/Breadcrumb.astro",
     "./primitives/Button.astro": "./src/primitives/Button.astro",
     "./primitives/Badge.astro": "./src/primitives/Badge.astro",
-    "./product/ProductGallery.astro": "./src/product/ProductGallery.astro"
+    "./product/ProductGallery.astro": "./src/product/ProductGallery.astro",
+    "./content/Hero.astro": "./src/content/Hero.astro",
+    "./content/Banner.astro": "./src/content/Banner.astro",
+    "./content/CategorySection.astro": "./src/content/CategorySection.astro",
+    "./product/ProductCarousel.astro": "./src/product/ProductCarousel.astro"
   },
   "scripts": {
     "typecheck": "astro check"

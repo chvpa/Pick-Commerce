@@ -955,3 +955,75 @@ Cero JavaScript, funciona sin hidratar y conserva `<Image />`.
   por teclado, y `motion-reduce:scroll-auto`.
 - Un zoom o un lightbox sí necesitarían una island; se agrega cuando se pidan,
   sobre este marcado.
+
+---
+
+## ADR-039 — Estado del carrito por eventos del DOM y `localStorage`
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted
+
+**Contexto**
+El drawer vive en el layout y el botón de compra en el PDP: son islands
+distintas y Astro no comparte estado entre ellas. La documentación recomienda
+Nano Stores, pero también lista los eventos del DOM como alternativa válida.
+
+Hay un segundo problema que ninguna librería de estado resuelve: el storefront
+es un MPA. Cada navegación vuelve a montar las islands, así que un carrito sólo
+en memoria se vaciaría al pasar del PDP al catálogo.
+
+**Decisión**
+Un módulo `cart/store` mantiene las líneas, las persiste en `localStorage` y
+avisa con un `CustomEvent`. Sin dependencia nueva: el evento de alta ya existía
+por ADR-035.
+
+**Por qué no Nano Stores**
+Haría falta igual la persistencia, así que no evita el `localStorage`. Con un
+solo consumidor por página, un evento del DOM y una función de suscripción
+cubren el caso en menos código.
+
+**Consecuencias**
+
+- Cada línea guarda un snapshot de presentación (título, precio, imagen), igual
+  que hará la orden en `PROJECT.md` §13: el drawer no vuelve al catálogo y un
+  cambio de precio no reescribe lo que el cliente vio.
+- Las lecturas de `localStorage` van dentro de `try/catch`: en modo privado o
+  con storage lleno el carrito degrada a memoria en vez de romper la página.
+- El estado se lee **después** de montar, no en el primer render, porque el HTML
+  del servidor no puede conocer el `localStorage` y habría mismatch de
+  hidratación.
+- Esto es un espejo de cliente, no autoridad. El stock se revalida siempre en
+  checkout (ADR-009), y en Fase 5 el store pasa a hablar con el cart service.
+
+---
+
+## ADR-040 — Las islands se importan por subpath, nunca desde el barrel
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted
+
+**Contexto**
+Con `CartButton`, `CartDrawer` y `ProductPurchase` exportados desde el
+`index.ts` de `@pick/commerce-ui`, el build generó **un solo chunk de 39 KB con
+las tres**, y toda página lo descargaba entero. El catálogo bajaba el código del
+selector de variantes que nunca usa.
+
+**Decisión**
+Cada island tiene su propia entrada en `exports` y se importa por subpath
+(`@pick/commerce-ui/cart/CartDrawer`). El barrel queda para utilidades y recetas,
+que son server-side y se compilan al HTML.
+
+**Medición**
+Tras separar, los chunks quedan por island: `CartButton` 831 B, `CartDrawer`
+3 KB, `ProductPurchase` 4,3 KB. El catálogo ya no descarga `ProductPurchase`.
+El total de la home es 59 KB sin comprimir, **~20 KB gzip**.
+
+**Pendiente**
+El chunk dominante no es ninguna island sino `jsxRuntime` (28,6 KB / 9,2 KB
+gzip), presente en toda página con al menos una island. Es desproporcionado para
+Preact y hay que investigarlo antes de cerrar el presupuesto de performance de
+Fase 2.
+
+**Consecuencias**
+Agregar una island al barrel vuelve a unir los chunks sin que nada falle. Al
+crear una island nueva hay que agregarle su `exports`.

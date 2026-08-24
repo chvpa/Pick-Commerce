@@ -5,7 +5,14 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./tokens.css": "./src/styles/tokens.css"
+    "./tokens.css": "./src/styles/tokens.css",
+    "./cart/CartDrawer": "./src/cart/CartDrawer.tsx",
+    "./cart/CartButton": "./src/cart/CartButton.tsx",
+    "./cart/store": "./src/cart/store.ts",
+    "./product/ProductPurchase": "./src/product/ProductPurchase.tsx",
+    "./product/AddToCart": "./src/product/AddToCart.tsx",
+    "./product/QuantitySelector": "./src/product/QuantitySelector.tsx",
+    "./product/VariantSelector": "./src/product/VariantSelector.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -1,0 +1,48 @@
+---
+import { Image } from 'astro:assets';
+import type { ProductImage } from '@pick/commerce-types';
+import { cn } from '@pick/commerce-ui';
+
+export interface CategoryEntry {
+  label: string;
+  href: string;
+  image?: ProductImage;
+}
+
+interface Props {
+  categories: readonly CategoryEntry[];
+  class?: string;
+}
+
+const { categories, class: className } = Astro.props;
+---
+
+<ul class={cn('grid grid-cols-2 gap-4 md:grid-cols-4', className)}>
+  {
+    categories.map((category) => (
+      <li>
+        <a
+          href={category.href}
+          class="group flex flex-col gap-3 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+        >
+          <div class="aspect-[4/3] overflow-hidden rounded-md bg-surface-sunken">
+            {category.image && (
+              <Image
+                src={category.image.url}
+                alt=""
+                width={category.image.width}
+                height={category.image.height}
+                layout="constrained"
+                sizes="(min-width: 768px) 25vw, 50vw"
+                loading="lazy"
+                decoding="async"
+                class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+              />
+            )}
+          </div>
+          <span class="text-sm font-medium group-hover:underline">{category.label}</span>
+        </a>
+      </li>
+    ))
+  }
+</ul>

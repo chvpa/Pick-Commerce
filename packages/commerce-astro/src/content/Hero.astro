@@ -1,0 +1,51 @@
+---
+import { Image } from 'astro:assets';
+import type { ProductImage } from '@pick/commerce-types';
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  /** Sin imagen el hero es tipográfico: no todo preset quiere una foto. */
+  image?: ProductImage;
+  /** `contained` respeta el ancho de lectura; `bleed` ocupa todo el viewport. */
+  width?: 'contained' | 'bleed';
+  class?: string;
+}
+
+const { image, width = 'contained', class: className } = Astro.props;
+---
+
+<section
+  class={cn('relative isolate overflow-hidden', width === 'contained' && 'rounded-lg', className)}
+>
+  {
+    image && (
+      <Image
+        src={image.url}
+        alt={image.alt}
+        width={image.width}
+        height={image.height}
+        layout="full-width"
+        sizes="100vw"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+        class="absolute inset-0 -z-10 h-full w-full object-cover"
+      />
+    )
+  }
+
+  {
+    /* Velo sólo cuando hay imagen debajo: sobre fondo plano apagaría el texto
+      sin motivo. Sin gradient decorativo — ver ADR-027. */
+  }
+  {image && <div class="absolute inset-0 -z-10 bg-black/35" aria-hidden="true" />}
+
+  <div
+    class={cn(
+      'flex flex-col items-start gap-4 px-6 py-20 sm:px-10 sm:py-28',
+      image && 'text-white',
+    )}
+  >
+    <slot />
+  </div>
+</section>

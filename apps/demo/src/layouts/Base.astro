@@ -1,6 +1,11 @@
 ---
 import Header from '@pick/commerce-astro/layout/Header.astro';
 import Footer from '@pick/commerce-astro/layout/Footer.astro';
+/* Import por subpath, no desde el barrel: si entran por `@pick/commerce-ui`
+   Vite las mete a todas en un solo chunk y cada página descarga las islands
+   que no usa. */
+import { CartButton } from '@pick/commerce-ui/cart/CartButton';
+import { CartDrawer } from '@pick/commerce-ui/cart/CartDrawer';
 import '../styles/global.css';
 
 interface Props {
@@ -23,7 +28,9 @@ const STORE_NAME = 'Pick Demo';
   </head>
   <body class="flex min-h-dvh flex-col bg-surface text-fg antialiased">
     <Header storeName={STORE_NAME}>
-      <a slot="nav" href="/" class="cursor-pointer hover:underline">Catálogo</a>
+      <a slot="nav" href="/catalogo" class="cursor-pointer hover:underline">Catálogo</a>
+      {/* `client:idle`: el contador del carrito no compite con el render inicial. */}
+      <CartButton slot="actions" client:idle />
     </Header>
 
     <main class="flex-1">
@@ -31,5 +38,8 @@ const STORE_NAME = 'Pick Demo';
     </main>
 
     <Footer storeName={STORE_NAME} />
+
+    {/* Vive en el layout, no en el PDP: se abre desde cualquier página. */}
+    <CartDrawer client:idle />
   </body>
 </html>

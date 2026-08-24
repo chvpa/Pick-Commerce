@@ -2,7 +2,7 @@
 import Breadcrumb from '@pick/commerce-astro/navigation/Breadcrumb.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import ProductGallery from '@pick/commerce-astro/product/ProductGallery.astro';
-import { ProductPurchase } from '@pick/commerce-ui';
+import { ProductPurchase } from '@pick/commerce-ui/product/ProductPurchase';
 import Base from '../../layouts/Base.astro';
 import { mockProducts } from '../../lib/mock-catalog.ts';
 
@@ -39,7 +39,13 @@ const COLOR_SWATCHES = { Azul: '#2f4858', Negro: '#26262b', Blanco: '#e8e6e1', V
         porque los tres comparten estado, y Astro no lo pasa entre islands.
       */
       }
-      <ProductPurchase client:idle variants={product.variants} swatches={COLOR_SWATCHES} />
+      <ProductPurchase
+        client:idle
+        productTitle={product.title}
+        imageUrl={product.images[0]?.url}
+        variants={product.variants}
+        swatches={COLOR_SWATCHES}
+      />
     </div>
   </Container>
 </Base>

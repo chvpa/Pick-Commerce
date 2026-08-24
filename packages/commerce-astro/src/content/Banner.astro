@@ -1,0 +1,26 @@
+---
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  href?: string;
+  tone?: 'neutral' | 'accent';
+  /** Permite cerrarlo. Requiere JS mínimo, así que es opt-in. */
+  class?: string;
+}
+
+const { href, tone = 'neutral', class: className } = Astro.props;
+const Tag = href ? 'a' : 'div';
+---
+
+<Tag
+  href={href}
+  class={cn(
+    'block px-4 py-2 text-center text-sm',
+    tone === 'accent' ? 'bg-accent text-accent-fg' : 'bg-surface-sunken text-fg-muted',
+    href &&
+      'cursor-pointer hover:underline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent',
+    className,
+  )}
+>
+  <slot />
+</Tag>

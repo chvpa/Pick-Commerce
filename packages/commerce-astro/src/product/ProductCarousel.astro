@@ -1,0 +1,36 @@
+---
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  /** Da contexto al lector de pantalla: "Carrusel de Más vendidos". */
+  label: string;
+  class?: string;
+}
+
+const { label, class: className } = Astro.props;
+---
+
+{
+  /*
+  Carrusel por scroll-snap, sin JavaScript, igual que la galería (ADR-038).
+  El scroll horizontal es nativo en touch y trackpad; con teclado el contenedor
+  es focusable y responde a las flechas. Unas flechas de navegación exigirían
+  una island y se agregan sólo si un preset las pide.
+*/
+}
+<div
+  role="group"
+  aria-label={`Carrusel de ${label}`}
+  tabindex="0"
+  class={cn(
+    'flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2',
+    'scroll-smooth motion-reduce:scroll-auto',
+    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+    '[scrollbar-width:thin]',
+    // Cada hijo ocupa un ancho fijo y se alinea al inicio al hacer snap.
+    '[&>*]:w-40 [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-56',
+    className,
+  )}
+>
+  <slot />
+</div>

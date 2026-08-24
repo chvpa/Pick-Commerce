@@ -1,40 +1,53 @@
 ---
-import Badge from '@pick/commerce-astro/primitives/Badge.astro';
+import Hero from '@pick/commerce-astro/content/Hero.astro';
+import Banner from '@pick/commerce-astro/content/Banner.astro';
+import CategorySection from '@pick/commerce-astro/content/CategorySection.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import Price from '@pick/commerce-astro/product/Price.astro';
 import ProductCard from '@pick/commerce-astro/product/ProductCard.astro';
 import ProductCardBody from '@pick/commerce-astro/product/ProductCardBody.astro';
 import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astro';
 import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
-import ProductGrid from '@pick/commerce-astro/product/ProductGrid.astro';
+import ProductCarousel from '@pick/commerce-astro/product/ProductCarousel.astro';
+import { buttonVariants } from '@pick/commerce-ui';
 import Base from '../layouts/Base.astro';
-import { mockProducts } from '../lib/mock-catalog.ts';
+import { mockCategories, mockProducts } from '../lib/mock-catalog.ts';
+
+const featured = mockProducts.filter((p) => p.variants.some((v) => v.compareAtPrice));
 ---
 
-<Base title="Catálogo · Pick Demo" description="Storefront demo de Pick Commerce.">
-  <Container class="py-12">
-    <header class="mb-10 flex flex-col gap-2">
-      <p class="text-sm text-fg-muted">Pick Commerce</p>
-      <h1 class="font-display text-3xl font-semibold">Catálogo</h1>
-      <p class="text-sm text-fg-muted">
-        {mockProducts.length} productos · datos mock, sin backend
-      </p>
-    </header>
+<Base
+  title="Pick Demo · Storefront"
+  description="Storefront demo de Pick Commerce sobre catálogo mock."
+>
+  <Banner href="/catalogo">Envío gratis en compras superiores a Gs. 500.000</Banner>
 
-    <ProductGrid>
+  <Container class="py-8">
+    <Hero image={{ url: '/products/campera-2.jpg', alt: '', width: 900, height: 1200 }}>
+      <p class="text-sm">Temporada</p>
+      <h1 class="font-display max-w-lg text-3xl font-semibold sm:text-4xl">
+        Ropa técnica para todos los días
+      </h1>
+      <a href="/catalogo" class={buttonVariants({ size: 'lg' })}>Ver catálogo</a>
+    </Hero>
+  </Container>
+
+  <Container class="flex flex-col gap-4 py-8">
+    <h2 class="font-display text-xl font-semibold">Categorías</h2>
+    <CategorySection categories={mockCategories} />
+  </Container>
+
+  <Container class="flex flex-col gap-4 py-8">
+    <h2 class="font-display text-xl font-semibold">En oferta</h2>
+    <ProductCarousel label="En oferta">
       {
-        mockProducts.map((product, index) => {
+        featured.map((product) => {
           const variant = product.variants[0];
           if (!variant) return null;
-          const soldOut = variant.availableQuantity === 0;
-
           return (
             <ProductCard>
-              <ProductCardMedia image={product.images[0]} priority={index < 4}>
-                {soldOut && <Badge slot="badge">Sin stock</Badge>}
-              </ProductCardMedia>
+              <ProductCardMedia image={product.images[0]} />
               <ProductCardBody>
-                {product.brand && <p class="text-xs text-fg-subtle">{product.brand}</p>}
                 <ProductCardTitle href={`/productos/${product.handle}`}>
                   {product.title}
                 </ProductCardTitle>
@@ -44,6 +57,6 @@ import { mockProducts } from '../lib/mock-catalog.ts';
           );
         })
       }
-    </ProductGrid>
+    </ProductCarousel>
   </Container>
 </Base>

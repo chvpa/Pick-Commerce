@@ -12,6 +12,9 @@ import { AddToCart } from './AddToCart.tsx';
 import { VariantSelector } from './VariantSelector.tsx';
 
 export interface ProductPurchaseProps {
+  /** Título del producto. Se combina con el de la variante para el carrito. */
+  productTitle: string;
+  imageUrl?: string;
   variants: readonly ProductVariant[];
   locale?: string;
   swatches?: Readonly<Record<string, string>>;
@@ -30,7 +33,14 @@ export interface ProductPurchaseProps {
  * la variante, así que necesita vivir del lado hidratado. Es el caso previsto
  * en ADR-032; el formato y el descuento siguen viniendo del core.
  */
-export function ProductPurchase({ variants, locale, swatches, className }: ProductPurchaseProps) {
+export function ProductPurchase({
+  productTitle,
+  imageUrl,
+  variants,
+  locale,
+  swatches,
+  className,
+}: ProductPurchaseProps) {
   const [selection, setSelection] = useState(() => defaultSelection(variants));
 
   const options = useMemo(() => buildVariantOptions(variants, selection), [variants, selection]);
@@ -82,6 +92,9 @@ export function ProductPurchase({ variants, locale, swatches, className }: Produ
       <AddToCart
         key={variant?.id ?? 'none'}
         variantId={variant?.id ?? ''}
+        title={variant ? `${productTitle} — ${variant.title}` : productTitle}
+        price={variant?.price ?? { amount: 0, currency: 'PYG' }}
+        imageUrl={imageUrl}
         available={variant?.availableQuantity ?? 0}
       />
     </div>
