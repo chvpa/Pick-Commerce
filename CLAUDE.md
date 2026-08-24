@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónica entre sesiones la sostienen los documentos, no la conversación: **no asumir que el mensaje actual trae todo el contexto**. Ante una duda de arquitectura, la respuesta está en `DECISIONS.md` antes que en la intuición.
+
 ## Estado actual
 
 Fase 0 cerrada: monorepo pnpm operativo, CI en GitHub Actions y deploy a Cloudflare Workers por push. Fase 1 (Design System) en curso.
@@ -87,6 +89,29 @@ Parte del Definition of Done, no un extra:
 - `DECISIONS.md` (ADR-XXX) cuando cambia arquitectura, se adopta o descarta una dependencia, aparece un tradeoff, cambia el scope o una integración obliga a modificar un contrato.
 - `PROJECT.md` sólo si cambia la fuente de verdad del producto.
 
+También va al `ROADMAP.md` lo que aparece y no estaba previsto: un bloqueo, o una tarea retroactiva que descubrió el trabajo. Si no bloquea la fase actual, va a `Backlog / Retroactividad` en vez de interrumpirla.
+
+## Cerrar: informe corto
+
+Al terminar una unidad de trabajo, reportar en este formato. Sin reportes largos salvo que haya un problema.
+
+```text
+Implemented
+- ...
+
+Validated
+- lint / typecheck / tests, con la evidencia
+
+Pending
+- ...
+
+Docs
+- ROADMAP actualizado
+- DECISIONS actualizado si correspondía
+```
+
+`Pending` no es opcional: si algo quedó fuera, se dice. Bajar el scope es decisión del usuario, no propia.
+
 ---
 
 # Verificación: no dar por bueno lo que no se comprobó
@@ -118,6 +143,18 @@ Ir a la documentación oficial cuando:
 - se está por asumir una restricción ("no se puede pasar X", "esto no soporta Y");
 - se elige o se sube una versión — confirmar con `npm view <pkg> version` y los rangos de peers, en vez de suponer;
 - una decisión de arquitectura se apoya en cómo se comporta una herramienta.
+
+## Cuando falta información
+
+En este orden, antes de decidir:
+
+1. estos documentos;
+2. el código;
+3. los tests;
+4. la documentación oficial del provider o la integración;
+5. un mock explícito, sólo si el contrato ya está definido.
+
+**No inventar comportamiento de un ERP, un medio de pago ni una API.** Un adapter que asume una capacidad que el proveedor no tiene produce overselling, cobros mal conciliados o pedidos que el ERP rechaza — y el error aparece en producción, no en el typecheck. Si el contrato real no se conoce, decirlo y avanzar con un mock declarado como tal, nunca con una suposición disfrazada de implementación.
 
 Cuando un ADR se apoye en comportamiento de terceros, **citar la doc**. Referencias vigentes: [Astro](https://docs.astro.build), [adapter Cloudflare](https://docs.astro.build/en/guides/integrations-guide/cloudflare/), [Tailwind v4](https://tailwindcss.com/docs), [Supabase](https://supabase.com/docs).
 
@@ -155,7 +192,9 @@ Rompen la arquitectura si se violan, y no son obvias desde el código:
 - **Toda entidad de negocio lleva tenant scope** y se protege con RLS + autorización en el servicio de dominio. El frontend nunca es la capa de autorización.
 - **Stock:** navegación usa mirror cacheado; Add to Cart valida contra el provider cuando sea viable; checkout **siempre** revalida antes de confirmar. Creación de order con idempotency.
 - **Paginación obligatoria** en cualquier dataset que pueda crecer (PLP, products, orders, customers, promotions, audit/sync logs). Filtros y sort server-side. Nada de traer el catálogo completo para filtrar en el browser.
-- **UX es Definition of Done**, no polish: loading/pending, success, error recuperable, disabled, prevención de doble submit, skeletons, focus visible, keyboard, mobile a la par de desktop. Una acción asíncrona sin estado perceptible no está terminada.
+- **UX es Definition of Done**, no polish: loading/pending, success, error recuperable, disabled, prevención de doble submit, skeletons en listas y grids, focus visible, keyboard, cursor en todo lo accionable, mobile a la par de desktop. Una acción asíncrona sin estado perceptible no está terminada.
+  - **PLP**: filtros facetados, actualización sin full page reload, paginación o carga incremental. Nunca filtrar miles de productos en el browser.
+  - **Admin**: tablas paginadas con empty y error states. Nunca cargar todos los productos, pedidos, clientes ni promociones.
 - **Motion premium es opt-in**: GSAP/ScrollTrigger sólo lazy-loaded en la página que lo usa, respetando `prefers-reduced-motion`. Nunca en el bundle base.
 
 # Anti-overengineering
