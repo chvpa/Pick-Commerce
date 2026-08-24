@@ -1202,3 +1202,40 @@ que ADR-029.
 **Regla que queda**
 Un paquete nuevo con componentes necesita su línea de `@source` en `tokens.css`.
 Sin ella sus estilos no existen, y nada avisa.
+
+---
+
+## ADR-045 — El panel de filtros no puede ser un `<details>`
+
+**Fecha:** 2026-08-24
+**Estado:** Accepted — corrige la implementación de ADR-042
+
+**Qué se rompió**
+El panel de filtros de la PLP se había resuelto con un `<details>` que en
+desktop se forzaba visible por CSS (`.plp-filtros > div { display: flex }`) y en
+mobile quedaba como disclosure. **No funciona.** Un `<details>` cerrado oculta su
+contenido con `content-visibility` sobre un slot interno del navegador, y
+ninguna regla CSS aplicada al hijo lo revela.
+
+Resultado en producción: en desktop el panel entero era invisible. Sin
+checkboxes, sin botón "Aplicar", sin forma de filtrar. El catálogo se veía
+completo y sin controles.
+
+**Por qué no se detectó antes**
+Toda la verificación de la PLP se había hecho con `curl`, comprobando que el
+HTML contuviera los elementos. Los elementos estaban: el problema era CSS, que
+`curl` no evalúa. El fallo lo encontró el primer test de Playwright que abrió la
+página en un navegador de verdad.
+
+**Decisión**
+El panel es un `<div>`. En desktop siempre visible y el disparador oculto; en
+mobile lo abre un `<button>` con `aria-expanded` y `aria-controls`.
+
+El atributo `hidden` lo pone el script, no el servidor: **sin JavaScript el
+panel queda visible también en mobile**, así que filtrar nunca depende de que
+cargue el script.
+
+**Consecuencia general**
+CSS puede ocultar lo que el navegador muestra, pero no mostrar lo que el
+navegador oculta por estado del DOM. Un truco CSS sobre `<details>`, `<dialog>`
+o `<select>` sólo funciona en una dirección.

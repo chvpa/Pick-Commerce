@@ -687,6 +687,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-23 | Fase 1: catálogo facetado server-side sobre ruta on-demand, con búsqueda, orden y paginación                                                                                            | Fase 1 |          80% |            88% |
 | 2026-08-23 | Fase 1: PLP sin full reload con ClientRouter acotado, drawer mobile sin JS, y JS del storefront reducido 27%                                                                            | Fase 1 |          88% |            92% |
 | 2026-08-23 | Fase 1 cerrada: shadcn sobre Base UI en el Admin, contrato de customización fijado con test, y regresión de tokens corregida                                                            | Fase 1 |          92% |           100% |
+| 2026-08-24 | Smoke de navegación con Playwright en CI; corregido el panel de filtros invisible en desktop                                                                                            | Fase 1 |         100% |           100% |
 
 ---
 

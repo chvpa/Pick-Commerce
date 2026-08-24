@@ -90,47 +90,58 @@ const activeCount = Object.values(filters).reduce((n, values) => n + values.leng
         <input type="hidden" name="q" value={search} />
       </form>
 
-      <details class="plp-filtros md:sticky md:top-6 md:self-start" open={activeCount > 0}>
-        <summary
-          class="mb-3 flex cursor-pointer list-none items-center justify-between rounded-md border border-border px-4 py-2 text-sm font-medium md:hidden"
-        >
-          <span>{activeCount > 0 ? `Filtros (${activeCount})` : 'Filtros'}</span>
-          <span aria-hidden="true">▾</span>
-        </summary>
+      {
+        /*
+        El panel NO usa <details>: un <details> cerrado oculta su contenido con
+        content-visibility en un slot interno, y ninguna regla CSS sobre el hijo
+        lo revela. Intentarlo dejó el panel invisible en desktop.
+        Acá el panel es un div; en desktop siempre se ve y el disparador se
+        oculta, en mobile lo abre un botón con aria-expanded.
+      */
+      }
+      <button
+        type="button"
+        id="plp-toggle"
+        aria-expanded="false"
+        aria-controls="plp-panel"
+        class="mb-3 flex cursor-pointer items-center justify-between rounded-md border border-border px-4 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
+      >
+        <span>{activeCount > 0 ? `Filtros (${activeCount})` : 'Filtros'}</span>
+        <span aria-hidden="true">▾</span>
+      </button>
 
-        <div class="flex flex-col gap-1">
-          <div class="flex items-center justify-between pb-2">
-            <h2 class="text-sm font-semibold">Filtros</h2>
-            {
-              activeCount > 0 && (
-                <a href="/catalogo" class="text-xs text-fg-muted underline hover:text-fg">
-                  Limpiar ({activeCount})
-                </a>
-              )
-            }
-          </div>
-
+      <div id="plp-panel" class="plp-panel flex-col gap-1 md:sticky md:top-6 md:self-start">
+        <div class="flex items-center justify-between pb-2">
+          <h2 class="text-sm font-semibold">Filtros</h2>
           {
-            result.facets
-              .filter((facet) => FACET_NAMES.includes(facet.name as (typeof FACET_NAMES)[number]))
-              .map((facet) => (
-                <FacetAccordion facet={facet} form="plp" label={FACET_LABELS[facet.name]} />
-              ))
+            activeCount > 0 && (
+              <a href="/catalogo" class="text-xs text-fg-muted underline hover:text-fg">
+                Limpiar ({activeCount})
+              </a>
+            )
           }
-
-          <div class="flex flex-col gap-3 pt-4">
-            <SortSelect value={sort} form="plp" />
-            {/* Visible siempre: es el camino que funciona sin JavaScript. */}
-            <button
-              form="plp"
-              type="submit"
-              class="h-10 cursor-pointer rounded-md bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              Aplicar
-            </button>
-          </div>
         </div>
-      </details>
+
+        {
+          result.facets
+            .filter((facet) => FACET_NAMES.includes(facet.name as (typeof FACET_NAMES)[number]))
+            .map((facet) => (
+              <FacetAccordion facet={facet} form="plp" label={FACET_LABELS[facet.name]} />
+            ))
+        }
+
+        <div class="flex flex-col gap-3 pt-4">
+          <SortSelect value={sort} form="plp" />
+          {/* Visible siempre: es el camino que funciona sin JavaScript. */}
+          <button
+            form="plp"
+            type="submit"
+            class="h-10 cursor-pointer rounded-md bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            Aplicar
+          </button>
+        </div>
+      </div>
 
       <div class="flex flex-col gap-6">
         <p class="text-sm text-fg-muted" aria-live="polite">
@@ -184,17 +195,52 @@ const activeCount = Object.values(filters).reduce((n, values) => n + values.leng
 </Base>
 
 <style>
-  /* En desktop el panel es un sidebar siempre visible: se ignora el estado del
-     <details> y se oculta su disparador. En mobile queda como disclosure, sin
-     una línea de JavaScript. */
+  /*
+   * Mobile: el panel arranca oculto y lo abre el botón. Desktop: siempre
+   * visible y el botón desaparece.
+   * Sin JavaScript el panel queda visible en mobile también — el atributo
+   * hidden lo pone el script, así que el filtrado nunca depende de que cargue.
+   */
+  .plp-panel {
+    display: flex;
+  }
+  .plp-panel[hidden] {
+    display: none;
+  }
   @media (min-width: 768px) {
-    .plp-filtros > div {
-      display: flex !important;
+    .plp-panel,
+    .plp-panel[hidden] {
+      display: flex;
     }
   }
 </style>
 
 <script is:inline>
+  // El panel arranca colapsado en mobile SÓLO si hay JavaScript para reabrirlo.
+  (() => {
+    const boton = document.getElementById('plp-toggle');
+    const panel = document.getElementById('plp-panel');
+    if (!boton || !panel) return;
+    const mobile = window.matchMedia('(max-width: 767px)');
+    const aplicar = () => {
+      if (!mobile.matches) {
+        panel.removeAttribute('hidden');
+        boton.setAttribute('aria-expanded', 'false');
+        return;
+      }
+      panel.hidden = boton.getAttribute('aria-expanded') !== 'true';
+    };
+    boton.addEventListener('click', () => {
+      boton.setAttribute(
+        'aria-expanded',
+        boton.getAttribute('aria-expanded') === 'true' ? 'false' : 'true',
+      );
+      aplicar();
+    });
+    mobile.addEventListener('change', aplicar);
+    aplicar();
+  })();
+
   // Mejora progresiva: sin esto el usuario pulsa "Aplicar" y todo funciona igual.
   addEventListener('change', (event) => {
     const target = event.target;
