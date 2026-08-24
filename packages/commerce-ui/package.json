@@ -15,7 +15,8 @@
     "./product/VariantSelector": "./src/product/VariantSelector.tsx"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -25,7 +26,8 @@
   },
   "devDependencies": {
     "typescript": "^6.0.3",
-    "preact": "^10.29.8"
+    "preact": "^10.29.8",
+    "@types/node": "^26.2.0"
   },
   "peerDependencies": {
     "preact": "^10.29.8"
