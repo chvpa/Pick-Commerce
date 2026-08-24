@@ -1,4 +1,5 @@
 ---
+import { Image } from 'astro:assets';
 import type { ProductImage } from '@pick/commerce-types';
 import { cn } from '@pick/commerce-ui';
 
@@ -6,10 +7,20 @@ interface Props {
   image?: ProductImage;
   /** `true` sólo para las primeras cards del PLP: evita diferir el LCP. */
   priority?: boolean;
+  /**
+   * Ancho que ocupará la imagen en cada breakpoint. Debe reflejar el grid real
+   * que la contiene, si no el browser elige del `srcset` un archivo equivocado.
+   */
+  sizes?: string;
   class?: string;
 }
 
-const { image, priority = false, class: className } = Astro.props;
+const {
+  image,
+  priority = false,
+  sizes = '(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw',
+  class: className,
+} = Astro.props;
 ---
 
 <div
@@ -21,11 +32,18 @@ const { image, priority = false, class: className } = Astro.props;
 >
   {
     image ? (
-      <img
+      /*
+       * `<Image />` en vez de `<img>`: genera srcset, convierte formato y fija
+       * width/height para evitar CLS. Para que además optimice, el storefront
+       * debe autorizar el host de sus medios en `image.remotePatterns`.
+       */
+      <Image
         src={image.url}
         alt={image.alt}
         width={image.width}
         height={image.height}
+        layout="constrained"
+        sizes={sizes}
         loading={priority ? 'eager' : 'lazy'}
         fetchpriority={priority ? 'high' : 'auto'}
         decoding="async"

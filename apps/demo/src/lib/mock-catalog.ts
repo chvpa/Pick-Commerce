@@ -16,7 +16,9 @@ export const mockProducts: readonly Product[] = [
     title: 'Campera cortaviento',
     status: 'active',
     brand: 'Norte',
-    images: [{ url: '/products/campera.svg', alt: 'Campera cortaviento azul' }],
+    images: [
+      { url: '/products/campera.jpg', alt: 'Campera cortaviento azul', width: 900, height: 1200 },
+    ],
     variants: [
       {
         id: 'v1',
@@ -36,7 +38,14 @@ export const mockProducts: readonly Product[] = [
     title: 'Zapatilla urbana de cuero',
     status: 'active',
     brand: 'Ruta',
-    images: [{ url: '/products/zapatilla.svg', alt: 'Zapatilla urbana de cuero negra' }],
+    images: [
+      {
+        url: '/products/zapatilla.jpg',
+        alt: 'Zapatilla urbana de cuero negra',
+        width: 900,
+        height: 1200,
+      },
+    ],
     variants: [
       {
         id: 'v2',
@@ -55,7 +64,9 @@ export const mockProducts: readonly Product[] = [
     title: 'Remera de algodón peinado',
     status: 'active',
     brand: 'Norte',
-    images: [{ url: '/products/remera.svg', alt: 'Remera de algodón blanca' }],
+    images: [
+      { url: '/products/remera.jpg', alt: 'Remera de algodón blanca', width: 900, height: 1200 },
+    ],
     variants: [
       {
         id: 'v3',

@@ -35,8 +35,13 @@ export interface ProductImage {
   readonly url: string;
   /** Texto alternativo. Vacío sólo si la imagen es decorativa. */
   readonly alt: string;
-  readonly width?: number;
-  readonly height?: number;
+  /**
+   * Dimensiones del original. Son obligatorias: sin ellas no se puede reservar
+   * el espacio de la imagen y el layout salta al cargar (CLS). Todo medio
+   * importado desde ERP, CSV o upload debe registrarlas.
+   */
+  readonly width: number;
+  readonly height: number;
 }
 
 export interface ProductVariant {

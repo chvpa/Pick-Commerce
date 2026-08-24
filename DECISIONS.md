@@ -698,7 +698,15 @@ La primera versión de Product Card se escribió como componente Preact en
 pasado como string aparece en el HTML, el mismo badge como elemento JSX se
 descarta en silencio. Las expresiones de `.astro` no producen vnodes de Preact.
 
-Esto rompe el eje "slots" que PROJECT.md §17 exige como forma de customización.
+La documentación de Astro lo confirma: sólo se serializan objetos, números,
+strings, Array, Map, Set, RegExp, Date, BigInt, URL y typed arrays. Sobre JSX y
+render props dice explícitamente que _"passing React's 'render props' to
+framework components from an Astro component will not work"_.
+
+Existe un workaround: los **named slots** en kebab-case sí llegan a un
+componente React/Preact como props en camelCase, así que un
+`<span slot="badge">` habría funcionado sin cambiar de framework. Es decir, el
+problema original era solucionable sin migrar a `.astro`.
 
 **Decisión**
 
@@ -710,9 +718,15 @@ Esto rompe el eje "slots" que PROJECT.md §17 exige como forma de customización
   alojará esas islands. Al no contener `.astro`, el Admin puede consumirlo.
 
 **Por qué**
-Coincide con ADR-001 y con el reparto de paquetes de PROJECT.md §5, que ya
-distingue `commerce-ui` de `commerce-astro`. Además, la PLP resultante envía
-**cero JavaScript**: el HTML generado no tiene un solo `<script>`.
+El motivo real no es que Preact fuera imposible, sino el costo: la documentación
+de Astro recomienda _"use framework components only for interactive islands;
+otherwise, plain `.astro` components deliver better performance"_. Una Product
+Card no tiene interactividad propia, así que pagar hidratación por ella es
+gratuito en contra.
+
+Coincide además con ADR-001 y con el reparto de paquetes de PROJECT.md §5, que
+ya distingue `commerce-ui` de `commerce-astro`. La PLP resultante envía **cero
+JavaScript**: el HTML generado no tiene un solo `<script>`.
 
 **Consecuencias**
 
@@ -723,9 +737,14 @@ distingue `commerce-ui` de `commerce-astro`. Además, la PLP resultante envía
 - La versión Preact de cada componente se crea recién cuando una island la
   necesita, no por anticipado.
 
+**Restricción heredada**
+Astro tampoco permite lo inverso: _"you cannot import `.astro` components in a
+UI framework component"_. Una island Preact no puede contener componentes
+`.astro`, así que el Cart Drawer y el Variant Selector deberán recibir su
+contenido por props/children desde la página, no importarlo.
+
 **Revisar si**
-Astro habilita pasar vnodes como props a componentes de framework, o el
-storefront necesita hidratación tan extendida que mantener dos capas deje de
+El storefront necesita hidratación tan extendida que mantener dos capas deje de
 compensar.
 
 ---
@@ -753,3 +772,38 @@ las clases usadas dentro de los componentes no se generan.
 - Agregar un paquete con componentes obliga a incluir su `@source`.
 - `--aspect-product` permite que moda use retrato y ferretería cuadrado sin
   forkear la Product Card, según el principio de un solo Core.
+
+---
+
+## ADR-034 — Imágenes de producto vía `astro:assets`
+
+**Fecha:** 2026-08-23
+**Estado:** Accepted
+
+**Contexto**
+La primera Product Card usaba un `<img>` crudo. Astro no procesa esas etiquetas:
+se pierden la conversión de formato, el `srcset` responsive y la garantía de
+reserva de espacio. En un ecommerce la imagen **es** el peso de la página, y
+ENGINEERING_HARNESS.md §22 ya pedía verificar formato y tamaños antes de cerrar
+una lista.
+
+**Decisión**
+`ProductCardMedia` usa `<Image />` de `astro:assets` con `layout="constrained"`
+y un `sizes` que refleja el grid real.
+
+`ProductImage.width` y `.height` pasan a ser **obligatorias** en
+`@pick/commerce-types`. Sin dimensiones no hay prevención de CLS, así que todo
+medio que entre por ERP, CSV o upload debe registrarlas.
+
+**Consecuencias**
+
+- Cada storefront debe autorizar el host de sus medios en `image.remotePatterns`
+  o `image.domains`; sin eso las imágenes remotas se muestran sin optimizar,
+  aunque conservan la prevención de CLS.
+- Las imágenes en `public/` nunca se optimizan. Sirven para placeholders del
+  demo, no para catálogo real: el catálogo vendrá de R2 o Supabase Storage como
+  URL remota autorizada.
+- El adapter de Cloudflare queda con su `imageService` por defecto
+  (`cloudflare-binding`), que optimiza en runtime. Es lo correcto para un
+  catálogo remoto; `'compile'` sólo serviría si todas las imágenes fueran
+  locales y las rutas prerenderizadas.
