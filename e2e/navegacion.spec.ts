@@ -29,6 +29,7 @@ test.beforeEach(async ({ page }) => {
  */
 async function abrirFaceta(page: import('@playwright/test').Page, etiqueta: string) {
   const toggle = page.locator('#plp-toggle');
+  // En mobile los filtros viven en un sheet que hay que abrir primero.
   if (await toggle.isVisible()) await toggle.click();
   await page
     .locator('#plp-panel details', { hasText: etiqueta })
@@ -71,7 +72,10 @@ test('filtrar no recarga la página y conserva el scroll', async ({ page }) => {
   await abrirFaceta(page, 'Color');
   await page.getByRole('checkbox', { name: /Negro/ }).first().check();
   await expect(page).toHaveURL(/color=Negro/);
-  await expect(page.getByText(/2 productos/)).toBeVisible();
+  // Se acota a la cabecera de resultados: el botón del sheet dice lo mismo.
+  await expect(
+    page.getByRole('status').or(page.locator('[aria-live="polite"]')).first(),
+  ).toContainText(/2 productos/);
 
   const sobrevivio = await page.evaluate(
     () => (window as unknown as { __sinRecarga?: boolean }).__sinRecarga === true,
@@ -86,14 +90,19 @@ test('los filtros funcionan sin JavaScript', async ({ browser }) => {
   const page = await contexto.newPage();
 
   await page.goto('/catalogo');
-  // Sin JavaScript el panel queda visible: el atributo hidden lo pone el script.
+  // Sin JavaScript el panel nace `open` y no-modal, así que se ve en el flujo.
+  // Si dependiera del script, en mobile los filtros quedarían inalcanzables.
   await expect(page.locator('#plp-panel')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Aplicar' })).toBeVisible();
   await abrirFaceta(page, 'Color');
   await page.getByRole('checkbox', { name: /Negro/ }).first().check();
   await page.getByRole('button', { name: 'Aplicar' }).click();
 
   await expect(page).toHaveURL(/color=Negro/);
-  await expect(page.getByText(/2 productos/)).toBeVisible();
+  // Se acota a la cabecera de resultados: el botón del sheet dice lo mismo.
+  await expect(
+    page.getByRole('status').or(page.locator('[aria-live="polite"]')).first(),
+  ).toContainText(/2 productos/);
 
   await contexto.close();
 });
@@ -151,7 +160,8 @@ test('el panel de filtros se ve en desktop y se colapsa en mobile', async ({ pag
     // En desktop es un sidebar: siempre visible y sin disparador.
     await expect(panel).toBeVisible();
     await expect(toggle).toBeHidden();
-    await expect(page.getByRole('button', { name: 'Aplicar' })).toBeVisible();
+    // Con JavaScript los filtros se aplican al tocarlos, así que "Aplicar" sobra.
+    await expect(page.getByRole('button', { name: 'Aplicar' })).toBeHidden();
   }
 
   expect(problemasDe(page)).toEqual([]);
@@ -223,4 +233,44 @@ test('robots.txt deja entrar a los crawlers de IA y apunta al sitemap', async ({
 
   const sitemap = await request.get('/sitemap-index.xml');
   expect(sitemap.status()).toBe(200);
+});
+
+test('en mobile los filtros son un sheet que no se cierra al filtrar', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile', 'sólo aplica al viewport mobile');
+
+  await page.goto('/catalogo');
+  const panel = page.locator('#plp-panel');
+  const toggle = page.locator('#plp-toggle');
+
+  await expect(panel).toBeHidden();
+  await toggle.click();
+  await expect(panel).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+  // Sheet, no lista desplegada: pegado al borde inferior del viewport.
+  const caja = (await panel.boundingBox())!;
+  const alto = page.viewportSize()!.height;
+  expect(Math.round(caja.y + caja.height)).toBe(alto);
+
+  // Filtrar recarga vía ClientRouter; el sheet debe sobrevivir al swap.
+  await page.locator('#plp-panel details').first().locator('summary').first().click();
+  await page.locator('#plp-panel input[type="checkbox"]').first().check();
+  await expect(page).toHaveURL(/[?&][a-z]+=/);
+  await expect(panel).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+
+  expect(problemasDe(page)).toEqual([]);
+});
+
+test('el orden está en el PLP, fuera del panel de filtros', async ({ page }) => {
+  await page.goto('/catalogo');
+  // Visible sin abrir nada: ordenar no debería exigir abrir un sheet.
+  await expect(page.locator('#sort')).toBeVisible();
+
+  await page.locator('#sort').selectOption('price-asc');
+  await expect(page).toHaveURL(/sort=price-asc/);
+
+  expect(problemasDe(page)).toEqual([]);
 });

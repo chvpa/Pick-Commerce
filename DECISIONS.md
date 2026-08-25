@@ -1332,3 +1332,50 @@ política. Un archivo con extensión y una ruta con query nunca la llevan.
 Las combinaciones de filtros del catálogo salen con `noindex,follow`. Indexarlas
 multiplicaría URLs casi idénticas y dispersaría la autoridad del catálogo;
 `follow` deja que los productos se sigan descubriendo desde ahí.
+
+---
+
+## ADR-049 — El panel de filtros es un `<dialog>` que cambia de rol con `:modal`
+
+**Fecha:** 2026-08-24
+**Estado:** Accepted — reemplaza la solución de ADR-045
+
+**Contexto**
+En mobile el panel desplegaba una lista inline. Lo correcto es un sheet, y el
+patrón ya estaba resuelto en el Cart Drawer con `<dialog>` nativo: foco, Escape
+y backdrop los aporta el navegador.
+
+El problema era servir con un solo elemento dos formas distintas —sidebar en
+desktop, sheet en mobile— sin duplicar los inputs, porque duplicarlos mandaría
+cada valor dos veces en el form.
+
+**Decisión**
+Un único `<dialog>`, que nace con `open`. `:modal` distingue los dos estados:
+
+- `[open]:not(:modal)` → panel en el flujo. Es el sidebar de desktop **y** el
+  fallback de quien no tiene JavaScript.
+- `:modal` → sheet anclado abajo, con backdrop. Sólo en mobile, al pulsar el
+  botón.
+
+**La regla que costó dos errores**
+Ninguna regla propia puede declarar `display` fuera de esos dos selectores. El
+navegador oculta un `<dialog>` cerrado y lo muestra al abrirlo; un `display`
+suelto le gana **en ambas direcciones**. Declararlo en la regla base dejó el
+sheet visible estando cerrado, tapando el botón que debía abrirlo.
+
+Es la contracara de ADR-045: con `<details>` el CSS no puede mostrar lo que el
+navegador oculta; con `<dialog>` puede de más.
+
+**Otras dos correcciones del mismo reporte**
+
+- **"Aplicar" sobraba**: con JavaScript los filtros se aplican al tocarlos. El
+  botón sigue en el HTML porque es el único camino sin JavaScript, y el script
+  lo oculta y muestra en su lugar uno que sólo cierra el sheet. Su contenedor
+  **no** es `md:hidden`: sin eso, en desktop sin JavaScript no había forma de
+  enviar los filtros.
+- **El orden salió del panel**: ordenar es una decisión frecuente y no debería
+  exigir abrir un sheet. Vive en la cabecera de resultados, visible siempre.
+
+**Verificado en las cuatro combinaciones** de viewport y JavaScript, incluido
+que filtrar sin JavaScript funcione en ambos anchos, y que el sheet sobreviva al
+swap de ClientRouter al tocar un filtro.

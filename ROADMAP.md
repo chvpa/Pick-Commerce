@@ -689,6 +689,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-23 | Fase 1 cerrada: shadcn sobre Base UI en el Admin, contrato de customización fijado con test, y regresión de tokens corregida                                                            | Fase 1 |          92% |           100% |
 | 2026-08-24 | Smoke de navegación con Playwright en CI; corregido el panel de filtros invisible en desktop                                                                                            | Fase 1 |         100% |           100% |
 | 2026-08-24 | Fase 2: SEO y GEO (canonical, Open Graph, JSON-LD, sitemap, robots, llms.txt), 404, políticas, FAQ y página de carrito                                                                  | Fase 2 |           0% |            80% |
+| 2026-08-24 | Correcciones de UX de la demo: sheet de filtros en mobile, orden en el PLP, "Aplicar" sólo sin JavaScript                                                                               | Fase 2 |          80% |            85% |
 
 ---
 

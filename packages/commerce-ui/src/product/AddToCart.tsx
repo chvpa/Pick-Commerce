@@ -66,8 +66,16 @@ export function AddToCart({
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
+      {/* `self-start`: el padre es flex-col y estiraría el selector a todo el
+          ancho. La cantidad es un control chico, no una barra. */}
       {showQuantity && !soldOut ? (
-        <QuantitySelector value={quantity} onChange={setQuantity} max={available} disabled={busy} />
+        <QuantitySelector
+          value={quantity}
+          onChange={setQuantity}
+          max={available}
+          disabled={busy}
+          className="self-start"
+        />
       ) : null}
 
       <button

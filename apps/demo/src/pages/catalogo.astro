@@ -102,70 +102,124 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
       */
       }
       <form id="plp" method="get" action="/catalogo" class="hidden">
-        <input type="hidden" name="q" value={search} />
+        {
+          /* Sólo si hay búsqueda: si no, cada filtro dejaría un `?q=` vacío en
+            una URL que se comparte. */
+        }
+        {search !== '' && <input type="hidden" name="q" value={search} />}
       </form>
 
       {
         /*
-        El panel NO usa <details>: un <details> cerrado oculta su contenido con
-        content-visibility en un slot interno, y ninguna regla CSS sobre el hijo
-        lo revela. Intentarlo dejó el panel invisible en desktop.
-        Acá el panel es un div; en desktop siempre se ve y el disparador se
-        oculta, en mobile lo abre un botón con aria-expanded.
+        El mismo <dialog> es sidebar en desktop y sheet en mobile. CSS puede
+        mostrar un <dialog> cerrado —la regla del navegador es `display:none`,
+        que sí se sobreescribe—, a diferencia de <details>, que oculta su
+        contenido con content-visibility en un slot interno. Ver ADR-045 y 049.
       */
       }
       <button
         type="button"
         id="plp-toggle"
-        aria-expanded="false"
+        aria-haspopup="dialog"
         aria-controls="plp-panel"
+        aria-expanded="false"
         class="mb-3 flex cursor-pointer items-center justify-between rounded-md border border-border px-4 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
       >
         <span>{activeCount > 0 ? `Filtros (${activeCount})` : 'Filtros'}</span>
         <span aria-hidden="true">▾</span>
       </button>
 
-      <div id="plp-panel" class="plp-panel flex-col gap-1 md:sticky md:top-6 md:self-start">
-        <div class="flex items-center justify-between pb-2">
-          <h2 class="text-sm font-semibold">Filtros</h2>
+      <dialog id="plp-panel" class="plp-panel" aria-label="Filtros" open>
+        <div class="flex items-center justify-between border-b border-border px-5 py-4 md:hidden">
+          <h2 class="text-base font-semibold">Filtros</h2>
+          <button
+            type="button"
+            id="plp-cerrar"
+            aria-label="Cerrar filtros"
+            class="cursor-pointer rounded-md px-2 py-1 text-sm hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            <span aria-hidden="true">✕</span>
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-1 overflow-y-auto px-5 py-2 md:px-0 md:py-0">
+          <div class="hidden items-center justify-between pb-2 md:flex">
+            <h2 class="text-sm font-semibold">Filtros</h2>
+            {
+              activeCount > 0 && (
+                <a href="/catalogo" class="text-xs text-fg-muted underline hover:text-fg">
+                  Limpiar ({activeCount})
+                </a>
+              )
+            }
+          </div>
+
           {
-            activeCount > 0 && (
-              <a href="/catalogo" class="text-xs text-fg-muted underline hover:text-fg">
-                Limpiar ({activeCount})
-              </a>
-            )
+            result.facets
+              .filter((facet) => FACET_NAMES.includes(facet.name as (typeof FACET_NAMES)[number]))
+              .map((facet) => (
+                <FacetAccordion facet={facet} form="plp" label={FACET_LABELS[facet.name]} />
+              ))
           }
         </div>
 
         {
-          result.facets
-            .filter((facet) => FACET_NAMES.includes(facet.name as (typeof FACET_NAMES)[number]))
-            .map((facet) => (
-              <FacetAccordion facet={facet} form="plp" label={FACET_LABELS[facet.name]} />
-            ))
+          /* El pie NO es md:hidden: sin JavaScript, "Aplicar" es la única forma
+            de enviar los filtros, también en desktop. */
         }
-
-        <div class="flex flex-col gap-3 pt-4">
-          <SortSelect value={sort} form="plp" />
-          {/* Visible siempre: es el camino que funciona sin JavaScript. */}
+        <div class="flex flex-col gap-2 border-t border-border px-5 py-4 md:border-0 md:px-0">
+          {
+            activeCount > 0 && (
+              <a
+                href="/catalogo"
+                class="text-center text-xs text-fg-muted underline hover:text-fg md:hidden"
+              >
+                Limpiar filtros ({activeCount})
+              </a>
+            )
+          }
+          {
+            /*
+            "Aplicar" es para quien no tiene JavaScript: con JS los filtros se
+            aplican al tocarlos y el botón sobra, así que el script lo oculta y
+            muestra en su lugar uno que sólo cierra el sheet.
+          */
+          }
           <button
             form="plp"
             type="submit"
+            id="plp-aplicar"
             class="h-10 cursor-pointer rounded-md bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             Aplicar
           </button>
+          <button
+            type="button"
+            id="plp-ver"
+            hidden
+            class="h-10 cursor-pointer rounded-md bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
+          >
+            Ver {result.total}
+            {result.total === 1 ? 'producto' : 'productos'}
+          </button>
         </div>
-      </div>
+      </dialog>
 
       <div class="flex flex-col gap-6">
-        <p class="text-sm text-fg-muted" aria-live="polite">
-          {
-            result.total === 0
-              ? 'No encontramos productos con esos filtros'
-              : `${result.total} ${result.total === 1 ? 'producto' : 'productos'}`
-          }
-        </p>
+        {
+          /* El orden vive en el PLP y no dentro del panel: es una decisión
+            frecuente y no debería exigir abrir un sheet para tomarla. */
+        }
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm text-fg-muted" aria-live="polite">
+            {
+              result.total === 0
+                ? 'No encontramos productos con esos filtros'
+                : `${result.total} ${result.total === 1 ? 'producto' : 'productos'}`
+            }
+          </p>
+          <SortSelect value={sort} form="plp" />
+        </div>
 
         {
           result.total === 0 ? (
@@ -211,68 +265,134 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
 
 <style>
   /*
-   * Mobile: el panel arranca oculto y lo abre el botón. Desktop: siempre
-   * visible y el botón desaparece.
-   * Sin JavaScript el panel queda visible en mobile también — el atributo
-   * hidden lo pone el script, así que el filtrado nunca depende de que cargue.
+   * El panel nace `open`. Sin JavaScript queda abierto y no-modal, o sea
+   * visible dentro del flujo: los filtros siguen alcanzables en mobile, donde
+   * el botón que los abriría no tendría handler.
+   *
+   * `:modal` distingue los dos estados. Ninguna regla declara `display` fuera
+   * de ellos: el navegador oculta un <dialog> cerrado y un `display` suelto le
+   * ganaría, dejando el sheet visible y tapando el botón que debe abrirlo.
    */
   .plp-panel {
+    border: 0;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+  }
+
+  /* Abierto en el flujo: sidebar en desktop, y el fallback sin JavaScript. */
+  .plp-panel[open]:not(:modal) {
     display: flex;
+    flex-direction: column;
+    position: static;
+    margin: 0;
+    width: auto;
+    max-width: none;
+    max-height: none;
+    align-self: start;
   }
-  .plp-panel[hidden] {
-    display: none;
+
+  /* Sheet desde abajo, sólo cuando se abre como modal. */
+  .plp-panel:modal {
+    display: flex;
+    flex-direction: column;
+    margin: auto auto 0;
+    width: 100%;
+    max-width: none;
+    max-height: 85dvh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--color-surface);
+    color: var(--color-fg);
   }
-  @media (min-width: 768px) {
-    .plp-panel,
-    .plp-panel[hidden] {
-      display: flex;
-    }
+
+  .plp-panel::backdrop {
+    background: rgb(0 0 0 / 0.4);
   }
 </style>
 
 <script is:inline>
-  // El panel arranca colapsado en mobile SÓLO si hay JavaScript para reabrirlo.
-  (() => {
-    const boton = document.getElementById('plp-toggle');
-    const panel = document.getElementById('plp-panel');
-    if (!boton || !panel) return;
-    const mobile = window.matchMedia('(max-width: 767px)');
-    const aplicar = () => {
-      if (!mobile.matches) {
-        panel.removeAttribute('hidden');
-        boton.setAttribute('aria-expanded', 'false');
-        return;
-      }
-      panel.hidden = boton.getAttribute('aria-expanded') !== 'true';
-    };
-    boton.addEventListener('click', () => {
-      boton.setAttribute(
-        'aria-expanded',
-        boton.getAttribute('aria-expanded') === 'true' ? 'false' : 'true',
-      );
-      aplicar();
-    });
-    mobile.addEventListener('change', aplicar);
-    aplicar();
-  })();
+  /*
+   * Mejora progresiva. Sin este script el panel queda abierto y no-modal, así
+   * que los filtros se ven y "Aplicar" los envía. Con él, en mobile el panel
+   * pasa a ser un sheet que abre el botón.
+   *
+   * `astro:page-load` y no un listener suelto: ClientRouter reemplaza el DOM al
+   * filtrar, y los nodos capturados una sola vez dejarían de existir.
+   */
+  const CLAVE = 'plp:estado';
 
-  // Mejora progresiva: sin esto el usuario pulsa "Aplicar" y todo funciona igual.
-  addEventListener('change', (event) => {
+  function inicializar() {
+    const panel = document.getElementById('plp-panel');
+    const toggle = document.getElementById('plp-toggle');
+    if (!panel || !toggle) return;
+
+    const mobile = window.matchMedia('(max-width: 767px)');
+    const esSheet = () => panel.open && panel.matches(':modal');
+
+    // Con JavaScript los filtros se aplican al tocarlos: "Aplicar" sobra, y en
+    // su lugar va uno que sólo cierra el sheet.
+    const aplicar = document.getElementById('plp-aplicar');
+    const ver = document.getElementById('plp-ver');
+    if (aplicar) aplicar.hidden = true;
+    if (ver) ver.hidden = false;
+
+    // Invariante: en mobile el panel sólo está abierto como sheet; en desktop
+    // siempre abierto y en el flujo.
+    function sincronizar() {
+      if (mobile.matches) {
+        if (panel.open && !panel.matches(':modal')) panel.close();
+      } else {
+        if (panel.open && panel.matches(':modal')) panel.close();
+        if (!panel.open) panel.show();
+      }
+      toggle.setAttribute('aria-expanded', String(esSheet()));
+    }
+
+    toggle.addEventListener('click', () => {
+      if (!panel.open) panel.showModal();
+      toggle.setAttribute('aria-expanded', 'true');
+    });
+
+    const cerrar = () => panel.open && panel.close();
+    document.getElementById('plp-cerrar')?.addEventListener('click', cerrar);
+    ver?.addEventListener('click', cerrar);
+    panel.addEventListener('close', sincronizar);
+    mobile.addEventListener('change', sincronizar);
+
+    sincronizar();
+
+    // ClientRouter reemplaza el DOM: sin esto, tocar un filtro cierra el sheet
+    // y manda el scroll y el foco al principio.
+    const crudo = sessionStorage.getItem(CLAVE);
+    if (crudo) {
+      sessionStorage.removeItem(CLAVE);
+      const estado = JSON.parse(crudo);
+      if (estado.sheet && mobile.matches && !panel.matches(':modal')) {
+        panel.close();
+        panel.showModal();
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+      window.scrollTo({ top: estado.y ?? 0, behavior: 'instant' });
+      // Sin preventScroll el foco vuelve a desplazar la página.
+      if (estado.id) document.getElementById(estado.id)?.focus({ preventScroll: true });
+    }
+  }
+
+  function alCambiarFiltro(event) {
     const target = event.target;
     if (!target || !target.form || target.form.id !== 'plp') return;
-    // ClientRouter hace scrollTo(0,0) y manda el foco al body al navegar; se
-    // guarda a dónde volver antes de que eso pase.
-    sessionStorage.setItem('plp:restaurar', JSON.stringify({ id: target.id, y: window.scrollY }));
+    const panel = document.getElementById('plp-panel');
+    sessionStorage.setItem(
+      CLAVE,
+      JSON.stringify({
+        id: target.id,
+        y: window.scrollY,
+        sheet: Boolean(panel && panel.open && panel.matches(':modal')),
+      }),
+    );
     target.form.requestSubmit();
-  });
+  }
 
-  addEventListener('astro:after-swap', () => {
-    const raw = sessionStorage.getItem('plp:restaurar');
-    if (!raw) return;
-    sessionStorage.removeItem('plp:restaurar');
-    const { id, y } = JSON.parse(raw);
-    window.scrollTo({ top: y, behavior: 'instant' });
-    // Sin preventScroll el foco vuelve a desplazar la página.
-    if (id) document.getElementById(id)?.focus({ preventScroll: true });
-  });
+  document.addEventListener('astro:page-load', inicializar);
+  addEventListener('change', alCambiarFiltro);
 </script>
