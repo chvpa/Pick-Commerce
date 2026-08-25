@@ -22,6 +22,27 @@ tocar código:
 `main` es la rama estable y debe quedar siempre desplegable. El trabajo va en
 ramas cortas (`feat/`, `fix/`, `chore/`) que se integran por PR con CI en verde.
 
+## Trabajar en otra máquina
+
+`git clone` (o `pull`) más `pnpm install` deja el repo compilando y testeando.
+Dos cosas no viajan por git:
+
+1. **`.env`** — está en `.gitignore` a propósito: contiene la secret key de
+   Supabase, que saltea RLS. Copiarlo por un canal privado, o regenerarlo desde
+   [.env.example](.env.example) con las credenciales del proyecto Supabase.
+2. **Los navegadores de Playwright** — se instalan a nivel de usuario, no del
+   repo:
+
+   ```bash
+   pnpm exec playwright install chromium
+   ```
+
+Sin el `.env` todo funciona igual por ahora: ningún código lee Supabase todavía,
+eso llega en Fase 3. Sin los navegadores falla `pnpm e2e`, no el resto.
+
+Para desplegar desde local hace falta además `wrangler login`. No es necesario
+para el deploy automático, que corre en Workers Builds al hacer push.
+
 ## Requisitos
 
 - Node >= 22 (el repo se desarrolla sobre 24)
@@ -48,9 +69,14 @@ También `pnpm dev:demo` / `pnpm dev:admin` por separado.
 pnpm lint          # ESLint en todo el workspace
 pnpm typecheck     # tsc / astro check por paquete
 pnpm test          # node:test (sin runner externo)
+pnpm e2e           # Playwright: navegación en desktop y mobile
 pnpm build         # build de apps y paquetes
 pnpm format        # Prettier
 ```
+
+`pnpm e2e` construye el storefront y lo sirve con workerd antes de correr: prueba
+el artefacto que se despliega, no el dev server. Falla ante cualquier error de
+consola o respuesta HTTP >= 400 durante la navegación.
 
 Base de datos (requiere Docker para el stack local):
 
