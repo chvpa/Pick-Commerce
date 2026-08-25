@@ -113,7 +113,9 @@ test('agregar al carrito abre el drawer y persiste al navegar', async ({ page })
 
   // El carrito es un MPA: sin persistencia se vaciaría acá (ADR-039).
   await page.goto('/catalogo');
-  await expect(page.getByRole('button', { name: /Carrito/ })).toContainText('1');
+  // El control del carrito es un link, no un botón: sin JavaScript sigue
+  // llevando a /carrito en vez de ser un control muerto.
+  await expect(page.getByRole('link', { name: /Carrito/ })).toContainText('1');
 
   expect(problemasDe(page)).toEqual([]);
 });
@@ -153,4 +155,72 @@ test('el panel de filtros se ve en desktop y se colapsa en mobile', async ({ pag
   }
 
   expect(problemasDe(page)).toEqual([]);
+});
+
+test('el carrito tiene página propia y funciona sin JavaScript', async ({ browser }) => {
+  const contexto = await browser.newContext({ javaScriptEnabled: false });
+  const page = await contexto.newPage();
+
+  await page.goto('/');
+  // Sin hidratar, el control del header es un link que lleva a la página.
+  await page.getByRole('link', { name: /Carrito/ }).click();
+  await expect(page).toHaveURL(/\/carrito/);
+  await expect(page.getByRole('heading', { name: 'Tu carrito' })).toBeVisible();
+
+  await contexto.close();
+});
+
+test('SEO: canonical absoluto, Open Graph y JSON-LD coherentes', async ({ page }) => {
+  await page.goto('/productos/campera-cortaviento');
+
+  const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
+  const ogUrl = await page.locator('meta[property="og:url"]').getAttribute('content');
+
+  // Absoluto: un canonical relativo lo ignora el buscador.
+  expect(canonical).toMatch(/^https?:\/\//);
+  // Las tres fuentes deben decir la misma URL o el buscador recibe señales
+  // contradictorias sobre cuál es la página.
+  expect(ogUrl).toBe(canonical);
+
+  const ld = JSON.parse(
+    (await page.locator('script[type="application/ld+json"]').first().textContent()) ?? '{}',
+  );
+  expect(ld['@type']).toBe('Product');
+  expect(ld.url).toBe(canonical);
+  expect(ld.offers.length).toBeGreaterThan(0);
+
+  await expect(page.locator('meta[property="og:image"]')).toHaveCount(1);
+
+  expect(problemasDe(page)).toEqual([]);
+});
+
+test('las páginas que anuncia llms.txt existen', async ({ page, request }) => {
+  const llms = await request.get('/llms.txt');
+  expect(llms.status()).toBe(200);
+
+  const rutas = [...(await llms.text()).matchAll(/\]\((https?:[^)]+)\)/g)].map((m) => m[1]!);
+  expect(rutas.length).toBeGreaterThan(3);
+
+  for (const url of rutas) {
+    // Se prueba la ruta contra el server local, no el dominio de producción.
+    const { pathname, search } = new URL(url);
+    const res = await request.get(`${pathname}${search}`);
+    expect(res.status(), `${pathname}${search} está roto`).toBeLessThan(400);
+  }
+
+  expect(problemasDe(page)).toEqual([]);
+});
+
+test('robots.txt deja entrar a los crawlers de IA y apunta al sitemap', async ({ request }) => {
+  const res = await request.get('/robots.txt');
+  expect(res.status()).toBe(200);
+  const txt = await res.text();
+
+  expect(txt).toContain('Sitemap:');
+  // El default es permitir: ningún crawler de IA bloqueado por nombre.
+  expect(txt).not.toContain('User-agent: GPTBot');
+  expect(txt).toContain('Disallow: /carrito');
+
+  const sitemap = await request.get('/sitemap-index.xml');
+  expect(sitemap.status()).toBe(200);
 });

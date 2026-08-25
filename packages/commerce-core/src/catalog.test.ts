@@ -114,3 +114,31 @@ test('un filtro sin resultados devuelve vacío pero conserva las facetas', () =>
   // Sin facetas el usuario no podría deshacer el filtro desde la UI.
   assert.ok(r.facets.length > 0);
 });
+
+test('la categoría es una faceta de producto, como la marca', () => {
+  const conCategoria: Product[] = [
+    { ...catalog[0]!, categoryId: 'camperas' },
+    { ...catalog[1]!, categoryId: 'camperas' },
+    { ...catalog[2]!, categoryId: 'calzado' },
+  ];
+
+  assert.deepEqual(
+    queryCatalog(conCategoria, { filters: { categoria: ['calzado'] } }).items.map((p) => p.id),
+    ['p3'],
+  );
+
+  const facetas = buildFacets(conCategoria);
+  const categoria = facetas.find((f) => f.name === 'categoria');
+  assert.deepEqual(categoria?.values, [
+    { value: 'camperas', count: 2, selected: false },
+    { value: 'calzado', count: 1, selected: false },
+  ]);
+});
+
+test('un producto sin categoría no rompe la faceta', () => {
+  // El catálogo base no declara categoryId en ningún producto.
+  assert.equal(
+    buildFacets(catalog).find((f) => f.name === 'categoria'),
+    undefined,
+  );
+});

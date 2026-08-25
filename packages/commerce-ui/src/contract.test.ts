@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -39,9 +39,17 @@ test('toda island Preact acepta className', () => {
   );
 });
 
+/**
+ * Componentes que no renderizan nada visible: emiten `<meta>`, `<link>` o
+ * `<script>` dentro del `<head>`. No hay superficie que estilar, así que
+ * exigirles `className` sería exigir una prop muerta.
+ */
+const SIN_SUPERFICIE_VISIBLE = ['seo'];
+
 test('todo componente .astro acepta class y lo combina con cn', () => {
   const problemas: string[] = [];
   for (const f of archivos(RAIZ_ASTRO, '.astro')) {
+    if (SIN_SUPERFICIE_VISIBLE.some((dir) => f.includes(`${dir}${sep}`))) continue;
     const src = readFileSync(f, 'utf8');
     if (!src.includes('class?: string')) problemas.push(`${f}: no declara class`);
     // `cn` resuelve el conflicto; sin él el override del consumidor es incierto.

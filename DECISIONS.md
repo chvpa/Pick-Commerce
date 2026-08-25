@@ -1239,3 +1239,96 @@ cargue el script.
 CSS puede ocultar lo que el navegador muestra, pero no mostrar lo que el
 navegador oculta por estado del DOM. Un truco CSS sobre `<details>`, `<dialog>`
 o `<select>` sólo funciona en una dirección.
+
+---
+
+## ADR-046 — GEO: el JSON-LD lo genera el Core y no puede afirmar lo que no sabe
+
+**Fecha:** 2026-08-24
+**Estado:** Accepted
+
+**Contexto**
+Los motores generativos —ChatGPT, Perplexity, los resúmenes de IA de Google—
+son un canal de descubrimiento de producto, no una curiosidad. Optimizar para
+que entiendan el catálogo (GEO) es parte del valor de Pick Commerce, no un
+extra.
+
+**Ventaja que ya teníamos sin nombrarla**
+La mayoría de los crawlers de IA **no ejecutan JavaScript**. Un storefront hecho
+como SPA es casi invisible para ellos. El nuestro sirve todo el contenido en
+HTML desde el servidor (ADR-032), así que la base de GEO ya estaba puesta.
+
+**Decisión**
+El JSON-LD se genera en `@pick/commerce-core` a partir de los tipos del
+dominio, no se escribe a mano en cada página. Es un objeto plano, así que se
+testea.
+
+**La regla que no se negocia:** el JSON-LD no puede afirmar lo que no sabemos.
+Una oferta por variante con su SKU, su precio y su disponibilidad reales; nada
+de rangos inventados ni de `InStock` por defecto. Un `availability` falso es una
+promesa rota a un buscador, y en comercio eso termina en un cliente enojado.
+
+Cubierto: `Product` con `Offer` por variante, `ItemList` en la PLP,
+`Organization` en la home, `BreadcrumbList` en el PDP y `FAQPage` en las
+preguntas frecuentes — este último es el que más aprovecha un motor generativo,
+porque entrega pares pregunta/respuesta ya delimitados.
+
+**`llms.txt`**
+Se publica según llmstxt.org. **No lista los productos**: el spec pide contenido
+curado y un catálogo real haría un archivo inmanejable. Lista las entradas al
+catálogo y las categorías; el detalle de cada producto ya está en el JSON-LD de
+su PDP. Las versiones `.md` por página quedan fuera hasta tener evidencia de que
+los motores las consumen.
+
+**Corrección de una premisa**
+Se creía que Cloudflare convertía las páginas a markdown para IA. No lo hace:
+AI Crawl Control es control y monitoreo —permitir o bloquear crawlers, ver
+cuáles acceden, cobrar por crawl— no conversión de formato. El trabajo de GEO
+es nuestro.
+
+---
+
+## ADR-047 — Crawlers de IA permitidos por defecto, con flag por tenant
+
+**Fecha:** 2026-08-24
+**Estado:** Accepted
+
+**Decisión**
+`robots.txt` deja entrar a los crawlers de IA por defecto. El comercio que no lo
+quiera lo apaga con `features.allowAiCrawlers`.
+
+**Por qué ese default**
+Un comercio quiere que le encuentren los productos. La visibilidad en respuestas
+de IA vale más que el riesgo de que le lean el catálogo, que además es público.
+
+**Por qué es un flag y no una constante**
+Es una decisión comercial del comercio, no técnica. Un mayorista con precios
+sensibles puede querer lo contrario, y la regla del repo dice que lo
+configurable va detrás de un flag.
+
+**Detalle de implementación que importa**
+Bloquear requiere un bloque `User-agent:` **por cada bot**. Un `User-agent: *`
+no alcanza: varios sólo obedecen una regla dirigida a su propio nombre. Hay un
+test que lo fija.
+
+---
+
+## ADR-048 — Una sola forma de URL en canonical, og:url, sitemap y JSON-LD
+
+**Fecha:** 2026-08-24
+**Estado:** Accepted
+
+**Qué se rompió**
+El canonical, el `og:url` y el sitemap emitían `/productos/x/` con barra final
+—el default de Astro con `build.format: 'directory'`— mientras el JSON-LD decía
+`/productos/x`. Dos URLs distintas para la misma página: el buscador recibe
+señales contradictorias sobre cuál indexar.
+
+**Decisión**
+`SeoContexto` declara `trailingSlash` y el Core construye todas sus URLs con esa
+política. Un archivo con extensión y una ruta con query nunca la llevan.
+
+**Además**
+Las combinaciones de filtros del catálogo salen con `noindex,follow`. Indexarlas
+multiplicaría URLs casi idénticas y dispersaría la autoridad del catálogo;
+`follow` deja que los productos se sigan descubriendo desde ahí.

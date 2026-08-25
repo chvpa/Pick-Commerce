@@ -1,0 +1,22 @@
+---
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import { CartView } from '@pick/commerce-ui/cart/CartView';
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Carrito · Pick Demo" description="Los productos que agregaste a tu carrito." noindex>
+  <Container class="flex max-w-3xl flex-col gap-6 py-12">
+    <h1 class="font-display text-2xl font-semibold tracking-tight">Tu carrito</h1>
+
+    {
+      /*
+      `client:load` y no `client:idle`: quien entra a esta página viene a ver el
+      carrito, así que su contenido no puede esperar a que el browser se
+      desocupe. El HTML del servidor no lo conoce, vive en localStorage.
+    */
+    }
+    <div class="rounded-md border border-border">
+      <CartView client:load />
+    </div>
+  </Container>
+</Base>

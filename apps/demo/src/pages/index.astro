@@ -3,6 +3,7 @@ import Hero from '@pick/commerce-astro/content/Hero.astro';
 import Banner from '@pick/commerce-astro/content/Banner.astro';
 import CategorySection from '@pick/commerce-astro/content/CategorySection.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
+import JsonLd from '@pick/commerce-astro/seo/JsonLd.astro';
 import Price from '@pick/commerce-astro/product/Price.astro';
 import ProductCard from '@pick/commerce-astro/product/ProductCard.astro';
 import ProductCardBody from '@pick/commerce-astro/product/ProductCardBody.astro';
@@ -10,6 +11,8 @@ import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astr
 import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
 import ProductCarousel from '@pick/commerce-astro/product/ProductCarousel.astro';
 import { buttonVariants } from '@pick/commerce-ui';
+import { organizationJsonLd } from '@pick/commerce-core';
+import { seoContexto } from '../lib/store-config.ts';
 import Base from '../layouts/Base.astro';
 import { mockCategories, mockProducts } from '../lib/mock-catalog.ts';
 
@@ -17,9 +20,12 @@ const featured = mockProducts.filter((p) => p.variants.some((v) => v.compareAtPr
 ---
 
 <Base
-  title="Pick Demo · Storefront"
-  description="Storefront demo de Pick Commerce sobre catálogo mock."
+  title="Pick Demo · Ropa técnica para todos los días"
+  description="Camperas, calzado y accesorios técnicos. Envío a todo el país."
+  image="/products/campera-2.jpg"
+  imageAlt="Campera cortaviento"
 >
+  <JsonLd slot="head" data={organizationJsonLd(seoContexto)} />
   <Banner href="/catalogo">Envío gratis en compras superiores a Gs. 500.000</Banner>
 
   <Container class="py-8">

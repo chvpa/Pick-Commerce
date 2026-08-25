@@ -1,5 +1,6 @@
 ---
 import Badge from '@pick/commerce-astro/primitives/Badge.astro';
+import JsonLd from '@pick/commerce-astro/seo/JsonLd.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import FacetAccordion from '@pick/commerce-astro/catalog/FacetAccordion.astro';
 import Pagination from '@pick/commerce-astro/catalog/Pagination.astro';
@@ -11,7 +12,8 @@ import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astr
 import ProductGrid from '@pick/commerce-astro/product/ProductGrid.astro';
 import SearchInput from '@pick/commerce-astro/catalog/SearchInput.astro';
 import SortSelect from '@pick/commerce-astro/catalog/SortSelect.astro';
-import { queryCatalog, type CatalogSort } from '@pick/commerce-core';
+import { itemListJsonLd, queryCatalog, type CatalogSort } from '@pick/commerce-core';
+import { seoContexto } from '../lib/store-config.ts';
 import { ClientRouter } from 'astro:transitions';
 import Base from '../layouts/Base.astro';
 import { mockProducts } from '../lib/mock-catalog.ts';
@@ -22,8 +24,9 @@ import { mockProducts } from '../lib/mock-catalog.ts';
  */
 export const prerender = false;
 
-const FACET_NAMES = ['brand', 'color', 'size'] as const;
+const FACET_NAMES = ['categoria', 'brand', 'color', 'size'] as const;
 const FACET_LABELS: Record<string, string> = {
+  categoria: 'Categoría',
   brand: 'Marca',
   color: 'Color',
   size: 'Talle',
@@ -49,6 +52,16 @@ for (const name of FACET_NAMES) {
 
 const result = queryCatalog(mockProducts, { filters, sort, search, page, perPage: PER_PAGE });
 const activeCount = Object.values(filters).reduce((n, values) => n + values.length, 0);
+
+const jsonLd = itemListJsonLd(result.items, seoContexto, 'Catálogo');
+
+/*
+ * Una combinación de filtros no es una página nueva: indexarlas multiplica
+ * URLs casi idénticas y dispersa la autoridad del catálogo. Se indexa el
+ * catálogo limpio y nada más; `follow` deja que los productos sigan
+ * descubriéndose desde acá.
+ */
+const noindex = activeCount > 0 || search !== '' || page > 1;
 ---
 
 {
@@ -61,8 +74,10 @@ const activeCount = Object.values(filters).reduce((n, values) => n + values.leng
 }
 <Base
   title={`Catálogo (${result.total}) · Pick Demo`}
-  description="Catálogo completo del storefront demo."
+  description="Catálogo completo: filtrá por marca, color y talle, con precios y disponibilidad."
+  noindex={noindex}
 >
+  <JsonLd slot="head" data={jsonLd} />
   <ClientRouter />
   <Container class="flex flex-col gap-6 py-10">
     <div class="flex flex-col gap-4">

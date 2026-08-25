@@ -1,8 +1,11 @@
 ---
 import Breadcrumb from '@pick/commerce-astro/navigation/Breadcrumb.astro';
+import JsonLd from '@pick/commerce-astro/seo/JsonLd.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import ProductGallery from '@pick/commerce-astro/product/ProductGallery.astro';
 import { ProductPurchase } from '@pick/commerce-ui/product/ProductPurchase';
+import { productJsonLd } from '@pick/commerce-core';
+import { seoContexto } from '../../lib/store-config.ts';
 import Base from '../../layouts/Base.astro';
 import { mockProducts } from '../../lib/mock-catalog.ts';
 
@@ -17,9 +20,20 @@ const { product } = Astro.props;
 
 /* Los swatches los aporta el storefront: el catálogo guarda "Azul", no un hex. */
 const COLOR_SWATCHES = { Azul: '#2f4858', Negro: '#26262b', Blanco: '#e8e6e1', Verde: '#3f5f46' };
+
+/* Una oferta por variante, con su precio y stock reales. Ver ADR-047. */
+const jsonLd = productJsonLd(product, seoContexto);
 ---
 
-<Base title={`${product.title} · Pick Demo`} description={product.description}>
+<Base
+  title={`${product.title} · Pick Demo`}
+  description={product.description ??
+    `${product.title}${product.brand ? ` de ${product.brand}` : ''}. Comprá online con envío a todo el país.`}
+  image={product.images[0]?.url}
+  imageAlt={product.images[0]?.alt}
+  type="product"
+>
+  <JsonLd slot="head" data={jsonLd} />
   <Container class="py-6">
     <Breadcrumb items={[{ label: 'Catálogo', href: '/' }, { label: product.title }]} />
   </Container>

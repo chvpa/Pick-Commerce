@@ -24,7 +24,9 @@
     "./catalog/FacetAccordion.astro": "./src/catalog/FacetAccordion.astro",
     "./catalog/SearchInput.astro": "./src/catalog/SearchInput.astro",
     "./catalog/Pagination.astro": "./src/catalog/Pagination.astro",
-    "./catalog/SortSelect.astro": "./src/catalog/SortSelect.astro"
+    "./catalog/SortSelect.astro": "./src/catalog/SortSelect.astro",
+    "./seo/SeoHead.astro": "./src/seo/SeoHead.astro",
+    "./seo/JsonLd.astro": "./src/seo/JsonLd.astro"
   },
   "scripts": {
     "typecheck": "astro check"

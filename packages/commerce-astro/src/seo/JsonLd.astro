@@ -1,0 +1,16 @@
+---
+interface Props {
+  data: Record<string, unknown>;
+}
+
+const { data } = Astro.props;
+---
+
+{
+  /*
+  `set:html` con JSON.stringify: Astro no debe escapar el contenido de un
+  script de datos, y JSON.stringify ya garantiza que el resultado sea JSON
+  válido. `is:inline` evita que el bundler lo procese como módulo.
+*/
+}
+<script type="application/ld+json" set:html={JSON.stringify(data)} is:inline />

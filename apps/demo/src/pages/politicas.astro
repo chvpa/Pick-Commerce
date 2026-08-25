@@ -1,0 +1,25 @@
+---
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import Base from '../layouts/Base.astro';
+import { POLITICAS } from '../lib/contenido.ts';
+---
+
+<Base
+  title="Políticas · Pick Demo"
+  description="Políticas de envío, cambios, devoluciones y privacidad."
+>
+  <Container class="flex max-w-3xl flex-col gap-10 py-12">
+    <h1 class="font-display text-2xl font-semibold tracking-tight">Políticas</h1>
+
+    {
+      POLITICAS.map((seccion) => (
+        <section class="flex flex-col gap-3">
+          <h2 class="text-lg font-semibold">{seccion.titulo}</h2>
+          {seccion.parrafos.map((p) => (
+            <p class="max-w-prose text-fg-muted">{p}</p>
+          ))}
+        </section>
+      ))
+    }
+  </Container>
+</Base>

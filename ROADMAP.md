@@ -116,26 +116,26 @@ Objetivo: construir los LEGO visuales reutilizables.
 
 ## Fase 2 — Storefront Shell
 
-**Avance: 0%**
+**Avance: 80%**
 
 Objetivo: storefront Astro funcional y rápido.
 
-- [ ] Configurar Astro.
-- [ ] Configurar Preact islands.
-- [ ] Implementar Home.
-- [ ] Implementar Collection/PLP.
-- [ ] Implementar Product/PDP.
-- [ ] Implementar Search.
-- [ ] Implementar paginación/incremental loading del PLP.
-- [ ] Evitar full page reload al filtrar/ordenar.
-- [ ] Implementar Cart.
+- [x] Configurar Astro.
+- [x] Configurar Preact islands.
+- [x] Implementar Home.
+- [x] Implementar Collection/PLP.
+- [x] Implementar Product/PDP.
+- [x] Implementar Search. Form GET nativo, busca en título, marca y SKU.
+- [x] Implementar paginación/incremental loading del PLP.
+- [x] Evitar full page reload al filtrar/ordenar. ClientRouter acotado a la PLP.
+- [x] Implementar Cart. Drawer y página `/carrito`, con el mismo contenido compartido.
 - [ ] Implementar Checkout shell.
 - [ ] Implementar Account shell.
-- [ ] Implementar Policies/FAQ.
-- [ ] Implementar 404.
-- [ ] Implementar metadata SEO.
-- [ ] Implementar JSON-LD base.
-- [ ] Implementar sitemap/robots/canonical.
+- [x] Implementar Policies/FAQ. El FAQ emite `FAQPage`.
+- [x] Implementar 404.
+- [x] Implementar metadata SEO. Canonical absoluto, Open Graph y Twitter Card.
+- [x] Implementar JSON-LD base. Product, ItemList, Organization, BreadcrumbList y FAQPage, generados en el core y testeados.
+- [x] Implementar sitemap/robots/canonical. Con política de crawlers de IA por flag y `llms.txt`.
 - [ ] Definir budgets de performance razonables.
 - [ ] Verificar que sólo los componentes interactivos hidratan.
 
@@ -688,6 +688,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-23 | Fase 1: PLP sin full reload con ClientRouter acotado, drawer mobile sin JS, y JS del storefront reducido 27%                                                                            | Fase 1 |          88% |            92% |
 | 2026-08-23 | Fase 1 cerrada: shadcn sobre Base UI en el Admin, contrato de customización fijado con test, y regresión de tokens corregida                                                            | Fase 1 |          92% |           100% |
 | 2026-08-24 | Smoke de navegación con Playwright en CI; corregido el panel de filtros invisible en desktop                                                                                            | Fase 1 |         100% |           100% |
+| 2026-08-24 | Fase 2: SEO y GEO (canonical, Open Graph, JSON-LD, sitemap, robots, llms.txt), 404, políticas, FAQ y página de carrito                                                                  | Fase 2 |           0% |            80% |
 
 ---
 

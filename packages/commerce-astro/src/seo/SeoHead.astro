@@ -1,0 +1,56 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+  /** URL absoluta del sitio. Sin esto el canonical sale relativo y se ignora. */
+  siteUrl: string;
+  storeName: string;
+  /** Ruta o URL de la imagen para compartir. Se absolutiza contra `siteUrl`. */
+  image?: string;
+  imageAlt?: string;
+  type?: 'website' | 'article' | 'product';
+  locale?: string;
+  /** `true` en páginas que no deben indexarse: resultados filtrados, carrito. */
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description,
+  siteUrl,
+  storeName,
+  image,
+  imageAlt,
+  type = 'website',
+  locale = 'es_PY',
+  noindex = false,
+} = Astro.props;
+
+/*
+ * El canonical se arma con la ruta, nunca con la URL completa: si incluyera los
+ * search params, cada combinación de filtros sería una página distinta para el
+ * buscador y se dispersaría la autoridad del catálogo.
+ */
+const canonical = new URL(Astro.url.pathname, siteUrl).href;
+const imagenAbsoluta = image ? new URL(image, siteUrl).href : undefined;
+---
+
+<title>{title}</title>
+{description && <meta name="description" content={description} />}
+<link rel="canonical" href={canonical} />
+{noindex && <meta name="robots" content="noindex,follow" />}
+
+{/* Open Graph: sin esto, compartir un producto no muestra ni imagen ni título. */}
+<meta property="og:type" content={type} />
+<meta property="og:title" content={title} />
+<meta property="og:url" content={canonical} />
+<meta property="og:site_name" content={storeName} />
+<meta property="og:locale" content={locale} />
+{description && <meta property="og:description" content={description} />}
+{imagenAbsoluta && <meta property="og:image" content={imagenAbsoluta} />}
+{imagenAbsoluta && imageAlt && <meta property="og:image:alt" content={imageAlt} />}
+
+<meta name="twitter:card" content={imagenAbsoluta ? 'summary_large_image' : 'summary'} />
+<meta name="twitter:title" content={title} />
+{description && <meta name="twitter:description" content={description} />}
+{imagenAbsoluta && <meta name="twitter:image" content={imagenAbsoluta} />}

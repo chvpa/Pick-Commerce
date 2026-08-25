@@ -34,8 +34,12 @@ export interface CatalogResult {
   readonly pageCount: number;
 }
 
-/** Faceta derivada del producto, no de sus variantes. */
+/**
+ * Facetas que salen del producto, no de sus variantes.
+ * El resto se proyecta desde los atributos de las variantes.
+ */
 const BRAND = 'brand';
+const CATEGORY = 'categoria';
 
 const DEFAULT_PER_PAGE = 24;
 
@@ -50,6 +54,7 @@ export function lowestPrice(product: Product): Money | undefined {
 
 function valuesFor(product: Product, name: string): string[] {
   if (name === BRAND) return product.brand ? [product.brand] : [];
+  if (name === CATEGORY) return product.categoryId ? [product.categoryId] : [];
 
   const values: string[] = [];
   for (const variant of product.variants) {
@@ -95,6 +100,7 @@ export function buildFacets(
   const names: string[] = [];
   for (const product of products) {
     if (product.brand && !names.includes(BRAND)) names.push(BRAND);
+    if (product.categoryId && !names.includes(CATEGORY)) names.push(CATEGORY);
     for (const variant of product.variants) {
       for (const name of Object.keys(variant.attributes)) {
         if (!names.includes(name)) names.push(name);

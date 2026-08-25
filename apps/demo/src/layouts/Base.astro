@@ -1,20 +1,27 @@
 ---
 import Header from '@pick/commerce-astro/layout/Header.astro';
 import Footer from '@pick/commerce-astro/layout/Footer.astro';
-/* Import por subpath, no desde el barrel: si entran por `@pick/commerce-ui`
-   Vite las mete a todas en un solo chunk y cada página descarga las islands
-   que no usa. */
+import SeoHead from '@pick/commerce-astro/seo/SeoHead.astro';
+/* Las islands entran por subpath, no por el barrel: si entran por
+   `@pick/commerce-ui`, Vite las mete a todas en un solo chunk y cada página
+   descarga las que no usa. Ver ADR-040. */
 import { CartButton } from '@pick/commerce-ui/cart/CartButton';
 import { CartDrawer } from '@pick/commerce-ui/cart/CartDrawer';
+import { seoContexto } from '../lib/store-config.ts';
 import '../styles/global.css';
 
 interface Props {
   title: string;
   description?: string;
+  /** Imagen para compartir. Sin ella el link sale sin miniatura. */
+  image?: string;
+  imageAlt?: string;
+  type?: 'website' | 'article' | 'product';
+  noindex?: boolean;
 }
 
-const { title, description } = Astro.props;
-const STORE_NAME = 'Pick Demo';
+const { title, description, image, imageAlt, type, noindex } = Astro.props;
+const STORE_NAME = seoContexto.storeName;
 ---
 
 <!doctype html>
@@ -22,9 +29,17 @@ const STORE_NAME = 'Pick Demo';
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
-    {description && <meta name="description" content={description} />}
-    <link rel="canonical" href={Astro.url.pathname} />
+    <SeoHead
+      title={title}
+      description={description}
+      siteUrl={seoContexto.siteUrl}
+      storeName={STORE_NAME}
+      image={image}
+      imageAlt={imageAlt}
+      type={type}
+      noindex={noindex}
+    />
+    <slot name="head" />
   </head>
   <body class="flex min-h-dvh flex-col bg-surface text-fg antialiased">
     <Header storeName={STORE_NAME}>
@@ -37,7 +52,22 @@ const STORE_NAME = 'Pick Demo';
       <slot />
     </main>
 
-    <Footer storeName={STORE_NAME} />
+    <Footer storeName={STORE_NAME}>
+      <nav aria-label="Enlaces del pie" class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+        <a href="/catalogo" class="cursor-pointer text-fg-muted hover:text-fg hover:underline">
+          Catálogo
+        </a>
+        <a
+          href="/preguntas-frecuentes"
+          class="cursor-pointer text-fg-muted hover:text-fg hover:underline"
+        >
+          Preguntas frecuentes
+        </a>
+        <a href="/politicas" class="cursor-pointer text-fg-muted hover:text-fg hover:underline">
+          Políticas
+        </a>
+      </nav>
+    </Footer>
 
     {/* Vive en el layout, no en el PDP: se abre desde cualquier página. */}
     <CartDrawer client:idle />
