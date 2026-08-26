@@ -20,7 +20,7 @@
 
 | Versión | Objetivo                                    |      Estado | Avance |
 | ------- | ------------------------------------------- | ----------: | -----: |
-| v1      | Commerce Core vendible + primer piloto real | IN PROGRESS |    24% |
+| v1      | Commerce Core vendible + primer piloto real | IN PROGRESS |    32% |
 | v2      | Operación avanzada, AI Commerce y escala    |        TODO |     0% |
 | v3      | MCP, intelligence layer y expansión LATAM   |        TODO |     0% |
 
@@ -149,7 +149,7 @@ Objetivo: storefront Astro funcional y rápido.
 
 ## Fase 3 — Multitenancy, Auth y Domain Model
 
-**Avance: 65%**
+**Avance: 100%**
 
 Objetivo: modelo de datos y autorización confiables.
 
@@ -160,12 +160,12 @@ Objetivo: modelo de datos y autorización confiables.
 - [x] Crear roles/permissions. Permisos como datos, no como comparación de roles.
 - [x] Crear feature flags. Por organización o por tienda.
 - [x] Crear store settings.
-- [ ] Configurar Supabase Auth.
+- [x] Configurar Supabase Auth. Login con estados de pending y error, sesión observada desde el adapter.
 - [x] Configurar RLS. Todas las tablas cerradas por defecto. Verificado en CI con PGlite y, aparte, contra el proyecto real con JWTs de Supabase Auth.
-- [ ] Implementar tenant resolution.
+- [x] Implementar tenant resolution. Normalización de dominio en el core, con tests; la consulta en el adapter.
 - [x] Crear audit log base. Sólo lectura desde la app: un registro que el actor puede reescribir no sirve como evidencia.
-- [~] Definir Domain Services. Contratos de autorización (`can`, `assertCan`, `assertSameTenant`) listos; los servicios por entidad llegan con Fase 4.
-- [ ] Evitar acceso directo descontrolado del Admin a tablas sensibles.
+- [x] Definir Domain Services. Autorización (`can`, `assertCan`, `assertSameTenant`) y contratos de repositorio; los servicios por entidad llegan con Fase 4.
+- [x] Evitar acceso directo descontrolado del Admin a tablas sensibles. El Admin no importa `@supabase/supabase-js` y sólo usa la publishable key; la secret key no puede existir en su bundle.
 
 **Definition of Done**
 
@@ -693,6 +693,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-24 | Fase 2 cerrada: buscador y orden del header, presupuesto de performance en CI, baseline de CWV                                                                                          | Fase 2 |          85% |           100% |
 | 2026-08-24 | Fase 3: schema multitenant, RLS y pruebas de aislamiento sobre Postgres en proceso                                                                                                      | Fase 3 |           0% |            55% |
 | 2026-08-24 | Migración aplicada al proyecto Supabase y aislamiento verificado con JWTs reales                                                                                                        | Fase 3 |          55% |            65% |
+| 2026-08-24 | Fase 3 cerrada: adapter de Supabase, resolución de tenant y Auth en el Admin                                                                                                            | Fase 3 |          65% |           100% |
 
 ---
 

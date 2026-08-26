@@ -2,3 +2,4 @@ dist
 .astro
 .wrangler
 pnpm-lock.yaml
+*.generated.ts

@@ -1,0 +1,22 @@
+{
+  "name": "@pick/adapter-supabase",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@pick/commerce-core": "workspace:*",
+    "@pick/commerce-types": "workspace:*",
+    "@supabase/supabase-js": "^2.112.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^6.0.3"
+  }
+}

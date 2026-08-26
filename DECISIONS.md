@@ -1561,3 +1561,47 @@ versión de Supabase.
 **Además**
 Se quitó la extensión `pgcrypto`: `gen_random_uuid()` está en el core de
 Postgres desde la 13, así que era una dependencia que no hacía falta.
+
+---
+
+## ADR-054 — El adapter no filtra Supabase al resto de la aplicación
+
+**Fecha:** 2026-08-24
+**Estado:** Accepted — implementa ADR-052
+
+**Decisión**
+`@pick/adapter-supabase` expone tres clientes, y cada uno declara qué protege:
+
+| Cliente             | Key               | Qué lo protege                                 |
+| ------------------- | ----------------- | ---------------------------------------------- |
+| `clienteDeBrowser`  | publishable       | RLS. Persiste sesión; es el del Admin.         |
+| `clienteDeUsuario`  | publishable + JWT | RLS. Para render server-side con identidad.    |
+| `clienteDeServidor` | **secret**        | Nada: saltea RLS. Sólo el servicio de dominio. |
+
+`clienteDeServidor` **lanza si se lo crea en el browser**. No es paranoia: basta
+un import mal ubicado para que un bundler meta la secret key en el bundle del
+cliente, y ese error no lo detecta ni el typecheck ni el lint. Hay un test que
+lo verifica simulando `window`.
+
+**Ni el Admin ni el storefront importan `@supabase/supabase-js`.** El primer
+intento hacía que el Admin importara el tipo `Session` del SDK, lo que habría
+filtrado el tipo del proveedor a toda la aplicación y convertido un cambio de
+adapter en un cambio transversal. La suscripción a la sesión vive en el adapter
+y devuelve un tipo propio.
+
+**Detalle que la documentación de Supabase advierte y es fácil pasar por alto**
+`onAuthStateChange` emite también al suscribirse —evento `INITIAL_SESSION`—, así
+que una carga inicial aparte duplica la consulta y dispara renders en cascada.
+Y llamar a funciones de Supabase dentro del callback puede bloquear, por lo que
+el trabajo se difiere.
+
+**Una consulta que parece incompleta y no lo es**
+`membresiasDe` no filtra por `user_id`. **RLS ya lo hace.** Agregar la cláusula
+daría la impresión de que la seguridad depende del cliente; si esa cláusula
+fuera lo único que separa a un tenant de otro, bastaría con quitarla para ver
+todo.
+
+**Verificado en el bundle del Admin**: la secret key real no aparece, y
+`clienteDeServidor` se tree-shakea. Cuidado con el chequeo: el propio SDK
+contiene el literal `sb_secret_` en su validación de formato, así que buscar esa
+cadena da un falso positivo.

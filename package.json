@@ -22,7 +22,7 @@
     "db:new": "supabase migration new",
     "db:reset": "supabase db reset",
     "db:push": "supabase db push",
-    "db:types": "supabase gen types typescript --local > packages/commerce-types/src/database.generated.ts",
+    "db:types": "node scripts/db-types.mjs",
     "deploy:demo": "pnpm --filter @pick/demo run build && pnpm --filter @pick/demo run deploy",
     "deploy:admin": "pnpm --filter @pick/admin run build && pnpm --filter @pick/admin run deploy",
     "e2e": "playwright test",
