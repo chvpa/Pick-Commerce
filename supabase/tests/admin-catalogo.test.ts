@@ -66,7 +66,8 @@ function producto(handle: string, extra: Record<string, unknown> = {}) {
         stock: 3,
       },
     ],
-    media: [],
+    // Sin la clave `media` a propósito: significa "no digo nada de las
+    // imágenes". Los tests que quieren tocarlas la pasan explícitamente.
     ...extra,
   };
 }
@@ -287,6 +288,116 @@ test('el listado no muestra productos de otra tienda', async () => {
   await guardar(producto('de-la-otra'), OTRA_STORE);
   const r = await listar({ query: 'de-la-otra' });
   assert.equal(r.total, 0);
+});
+
+// --- Import -----------------------------------------------------------------
+
+async function importar(productos: unknown[], store = STORE) {
+  const r = await db.query<{ j: { ok: boolean; handle: string; accion: string; error?: string }[] }>(
+    `select import_products('${store}'::uuid, ${json(productos)}) as j`,
+  );
+  return r.rows[0]!.j;
+}
+
+test('importar crea, actualiza y dice cuál fue cuál', async () => {
+  const reporte = await importar([
+    producto('importado-nuevo'),
+    // `campera` ya existe: se identifica por handle, que es la clave natural
+    // de un archivo.
+    { ...producto('campera'), title: 'Campera importada' },
+  ]);
+
+  assert.deepEqual(
+    reporte.map((r) => [r.handle, r.accion]),
+    [
+      ['importado-nuevo', 'creado'],
+      ['campera', 'actualizado'],
+    ],
+  );
+
+  const r = await db.query<{ title: string }>(
+    `select title from products where store_id = $1 and handle = 'campera'`,
+    [STORE],
+  );
+  assert.equal(r.rows[0]!.title, 'Campera importada');
+});
+
+test('un producto que falla no arrastra a los demás', async () => {
+  /*
+   * Es la razón de que cada producto vaya en su propio bloque `begin/exception`.
+   * Sin eso, un SKU repetido en la fila 400 de un archivo de 500 tiraría el
+   * import entero y el operador tendría que adivinar dónde quedó.
+   */
+  const reporte = await importar([
+    producto('antes-del-error'),
+    // Sin variantes: la función lo rechaza.
+    { handle: 'roto', title: 'Roto', status: 'draft', variants: [] },
+    producto('despues-del-error'),
+  ]);
+
+  assert.deepEqual(
+    reporte.map((r) => r.ok),
+    [true, false, true],
+  );
+  assert.match(reporte[1]!.error!, /al menos una variante/);
+
+  // Los dos buenos entraron de verdad, no sólo en el reporte.
+  const r = await db.query(
+    `select 1 from products where store_id = $1 and handle in ('antes-del-error', 'despues-del-error')`,
+    [STORE],
+  );
+  assert.equal(r.rows.length, 2);
+});
+
+test('importar sin la clave media no borra las imágenes que ya tenía', async () => {
+  /*
+   * Un CSV no puede llevar el ancho y el alto de una imagen, que son
+   * obligatorios contra CLS. Si el import mandara `media: []`, actualizar un
+   * producto por archivo le borraría las fotos sin que nadie lo pidiera.
+   */
+  const antes = await db.query(
+    `select count(*)::int as n from product_media m
+     join products p on p.id = m.product_id
+     where p.store_id = $1 and p.handle = 'campera'`,
+    [STORE],
+  );
+  assert.ok((antes.rows[0] as { n: number }).n > 0, 'el fixture debía tener imágenes');
+
+  await importar([{ ...producto('campera'), title: 'Campera con fotos' }]);
+
+  const despues = await db.query(
+    `select count(*)::int as n from product_media m
+     join products p on p.id = m.product_id
+     where p.store_id = $1 and p.handle = 'campera'`,
+    [STORE],
+  );
+  assert.equal((despues.rows[0] as { n: number }).n, (antes.rows[0] as { n: number }).n);
+});
+
+test('importar con media vacía sí las borra', async () => {
+  // La convención: la clave ausente es "no tocar"; un array, "que quede así".
+  await importar([{ ...producto('campera'), media: [] }]);
+
+  const r = await db.query(
+    `select count(*)::int as n from product_media m
+     join products p on p.id = m.product_id
+     where p.store_id = $1 and p.handle = 'campera'`,
+    [STORE],
+  );
+  assert.equal((r.rows[0] as { n: number }).n, 0);
+});
+
+test('un viewer tampoco puede importar', async () => {
+  const r = await intentar(
+    db,
+    VIEWER,
+    `select import_products('${STORE}'::uuid, ${json([producto('del-viewer-csv')])})`,
+  );
+  // La función devuelve un reporte, no un error: lo que importa es que no haya
+  // escrito nada.
+  const escribio = await db.query(`select 1 from products where handle = 'del-viewer-csv'`);
+  assert.equal(escribio.rows.length, 0, 'un viewer importó productos');
+  void r;
 });
 
 // --- Autorización -----------------------------------------------------------

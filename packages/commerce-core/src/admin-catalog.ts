@@ -74,7 +74,14 @@ export interface ProductoEditable {
   readonly categoryId?: string;
   readonly status: ProductStatus;
   readonly variants: readonly VarianteEditable[];
-  readonly media: readonly MedioEditable[];
+  /**
+   * Ausente significa "no tocar las imágenes"; un array —aunque esté vacío—
+   * las reemplaza. Es la misma convención que el stock de una variante, y es lo
+   * que permite que un import por CSV no borre las fotos que ya tenía el
+   * producto: un archivo de texto no puede llevar el ancho y el alto, que son
+   * obligatorios contra CLS.
+   */
+  readonly media?: readonly MedioEditable[];
 }
 
 /** Un producto para editar, más de quién es cada campo. */
@@ -93,6 +100,29 @@ export interface RepositorioAdminCatalogo {
    * historial huérfano. `archived` lo saca del storefront y lo conserva.
    */
   archivar(storeId: string, id: string): Promise<void>;
+  /**
+   * Productos completos, paginados. Es lo que necesita el export: el listado de
+   * la tabla no trae variantes ni atributos.
+   */
+  completos(storeId: string, page: number, perPage: number): Promise<readonly ProductoEditable[]>;
+  /**
+   * Importa un lote. Cada producto es atómico por separado, así que el reporte
+   * puede traer éxitos y fallos a la vez.
+   */
+  importar(
+    storeId: string,
+    productos: readonly ProductoEditable[],
+  ): Promise<readonly ResultadoImport[]>;
+}
+
+/** Qué pasó con un producto del archivo. */
+export interface ResultadoImport {
+  readonly indice: number;
+  readonly handle: string;
+  readonly ok: boolean;
+  readonly accion: 'creado' | 'actualizado' | 'rechazado';
+  readonly id?: string;
+  readonly error?: string;
 }
 
 /**

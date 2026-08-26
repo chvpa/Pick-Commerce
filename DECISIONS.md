@@ -1946,3 +1946,78 @@ existiendo en producción.
 El stock se escribe en la primera sucursal de la tienda. El Admin todavía no
 tiene selector de sucursal, y elegir una a ciegas escondería que falta
 configurarla. Registrado en el backlog.
+
+---
+
+## ADR-061 — Import y export de catálogo por CSV
+
+**Fecha:** 2026-08-26
+**Estado:** Accepted
+
+**Forma del archivo**
+Una fila por variante, agrupadas por `handle`. Es la forma que usan las
+plataformas de comercio y la única que representa un producto con varias
+combinaciones en un archivo plano. Los datos del producto los fija la primera
+fila de su handle: repetirlos en cada fila es inevitable, y hacer ganar a la
+última dejaría el resultado dependiendo del orden.
+
+**El archivo no lleva imágenes, y eso obligó a corregir el guardado**
+Un medio necesita ancho y alto —obligatorios contra CLS, ADR-034— y quien
+escribe una planilla no los tiene.
+
+Pero `admin_save_product` reemplazaba los medios siempre: borraba todos e
+insertaba los del payload. Importar sobre un producto existente le habría
+borrado las fotos sin avisar. **Era una pérdida de datos silenciosa.** Ahora vale
+la misma convención que ya usaba el stock: la clave ausente significa "no tocar",
+y sólo un array explícito reemplaza. Es la diferencia entre "no dije nada de las
+imágenes" y "quiero que no tenga ninguna".
+
+Hay un test para cada mitad de esa convención, y se comprobó que el primero
+detecta la regresión: forzando el borrado incondicional, falla.
+
+**Cada producto es atómico por separado**
+`import_products` guarda cada uno en su propio bloque `begin/exception`, que en
+plpgsql es una subtransacción. Sin eso, un SKU repetido en la fila 400 de un
+archivo de 500 tiraría el import entero y el operador tendría que adivinar dónde
+quedó. Devuelve un reporte fila por fila —qué entró, qué no y por qué— que se
+puede descargar: un import que sólo dice "listo" obliga a revisar el catálogo a
+mano.
+
+**Preview que no escribe**
+El archivo se valida entero antes de tocar la base: cuántos productos se crean,
+cuántos se actualizan y qué filas se rechazan, con el número de línea de la
+planilla y el motivo. Una fila inválida se descarta sola; el resto entra.
+
+**Las reglas de validación son las del formulario**
+El mapeo vive en el Admin y no en el Core —el Core no depende de Zod, y esto es
+una función del Admin—, y reusa los mismos esquemas. Si las validaciones
+estuvieran en dos lados, el CSV aceptaría lo que el formulario rechaza.
+
+**La identidad de un producto en un archivo es su handle**
+Se resuelve en `import_products` y no dentro de `admin_save_product`: en el
+formulario, crear con un handle que ya existe tiene que fallar con el error de la
+restricción única, no pisar en silencio otro producto. La de una variante es su
+SKU dentro de ese producto, para que actualizar no la borre y la vuelva a crear
+—lo que perdería su id y su stock—.
+
+**Para un producto que el archivo nombra, el archivo manda**
+Sus variantes pasan a ser exactamente las del archivo. Es lo que hace que
+exportar, editar en una planilla y volver a importar sea predecible, y hay un
+test que verifica esa ida y vuelta: el producto que sale es igual al que entra.
+
+**Lotes de 50**
+Ni uno por uno —serían cientos de peticiones— ni todos juntos, que puede pasarse
+del límite del cuerpo de la petición. Con un lote por vez además se puede mostrar
+avance.
+
+**El export pagina**
+Un catálogo grande no entra en una consulta (ADR-024). Y el archivo lleva BOM:
+sin él, Excel abre un CSV UTF-8 con la codificación del sistema y "Campera
+técnica" aparece rota. Es el primer archivo que el comercio abre.
+
+**Un bug que apareció escribiendo esto**
+El formulario mandaba el _slug_ de la categoría donde `products.category_id`
+espera un UUID. No se había notado porque el smoke creaba productos sin
+categoría. `CategoriaCatalogo` ahora lleva su id: la faceta del storefront viaja
+por slug —es lo que aparece en la URL— y el Admin guarda el id. No son
+intercambiables.

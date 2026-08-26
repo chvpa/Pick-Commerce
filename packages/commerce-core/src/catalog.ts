@@ -223,6 +223,12 @@ export interface ResultadoCatalogo extends CatalogResult {
 }
 
 export interface CategoriaCatalogo {
+  /**
+   * El Admin lo necesita para guardar: `products.category_id` es un UUID. La
+   * faceta del storefront, en cambio, viaja por slug, que es lo que aparece en
+   * la URL. No son intercambiables.
+   */
+  readonly id: string;
   readonly name: string;
   readonly slug: string;
   readonly image?: { readonly url: string; readonly alt: string; readonly width: number; readonly height: number };

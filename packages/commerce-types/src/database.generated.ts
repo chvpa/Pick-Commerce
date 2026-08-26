@@ -865,6 +865,10 @@ export type Database = {
         }
         Returns: Json
       }
+      import_products: {
+        Args: { p_productos: Json; p_store_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       member_role: "owner" | "admin" | "staff" | "viewer"

@@ -4,6 +4,7 @@ import type {
   ProductoCargado,
   ProductoEditable,
   RepositorioAdminCatalogo,
+  ResultadoImport,
 } from '@pick/commerce-core';
 import type { Json } from '@pick/commerce-types/database';
 import type { PickSupabaseClient } from './client.ts';
@@ -16,6 +17,63 @@ import type { PickSupabaseClient } from './client.ts';
  * escribir, así que un viewer recibe un error de la base, no de la interfaz.
  * Ver ADR-052.
  */
+const SELECT_COMPLETO = `id, handle, title, description, brand, category_id, status, field_sources,
+   product_variants(id, sku, title, barcode, price, currency, compare_at_price, cost,
+                    attributes, position, inventory_levels(available)),
+   product_media(url, alt, width, height, position)`;
+
+/** Fila cruda de `SELECT_COMPLETO` traducida al contrato del core. */
+function aProductoEditable(data: {
+  id: string;
+  handle: string;
+  title: string;
+  description: string | null;
+  brand: string | null;
+  category_id: string | null;
+  status: ProductoEditable['status'];
+  product_variants: {
+    id: string;
+    sku: string;
+    title: string;
+    barcode: string | null;
+    price: number;
+    currency: string;
+    compare_at_price: number | null;
+    cost: number | null;
+    attributes: unknown;
+    position: number;
+    inventory_levels: { available: number }[];
+  }[];
+  product_media: { url: string; alt: string; width: number; height: number; position: number }[];
+}): ProductoEditable {
+  const variantes = [...data.product_variants].sort((a, b) => a.position - b.position);
+  const medios = [...data.product_media].sort((a, b) => a.position - b.position);
+
+  return {
+    id: data.id,
+    handle: data.handle,
+    title: data.title,
+    ...(data.description ? { description: data.description } : {}),
+    ...(data.brand ? { brand: data.brand } : {}),
+    ...(data.category_id ? { categoryId: data.category_id } : {}),
+    status: data.status,
+    variants: variantes.map((v) => ({
+      id: v.id,
+      sku: v.sku,
+      title: v.title,
+      ...(v.barcode ? { barcode: v.barcode } : {}),
+      price: v.price,
+      currency: v.currency,
+      ...(v.compare_at_price === null ? {} : { compareAtPrice: v.compare_at_price }),
+      ...(v.cost === null ? {} : { cost: v.cost }),
+      attributes: (v.attributes ?? {}) as Record<string, string>,
+      // Suma de sucursales, como en el storefront.
+      stock: v.inventory_levels.reduce((total, il) => total + il.available, 0),
+    })),
+    media: medios.map((m) => ({ url: m.url, alt: m.alt, width: m.width, height: m.height })),
+  };
+}
+
 export function repositorioAdminCatalogo(db: PickSupabaseClient): RepositorioAdminCatalogo {
   return {
     async listar(storeId, consulta: ConsultaProductos): Promise<PaginaProductos> {
@@ -36,12 +94,7 @@ export function repositorioAdminCatalogo(db: PickSupabaseClient): RepositorioAdm
       // con sus hijas, y PostgREST ya sabe hacer eso con RLS aplicando.
       const { data, error } = await db
         .from('products')
-        .select(
-          `id, handle, title, description, brand, category_id, status, field_sources,
-           product_variants(id, sku, title, barcode, price, currency, compare_at_price, cost,
-                            attributes, position, inventory_levels(available)),
-           product_media(url, alt, width, height, position)`,
-        )
+        .select(SELECT_COMPLETO)
         .eq('store_id', storeId)
         .eq('id', id)
         // `maybeSingle`: que no exista es un 404, no una excepción.
@@ -50,34 +103,9 @@ export function repositorioAdminCatalogo(db: PickSupabaseClient): RepositorioAdm
       if (error) throw new Error(`No se pudo leer el producto: ${error.message}`);
       if (!data) return null;
 
-      const variantes = [...data.product_variants].sort((a, b) => a.position - b.position);
-      const medios = [...data.product_media].sort((a, b) => a.position - b.position);
-
       return {
         fieldSources: (data.field_sources ?? {}) as Record<string, string>,
-        producto: {
-          id: data.id,
-          handle: data.handle,
-          title: data.title,
-          ...(data.description ? { description: data.description } : {}),
-          ...(data.brand ? { brand: data.brand } : {}),
-          ...(data.category_id ? { categoryId: data.category_id } : {}),
-          status: data.status,
-          variants: variantes.map((v) => ({
-            id: v.id,
-            sku: v.sku,
-            title: v.title,
-            ...(v.barcode ? { barcode: v.barcode } : {}),
-            price: v.price,
-            currency: v.currency,
-            ...(v.compare_at_price === null ? {} : { compareAtPrice: v.compare_at_price }),
-            ...(v.cost === null ? {} : { cost: v.cost }),
-            attributes: (v.attributes ?? {}) as Record<string, string>,
-            // Suma de sucursales, como en el storefront.
-            stock: v.inventory_levels.reduce((total, il) => total + il.available, 0),
-          })),
-          media: medios.map((m) => ({ url: m.url, alt: m.alt, width: m.width, height: m.height })),
-        },
+        producto: aProductoEditable(data),
       };
     },
 
@@ -102,6 +130,31 @@ export function repositorioAdminCatalogo(db: PickSupabaseClient): RepositorioAdm
         .eq('id', id);
 
       if (error) throw new Error(`No se pudo archivar el producto: ${error.message}`);
+    },
+
+    async completos(storeId, page, perPage): Promise<readonly ProductoEditable[]> {
+      // Paginado también para exportar: un catálogo grande no entra en una
+      // consulta, y traerlo entero es lo que ADR-024 prohíbe.
+      const desde = (page - 1) * perPage;
+      const { data, error } = await db
+        .from('products')
+        .select(SELECT_COMPLETO)
+        .eq('store_id', storeId)
+        .order('created_at')
+        .range(desde, desde + perPage - 1);
+
+      if (error) throw new Error(`No se pudo exportar el catálogo: ${error.message}`);
+      return (data ?? []).map(aProductoEditable);
+    },
+
+    async importar(storeId, productos): Promise<readonly ResultadoImport[]> {
+      const { data, error } = await db.rpc('import_products', {
+        p_store_id: storeId,
+        p_productos: productos as unknown as Json,
+      });
+
+      if (error) throw new Error(`No se pudo importar: ${error.message}`);
+      return data as unknown as ResultadoImport[];
     },
   };
 }

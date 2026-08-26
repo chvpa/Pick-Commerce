@@ -22,6 +22,10 @@ const repo: RepositorioTiendas = {
       ? { tenantId: 't1', storeId: 's1', currency: 'PYG', locale: 'es-PY' }
       : null;
   },
+  // `resolverTenant` no la usa; existe para cumplir el contrato del puerto.
+  async mias() {
+    return [];
+  },
 };
 
 test('resuelve el tenant desde el host de la petición', async () => {

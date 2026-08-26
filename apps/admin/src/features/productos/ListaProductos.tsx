@@ -115,9 +115,14 @@ export function ListaProductos() {
           lo anuncia como botón cuando en realidad navega. Las clases dan el
           aspecto; la semántica la da el <a>.
         */}
-        <Link to="/productos/nuevo" className={buttonVariants()}>
-          Nuevo producto
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/productos/importar" className={buttonVariants({ variant: 'outline' })}>
+            Importar / exportar
+          </Link>
+          <Link to="/productos/nuevo" className={buttonVariants()}>
+            Nuevo producto
+          </Link>
+        </div>
       </div>
 
       {consulta.isError ? (

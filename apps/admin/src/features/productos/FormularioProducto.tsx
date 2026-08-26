@@ -159,7 +159,9 @@ export function FormularioProducto({ id }: { id?: string }) {
         stock: v.stock === undefined ? '' : String(v.stock),
         atributos: formatearAtributos(v.attributes),
       })),
-      media: p.media.map((m) => ({ ...m, width: String(m.width), height: String(m.height) })),
+      // El formulario administra las imágenes, así que siempre manda la clave:
+      // vacía significa "sin imágenes", no "no las toques".
+      media: (p.media ?? []).map((m) => ({ ...m, width: String(m.width), height: String(m.height) })),
     } as unknown as Valores);
   }, [cargado.data, reset]);
 
@@ -284,7 +286,7 @@ export function FormularioProducto({ id }: { id?: string }) {
             <select {...register('categoryId')} className={cn(claseTextarea, 'min-h-0 h-8 py-0')}>
               <option value="">Sin categoría</option>
               {(categorias.data ?? []).map((c) => (
-                <option key={c.slug} value={c.slug}>
+                <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}

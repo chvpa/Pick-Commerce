@@ -88,12 +88,13 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
     async categorias(storeId): Promise<readonly CategoriaCatalogo[]> {
       const { data, error } = await db
         .from('categories')
-        .select('name, slug, image')
+        .select('id, name, slug, image')
         .eq('store_id', storeId)
         .order('position');
 
       if (error) throw new Error(`No se pudieron leer las categorías: ${error.message}`);
       return (data ?? []).map((c) => ({
+        id: c.id,
         name: c.name,
         slug: c.slug,
         ...(c.image ? { image: c.image as CategoriaCatalogo['image'] } : {}),

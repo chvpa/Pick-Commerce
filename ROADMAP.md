@@ -177,7 +177,7 @@ Objetivo: modelo de datos y autorización confiables.
 
 ## Fase 4 — Catalog, Variants e Inventory Mirror
 
-**Avance: 90%**
+**Avance: 100%**
 
 Objetivo: catálogo universal utilizable.
 
@@ -197,15 +197,15 @@ Objetivo: catálogo universal utilizable.
 - [x] Registrar source of truth por campo cuando corresponda. `field_sources` más `assertEditable` en el core.
 - [x] Crear status activo/inactivo/archivado. El storefront sólo lee `active`, con test.
 - [x] Implementar CRUD Admin. Tabla paginada con búsqueda por SKU, formulario con variantes y stock, y archivado.
-- [ ] Implementar CSV template.
-- [ ] Implementar preview y validación de import CSV.
-- [ ] Implementar export CSV básico.
+- [x] Implementar CSV template. Una fila por variante, agrupadas por handle, con una fila de ejemplo de cada forma.
+- [x] Implementar preview y validación de import CSV. Valida el archivo entero sin escribir; cada producto es atómico por separado y el reporte se descarga.
+- [x] Implementar export CSV básico. Paginado y con BOM, para que Excel no rompa los acentos.
 
 **Definition of Done**
 
-- se puede representar moda, libro y ferretería sin cambiar schema core
-- catálogo importado aparece en storefront
-- variantes y stock funcionan
+- [x] se puede representar moda, libro y ferretería sin cambiar schema core — los atributos son `jsonb` por variante y las facetas las declara la tienda
+- [x] catálogo importado aparece en storefront — verificado por CSV y desde el Admin, sin redeploy
+- [x] variantes y stock funcionan
 
 ---
 
@@ -707,6 +707,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-26 | Fase 4: schema de catálogo, `catalog_search` con paridad verificada contra el core, y seed reproducible                                                                                 | Fase 4 |           0% |            55% |
 | 2026-08-26 | Fase 4: el storefront lee el catálogo de Postgres on-demand, sitemap dinámico, facetas declaradas por la tienda y tramos de precio                                                      | Fase 4 |          55% |            80% |
 | 2026-08-26 | Fase 4: CRUD de productos en el Admin, con listado paginado, búsqueda por SKU y guardado atómico                                                                                        | Fase 4 |          80% |            90% |
+| 2026-08-26 | Fase 4 cerrada: import y export de catálogo por CSV, con preview que no escribe y reporte por producto                                                                                  | Fase 4 |          90% |           100% |
 
 ---
 

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useSesion } from '@/features/auth/SesionContext';
 import { ListaProductos } from '@/features/productos/ListaProductos';
 import { FormularioProducto } from '@/features/productos/FormularioProducto';
+import { ImportarProductos } from '@/features/productos/ImportarProductos';
 import { ProveedorTienda, useTienda } from '@/features/tienda/TiendaContext';
 
 /**
@@ -142,6 +143,12 @@ const nuevoRoute = createRoute({
   component: () => <FormularioProducto />,
 });
 
+const importarRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/productos/importar',
+  component: ImportarProductos,
+});
+
 const editarRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/productos/$id',
@@ -151,7 +158,13 @@ const editarRoute = createRoute({
   },
 });
 
-const arbol = rootRoute.addChildren([indexRoute, productosRoute, nuevoRoute, editarRoute]);
+const arbol = rootRoute.addChildren([
+  indexRoute,
+  productosRoute,
+  nuevoRoute,
+  importarRoute,
+  editarRoute,
+]);
 
 export const router = createRouter({ routeTree: arbol });
 
