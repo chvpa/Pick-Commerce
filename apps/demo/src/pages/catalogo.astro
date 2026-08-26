@@ -11,11 +11,11 @@ import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astr
 import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
 import ProductGrid from '@pick/commerce-astro/product/ProductGrid.astro';
 import SortSelect from '@pick/commerce-astro/catalog/SortSelect.astro';
-import { itemListJsonLd, queryCatalog, type CatalogSort } from '@pick/commerce-core';
+import { formatMoney, itemListJsonLd, type CatalogSort } from '@pick/commerce-core';
 import { seoContexto } from '../lib/store-config.ts';
+import { catalogo, facetasFiltrables, tiendaActual } from '../lib/db.ts';
 import { ClientRouter } from 'astro:transitions';
 import Base from '../layouts/Base.astro';
-import { mockProducts } from '../lib/mock-catalog.ts';
 
 /*
  * Ruta on-demand: los filtros, el orden y la paginación se resuelven en el
@@ -23,15 +23,27 @@ import { mockProducts } from '../lib/mock-catalog.ts';
  */
 export const prerender = false;
 
-const FACET_NAMES = ['categoria', 'brand', 'color', 'size'] as const;
-const FACET_LABELS: Record<string, string> = {
-  categoria: 'Categoría',
-  brand: 'Marca',
-  color: 'Color',
-  size: 'Talle',
-};
 const PER_PAGE = 12;
 const SORTS: readonly CatalogSort[] = ['relevance', 'price-asc', 'price-desc', 'title-asc'];
+/** Cuántos tramos de precio ofrecer. Cuatro entran sin scroll y separan bien. */
+const TRAMOS = 4;
+
+/*
+ * La marca y la categoría son campos del producto, no atributos de la tienda:
+ * existen siempre y no están en `attribute_definitions`. El resto lo declara
+ * cada tienda, así que un atributo nuevo aparece solo en la PLP.
+ */
+const FIJAS = [
+  { name: 'categoria', label: 'Categoría' },
+  { name: 'brand', label: 'Marca' },
+];
+
+const tienda = await tiendaActual();
+const definiciones = await facetasFiltrables();
+// El orden de esta lista es el orden en que se muestran las facetas, y lo
+// decide `attribute_definitions.position`. El RPC las devuelve en orden de
+// descubrimiento, que no es una decisión de nadie.
+const declaradas = [...FIJAS, ...definiciones.map((d) => ({ name: d.name, label: d.label }))];
 
 const url = Astro.url;
 const search = url.searchParams.get('q') ?? '';
@@ -44,13 +56,50 @@ const page = Number.parseInt(url.searchParams.get('page') ?? '1', 10) || 1;
 /* Sólo se aceptan las facetas declaradas: un parámetro cualquiera de la URL no
    se convierte en filtro. */
 const filters: Record<string, string[]> = {};
-for (const name of FACET_NAMES) {
+for (const { name } of declaradas) {
   const values = url.searchParams.getAll(name);
   if (values.length > 0) filters[name] = values;
 }
 
-const result = queryCatalog(mockProducts, { filters, sort, search, page, perPage: PER_PAGE });
-const activeCount = Object.values(filters).reduce((n, values) => n + values.length, 0);
+/* El precio no es una faceta: es un rango, y se envía como un solo valor. */
+const precioCrudo = url.searchParams.get('precio') ?? '';
+const tramo = /^(\d+)-(\d+)$/.exec(precioCrudo);
+const precioMin = tramo ? Number(tramo[1]) : undefined;
+const precioMax = tramo ? Number(tramo[2]) : undefined;
+const precioActivo = precioMin !== undefined;
+
+const result = await catalogo.buscar(tienda.storeId, {
+  filters,
+  sort,
+  search,
+  page,
+  perPage: PER_PAGE,
+  ...(precioMin === undefined ? {} : { precioMin }),
+  ...(precioMax === undefined ? {} : { precioMax }),
+});
+
+/*
+ * Tramos de precio sobre el mínimo y el máximo del catálogo entero —no del
+ * resultado—, así no se mueven bajo el dedo al filtrar. Con un solo precio no
+ * hay nada que acotar y el control no se muestra.
+ */
+const { priceMin, priceMax } = result;
+const tramos =
+  priceMin === null || priceMax === null || priceMin >= priceMax
+    ? []
+    : Array.from({ length: TRAMOS }, (_, i) => {
+        const paso = Math.ceil((priceMax - priceMin) / TRAMOS);
+        const desde = priceMin + i * paso;
+        const hasta = i === TRAMOS - 1 ? priceMax : desde + paso - 1;
+        const moneda = tienda.currency as Parameters<typeof formatMoney>[0]['currency'];
+        return {
+          valor: `${desde}-${hasta}`,
+          etiqueta: `${formatMoney({ amount: desde, currency: moneda }, tienda.locale)} – ${formatMoney({ amount: hasta, currency: moneda }, tienda.locale)}`,
+        };
+      });
+
+const activeCount =
+  Object.values(filters).reduce((n, values) => n + values.length, 0) + (precioActivo ? 1 : 0);
 
 const jsonLd = itemListJsonLd(result.items, seoContexto, 'Catálogo');
 
@@ -165,11 +214,48 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
           </div>
 
           {
-            result.facets
-              .filter((facet) => FACET_NAMES.includes(facet.name as (typeof FACET_NAMES)[number]))
-              .map((facet) => (
-                <FacetAccordion facet={facet} form="plp" label={FACET_LABELS[facet.name]} />
-              ))
+            declaradas.map(({ name, label }) => {
+              const facet = result.facets.find((f) => f.name === name);
+              // El RPC omite las facetas sin valores: un accordion vacío no
+              // ayuda a filtrar ni a deshacer nada. Ver ADR-055.
+              return facet ? <FacetAccordion facet={facet} form="plp" label={label} /> : null;
+            })
+          }
+
+          {
+            /* El precio va último: es el único control que no es una lista de
+              valores, y agruparlo con las facetas confundiría la lectura. */
+          }
+          {
+            tramos.length > 0 && (
+              <details open={precioActivo} class="border-b border-border">
+                <summary class="flex cursor-pointer list-none items-center justify-between py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent">
+                  <span>Precio</span>
+                  <span aria-hidden="true" class="text-fg-subtle transition-transform">
+                    ▾
+                  </span>
+                </summary>
+                <ul class="flex flex-col gap-1 pb-3">
+                  {[{ valor: '', etiqueta: 'Cualquiera' }, ...tramos].map((t) => (
+                    <li>
+                      {/* Radios y no checkboxes: dos tramos a la vez darían un
+                          rango contradictorio. */}
+                      <label class="flex cursor-pointer items-center gap-2 py-1 text-sm">
+                        <input
+                          form="plp"
+                          type="radio"
+                          name="precio"
+                          value={t.valor}
+                          checked={t.valor === (precioActivo ? precioCrudo : '')}
+                          class="size-4 cursor-pointer accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        />
+                        <span class="flex-1">{t.etiqueta}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )
           }
         </div>
 
@@ -217,7 +303,7 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
       <div class="flex flex-col gap-6">
         {
           /* El orden vive en el PLP y no dentro del panel: es una decisión
-            frecuente y no debería exigir abrir un sheet para tomarla. */
+            frecuente y no debería exigir abrir un sheet. */
         }
         <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="text-sm text-fg-muted" aria-live="polite">
@@ -231,40 +317,55 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
         </div>
 
         {
-          result.total === 0 ? (
-            <div class="flex flex-col items-start gap-3 rounded-md border border-border p-6">
-              <p class="text-sm text-fg-muted">
-                Probá quitar algún filtro o buscar con otras palabras.
-              </p>
-              <a href="/catalogo" class="text-sm underline">
-                Ver todo el catálogo
-              </a>
-            </div>
-          ) : (
-            <ProductGrid>
-              {result.items.map((product, index) => {
-                const variant = product.variants[0];
-                if (!variant) return null;
-                const soldOut = product.variants.every((v) => v.availableQuantity === 0);
-
-                return (
-                  <ProductCard>
-                    <ProductCardMedia image={product.images[0]} priority={index < 4}>
-                      {soldOut && <Badge slot="badge">Sin stock</Badge>}
-                    </ProductCardMedia>
-                    <ProductCardBody>
-                      {product.brand && <p class="text-xs text-fg-subtle">{product.brand}</p>}
-                      <ProductCardTitle href={`/productos/${product.handle}`}>
-                        {product.title}
-                      </ProductCardTitle>
-                      <Price value={variant.price} compareAt={variant.compareAtPrice} />
-                    </ProductCardBody>
-                  </ProductCard>
-                );
-              })}
-            </ProductGrid>
-          )
+          /*
+          `aria-busy` mientras el router trae la página siguiente. No es un
+          skeleton de placeholders a propósito: la ruta es on-demand, así que en
+          la primera carga el HTML ya llega con productos y no hay nada que
+          rellenar. Lo que sí hay que señalar es el rato entre tocar un filtro y
+          ver el resultado nuevo, y ahí el contenido viejo sigue en pantalla.
+        */
         }
+        <div id="plp-resultados">
+          {
+            result.total === 0 ? (
+              <div class="flex flex-col items-start gap-3 rounded-md border border-border p-6">
+                <p class="text-sm text-fg-muted">
+                  Probá quitar algún filtro o buscar con otras palabras.
+                </p>
+                <a href="/catalogo" class="text-sm underline">
+                  Ver todo el catálogo
+                </a>
+              </div>
+            ) : (
+              <ProductGrid>
+                {result.items.map((product, index) => {
+                  const variant = product.variants[0];
+                  if (!variant) return null;
+                  // Nada vendible, y no `=== 0`: el espejo del ERP puede venir
+                  // negativo, y un negativo tampoco se puede vender (ADR-056).
+                  // Va por `some(> 0)` porque un `<` suelto acá lo lee el parser
+                  // de Astro como la apertura de una etiqueta.
+                  const soldOut = !product.variants.some((v) => v.availableQuantity > 0);
+
+                  return (
+                    <ProductCard>
+                      <ProductCardMedia image={product.images[0]} priority={index < 4}>
+                        {soldOut && <Badge slot="badge">Sin stock</Badge>}
+                      </ProductCardMedia>
+                      <ProductCardBody>
+                        {product.brand && <p class="text-xs text-fg-subtle">{product.brand}</p>}
+                        <ProductCardTitle href={`/productos/${product.handle}`}>
+                          {product.title}
+                        </ProductCardTitle>
+                        <Price value={variant.price} compareAt={variant.compareAtPrice} />
+                      </ProductCardBody>
+                    </ProductCard>
+                  );
+                })}
+              </ProductGrid>
+            )
+          }
+        </div>
 
         <Pagination page={result.page} pageCount={result.pageCount} url={url} />
       </div>
@@ -316,6 +417,20 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
 
   .plp-panel::backdrop {
     background: rgb(0 0 0 / 0.4);
+  }
+
+  /* Filtrando: el resultado viejo sigue visible pero se ve que ya no es el
+     bueno, y deja de aceptar clicks para que nadie navegue a lo que se va. */
+  #plp-resultados[aria-busy='true'] {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: opacity 150ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #plp-resultados[aria-busy='true'] {
+      transition: none;
+    }
   }
 </style>
 
@@ -409,5 +524,10 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
   }
 
   document.addEventListener('astro:page-load', inicializar);
+  // Entre que se toca un filtro y llega la página nueva hay una espera sin
+  // ninguna señal. Marcarla es Definition of Done, no polish.
+  document.addEventListener('astro:before-preparation', () => {
+    document.getElementById('plp-resultados')?.setAttribute('aria-busy', 'true');
+  });
   addEventListener('change', alCambiarFiltro);
 </script>

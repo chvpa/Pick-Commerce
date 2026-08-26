@@ -11,11 +11,30 @@ import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astr
 import ProductCarousel from '@pick/commerce-astro/product/ProductCarousel.astro';
 import { buttonVariants } from '@pick/commerce-ui';
 import { organizationJsonLd } from '@pick/commerce-core';
-import { seoContexto } from '../lib/store-config.ts';
+import { COLECCION_DESTACADA, seoContexto } from '../lib/store-config.ts';
+import { catalogo, categorias, tiendaActual } from '../lib/db.ts';
 import Base from '../layouts/Base.astro';
-import { mockCategories, mockProducts } from '../lib/mock-catalog.ts';
 
-const featured = mockProducts.filter((p) => p.variants.some((v) => v.compareAtPrice));
+/*
+ * On-demand: muestra categorías y una colección, y las dos cambian desde el
+ * Admin. Prerenderizada, un producto nuevo no aparecería hasta el próximo
+ * deploy. Ver ADR-057.
+ */
+export const prerender = false;
+
+const tienda = await tiendaActual();
+const [cats, destacados] = await Promise.all([
+  categorias(),
+  // La colección la elige el storefront, no el Core: qué se destaca en la home
+  // es una decisión del comercio.
+  catalogo.porColeccion(tienda.storeId, COLECCION_DESTACADA, 8),
+]);
+
+const entradas = cats.map((c) => ({
+  label: c.name,
+  href: `/catalogo?categoria=${encodeURIComponent(c.slug)}`,
+  ...(c.image ? { image: c.image } : {}),
+}));
 ---
 
 <Base
@@ -35,31 +54,41 @@ const featured = mockProducts.filter((p) => p.variants.some((v) => v.compareAtPr
     </Hero>
   </Container>
 
-  <Container class="flex flex-col gap-4 py-8">
-    <h2 class="font-display text-xl font-semibold">Categorías</h2>
-    <CategorySection categories={mockCategories} />
-  </Container>
+  {
+    entradas.length > 0 && (
+      <Container class="flex flex-col gap-4 py-8">
+        <h2 class="font-display text-xl font-semibold">Categorías</h2>
+        <CategorySection categories={entradas} />
+      </Container>
+    )
+  }
 
-  <Container class="flex flex-col gap-4 py-8">
-    <h2 class="font-display text-xl font-semibold">En oferta</h2>
-    <ProductCarousel label="En oferta">
-      {
-        featured.map((product) => {
-          const variant = product.variants[0];
-          if (!variant) return null;
-          return (
-            <ProductCard>
-              <ProductCardMedia image={product.images[0]} />
-              <ProductCardBody>
-                <ProductCardTitle href={`/productos/${product.handle}`}>
-                  {product.title}
-                </ProductCardTitle>
-                <Price value={variant.price} compareAt={variant.compareAtPrice} />
-              </ProductCardBody>
-            </ProductCard>
-          );
-        })
-      }
-    </ProductCarousel>
-  </Container>
+  {
+    /* Sin colección no hay sección: un carrusel vacío bajo un título es peor
+      que no mostrar nada. */
+  }
+  {
+    destacados.length > 0 && (
+      <Container class="flex flex-col gap-4 py-8">
+        <h2 class="font-display text-xl font-semibold">En oferta</h2>
+        <ProductCarousel label="En oferta">
+          {destacados.map((product) => {
+            const variant = product.variants[0];
+            if (!variant) return null;
+            return (
+              <ProductCard>
+                <ProductCardMedia image={product.images[0]} />
+                <ProductCardBody>
+                  <ProductCardTitle href={`/productos/${product.handle}`}>
+                    {product.title}
+                  </ProductCardTitle>
+                  <Price value={variant.price} compareAt={variant.compareAtPrice} />
+                </ProductCardBody>
+              </ProductCard>
+            );
+          })}
+        </ProductCarousel>
+      </Container>
+    )
+  }
 </Base>

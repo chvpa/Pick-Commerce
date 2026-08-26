@@ -838,6 +838,7 @@ export type Database = {
     Functions: {
       catalog_search: {
         Args: {
+          p_collection?: string
           p_filters?: Json
           p_handle?: string
           p_page?: number

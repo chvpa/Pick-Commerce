@@ -6,17 +6,29 @@ import ProductGallery from '@pick/commerce-astro/product/ProductGallery.astro';
 import { ProductPurchase } from '@pick/commerce-ui/product/ProductPurchase';
 import { productJsonLd } from '@pick/commerce-core';
 import { seoContexto } from '../../lib/store-config.ts';
+import { catalogo, tiendaActual } from '../../lib/db.ts';
 import Base from '../../layouts/Base.astro';
-import { mockProducts } from '../../lib/mock-catalog.ts';
 
-export function getStaticPaths() {
-  return mockProducts.map((product) => ({
-    params: { handle: product.handle },
-    props: { product },
-  }));
+/*
+ * On-demand y sin `getStaticPaths`: prerenderizar el catálogo obligaría a
+ * reconstruir el sitio con cada precio o cada cambio de stock, y en un catálogo
+ * grande el build crecería sin techo. Ver ADR-057.
+ */
+export const prerender = false;
+
+const tienda = await tiendaActual();
+const product = await catalogo.porHandle(tienda.storeId, Astro.params.handle!);
+
+if (!product) {
+  /*
+   * La página 404 del sitio, con el status que corresponde. Devolver una
+   * respuesta vacía daría el código correcto y una pantalla en blanco; dejar
+   * pasar un 200 con "no encontrado" haría que un buscador indexara la página
+   * de error como si fuera contenido.
+   */
+  const pagina = await Astro.rewrite('/404');
+  return new Response(pagina.body, { status: 404, headers: pagina.headers });
 }
-
-const { product } = Astro.props;
 
 /* Los swatches los aporta el storefront: el catálogo guarda "Azul", no un hex. */
 const COLOR_SWATCHES = { Azul: '#2f4858', Negro: '#26262b', Blanco: '#e8e6e1', Verde: '#3f5f46' };
@@ -51,10 +63,14 @@ const jsonLd = productJsonLd(product, seoContexto);
         /*
         Única island de la página. Contiene precio, selector y alta al carrito
         porque los tres comparten estado, y Astro no lo pasa entre islands.
+
+        `client:load` y no `client:idle`: es la acción principal de la página.
+        Con `idle`, en un dispositivo ocupado el botón se ve pero todavía no
+        responde, y el click se pierde sin ninguna señal.
       */
       }
       <ProductPurchase
-        client:idle
+        client:load
         productTitle={product.title}
         imageUrl={product.images[0]?.url}
         variants={product.variants}

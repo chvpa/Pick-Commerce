@@ -10,7 +10,7 @@ import { baseDePrueba, intentar } from './harness.ts';
  * Paridad entre `catalog_search` y `queryCatalog`.
  *
  * `queryCatalog` es la **especificación ejecutable** de la semántica del
- * catálogo: 20 tests fijan su comportamiento y el comentario del código dice
+ * catálogo: sus tests fijan el comportamiento y el comentario del código dice
  * que en Fase 4 el cuerpo pasa a SQL "y la firma no cambia". Este archivo
  * verifica que efectivamente no cambió el comportamiento.
  *
@@ -101,9 +101,10 @@ function normalizar(r: CatalogResult) {
     page: r.page,
     perPage: r.perPage,
     pageCount: r.pageCount,
-    // El orden de la lista de facetas lo define `attribute_definitions.position`
-    // en producción; en el core es el orden de iteración de un objeto de JS.
-    // Se compara el contenido, que es lo que significa algo.
+    // El orden de la lista de facetas lo decide la PLP con `position` de
+    // `attribute_definitions`; el RPC las devuelve en orden de descubrimiento y
+    // el core, en el de iteración de un objeto de JS. Se compara el contenido,
+    // que es lo que significa algo.
     facets: [...r.facets]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((f) => ({
@@ -218,6 +219,14 @@ async function porRpc(query: CatalogQuery): Promise<CatalogResult> {
   return r.rows[0]!.j;
 }
 
+async function porColeccion(handle: string): Promise<CatalogResult> {
+  const r = await db.query<{ j: CatalogResult }>(
+    `select catalog_search($1::uuid, '{}'::jsonb, '', 'relevance', 1, 24, null, null, null, $2) as j`,
+    [STORE, handle],
+  );
+  return r.rows[0]!.j;
+}
+
 /**
  * El contrato: `catalog_search(tienda, q)` ≡ `queryCatalog(activos(tienda), q)`.
  * El borrador se excluye del lado del core porque el RPC lo excluye por schema.
@@ -311,6 +320,57 @@ test('acotar por handle devuelve un solo producto', async () => {
     [STORE, 'no-existe'],
   );
   assert.equal(vacio.rows[0]!.j.items.length, 0);
+});
+
+test('los campos opcionales llegan ausentes, no nulos', async () => {
+  /*
+   * `Product` y `ProductVariant` declaran `compareAtPrice`, `cost`, `barcode`,
+   * `brand`, `description` y `categoryId` como opcionales: ausentes, no nulos.
+   *
+   * No es una preferencia de estilo. En TypeScript `null !== undefined`, así que
+   * un chequeo correcto contra el contrato —`variant.compareAtPrice !== undefined`—
+   * da verdadero para un null y el consumidor revienta. Pasó: el PDP se caía al
+   * elegir una variante sin precio anterior, y el typecheck no podía verlo
+   * porque el tipo decía una cosa y el dato traía otra.
+   */
+  const nulos: string[] = [];
+  const recorrer = (valor: unknown, ruta: string): void => {
+    if (valor === null) nulos.push(ruta);
+    else if (Array.isArray(valor)) valor.forEach((v, i) => recorrer(v, `${ruta}[${i}]`));
+    else if (typeof valor === 'object') {
+      for (const [k, v] of Object.entries(valor)) recorrer(v, `${ruta}.${k}`);
+    }
+  };
+
+  const r = await porRpc({});
+  r.items.forEach((item, i) => recorrer(item, `items[${i}]`));
+
+  assert.deepEqual(nulos, [], `el RPC emitió null donde el contrato dice ausente`);
+});
+
+test('acotar por colección devuelve sólo sus productos, en el orden de la consulta', async () => {
+  const coleccion = uuid('c9', 0);
+  await db.exec(
+    `insert into collections (id, tenant_id, store_id, title, handle)
+     values ('${coleccion}', '${TENANT}', '${STORE}', 'Ofertas', 'ofertas');
+     insert into collection_products (tenant_id, collection_id, product_id, position) values
+       ('${TENANT}', '${coleccion}', '${uuid('d1', 0)}', 0),
+       ('${TENANT}', '${coleccion}', '${uuid('d1', 2)}', 1)`,
+  );
+
+  const r = await porColeccion('ofertas');
+  assert.deepEqual(
+    r.items.map((p) => p.handle),
+    ['p1', 'p3'],
+  );
+  // Las facetas también se acotan: si no, mostrarían opciones que no filtran nada.
+  assert.deepEqual(
+    r.facets.find((f) => f.name === 'brand')?.values.map((v) => v.value),
+    ['Norte', 'Ruta'],
+  );
+
+  // Una colección inexistente devuelve vacío, no el catálogo entero.
+  assert.equal((await porColeccion('no-existe')).total, 0);
 });
 
 // --- Aislamiento entre tenants sobre las tablas nuevas -----------------------

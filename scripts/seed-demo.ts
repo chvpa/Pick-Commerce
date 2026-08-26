@@ -31,7 +31,6 @@ if (existsSync('.env')) process.loadEnvFile('.env');
 
 const url = process.env.SUPABASE_URL;
 const secretKey = process.env.SUPABASE_SECRET_KEY;
-const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY ?? 'no-usada';
 
 if (!url || !secretKey) {
   console.error('Faltan SUPABASE_URL y SUPABASE_SECRET_KEY.');
@@ -39,7 +38,7 @@ if (!url || !secretKey) {
   process.exit(1);
 }
 
-const db = clienteDeServidor({ url, secretKey, publishableKey });
+const db = clienteDeServidor({ url, secretKey });
 
 async function upsert(tabla: string, filas: readonly unknown[], onConflict?: string) {
   if (filas.length === 0) return;

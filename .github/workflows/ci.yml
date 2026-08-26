@@ -33,17 +33,41 @@ jobs:
       # Postgres en proceso (PGlite) y no necesitan Docker ni un Supabase real.
       - run: pnpm test
 
+      # A partir de acá hace falta una base: el storefront lee el catálogo de
+      # Postgres. Es un stack local en el runner —Docker viene instalado—, así que
+      # **no hay ningún secreto en el repo ni en la configuración del CI**, y la
+      # corrida no depende de un proyecto remoto que alguien pueda tocar.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Aplica solo las migraciones de supabase/migrations.
+      - run: supabase start
+
+      - name: Exportar credenciales del stack local
+        run: |
+          eval "$(supabase status -o env)"
+          # El nombre de las claves cambió entre versiones del CLI; se aceptan
+          # las dos antes que fallar con una variable vacía.
+          echo "SUPABASE_URL=${API_URL}" >> "$GITHUB_ENV"
+          echo "SUPABASE_SECRET_KEY=${SERVICE_ROLE_KEY:-${SECRET_KEY}}" >> "$GITHUB_ENV"
+          echo "SUPABASE_PUBLISHABLE_KEY=${ANON_KEY:-${PUBLISHABLE_KEY}}" >> "$GITHUB_ENV"
+
       - run: pnpm build
 
-      # Smoke de critical paths. Corre contra el build de producción servido por
-      # workerd, que es el artefacto que se despliega.
-      # Presupuesto de peso sobre el build. Determinista y barato; no
-      # reemplaza a Lighthouse, acota lo que sí se puede acotar en CI.
+      # Presupuesto de peso sobre el build. Determinista y barato; no reemplaza a
+      # Lighthouse, acota lo que sí se puede acotar en CI.
       - run: pnpm budget
 
       - run: pnpm exec playwright install --with-deps chromium
 
+      # Smoke de critical paths contra el build de producción servido por
+      # workerd, que es el artefacto que se despliega. El setup siembra la base y
+      # escribe las credenciales que workerd necesita; construir de nuevo serían
+      # varios minutos por nada.
       - run: pnpm e2e
+        env:
+          PLAYWRIGHT_SKIP_BUILD: '1'
 
       - uses: actions/upload-artifact@v4
         if: failure()

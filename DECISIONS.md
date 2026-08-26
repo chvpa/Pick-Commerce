@@ -1718,3 +1718,156 @@ código que el riesgo que cubre.
 Ambas migraciones sólo crean objetos y no alteran nada de Fase 3, así que
 revertir es un `drop` de las tablas nuevas, la función y el enum, sin pérdida
 posible de datos ajenos al catálogo.
+
+---
+
+## ADR-057 — El storefront se resuelve on-demand y lee la base en runtime
+
+**Fecha:** 2026-08-26
+**Estado:** Accepted
+
+**Decisión**
+La home, la PLP, el PDP, `llms.txt` y el sitemap de URLs se resuelven en el
+Worker. Siguen prerenderizadas las páginas que no dependen del catálogo: carrito,
+políticas, preguntas frecuentes, `robots.txt` y el índice de sitemaps.
+
+**Por qué**
+Prerenderizar el catálogo obliga a reconstruir el sitio con cada precio y cada
+cambio de stock, y en un catálogo grande el build crece sin techo. Un comercio
+que publica un producto espera verlo, no esperar un deploy.
+
+**Configuración en runtime, no incrustada**
+`SUPABASE_URL` y `SUPABASE_SECRET_KEY` se declaran en `astro:env` como
+`server`/`secret`. Una URL no es un secreto, pero las variables públicas se
+incrustan al construir, y el mismo artefacto tiene que poder correr contra el
+Supabase local del CI y contra el remoto sin reconstruirse. `STOREFRONT_DOMAIN`
+sí es pública, con default: es lo que decide qué tienda sirve este deploy.
+
+**Cuatro cosas que costaron una vuelta cada una**
+
+1. **Una ruta on-demand no puede reescribir a una prerenderizada.**
+   `Astro.rewrite('/404')` desde el PDP falla con "unable to find a component
+   instance": no hay componente que instanciar, sólo un HTML en disco. Por eso
+   `404.astro` es on-demand. La alternativa —devolver una respuesta vacía con
+   status 404— da el código correcto y una pantalla en blanco.
+
+2. **El canonical hay que normalizarlo.** Prerenderizada, la página sólo existía
+   en `/productos/x/`. On-demand, el pathname llega como lo pidió el cliente, así
+   que `/productos/x` declaraba un canonical sin barra mientras su propio JSON-LD
+   decía lo contrario: la señal contradictoria que el canonical existe para
+   evitar. `SeoHead` pasa por `urlAbsoluta`, la misma función del JSON-LD y del
+   sitemap.
+
+3. **`.dev.vars` no va donde dice la documentación del adapter.** Dice "la raíz
+   del proyecto Astro"; ahí no se lee. wrangler lo busca junto a su archivo de
+   configuración, y el que usa el preview es el que genera el build en
+   `dist/server`. Lo escribe el setup de e2e, después de construir, porque el
+   build vacía `dist`.
+
+4. **`astro dev` no veía el `.env`.** Vive en la raíz del monorepo y Vite lo
+   busca en la de la app. Se resuelve con `vite.envDir`, no duplicando el archivo:
+   dos lugares para la misma credencial terminan divergiendo.
+
+**El sitemap ya no lo genera una integración**
+`@astrojs/sitemap` sólo conoce las rutas que existen al construir, y los
+productos dejaron de existir ahí. `sitemap-0.xml` se emite desde la base,
+paginando (ADR-024) y avisando por log si se topa con el límite de 50.000 URLs
+del protocolo: un sitemap truncado en silencio se lee como completo.
+
+**Lo que impide que una página se vuelva on-demand sin que nadie se entere**
+`pnpm budget` mide el peso de las páginas que quedan en disco. Si una desaparece,
+el presupuesto seguiría en verde midiendo cada vez menos. Ahora la lista de
+páginas prerenderizadas es exacta —falla si falta una y también si sobra— y las
+rutas on-demand tienen su propio presupuesto medido por red en Playwright.
+
+**Las facetas las declara la tienda**
+La PLP ya no trae una lista de atributos escrita en la página: pide las
+`attribute_definitions` marcadas `filterable` y arma con ellas la whitelist de
+parámetros, las etiquetas y el orden. Un atributo nuevo aparece solo. La marca y
+la categoría siguen fijas porque son campos del producto, no atributos.
+
+**Precio**
+Cuatro tramos calculados sobre el mínimo y el máximo del catálogo entero, no del
+resultado, para que no se muevan bajo el dedo al filtrar. Son radios y no
+checkboxes: dos tramos a la vez darían un rango contradictorio.
+
+**Consecuencias**
+
+- El Worker hace de una a tres consultas por página. La tienda, sus categorías y
+  sus facetas se memoizan 60 segundos por isolate; el catálogo no se cachea.
+- El deploy necesita `SUPABASE_URL` y `SUPABASE_SECRET_KEY` cargados como
+  secretos del Worker. Sin ellos el sitio responde 500, con el mensaje exacto de
+  qué variable falta.
+
+---
+
+## ADR-058 — El CI levanta su propia base, sin secretos
+
+**Fecha:** 2026-08-26
+**Estado:** Accepted
+
+**Decisión**
+El runner levanta un stack de Supabase local con `supabase start` y corre el
+build, el presupuesto y los tests de navegación contra él.
+
+**Por qué no apuntar al proyecto de desarrollo**
+Habría que poner una secret key en los secrets del repositorio, y esa key saltea
+RLS: quien pueda leer un log de CI o abrir un PR con un workflow modificado tiene
+la base entera. Además, cualquiera editando datos a mano rompería las corridas de
+todos.
+
+**Qué gana**
+Cero secretos en el repo y en la configuración del CI, y una corrida reproducible:
+las mismas migraciones y el mismo seed en cada ejecución.
+
+**Detalles que importan**
+
+- El nombre de las claves que emite `supabase status -o env` cambió entre
+  versiones del CLI. El workflow acepta los dos nombres antes que fallar con una
+  variable vacía.
+- El seed lo corre el propio setup de Playwright, no un paso aparte: es el mismo
+  camino en local y en CI, y es idempotente.
+- Los tests de navegación afirman números concretos —"2 productos" en color
+  Negro, "Gs. 389.000" en la campera—. Sin un seed determinista esos números no
+  significarían nada.
+
+**Lo que no cubre**
+`pnpm test` sigue corriendo sobre PGlite y no necesita Docker: el aislamiento
+entre tenants y la paridad del catálogo se verifican sin levantar nada. Sólo los
+tests de navegación necesitan el stack.
+
+**Pendiente de verificación**
+La secuencia no se pudo correr localmente: esta máquina no tiene Docker. Se
+valida en la primera corrida del CI.
+
+---
+
+## ADR-059 — Un campo opcional llega ausente, nunca nulo
+
+**Fecha:** 2026-08-26
+**Estado:** Accepted
+
+**Contexto**
+`ProductVariant.compareAtPrice` está declarado `?: Money` —opcional—, y el RPC lo
+devolvía como `null`. En TypeScript `null !== undefined`, así que un chequeo
+correcto contra el contrato —`variant.compareAtPrice !== undefined`— daba
+verdadero para un null y el PDP reventaba al elegir una variante sin precio
+anterior.
+
+**Lo encontró el smoke de navegación, no el typecheck.** No podía verlo: el tipo
+decía una cosa y el dato traía otra. Un `as` en el borde del adapter no es una
+verificación, es una promesa.
+
+**Decisión**
+Las funciones que devuelven entidades del dominio aplican `jsonb_strip_nulls`.
+Un campo opcional viaja ausente. Vale para toda función futura, no sólo para
+`catalog_search`.
+
+**Por qué en el origen y no en cada consumidor**
+Defenderse con `!= null` en cada lectura es perseguir el mismo bug para siempre,
+y deja el tipo mintiendo. Corregido en SQL, el dato honra el contrato y el
+chequeo del consumidor vuelve a ser correcto.
+
+**Cómo se sostiene**
+Un test recorre cada ítem del resultado y falla si encuentra un `null` en
+cualquier profundidad. Es la clase entera, no el campo que se rompió.

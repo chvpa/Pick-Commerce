@@ -177,7 +177,7 @@ Objetivo: modelo de datos y autorización confiables.
 
 ## Fase 4 — Catalog, Variants e Inventory Mirror
 
-**Avance: 55%**
+**Avance: 80%**
 
 Objetivo: catálogo universal utilizable.
 
@@ -656,14 +656,17 @@ Estas líneas de trabajo pueden avanzar independientemente cuando exista acceso 
 
 > Registrar aquí descubrimientos que no deben interrumpir la fase actual.
 
-| Fecha      | Hallazgo                                                          | Impacto                                                        | Acción                                    | Fase destino | Estado    |
-| ---------- | ----------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------- | ------------ | --------- |
-| 2026-08-24 | Los requisitos transversales quedaron en 0% con la mitad ya hecha | El ROADMAP dejó de reflejar el estado real                     | Reconciliados contra el código            | —            | Resuelto  |
-| 2026-08-24 | Falta estado de carga en el grid al filtrar la PLP                | El usuario no ve que algo pasó entre el click y los resultados | Skeletons en el grid                      | Fase 4       | Pendiente |
-| 2026-08-24 | La faceta de precio necesita rango, no valores discretos          | Con muchos precios la faceta sería inusable                    | Definir con datos reales                  | Fase 4       | Pendiente |
-| 2026-08-24 | La verificación de RLS con JWTs reales es manual                  | No corre en CI: exige credenciales fuera del repo              | Repetirla al tocar RLS y antes del piloto | Fase 12      | Pendiente |
-| 2026-08-24 | Revisión adversarial de Fase 1 interrumpida                       | Quedó sin ejecutar; puede haber hallazgos no vistos            | Relanzarla sobre el código actual         | —            | Pendiente |
-| 2026-08-24 | Lighthouse completo no corre en CI                                | El presupuesto de bytes acota, pero no cubre CWV bajo red real | Ejecutar en pre-release                   | Fase 12      | Pendiente |
+| Fecha      | Hallazgo                                                                             | Impacto                                                        | Acción                                                                                                                                                       | Fase destino | Estado    |
+| ---------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ | --------- |
+| 2026-08-24 | Los requisitos transversales quedaron en 0% con la mitad ya hecha                    | El ROADMAP dejó de reflejar el estado real                     | Reconciliados contra el código                                                                                                                               | —            | Resuelto  |
+| 2026-08-24 | Falta estado de carga en el grid al filtrar la PLP                                   | El usuario no ve que algo pasó entre el click y los resultados | `aria-busy` y atenuado del grid mientras el router trae la página. No son placeholders: la ruta es on-demand y el HTML ya llega con productos                | Fase 4       | Resuelto  |
+| 2026-08-24 | La faceta de precio necesita rango, no valores discretos                             | Con muchos precios la faceta sería inusable                    | Cuatro tramos calculados sobre el catálogo entero                                                                                                            | Fase 4       | Resuelto  |
+| 2026-08-24 | La verificación de RLS con JWTs reales es manual                                     | No corre en CI: exige credenciales fuera del repo              | Repetirla al tocar RLS y antes del piloto                                                                                                                    | Fase 12      | Pendiente |
+| 2026-08-24 | Revisión adversarial de Fase 1 interrumpida                                          | Quedó sin ejecutar; puede haber hallazgos no vistos            | Relanzarla sobre el código actual                                                                                                                            | —            | Pendiente |
+| 2026-08-24 | Lighthouse completo no corre en CI                                                   | El presupuesto de bytes acota, pero no cubre CWV bajo red real | Ejecutar en pre-release                                                                                                                                      | Fase 12      | Pendiente |
+| 2026-08-26 | El drawer del carrito abrió vacío una vez en 3 corridas del smoke                    | Un cliente podría agregar al carrito y no ver lo que agregó    | Sospecha de orden de hidratación entre islands. Mitigado subiendo el drawer y el bloque de compra a `client:load`; falta reproducirlo para arreglar la causa | Fase 5       | Pendiente |
+| 2026-08-26 | El deploy necesita los secretos del Worker cargados a mano                           | Sin ellos el storefront desplegado responde 500                | `wrangler secret put SUPABASE_URL` y `SUPABASE_SECRET_KEY` en el proyecto de Cloudflare                                                                      | Fase 4       | Pendiente |
+| 2026-08-26 | El script de deploy apuntaba a `dist/client/wrangler.json`, que el build ya no emite | El deploy fallaba antes de empezar                             | Corregido a `dist/server/wrangler.json`, verificado con `--dry-run` sobre el script real                                                                     | Fase 4       | Resuelto  |
 
 Ejemplos de hallazgos:
 
@@ -700,6 +703,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-24 | Migración aplicada al proyecto Supabase y aislamiento verificado con JWTs reales                                                                                                        | Fase 3 |          55% |            65% |
 | 2026-08-24 | Fase 3 cerrada: adapter de Supabase, resolución de tenant y Auth en el Admin                                                                                                            | Fase 3 |          65% |           100% |
 | 2026-08-26 | Fase 4: schema de catálogo, `catalog_search` con paridad verificada contra el core, y seed reproducible                                                                                 | Fase 4 |           0% |            55% |
+| 2026-08-26 | Fase 4: el storefront lee el catálogo de Postgres on-demand, sitemap dinámico, facetas declaradas por la tienda y tramos de precio                                                      | Fase 4 |          55% |            80% |
 
 ---
 
@@ -745,15 +749,15 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 
 ## PLP Facets
 
-**Avance: 75%**
+**Avance: 90%**
 
 - [x] Accordion filters. `<details>` nativo, sin JavaScript.
 - [x] Talla/variante.
-- [-] Género. Es un atributo de catálogo; aparece cuando la taxonomía de Fase 4 lo declare.
+- [~] Género. Declarado en `attribute_definitions` y filtrable; la faceta aparece cuando un producto lo use.
 - [x] Marca.
 - [x] Color.
 - [~] Categoría/subcategoría. Categoría lista como faceta de producto; la subcategoría espera la taxonomía de Fase 4.
-- [-] Precio. Necesita rango, no valores discretos: se define con datos reales en Fase 4.
+- [x] Precio. Cuatro tramos sobre el mínimo y el máximo del catálogo, con radios: dos tramos a la vez darían un rango contradictorio.
 - [x] Atributos dinámicos. Las facetas se proyectan desde los atributos reales de las variantes.
 - [x] Counts. Cada faceta ignora su propia selección al contar, o sus otras opciones darían cero.
 - [x] "Ver más". `<details>` anidado, sin JavaScript.

@@ -8,12 +8,11 @@
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
-    "deploy": "wrangler deploy -c dist/client/wrangler.json"
+    "deploy": "wrangler deploy -c dist/server/wrangler.json"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.2.3",
     "@astrojs/preact": "^6.0.4",
-    "@astrojs/sitemap": "^3.7.3",
     "@pick/commerce-astro": "workspace:*",
     "@pick/commerce-core": "workspace:*",
     "@pick/commerce-types": "workspace:*",

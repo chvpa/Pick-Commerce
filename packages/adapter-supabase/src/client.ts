@@ -9,7 +9,12 @@ export interface ConexionPublica {
   readonly publishableKey: string;
 }
 
-export interface ConexionServidor extends ConexionPublica {
+/**
+ * No extiende `ConexionPublica`: este cliente nunca usa la publishable key, y
+ * pedirla obligaba a los llamadores a inventar un valor de relleno.
+ */
+export interface ConexionServidor {
+  readonly url: string;
   /** Saltea RLS por completo. Nunca en el browser. */
   readonly secretKey: string;
 }

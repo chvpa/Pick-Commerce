@@ -245,7 +245,14 @@ export interface DefinicionFaceta {
 export interface RepositorioCatalogo {
   buscar(storeId: string, query: CatalogQuery): Promise<ResultadoCatalogo>;
   porHandle(storeId: string, handle: string): Promise<Product | null>;
-  destacados(storeId: string, limite: number): Promise<readonly Product[]>;
+  /**
+   * Productos de una colección manual, por handle.
+   *
+   * La home los usa para su carrusel. Una colección **dinámica** no pasa por
+   * acá: sus `rules` tienen la forma de `CatalogFilters` y se resuelven con
+   * `buscar`. Ver ADR-056.
+   */
+  porColeccion(storeId: string, handle: string, limite: number): Promise<readonly Product[]>;
   categorias(storeId: string): Promise<readonly CategoriaCatalogo[]>;
   /** Sólo las declaradas `filterable`: es lo que decide qué facetas ve la PLP. */
   facetasFiltrables(storeId: string): Promise<readonly DefinicionFaceta[]>;

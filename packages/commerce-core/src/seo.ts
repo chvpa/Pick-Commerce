@@ -29,7 +29,7 @@ export interface SeoContexto {
 
 const SCHEMA = 'https://schema.org';
 
-function absoluta(ctx: SeoContexto, ruta: string): string {
+export function urlAbsoluta(ctx: SeoContexto, ruta: string): string {
   const url = new URL(ruta, ctx.siteUrl);
 
   // Ni la raíz, ni un archivo con extensión, ni una ruta con query llevan
@@ -52,7 +52,7 @@ function disponibilidad(cantidad: number): string {
 }
 
 export function productJsonLd(product: Product, ctx: SeoContexto): Record<string, unknown> {
-  const url = absoluta(ctx, `/productos/${product.handle}`);
+  const url = urlAbsoluta(ctx, `/productos/${product.handle}`);
 
   // Una oferta por variante, con su SKU y su precio real. Es más preciso que un
   // rango: si una talla cuesta distinto o está agotada, se dice.
@@ -75,7 +75,7 @@ export function productJsonLd(product: Product, ctx: SeoContexto): Record<string
     ...(product.description ? { description: product.description } : {}),
     ...(product.brand ? { brand: { '@type': 'Brand', name: product.brand } } : {}),
     ...(product.images.length > 0
-      ? { image: product.images.map((img) => absoluta(ctx, img.url)) }
+      ? { image: product.images.map((img) => urlAbsoluta(ctx, img.url)) }
       : {}),
     // El SKU del producto es el de su primera variante sólo si hay una sola;
     // con varias, el SKU vive en cada oferta.
@@ -100,7 +100,7 @@ export function itemListJsonLd(
     itemListElement: products.map((product, index) => ({
       '@type': 'ListItem',
       position: index + 1,
-      url: absoluta(ctx, `/productos/${product.handle}`),
+      url: urlAbsoluta(ctx, `/productos/${product.handle}`),
       name: product.title,
     })),
   };
@@ -141,7 +141,7 @@ export function llmsTxt(options: {
   for (const seccion of secciones) {
     lineas.push(`## ${seccion.titulo}`, '');
     for (const enlace of seccion.enlaces) {
-      const url = absoluta(ctx, enlace.ruta);
+      const url = urlAbsoluta(ctx, enlace.ruta);
       lineas.push(`- [${enlace.texto}](${url})${enlace.nota ? `: ${enlace.nota}` : ''}`);
     }
     lineas.push('');
@@ -161,6 +161,61 @@ export const AI_CRAWLERS = [
   'meta-externalagent',
   'Bytespider',
 ] as const;
+
+/** Una URL del sitemap. `lastmod` es opcional: mentirlo es peor que omitirlo. */
+export interface EntradaSitemap {
+  readonly ruta: string;
+  readonly lastmod?: string;
+}
+
+function escaparXml(texto: string): string {
+  return texto
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+/**
+ * Sitemap de URLs.
+ *
+ * Usa la misma función que el canonical para resolver cada ruta: si el sitemap
+ * dijera `/productos/x` y el canonical `/productos/x/`, serían dos URLs para la
+ * misma página y el buscador recibe señales contradictorias.
+ */
+export function sitemapXml(ctx: SeoContexto, entradas: readonly EntradaSitemap[]): string {
+  const urls = entradas
+    .map(({ ruta, lastmod }) => {
+      const loc = `    <loc>${escaparXml(urlAbsoluta(ctx, ruta))}</loc>`;
+      const mod = lastmod ? `
+    <lastmod>${escaparXml(lastmod)}</lastmod>` : '';
+      return `  <url>
+${loc}${mod}
+  </url>`;
+    })
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>
+`;
+}
+
+/** Índice que apunta a los sitemaps. Uno solo hoy; el formato ya soporta más. */
+export function sitemapIndexXml(ctx: SeoContexto, rutas: readonly string[]): string {
+  const items = rutas
+    .map((ruta) => `  <sitemap>
+    <loc>${escaparXml(urlAbsoluta(ctx, ruta))}</loc>
+  </sitemap>`)
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${items}
+</sitemapindex>
+`;
+}
 
 export interface RobotsOptions {
   readonly ctx: SeoContexto;

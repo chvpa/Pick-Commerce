@@ -33,5 +33,11 @@ export const ANUNCIO: { texto: string; href?: string } | null = {
   href: '/catalogo',
 };
 
+/**
+ * Colección que la home destaca. Es una decisión del comercio, no del Core: otro
+ * storefront puede destacar "novedades" o una campaña.
+ */
+export const COLECCION_DESTACADA = 'ofertas';
+
 /** Rutas que no aportan a la indexación y sí dispersan autoridad. */
 export const RUTAS_PRIVADAS = ['/carrito', '/checkout', '/cuenta'] as const;

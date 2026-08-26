@@ -8,6 +8,9 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Secretos locales de workerd: los genera el setup de e2e desde .env
+.dev.vars
 .DS_Store
 Thumbs.db
 coverage/

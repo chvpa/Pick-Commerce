@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 /**
@@ -8,6 +8,8 @@ import { execFileSync } from 'node:child_process';
  * Docker. Usa `curl` porque la API está detrás de Cloudflare y rechaza clientes
  * HTTP que no reconoce con un 403 opaco.
  */
+if (existsSync('.env')) process.loadEnvFile('.env');
+
 const REF = process.env.SUPABASE_PROJECT_REF ?? 'snnbkqesjiooejaccqhg';
 const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
 

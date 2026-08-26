@@ -70,9 +70,19 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
       return mapearResultadoCatalogo(data).items[0] ?? null;
     },
 
-    async destacados(storeId, limite) {
-      const { items } = await this.buscar(storeId, { perPage: limite });
-      return items;
+    async porColeccion(storeId, handle, limite) {
+      const { data, error } = await db.rpc('catalog_search', {
+        p_store_id: storeId,
+        p_filters: {},
+        p_search: '',
+        p_sort: 'relevance',
+        p_page: 1,
+        p_per_page: limite,
+        p_collection: handle,
+      });
+
+      if (error) throw new Error(`No se pudo leer la colección ${handle}: ${error.message}`);
+      return mapearResultadoCatalogo(data).items;
     },
 
     async categorias(storeId): Promise<readonly CategoriaCatalogo[]> {

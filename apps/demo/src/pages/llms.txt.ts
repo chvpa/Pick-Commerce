@@ -1,9 +1,7 @@
 import type { APIRoute } from 'astro';
 import { llmsTxt } from '@pick/commerce-core';
-import { mockCategories } from '../lib/mock-catalog.ts';
+import { categorias } from '../lib/db.ts';
 import { seoContexto } from '../lib/store-config.ts';
-
-export const prerender = true;
 
 /**
  * Índice para agentes de IA (llmstxt.org).
@@ -11,9 +9,16 @@ export const prerender = true;
  * Lista las entradas al catálogo, no cada producto: el spec pide contenido
  * curado, y un catálogo real haría un archivo inmanejable. El detalle de cada
  * producto ya está en el JSON-LD de su PDP.
+ *
+ * On-demand desde que las categorías salen de la base: prerenderizado anunciaría
+ * las que existían en el último deploy.
  */
-export const GET: APIRoute = () =>
-  new Response(
+export const prerender = false;
+
+export const GET: APIRoute = async () => {
+  const cats = await categorias();
+
+  return new Response(
     llmsTxt({
       ctx: seoContexto,
       resumen:
@@ -27,7 +32,10 @@ export const GET: APIRoute = () =>
               ruta: '/catalogo',
               nota: 'filtrable por marca, color y talle, con precios y disponibilidad',
             },
-            ...mockCategories.map((c) => ({ texto: c.label, ruta: c.href })),
+            ...cats.map((c) => ({
+              texto: c.name,
+              ruta: `/catalogo?categoria=${encodeURIComponent(c.slug)}`,
+            })),
           ],
         },
         {
@@ -42,3 +50,4 @@ export const GET: APIRoute = () =>
     }),
     { headers: { 'content-type': 'text/plain; charset=utf-8' } },
   );
+};

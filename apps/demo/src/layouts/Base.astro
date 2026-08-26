@@ -79,6 +79,14 @@ const STORE_NAME = seoContexto.storeName;
     </Footer>
 
     {/* Vive en el layout, no en el PDP: se abre desde cualquier página. */}
-    <CartDrawer client:idle />
+    {
+      /*
+      `client:load`: el drawer es el receptor del evento de alta al carrito, así
+      que tiene que estar escuchando antes de que el botón de compra pueda
+      pulsarse. Con `idle` la espera es indefinida y un alta que llega antes se
+      pierde: el drawer abre vacío.
+    */
+    }
+    <CartDrawer client:load />
   </body>
 </html>

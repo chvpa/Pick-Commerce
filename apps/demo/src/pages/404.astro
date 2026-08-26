@@ -2,6 +2,13 @@
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import { buttonVariants } from '@pick/commerce-ui';
 import Base from '../layouts/Base.astro';
+
+/*
+ * On-demand aunque no lea datos: una ruta que se resuelve en el Worker **no
+ * puede reescribir a una prerenderizada** —no hay componente que instanciar— y
+ * el PDP necesita mostrar esta página cuando el handle no existe. Ver ADR-057.
+ */
+export const prerender = false;
 ---
 
 <Base

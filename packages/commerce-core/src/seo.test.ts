@@ -9,6 +9,8 @@ import {
   organizationJsonLd,
   productJsonLd,
   robotsTxt,
+  sitemapIndexXml,
+  sitemapXml,
 } from './seo.ts';
 import { money } from './money.ts';
 
@@ -197,4 +199,32 @@ test('faqJsonLd arma pares pregunta/respuesta delimitados', () => {
     '@type': 'Answer',
     text: 'Sí, a todo el país.',
   });
+});
+
+test('sitemapXml usa la misma URL que el canonical, con barra final', () => {
+  const xml = sitemapXml(CTX, [
+    { ruta: '/' },
+    { ruta: '/productos/campera', lastmod: '2026-08-26' },
+  ]);
+
+  assert.ok(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>'));
+  // La raíz no lleva barra extra; una ruta normal sí, como el canonical.
+  assert.ok(xml.includes('<loc>https://tienda.example/</loc>'));
+  assert.ok(xml.includes('<loc>https://tienda.example/productos/campera/</loc>'));
+  assert.ok(xml.includes('<lastmod>2026-08-26</lastmod>'));
+  // Sin lastmod no se inventa uno: mentirlo es peor que omitirlo.
+  assert.equal(xml.match(/<lastmod>/g)?.length, 1);
+});
+
+test('sitemapXml escapa lo que rompería el XML', () => {
+  const xml = sitemapXml(CTX, [{ ruta: '/catalogo?a=1&b=2' }]);
+  assert.ok(xml.includes('&amp;b=2'));
+  assert.ok(!xml.includes('&b=2'));
+});
+
+test('sitemapIndexXml apunta a los sitemaps del sitio', () => {
+  const xml = sitemapIndexXml(CTX, ['/sitemap-0.xml']);
+  assert.ok(xml.includes('<sitemapindex'));
+  // Un archivo con extensión no lleva barra final.
+  assert.ok(xml.includes('<loc>https://tienda.example/sitemap-0.xml</loc>'));
 });

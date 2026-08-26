@@ -1,9 +1,12 @@
 import { execSync } from 'node:child_process';
+import { existsSync, writeFileSync } from 'node:fs';
 
 /**
- * `astro preview` se demoniza y devuelve el control, así que el `webServer` de
- * Playwright lo daría por muerto apenas arranca. Se lo levanta acá y se lo baja
- * en el teardown.
+ * Prepara el entorno de los tests de navegación.
+ *
+ * El storefront ya no es autosuficiente: lee el catálogo de Postgres, así que
+ * antes de construir hay que darle credenciales y datos. En local salen de
+ * `.env`; en CI, del stack de Supabase que levanta el runner. Ver ADR-058.
  */
 function silencioso(comando: string): void {
   try {
@@ -14,11 +17,53 @@ function silencioso(comando: string): void {
 }
 
 export default function setup(): void {
-  // Parar ANTES de construir: en Windows el preview mantiene `dist` abierto y
-  // `astro build`, que lo vacía, muere con un fallo de handle.
+  if (existsSync('.env')) process.loadEnvFile('.env');
+
+  const url = process.env.SUPABASE_URL;
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  if (!url || !secretKey) {
+    throw new Error(
+      'Faltan SUPABASE_URL y SUPABASE_SECRET_KEY.\n' +
+        'En local salen de .env; en CI, de `supabase status -o env`.',
+    );
+  }
+
+  // Idempotente: restituye los datos que los tests dan por ciertos ("2
+  // productos" en Negro, "Gs. 389.000" en la campera) sin borrar nada más.
+  execSync('pnpm seed', { stdio: 'inherit' });
+
+  /*
+   * `astro preview` se demoniza y devuelve el control, así que el `webServer` de
+   * Playwright lo daría por muerto apenas arranca. Se lo levanta acá y se lo baja
+   * en el teardown.
+   *
+   * Parar ANTES de construir: en Windows el preview mantiene `dist` abierto y
+   * `astro build`, que lo vacía, muere con un fallo de handle.
+   */
   silencioso('pnpm --filter @pick/demo exec astro preview stop');
 
-  execSync('pnpm --filter @pick/demo run build', { stdio: 'inherit' });
+  // El CI ya construyó para medir el presupuesto; construir de nuevo son varios
+  // minutos por nada.
+  if (process.env.PLAYWRIGHT_SKIP_BUILD !== '1') {
+    execSync('pnpm --filter @pick/demo run build', { stdio: 'inherit' });
+  }
+
+  /*
+   * `astro preview` con el adapter de Cloudflare corre sobre workerd, que no ve
+   * `process.env`: los secretos salen de un `.dev.vars` que wrangler busca
+   * **junto a su archivo de configuración**, y el que usa el preview es el que
+   * genera el build en `dist/server`. En la raíz del proyecto Astro no lo lee,
+   * aunque la documentación del adapter diga eso.
+   *
+   * Va después de construir porque el build vacía `dist`. Es el mismo valor que
+   * ya está en `.env`, no un segundo lugar donde configurarlo, y está ignorado
+   * por git.
+   */
+  writeFileSync(
+    'apps/demo/dist/server/.dev.vars',
+    `SUPABASE_URL=${url}\nSUPABASE_SECRET_KEY=${secretKey}\n`,
+    'utf8',
+  );
 
   execSync('pnpm --filter @pick/demo exec astro preview --host 127.0.0.1 --port 4321', {
     stdio: 'ignore',

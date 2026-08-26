@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { globSync } from 'node:fs';
 
 /**
@@ -55,9 +55,42 @@ function pesoGzip(archivos) {
   return archivos.reduce((total, f) => total + gzipSync(readFileSync(join(RAIZ, f))).length, 0);
 }
 
-const paginas = globSync('**/*.html', { cwd: RAIZ });
+/**
+ * Las páginas que este build tiene que dejar en disco.
+ *
+ * Sin esta lista, una página que pasa a on-demand desaparece de la medición sin
+ * que nadie se entere: el presupuesto seguiría en verde midiendo cada vez menos.
+ * Que sea una lista exacta —ni de más ni de menos— obliga a que el cambio sea
+ * deliberado. El resto del sitio se resuelve en el Worker y lo mide
+ * `e2e/performance.spec.ts`, que sí puede pedirlo por red.
+ */
+const ESPERADAS = [
+  // 404 no está: se resuelve en el Worker porque el PDP reescribe a él cuando el
+  // handle no existe, y una ruta on-demand no puede reescribir a una estática.
+  'carrito/index.html',
+  'politicas/index.html',
+  'preguntas-frecuentes/index.html',
+];
+
+// En Windows el glob devuelve rutas con barra invertida; la lista de esperadas
+// se escribe una sola vez y con barras normales.
+const paginas = globSync('**/*.html', { cwd: RAIZ }).map((p) => p.split(sep).join('/'));
 if (paginas.length === 0) {
   console.error(`No hay páginas en ${RAIZ}. ¿Falta construir?`);
+  process.exit(1);
+}
+
+const faltan = ESPERADAS.filter((p) => !paginas.includes(p));
+const sobran = paginas.filter((p) => !ESPERADAS.includes(p));
+
+if (faltan.length > 0 || sobran.length > 0) {
+  if (faltan.length > 0) {
+    console.error(`Estas páginas debían prerenderizarse y no están: ${faltan.join(', ')}`);
+  }
+  if (sobran.length > 0) {
+    console.error(`Estas páginas se prerenderizaron y no estaban previstas: ${sobran.join(', ')}`);
+  }
+  console.error('Si el cambio es intencional, actualizar ESPERADAS en scripts/budget.mjs.');
   process.exit(1);
 }
 

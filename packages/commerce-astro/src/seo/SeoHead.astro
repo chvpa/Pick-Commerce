@@ -1,4 +1,6 @@
 ---
+import { urlAbsoluta } from '@pick/commerce-core';
+
 interface Props {
   title: string;
   description?: string;
@@ -30,8 +32,14 @@ const {
  * El canonical se arma con la ruta, nunca con la URL completa: si incluyera los
  * search params, cada combinación de filtros sería una página distinta para el
  * buscador y se dispersaría la autoridad del catálogo.
+ *
+ * Pasa por `urlAbsoluta` —la misma función que usan el JSON-LD y el sitemap—
+ * porque en una ruta on-demand el pathname llega como lo pidió el cliente: con
+ * barra final o sin ella. Sin normalizar, la misma página declaraba un canonical
+ * distinto del que anuncia su JSON-LD, que es exactamente la señal contradictoria
+ * que el canonical existe para evitar.
  */
-const canonical = new URL(Astro.url.pathname, siteUrl).href;
+const canonical = urlAbsoluta({ siteUrl, storeName }, Astro.url.pathname);
 const imagenAbsoluta = image ? new URL(image, siteUrl).href : undefined;
 ---
 
