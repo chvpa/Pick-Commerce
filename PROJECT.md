@@ -1494,3 +1494,46 @@ Cada preset debe definir:
 - comportamiento mobile.
 
 Los presets son puntos de partida de diseño, no skins superficiales.
+
+---
+
+## 41. Descubrimiento por buscadores y por IA (GEO)
+
+Los motores generativos —ChatGPT, Perplexity, los resúmenes de IA de Google— son
+un canal de descubrimiento de producto, no una curiosidad. Que el catálogo sea
+entendible por ellos es parte del valor de Pick Commerce.
+
+### La ventaja estructural
+
+La mayoría de los crawlers de IA **no ejecutan JavaScript**. Un storefront
+construido como SPA es casi invisible para ellos. El nuestro sirve todo el
+contenido en HTML desde el servidor, así que la base ya está puesta y no cuesta
+nada mantenerla: sólo hay que no romperla.
+
+### Qué debe emitir todo storefront
+
+- **Datos estructurados** de schema.org: `Product` con una `Offer` por variante,
+  `ItemList` en la PLP, `Organization`, `BreadcrumbList` y `FAQPage`.
+- **Canonical absoluto**, Open Graph y Twitter Card. Un producto compartido en
+  WhatsApp o Instagram sin imagen ni título es tráfico perdido.
+- **Sitemap y robots.txt**.
+- **`llms.txt`** según llmstxt.org: un índice curado de las entradas al
+  catálogo. **No** un volcado de productos — el detalle de cada uno ya vive en
+  el JSON-LD de su PDP.
+
+### La regla que no se negocia
+
+**El dato estructurado no puede afirmar lo que no sabemos.** Una oferta por
+variante con su SKU, su precio y su disponibilidad reales; nada de rangos
+inventados ni de `InStock` por defecto. Un `availability` falso es una promesa
+rota a un motor de búsqueda, y en comercio eso termina en un cliente enojado.
+
+Las combinaciones de filtros del catálogo salen `noindex,follow`: indexarlas
+multiplica URLs casi idénticas y dispersa la autoridad de la página.
+
+### Política de crawlers de IA
+
+Es una decisión **comercial del comercio**, no técnica. Por defecto se les deja
+entrar —un comercio quiere que le encuentren los productos— y un feature flag
+por tenant permite bloquearlos. Cloudflare AI Crawl Control sirve para
+monitorearlos y cobrar por crawl; no convierte contenido.

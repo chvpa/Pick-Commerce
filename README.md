@@ -4,6 +4,14 @@ Infraestructura de ecommerce headless, modular y multitenant para retailers de
 Paraguay y LATAM. Un solo Commerce Core; las diferencias entre comercios se
 resuelven con presets, feature flags, atributos y adapters.
 
+## Estado
+
+Fases 0 a 3 cerradas: monorepo y CI, design system, storefront con PLP facetada
+server-side y SEO, y multitenancy con RLS aplicado a Supabase. **Fase 4
+(Catalog) es la siguiente**: el catálogo todavía es un mock.
+
+El avance detallado está en [ROADMAP.md](ROADMAP.md), que es la fuente de verdad.
+
 ## Documentación
 
 La documentación es fuente de verdad, no notas. Leer en este orden antes de
@@ -78,25 +86,42 @@ pnpm format        # Prettier
 el artefacto que se despliega, no el dev server. Falla ante cualquier error de
 consola o respuesta HTTP >= 400 durante la navegación.
 
+`pnpm test` incluye las pruebas de aislamiento entre tenants, que corren sobre
+Postgres en proceso (PGlite) aplicando las migraciones reales. No necesitan
+Docker ni un Supabase remoto.
+
+```bash
+pnpm budget        # peso por página; falla si excede el presupuesto
+pnpm test:rls      # sólo el aislamiento entre tenants
+```
+
 Base de datos (requiere Docker para el stack local):
 
 ```bash
-pnpm db:start                  # Postgres + Supabase local
 pnpm db:new <nombre>           # nueva migración
-pnpm db:reset                  # reaplica migraciones desde cero
-pnpm db:types                  # regenera tipos desde el schema local
+pnpm db:types                  # regenera los tipos desde el schema remoto
+pnpm db:start                  # Supabase local; requiere Docker
+pnpm db:reset                  # reaplica migraciones desde cero, en local
 ```
+
+`db:types` y la aplicación de migraciones van por la API de Management y sólo
+necesitan `SUPABASE_ACCESS_TOKEN`; no hacen falta Docker ni la password de la
+base. Ver [supabase/migrations/README.md](supabase/migrations/README.md).
 
 ## Estructura
 
 ```text
 packages/
-  commerce-types/   contratos compartidos, sólo tipos
-  commerce-core/    lógica de dominio agnóstica de framework
+  commerce-types/    contratos compartidos + tipos generados de la base
+  commerce-core/     dominio sin framework: dinero, catálogo, variantes, SEO, autorización
+  commerce-ui/       tokens de diseño, recetas de clases e islands Preact
+  commerce-astro/    componentes .astro de presentación estática
+  adapter-supabase/  clientes, repositorios y sesión
 apps/
-  admin/            Admin multitenant (SPA)
-  demo/             storefront demo
-supabase/           config y migraciones del schema
+  admin/             Admin multitenant (SPA)
+  demo/              storefront demo
+supabase/            migraciones y pruebas de aislamiento entre tenants
+e2e/                 Playwright: navegación y presupuesto de performance
 ```
 
 Los paquetes se consumen como fuente (`exports` apunta a `src/`): no tienen paso

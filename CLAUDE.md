@@ -6,18 +6,27 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-Fase 0 cerrada: monorepo pnpm operativo, CI en GitHub Actions y deploy a Cloudflare Workers por push. Fase 1 (Design System) en curso.
+**Fases 0 a 3 cerradas. Fase 4 (Catalog) es la siguiente.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+
+- **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
+- **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
+- **Fase 2** — storefront: Home, PLP facetada server-side, PDP, carrito, SEO y GEO.
+- **Fase 3** — multitenancy: schema con RLS aplicado a Supabase, adapter y Auth en el Admin.
+
+El catálogo todavía es un mock en `apps/demo/src/lib/mock-catalog.ts`; Fase 4 lo lleva a Postgres.
 
 ```text
 packages/
-  commerce-types/   contratos compartidos, sólo tipos
-  commerce-core/    lógica de dominio, sin framework
-  commerce-ui/      tokens de diseño + utilidades + (futuro) islands Preact
-  commerce-astro/   componentes .astro de presentación estática
+  commerce-types/    contratos compartidos + tipos generados de la base
+  commerce-core/     dominio sin framework: dinero, catálogo, variantes, SEO, autorización
+  commerce-ui/       tokens de diseño, recetas de clases e islands Preact
+  commerce-astro/    componentes .astro de presentación estática
+  adapter-supabase/  clientes, repositorios y sesión
 apps/
-  admin/            React 19 + Vite 8 + Tailwind v4
-  demo/             Astro 7 + Preact islands + Tailwind v4 + adapter Cloudflare
-supabase/           config y migraciones
+  admin/             React 19 + Vite 8 + Tailwind v4 + shadcn sobre Base UI
+  demo/              Astro 7 + Preact islands + Tailwind v4 + adapter Cloudflare
+supabase/            migraciones y pruebas de aislamiento entre tenants
+e2e/                 Playwright: navegación y presupuesto de performance
 ```
 
 Los paquetes se consumen como fuente (`exports` → `src/`), sin build propio. Ver ADR-029.
@@ -28,14 +37,17 @@ Los paquetes se consumen como fuente (`exports` → `src/`), sin build propio. V
 pnpm dev            # admin (5273) + demo (4321)
 pnpm lint           # ESLint en todo el workspace
 pnpm typecheck      # tsc / astro check por paquete
-pnpm test           # node:test, sin runner externo
+pnpm test           # unitarios + aislamiento de tenants; node:test, sin runner externo
+pnpm e2e            # Playwright, desktop y mobile, contra el build de producción
+pnpm budget         # presupuesto de peso por página; falla si se excede
 pnpm build
 pnpm db:new <n>     # nueva migración; ver supabase/migrations/README.md
+pnpm db:types       # regenera los tipos desde el schema remoto
 ```
 
 Deploy: `pnpm --filter <app> run deploy`. El `run` **no es opcional** — `deploy` es un comando built-in de pnpm y sin `run` nunca llega al script del paquete.
 
-Supabase se opera por CLI/API con las credenciales de `.env`, nunca por MCP: ese servidor está reservado a otro proyecto y no ve éste.
+Supabase se opera por CLI/API con las credenciales de `.env`, nunca por MCP: ese servidor está reservado a otro proyecto y no ve éste. Las migraciones se aplican con la API de Management, que sólo necesita `SUPABASE_ACCESS_TOKEN`.
 
 ---
 
@@ -83,13 +95,21 @@ Fallo → causa raíz → mínimo arreglo seguro → volver a correr el test rel
 
 ## UPDATE DOCS
 
-Parte del Definition of Done, no un extra:
+**Una unidad de trabajo no está terminada hasta que los documentos dicen la verdad.** No es un extra ni se deja para después: un documento desactualizado es peor que uno inexistente, porque se le cree.
 
-- `ROADMAP.md` cuando una tarea o fase cambia de estado. Marcar checkbox, actualizar avance, agregar changelog.
-- `DECISIONS.md` (ADR-XXX) cuando cambia arquitectura, se adopta o descarta una dependencia, aparece un tradeoff, cambia el scope o una integración obliga a modificar un contrato.
-- `PROJECT.md` sólo si cambia la fuente de verdad del producto.
+Al cerrar cualquier implementación:
 
-También va al `ROADMAP.md` lo que aparece y no estaba previsto: un bloqueo, o una tarea retroactiva que descubrió el trabajo. Si no bloquea la fase actual, va a `Backlog / Retroactividad` en vez de interrumpirla.
+- `ROADMAP.md` — marcar el checkbox, actualizar el porcentaje de la fase **y el de los bloques transversales que la tarea tocó**, agregar la fila al changelog.
+- `DECISIONS.md` (ADR-XXX) — cuando cambia arquitectura, se adopta o descarta una dependencia, aparece un tradeoff, cambia el scope o una integración obliga a modificar un contrato.
+- `CLAUDE.md` — cuando cambia el estado de las fases, aparece un paquete o un comando nuevo, o se descubre una restricción que condiciona el diseño.
+- `PROJECT.md` — sólo si cambia la fuente de verdad del producto.
+
+También va al `ROADMAP.md` lo que aparece y no estaba previsto: un bloqueo, o una tarea retroactiva que descubrió el trabajo. Si no bloquea la fase actual, va a `Backlog / Retroactividad` en vez de interrumpirla — **y ese backlog vacío es una señal de que no se está registrando, no de que no haya hallazgos**.
+
+Dos errores concretos que ya se cometieron acá y no deben repetirse:
+
+- Los bloques de **requisitos transversales** quedaron en 0% durante tres fases mientras se implementaban. Se marcan al cerrar cada tarea, no al final.
+- Un ítem se difirió con el motivo equivocado —"espera Fase 3" cuando en realidad esperaba Fase 5—. Al diferir algo, verificar **qué** lo desbloquea, no suponerlo.
 
 ## Cerrar: informe corto
 
@@ -164,6 +184,10 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
 - Una island Preact **no puede importar** componentes `.astro`. El contenido baja desde la página.
 - Un `<img>` crudo no recibe ningún procesamiento: usar `<Image />` de `astro:assets`.
 - Las imágenes en `public/` nunca se optimizan.
+- Tailwind no escanea `node_modules`: cada paquete `@pick/*` con componentes necesita su `@source` en `tokens.css`, o sus clases no se generan y **nada falla** (ADR-044).
+- CSS **no** puede mostrar el contenido de un `<details>` cerrado, pero **sí** puede mostrar y ocultar un `<dialog>` en ambas direcciones: un `display` sin acotar a `[open]` o `:modal` lo deja visible estando cerrado (ADR-045, ADR-049).
+- Las islands se importan por subpath, nunca desde el barrel: desde el barrel Vite las agrupa en un solo chunk y toda página descarga las que no usa (ADR-040).
+- Astro colapsa el espacio entre dos expresiones adyacentes: `{a} {b}` sale pegado. Usar una sola expresión.
 
 ---
 
@@ -174,7 +198,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 1. [AGENTS.md](AGENTS.md) — protocolo de trabajo con IA, reglas Core vs cliente, reglas UX.
 2. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 3. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-4. [DECISIONS.md](DECISIONS.md) — ADR-001..034 + decisiones pendientes P-001..005.
+4. [DECISIONS.md](DECISIONS.md) — ADR-001..054 + decisiones pendientes P-001..005.
 5. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.
 
 Si el código contradice un documento, no asumir que el código gana: identificar si es bug, deuda o decisión nueva, y registrarlo.
