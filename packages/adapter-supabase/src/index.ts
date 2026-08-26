@@ -15,3 +15,4 @@ export {
   type SesionActiva,
   type UsuarioAutenticado,
 } from './auth.ts';
+export { repositorioCatalogo, mapearResultadoCatalogo } from './catalogo.ts';

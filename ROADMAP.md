@@ -177,25 +177,25 @@ Objetivo: modelo de datos y autorización confiables.
 
 ## Fase 4 — Catalog, Variants e Inventory Mirror
 
-**Avance: 0%**
+**Avance: 55%**
 
 Objetivo: catálogo universal utilizable.
 
-- [ ] Crear Product.
-- [ ] Crear Variant.
-- [ ] Crear SKU/barcode.
-- [ ] Crear Price/Cost.
-- [ ] Modelar currencies/exchange rate manual.
-- [ ] Modelar product groups/sibling products para colores relacionados.
-- [ ] Crear Media.
-- [ ] Crear Category/Taxonomy.
-- [ ] Crear Attribute Definitions.
-- [ ] Crear Product Attribute Values.
-- [ ] Crear Collections manuales.
-- [ ] Crear Dynamic Collections básicas.
-- [ ] Crear stock por location.
-- [ ] Registrar source of truth por campo cuando corresponda.
-- [ ] Crear status activo/inactivo/archivado.
+- [x] Crear Product. Con weight, dimensiones, metadata fiscal y origen por campo.
+- [x] Crear Variant. Con `position`: el precio que ve el cliente no puede depender del plan de ejecución.
+- [x] Crear SKU/barcode. SKU único por tenant.
+- [x] Crear Price/Cost. En unidades mínimas, como el tipo `Money`.
+- [x] Modelar currencies/exchange rate manual. En `store_settings`, con `actualizarTasa` puro. Falta la UI (Fase 6).
+- [x] Modelar product groups/sibling products para colores relacionados.
+- [x] Crear Media. Con `width`/`height` obligatorios, contra CLS.
+- [x] Crear Category/Taxonomy. Árbol por `parent_id`.
+- [x] Crear Attribute Definitions. Con los cinco flags de PROJECT.md §35.
+- [x] Crear Product Attribute Values. `attributes` jsonb en la variante, con índice GIN.
+- [x] Crear Collections manuales.
+- [x] Crear Dynamic Collections básicas. `rules` tiene la forma de `CatalogFilters`: la resuelve el mismo `catalog_search`.
+- [x] Crear stock por location. Se suma al leer, sin materializar.
+- [x] Registrar source of truth por campo cuando corresponda. `field_sources` más `assertEditable` en el core.
+- [x] Crear status activo/inactivo/archivado. El storefront sólo lee `active`, con test.
 - [ ] Implementar CRUD Admin.
 - [ ] Implementar CSV template.
 - [ ] Implementar preview y validación de import CSV.
@@ -699,6 +699,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-24 | Fase 3: schema multitenant, RLS y pruebas de aislamiento sobre Postgres en proceso                                                                                                      | Fase 3 |           0% |            55% |
 | 2026-08-24 | Migración aplicada al proyecto Supabase y aislamiento verificado con JWTs reales                                                                                                        | Fase 3 |          55% |            65% |
 | 2026-08-24 | Fase 3 cerrada: adapter de Supabase, resolución de tenant y Auth en el Admin                                                                                                            | Fase 3 |          65% |           100% |
+| 2026-08-26 | Fase 4: schema de catálogo, `catalog_search` con paridad verificada contra el core, y seed reproducible                                                                                 | Fase 4 |           0% |            55% |
 
 ---
 
@@ -761,23 +762,23 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 
 ## Multi-currency
 
-**Avance: 0%**
+**Avance: 45%**
 
-- [ ] Moneda base.
-- [ ] Monedas de display.
-- [ ] Moneda de checkout.
-- [ ] Tipo de cambio manual.
-- [ ] Audit del cambio.
-- [ ] Regla de redondeo.
+- [x] Moneda base.
+- [x] Monedas de display.
+- [x] Moneda de checkout. Separada de la mostrada: mostrar en USD no es cobrar en USD.
+- [x] Tipo de cambio manual.
+- [x] Audit del cambio. `actualizarTasa` devuelve la configuración y su entrada de auditoría juntas: no se puede cambiar la tasa sin obtener qué auditar.
+- [x] Regla de redondeo.
 - [ ] UI Admin.
 - [ ] Product/PDP price display.
 - [ ] Compatibilidad ERP/gateway documentada.
 
 ## Linked Colors
 
-**Avance: 0%**
+**Avance: 20%**
 
-- [ ] Modelar product families/siblings.
+- [x] Modelar product families/siblings. Tabla `product_groups` y `product_group_id` en el producto.
 - [ ] `linkedColors` feature.
 - [ ] Product Card swatches.
 - [ ] PDP sibling navigation.

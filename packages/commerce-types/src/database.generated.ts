@@ -17,10 +17,83 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
+      attribute_definitions: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          filterable: boolean
+          id: string
+          label: string
+          name: string
+          position: number
+          searchable: boolean
+          sortable: boolean
+          store_id: string
+          tenant_id: string
+          updated_at: string
+          visible_card: boolean
+          visible_pdp: boolean
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          filterable?: boolean
+          id?: string
+          label: string
+          name: string
+          position?: number
+          searchable?: boolean
+          sortable?: boolean
+          store_id: string
+          tenant_id: string
+          updated_at?: string
+          visible_card?: boolean
+          visible_pdp?: boolean
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          filterable?: boolean
+          id?: string
+          label?: string
+          name?: string
+          position?: number
+          searchable?: boolean
+          sortable?: boolean
+          store_id?: string
+          tenant_id?: string
+          updated_at?: string
+          visible_card?: boolean
+          visible_pdp?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attribute_definitions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attribute_definitions_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attribute_definitions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -55,6 +128,158 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      categories: {
+        Row: {
+          created_at: string
+          id: string
+          image: Json | null
+          name: string
+          parent_id: string | null
+          position: number
+          slug: string
+          store_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image?: Json | null
+          name: string
+          parent_id?: string | null
+          position?: number
+          slug: string
+          store_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image?: Json | null
+          name?: string
+          parent_id?: string | null
+          position?: number
+          slug?: string
+          store_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categories_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collection_products: {
+        Row: {
+          collection_id: string
+          position: number
+          product_id: string
+          tenant_id: string
+        }
+        Insert: {
+          collection_id: string
+          position?: number
+          product_id: string
+          tenant_id: string
+        }
+        Update: {
+          collection_id?: string
+          position?: number
+          product_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_products_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_products_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collections: {
+        Row: {
+          created_at: string
+          handle: string
+          id: string
+          rules: Json | null
+          store_id: string
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          handle: string
+          id?: string
+          rules?: Json | null
+          store_id: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          handle?: string
+          id?: string
+          rules?: Json | null
+          store_id?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collections_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collections_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -97,6 +322,55 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_levels: {
+        Row: {
+          available: number
+          id: string
+          location_id: string
+          tenant_id: string
+          updated_at: string
+          variant_id: string
+        }
+        Insert: {
+          available?: number
+          id?: string
+          location_id: string
+          tenant_id: string
+          updated_at?: string
+          variant_id: string
+        }
+        Update: {
+          available?: number
+          id?: string
+          location_id?: string
+          tenant_id?: string
+          updated_at?: string
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_levels_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_levels_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_levels_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -208,6 +482,260 @@ export type Database = {
         }
         Relationships: []
       }
+      product_groups: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          store_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          store_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          store_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_groups_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_groups_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_media: {
+        Row: {
+          alt: string
+          created_at: string
+          height: number
+          id: string
+          position: number
+          product_id: string
+          tenant_id: string
+          url: string
+          width: number
+        }
+        Insert: {
+          alt?: string
+          created_at?: string
+          height: number
+          id?: string
+          position?: number
+          product_id: string
+          tenant_id: string
+          url: string
+          width: number
+        }
+        Update: {
+          alt?: string
+          created_at?: string
+          height?: number
+          id?: string
+          position?: number
+          product_id?: string
+          tenant_id?: string
+          url?: string
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_media_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_media_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_variants: {
+        Row: {
+          attributes: Json
+          barcode: string | null
+          compare_at_price: number | null
+          cost: number | null
+          created_at: string
+          currency: string
+          field_sources: Json
+          id: string
+          position: number
+          price: number
+          product_id: string
+          sku: string
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          attributes?: Json
+          barcode?: string | null
+          compare_at_price?: number | null
+          cost?: number | null
+          created_at?: string
+          currency: string
+          field_sources?: Json
+          id?: string
+          position?: number
+          price: number
+          product_id: string
+          sku: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          attributes?: Json
+          barcode?: string | null
+          compare_at_price?: number | null
+          cost?: number | null
+          created_at?: string
+          currency?: string
+          field_sources?: Json
+          id?: string
+          position?: number
+          price?: number
+          product_id?: string
+          sku?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_variants_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          brand: string | null
+          category_id: string | null
+          created_at: string
+          description: string | null
+          dimensions: Json | null
+          field_sources: Json
+          handle: string
+          id: string
+          last_sync_at: string | null
+          product_group_id: string | null
+          status: Database["public"]["Enums"]["product_status"]
+          store_id: string
+          sync_error: string | null
+          tax: Json | null
+          tenant_id: string
+          title: string
+          updated_at: string
+          weight_grams: number | null
+        }
+        Insert: {
+          brand?: string | null
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          dimensions?: Json | null
+          field_sources?: Json
+          handle: string
+          id?: string
+          last_sync_at?: string | null
+          product_group_id?: string | null
+          status?: Database["public"]["Enums"]["product_status"]
+          store_id: string
+          sync_error?: string | null
+          tax?: Json | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+          weight_grams?: number | null
+        }
+        Update: {
+          brand?: string | null
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          dimensions?: Json | null
+          field_sources?: Json
+          handle?: string
+          id?: string
+          last_sync_at?: string | null
+          product_group_id?: string | null
+          status?: Database["public"]["Enums"]["product_status"]
+          store_id?: string
+          sync_error?: string | null
+          tax?: Json | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          weight_grams?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_product_group_id_fkey"
+            columns: ["product_group_id"]
+            isOneToOne: false
+            referencedRelation: "product_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           permission: string
@@ -308,10 +836,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      catalog_search: {
+        Args: {
+          p_filters?: Json
+          p_handle?: string
+          p_page?: number
+          p_per_page?: number
+          p_price_max?: number
+          p_price_min?: number
+          p_search?: string
+          p_sort?: string
+          p_store_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       member_role: "owner" | "admin" | "staff" | "viewer"
+      product_status: "draft" | "active" | "inactive" | "archived"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -440,6 +982,7 @@ export const Constants = {
   public: {
     Enums: {
       member_role: ["owner", "admin", "staff", "viewer"],
+      product_status: ["draft", "active", "inactive", "archived"],
     },
   },
 } as const

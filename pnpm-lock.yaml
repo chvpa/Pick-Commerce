@@ -14,6 +14,15 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.9.0(jiti@2.7.0)(supports-color@10.2.2))
+      '@pick/adapter-supabase':
+        specifier: workspace:*
+        version: link:packages/adapter-supabase
+      '@pick/commerce-core':
+        specifier: workspace:*
+        version: link:packages/commerce-core
+      '@pick/commerce-types':
+        specifier: workspace:*
+        version: link:packages/commerce-types
       '@playwright/test':
         specifier: ^1.62.1
         version: 1.62.1

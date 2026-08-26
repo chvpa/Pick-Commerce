@@ -1605,3 +1605,116 @@ todo.
 `clienteDeServidor` se tree-shakea. Cuidado con el chequeo: el propio SDK
 contiene el literal `sb_secret_` en su validación de formato, así que buscar esa
 cadena da un falso positivo.
+
+---
+
+## ADR-055 — El catálogo se resuelve en SQL, con `queryCatalog` como especificación ejecutable
+
+**Fecha:** 2026-08-26
+**Estado:** Accepted
+
+**Contexto**
+ADR-024 prohíbe traer el catálogo completo para filtrar en el browser, así que
+filtros, orden, paginación y facetas tienen que resolverse antes de devolver los
+ítems. `queryCatalog` en el core ya fijaba esa semántica con sus propios tests, y su
+propio comentario anticipaba que "en Fase 4 el cuerpo pasa a ser una query a
+Postgres y la firma no cambia".
+
+**Decisión**
+La implementación de producción es la función SQL `catalog_search`, que devuelve
+ítems, facetas y totales en un solo round-trip. `queryCatalog` **no se
+reemplaza**: queda como especificación ejecutable de la semántica.
+
+El contrato es literal: `catalog_search(tienda, q)` equivale a
+`queryCatalog(activos(tienda), q)`.
+
+**Por qué una función y no consultas sueltas**
+Las facetas con self-exclusion necesitan recorrer el mismo conjunto varias veces
+con filtros distintos. Hacerlo desde el cliente serían N+1 round-trips, o traer
+todo y contar en JavaScript, que es exactamente lo que ADR-024 prohíbe.
+
+**Cómo se verifica, y por qué así**
+Veinticuatro casos corren los mismos fixtures por las dos implementaciones y
+comparan el resultado: cada filtro, OR dentro de una faceta y AND entre facetas,
+los cuatro órdenes, búsqueda multi-término y por SKU, clamp de página, rango de
+precio.
+
+Existe por ADR-050: cuando el modo de fallo es silencioso, la verificación tiene
+que ser exhaustiva y no ilustrativa. Un count de faceta mal calculado en SQL no
+rompe nada — muestra un número equivocado y nadie se entera.
+
+**Se comprobó que los tests detectan divergencias**, no sólo que pasan: quitar la
+self-exclusion tumba 6 casos, dejar pasar borradores tumba 18, romper el orden de
+las variantes tumba 1.
+
+**Una divergencia real que apareció y cambió el core**
+Con un filtro sin resultados, el core emitía facetas con la lista de valores
+vacía y el RPC las omitía. Ganó el RPC: una faceta sin opciones es un accordion
+vacío que no ayuda a filtrar ni a deshacer nada, y emitirla era un artefacto de
+"juntar los nombres primero y contar después", no un comportamiento diseñado. La
+faceta cuyo filtro está activo nunca queda vacía, porque se excluye a sí misma
+del conteo.
+
+**Lo que sólo existe en SQL**
+El filtro por estado `active`. El core recibe productos ya filtrados, así que esa
+regla no tiene dónde vivir en TypeScript — y sin ella un select ingenuo publica
+borradores. Tiene su propio test.
+
+**Consecuencias**
+
+- Un bug de la función se corrige con una migración nueva que sólo trae
+  `create or replace`: minutos, sin tocar una fila.
+- Todo lo usado es core de Postgres, así que las pruebas corren en PGlite sin
+  Docker (ADR-053). Nada de `pg_trgm`: la búsqueda usa `position(token in texto)`,
+  que es la misma coincidencia literal de subcadena que `includes` en JavaScript
+  y no obliga a escapar `%` ni `_`.
+- El orden de la lista de facetas lo define `attribute_definitions.position` en
+  producción, y en el core es el orden de iteración de un objeto de JavaScript.
+  Los tests comparan el contenido de las facetas, no ese orden incidental.
+- El PDP no tiene consulta propia: pasa un `p_handle` al mismo RPC. Dos consultas
+  distintas podrían divergir en qué consideran publicado o en cómo suman el stock.
+
+---
+
+## ADR-056 — Decisiones del schema de catálogo
+
+**Fecha:** 2026-08-26
+**Estado:** Accepted
+
+**`availableQuantity` se suma al leer, no se materializa**
+Ni columna mantenida por trigger ni vista: el RPC suma `inventory_levels` en la
+consulta. Una columna materializada es drift esperando su momento — el sync del
+ERP reescribe el inventario en bloque, y cualquier desincronización deja al
+storefront vendiendo con un número que no es.
+
+**`inventory_levels.available` no lleva `check (available >= 0)`**
+Es un espejo del ERP (ADR-009) y un ERP puede reportar negativo. Recortarlo a
+cero escondería el overselling en vez de mostrarlo.
+
+**`product_variants.position` es obligatorio**
+La PLP muestra la primera variante y su precio es el que ve el cliente. Sin un
+orden explícito, ese precio dependería del plan de ejecución de Postgres.
+
+**Una colección dinámica es una consulta guardada**
+`collections.rules` tiene exactamente la forma de `CatalogFilters`, así que la
+resuelve el mismo `catalog_search` que la PLP. Cero motor de reglas nuevo.
+
+**El origen por campo se guarda sólo cuando es excepción**
+`field_sources` es un objeto como `{"price": "ERP"}`; la ausencia significa
+COMMERCE. Guardar sólo las excepciones evita reescribir la fila entera cada vez
+que aparece un campo nuevo. Un valor corrupto degrada a COMMERCE: el default
+seguro es que el comercio pueda editar, no que quede bloqueado sin saber por qué.
+
+**El stock escribe con `catalog.write`**
+No se inventa un permiso `inventory.write` porque hoy ningún rol distingue
+"edita catálogo" de "ajusta stock". Se separa cuando exista uno que lo pida.
+
+**La profundidad de la taxonomía no tiene constraint**
+`categories.parent_id` permite el árbol de PROJECT.md §8; los tres niveles se
+acotan en el Admin. Un CHECK no puede recorrer el árbol, y un trigger sería más
+código que el riesgo que cubre.
+
+**Reversión**
+Ambas migraciones sólo crean objetos y no alteran nada de Fase 3, así que
+revertir es un `drop` de las tablas nuevas, la función y el enum, sin pérdida
+posible de datos ajenos al catálogo.

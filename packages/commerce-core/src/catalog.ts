@@ -9,6 +9,9 @@ export interface CatalogQuery {
   readonly filters?: CatalogFilters;
   readonly sort?: CatalogSort;
   readonly search?: string;
+  /** Rango sobre el precio más bajo del producto, en unidades mínimas. */
+  readonly precioMin?: number;
+  readonly precioMax?: number;
   readonly page?: number;
   readonly perPage?: number;
 }
@@ -74,6 +77,17 @@ function matches(product: Product, filters: CatalogFilters, ignore?: string): bo
   return true;
 }
 
+/**
+ * El rango de precio no es una faceta: se aplica a los ítems **y** a los counts
+ * de todas las facetas, y nunca se auto-excluye.
+ */
+function matchesPrecio(product: Product, min?: number, max?: number): boolean {
+  if (min === undefined && max === undefined) return true;
+  const precio = lowestPrice(product)?.amount;
+  if (precio === undefined) return false;
+  return (min === undefined || precio >= min) && (max === undefined || precio <= max);
+}
+
 function matchesSearch(product: Product, search: string): boolean {
   const needle = search.trim().toLocaleLowerCase();
   if (needle === '') return true;
@@ -96,6 +110,8 @@ export function buildFacets(
   products: readonly Product[],
   filters: CatalogFilters = {},
   search = '',
+  precioMin?: number,
+  precioMax?: number,
 ): Facet[] {
   const names: string[] = [];
   for (const product of products) {
@@ -108,12 +124,13 @@ export function buildFacets(
     }
   }
 
-  return names.map((name) => {
+  const facetas = names.map((name) => {
     const counts = new Map<string, number>();
     const order: string[] = [];
 
     for (const product of products) {
       if (!matchesSearch(product, search)) continue;
+      if (!matchesPrecio(product, precioMin, precioMax)) continue;
       if (!matches(product, filters, name)) continue;
 
       for (const value of valuesFor(product, name)) {
@@ -132,6 +149,11 @@ export function buildFacets(
       })),
     };
   });
+
+  // Una faceta sin ningún valor es un accordion vacío: no ayuda a filtrar ni a
+  // deshacer nada. La faceta cuyo filtro está activo nunca queda vacía, porque
+  // se excluye a sí misma del conteo.
+  return facetas.filter((faceta) => faceta.values.length > 0);
 }
 
 function compare(a: Product, b: Product, sort: CatalogSort): number {
@@ -162,11 +184,15 @@ export function queryCatalog(
     filters = {},
     sort = 'relevance',
     search = '',
+    precioMin,
+    precioMax,
     page = 1,
     perPage = DEFAULT_PER_PAGE,
   } = query;
 
-  const filtered = products.filter((p) => matchesSearch(p, search) && matches(p, filters));
+  const filtered = products.filter(
+    (p) => matchesSearch(p, search) && matchesPrecio(p, precioMin, precioMax) && matches(p, filters),
+  );
   const sorted =
     sort === 'relevance' ? filtered : [...filtered].sort((a, b) => compare(a, b, sort));
 
@@ -179,10 +205,48 @@ export function queryCatalog(
 
   return {
     items: sorted.slice(start, start + perPage),
-    facets: buildFacets(products, filters, search),
+    facets: buildFacets(products, filters, search, precioMin, precioMax),
     total,
     page: safePage,
     perPage,
     pageCount,
   };
+}
+
+// --- Puerto del catálogo ------------------------------------------------------
+
+/** Resultado de una consulta más el rango de precios de la tienda. */
+export interface ResultadoCatalogo extends CatalogResult {
+  /** Mínimo y máximo del catálogo entero, para armar los buckets de precio. */
+  readonly priceMin: number | null;
+  readonly priceMax: number | null;
+}
+
+export interface CategoriaCatalogo {
+  readonly name: string;
+  readonly slug: string;
+  readonly image?: { readonly url: string; readonly alt: string; readonly width: number; readonly height: number };
+}
+
+/** Faceta que la tienda declaró filtrable. Ver PROJECT.md §35. */
+export interface DefinicionFaceta {
+  readonly name: string;
+  readonly label: string;
+  readonly position: number;
+}
+
+/**
+ * Contrato de acceso al catálogo. El adapter lo implementa contra Postgres.
+ *
+ * Es asíncrono mientras `queryCatalog` sigue siendo síncrono a propósito: esa
+ * función queda como **especificación ejecutable** de la semántica, y los tests
+ * comparan la implementación real contra ella. Ver ADR-055.
+ */
+export interface RepositorioCatalogo {
+  buscar(storeId: string, query: CatalogQuery): Promise<ResultadoCatalogo>;
+  porHandle(storeId: string, handle: string): Promise<Product | null>;
+  destacados(storeId: string, limite: number): Promise<readonly Product[]>;
+  categorias(storeId: string): Promise<readonly CategoriaCatalogo[]>;
+  /** Sólo las declaradas `filterable`: es lo que decide qué facetas ve la PLP. */
+  facetasFiltrables(storeId: string): Promise<readonly DefinicionFaceta[]>;
 }

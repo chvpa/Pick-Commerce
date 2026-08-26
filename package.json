@@ -28,11 +28,15 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "budget": "node scripts/budget.mjs",
-    "test:rls": "node --test \"supabase/tests/**/*.test.ts\""
+    "test:rls": "node --test \"supabase/tests/**/*.test.ts\"",
+    "seed": "node scripts/seed-demo.ts"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.7",
     "@eslint/js": "^10.0.1",
+    "@pick/adapter-supabase": "workspace:*",
+    "@pick/commerce-core": "workspace:*",
+    "@pick/commerce-types": "workspace:*",
     "@playwright/test": "^1.62.1",
     "eslint": "^10.9.0",
     "eslint-plugin-astro": "^3.1.0",
