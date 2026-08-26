@@ -1536,11 +1536,27 @@ No alcanza con que pasen. Se rompieron dos políticas a propósito y fallaron:
 cambiar el filtro de tenant por `using (true)` tumbó 2 casos, y darle
 `member.manage` al rol staff tumbó 3.
 
-**Lo que NO cubre**
-El esquema `auth` real de Supabase, sus triggers y sus roles. El arnés recrea lo
-mínimo que las políticas necesitan, así que un cambio de comportamiento de
-Supabase Auth no se detectaría acá. Eso se verifica contra un proyecto real
-antes del piloto (T3).
+**Lo que NO cubre, y cómo se cubrió**
+El arnés recrea lo mínimo del esquema `auth`, así que no detectaría un cambio de
+comportamiento de Supabase Auth. Eso se verificó aparte, contra el proyecto
+real: dos usuarios creados por la Admin API, autenticados con JWT de verdad y
+consultando por PostgREST.
+
+| Prueba con JWT real                 | Resultado                 |
+| ----------------------------------- | ------------------------- |
+| A ve organizaciones                 | sólo la suya              |
+| B ve organizaciones                 | sólo la suya              |
+| viewer escribe en su organización   | 403                       |
+| owner escribe en organización ajena | 403                       |
+| owner escribe en la suya            | 201                       |
+| `anon` con la publishable key       | `42501 permission denied` |
+
+Los datos de prueba se borraron después; el proyecto quedó con el schema y sin
+filas.
+
+Esa verificación es **manual y puntual**: no corre en CI, porque exige
+credenciales que no viven en el repo. Repetirla al tocar RLS o al subir de
+versión de Supabase.
 
 **Además**
 Se quitó la extensión `pgcrypto`: `gen_random_uuid()` está en el core de

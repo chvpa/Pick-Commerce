@@ -274,3 +274,29 @@ create policy feature_flags_escritura on feature_flags
 create policy audit_log_lectura on audit_log
   for select to authenticated
   using (tenant_id in (select app.current_tenants()));
+
+-- ---------------------------------------------------------------------------
+-- Privilegios
+-- ---------------------------------------------------------------------------
+
+-- RLS filtra filas, pero antes el rol necesita poder consultar la tabla. Se
+-- declara explícito y no se confía en los privilegios por defecto del
+-- proyecto: un default distinto dejaría las políticas sin efecto o de más.
+grant usage on schema app to authenticated;
+grant execute on all functions in schema app to authenticated;
+
+grant select, insert, update, delete on
+  organizations, stores, locations, memberships, store_settings, feature_flags
+  to authenticated;
+
+-- La auditoría se lee, no se escribe desde la app.
+grant select on audit_log to authenticated;
+grant select on role_permissions to authenticated;
+
+-- `anon` es el rol del browser. Ninguna de estas tablas le corresponde: el
+-- storefront lee desde el servidor. Se revoca explícitamente en vez de confiar
+-- en que no se haya concedido.
+revoke all on
+  organizations, stores, locations, memberships, store_settings, feature_flags,
+  audit_log, role_permissions
+  from anon;

@@ -84,10 +84,13 @@ test('un usuario sin membresías no ve absolutamente nada', async () => {
   }
 });
 
-test('un usuario anónimo no ve nada: el storefront no lee por esta vía', async () => {
+test('el rol anónimo ni siquiera puede consultar estas tablas', async () => {
+  // Más fuerte que "devuelve vacío": al browser no se le concede el privilegio.
+  // El storefront lee desde el servidor, no por esta vía. Ver ADR-052.
   for (const tabla of ['organizations', 'stores', 'memberships', 'audit_log']) {
-    const filas = await como(db, null, `select * from ${tabla}`);
-    assert.equal(filas.length, 0, `${tabla} quedó expuesta a anon`);
+    const r = await intentar(db, null, `select * from ${tabla}`);
+    assert.equal(r.ok, false, `${tabla} quedó accesible al rol anon`);
+    assert.match(r.error ?? '', /permission denied/i, `${tabla}: ${r.error}`);
   }
 });
 

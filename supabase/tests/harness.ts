@@ -46,12 +46,11 @@ export async function baseDePrueba(): Promise<PGlite> {
     await db.exec(readFileSync(join(MIGRACIONES, archivo), 'utf8'));
   }
 
-  // Supabase concede esto automáticamente a las tablas nuevas; acá va explícito.
+  // Sólo lo que la migración no declara: el acceso a los schemas. Los privilegios
+  // sobre tablas los concede la propia migración, así que si ahí falta un grant
+  // las pruebas lo notan.
   await db.exec(`
-    grant usage on schema public, auth, app to anon, authenticated;
-    grant select, insert, update, delete on all tables in schema public to authenticated;
-    grant select on all tables in schema public to anon;
-    grant execute on all functions in schema app to anon, authenticated;
+    grant usage on schema public, auth to anon, authenticated;
   `);
 
   return db;

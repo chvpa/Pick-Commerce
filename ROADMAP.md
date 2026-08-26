@@ -149,7 +149,7 @@ Objetivo: storefront Astro funcional y rápido.
 
 ## Fase 3 — Multitenancy, Auth y Domain Model
 
-**Avance: 55%**
+**Avance: 65%**
 
 Objetivo: modelo de datos y autorización confiables.
 
@@ -161,7 +161,7 @@ Objetivo: modelo de datos y autorización confiables.
 - [x] Crear feature flags. Por organización o por tienda.
 - [x] Crear store settings.
 - [ ] Configurar Supabase Auth.
-- [x] Configurar RLS. Todas las tablas cerradas por defecto; verificado con pruebas que se comprobó que detectan políticas rotas.
+- [x] Configurar RLS. Todas las tablas cerradas por defecto. Verificado en CI con PGlite y, aparte, contra el proyecto real con JWTs de Supabase Auth.
 - [ ] Implementar tenant resolution.
 - [x] Crear audit log base. Sólo lectura desde la app: un registro que el actor puede reescribir no sirve como evidencia.
 - [~] Definir Domain Services. Contratos de autorización (`can`, `assertCan`, `assertSameTenant`) listos; los servicios por entidad llegan con Fase 4.
@@ -692,6 +692,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-24 | Correcciones de UX de la demo: sheet de filtros en mobile, orden en el PLP, "Aplicar" sólo sin JavaScript                                                                               | Fase 2 |          80% |            85% |
 | 2026-08-24 | Fase 2 cerrada: buscador y orden del header, presupuesto de performance en CI, baseline de CWV                                                                                          | Fase 2 |          85% |           100% |
 | 2026-08-24 | Fase 3: schema multitenant, RLS y pruebas de aislamiento sobre Postgres en proceso                                                                                                      | Fase 3 |           0% |            55% |
+| 2026-08-24 | Migración aplicada al proyecto Supabase y aislamiento verificado con JWTs reales                                                                                                        | Fase 3 |          55% |            65% |
 
 ---
 
