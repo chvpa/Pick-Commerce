@@ -149,22 +149,22 @@ Objetivo: storefront Astro funcional y rápido.
 
 ## Fase 3 — Multitenancy, Auth y Domain Model
 
-**Avance: 0%**
+**Avance: 55%**
 
 Objetivo: modelo de datos y autorización confiables.
 
-- [ ] Crear organizations.
-- [ ] Crear stores.
-- [ ] Crear locations.
-- [ ] Crear users/memberships.
-- [ ] Crear roles/permissions.
-- [ ] Crear feature flags.
-- [ ] Crear store settings.
+- [x] Crear organizations.
+- [x] Crear stores. Con dominio propio, que es lo que resuelve el tenant.
+- [x] Crear locations. Con `erp_location_id` para el mapeo al ERP.
+- [x] Crear users/memberships. FK real contra `auth.users`.
+- [x] Crear roles/permissions. Permisos como datos, no como comparación de roles.
+- [x] Crear feature flags. Por organización o por tienda.
+- [x] Crear store settings.
 - [ ] Configurar Supabase Auth.
-- [ ] Configurar RLS.
+- [x] Configurar RLS. Todas las tablas cerradas por defecto; verificado con pruebas que se comprobó que detectan políticas rotas.
 - [ ] Implementar tenant resolution.
-- [ ] Crear audit log base.
-- [ ] Definir Domain Services.
+- [x] Crear audit log base. Sólo lectura desde la app: un registro que el actor puede reescribir no sirve como evidencia.
+- [~] Definir Domain Services. Contratos de autorización (`can`, `assertCan`, `assertSameTenant`) listos; los servicios por entidad llegan con Fase 4.
 - [ ] Evitar acceso directo descontrolado del Admin a tablas sensibles.
 
 **Definition of Done**
@@ -691,6 +691,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-24 | Fase 2: SEO y GEO (canonical, Open Graph, JSON-LD, sitemap, robots, llms.txt), 404, políticas, FAQ y página de carrito                                                                  | Fase 2 |           0% |            80% |
 | 2026-08-24 | Correcciones de UX de la demo: sheet de filtros en mobile, orden en el PLP, "Aplicar" sólo sin JavaScript                                                                               | Fase 2 |          80% |            85% |
 | 2026-08-24 | Fase 2 cerrada: buscador y orden del header, presupuesto de performance en CI, baseline de CWV                                                                                          | Fase 2 |          85% |           100% |
+| 2026-08-24 | Fase 3: schema multitenant, RLS y pruebas de aislamiento sobre Postgres en proceso                                                                                                      | Fase 3 |           0% |            55% |
 
 ---
 

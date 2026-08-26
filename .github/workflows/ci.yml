@@ -29,7 +29,9 @@ jobs:
 
       - run: pnpm typecheck
 
-      - run: pnpm -r test
+      # Incluye las pruebas de aislamiento entre tenants, que corren sobre
+      # Postgres en proceso (PGlite) y no necesitan Docker ni un Supabase real.
+      - run: pnpm test
 
       - run: pnpm build
 

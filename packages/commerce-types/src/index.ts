@@ -78,3 +78,61 @@ export interface Page<T> {
   readonly items: readonly T[];
   readonly nextCursor: string | null;
 }
+
+// --- Multitenancy -----------------------------------------------------------
+// Un "tenant" es una organización. Toda entidad de negocio pertenece a una y se
+// protege con RLS más autorización en el servicio de dominio. Ver ADR-052.
+
+export type MemberRole = 'owner' | 'admin' | 'staff' | 'viewer';
+
+/**
+ * Permisos del Core. Son verbos sobre capacidades, no sobre pantallas: una
+ * pantalla nueva no debería exigir un permiso nuevo.
+ */
+export type Permission =
+  | 'organization.manage'
+  | 'store.manage'
+  | 'member.manage'
+  | 'catalog.write'
+  | 'order.write'
+  | 'settings.write';
+
+export interface Organization {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+}
+
+export interface Store {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly name: string;
+  readonly slug: string;
+  /** Dominio propio del storefront. Es lo que resuelve el tenant en runtime. */
+  readonly domain?: string;
+  readonly currency: CurrencyCode;
+  readonly locale: string;
+}
+
+export interface Location {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly storeId: string;
+  readonly name: string;
+  /** El ERP conserva autoridad sobre la sucursal cuando existe. Ver ADR-010. */
+  readonly erpLocationId?: string;
+  readonly isPickupPoint: boolean;
+}
+
+export interface Membership {
+  readonly tenantId: string;
+  readonly userId: string;
+  readonly role: MemberRole;
+}
+
+/** Identidad resuelta de quien hace una petición al Admin o al MCP. */
+export interface ActorContext {
+  readonly userId: string;
+  readonly tenantId: string;
+  readonly role: MemberRole;
+}

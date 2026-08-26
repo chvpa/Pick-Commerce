@@ -16,7 +16,7 @@
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && pnpm test:rls",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:new": "supabase migration new",
@@ -27,9 +27,11 @@
     "deploy:admin": "pnpm --filter @pick/admin run build && pnpm --filter @pick/admin run deploy",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "budget": "node scripts/budget.mjs"
+    "budget": "node scripts/budget.mjs",
+    "test:rls": "node --test \"supabase/tests/**/*.test.ts\""
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.7",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.1",
     "eslint": "^10.9.0",

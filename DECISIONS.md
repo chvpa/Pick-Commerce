@@ -1461,3 +1461,87 @@ token de aspecto (ADR-044) hacen lo que debían.
 
 Lighthouse completo queda como paso manual de pre-release (T3): en CI aporta
 ruido y lentitud frente a un presupuesto determinista.
+
+---
+
+## ADR-052 — Dos capas de autorización, y la secret key nunca en el browser
+
+**Fecha:** 2026-08-24
+**Estado:** Accepted
+
+**La pregunta**
+¿El storefront consulta Supabase directo confiando en RLS, o pasa por un
+servicio de dominio?
+
+**La respuesta empieza por una distinción que faltaba**
+El storefront **no es el browser**. Sus páginas se prerenderizan en build o se
+resuelven en el Worker; ninguna de las dos corre en el cliente. Así que la
+pregunta real no es "¿el frontend puede hablar con la base?" sino "¿dónde vive
+la autorización?".
+
+**Decisión**
+
+- Los contratos viven en `@pick/commerce-core`; un adapter de Supabase los
+  implementa. Ni el storefront ni el Admin arman queries a mano.
+- El **Admin** consulta con el JWT del usuario, y **RLS** es lo que impide que
+  una query devuelva filas de otra organización.
+- El **storefront** y los jobs consultan desde el servidor con la secret key,
+  que **saltea RLS por completo**. En ese camino la única defensa es la
+  verificación en el servicio de dominio: `assertCan` y `assertSameTenant`.
+- El browser nunca habla con Supabase para nada sensible. La publishable key
+  puede llegar al cliente; la secret key jamás.
+
+**Por qué las dos capas y no una**
+RLS sola no alcanza porque la secret key la saltea, y hay caminos legítimos que
+la usan. El servicio solo no alcanza porque no protege a quien consulte la base
+por otra vía. Cada una cubre el hueco de la otra.
+
+**Los permisos son datos, no comparaciones de rol**
+Las políticas llaman a `app.has_permission(tenant, permiso)` en vez de comparar
+`role = 'owner'`. Agregar un rol no obliga a reescribir RLS.
+
+Eso obliga a mantener la lista en dos lenguajes —SQL para las políticas,
+TypeScript para el servicio—. La fuente de verdad es `ROLE_PERMISSIONS` en el
+core, y **un test compara ambas**: si divergen, falla. Dos listas de permisos
+que se separan en silencio son un agujero de autorización.
+
+**Detalle que hay que saber al tocar RLS**
+`app.current_tenants()` es `SECURITY DEFINER` a propósito. La política de
+`memberships` necesita consultar `memberships`, y hacerlo directo entra en
+recursión infinita; la función saltea RLS y rompe el ciclo. Lleva `search_path`
+fijo, porque sin él un search_path manipulado redirige las tablas que consulta.
+
+---
+
+## ADR-053 — El aislamiento entre tenants se verifica con Postgres en proceso
+
+**Fecha:** 2026-08-24
+**Estado:** Accepted
+
+**Contexto**
+La Definition of Done de Fase 3 es que dos tenants coexistan sin verse. Eso no
+se demuestra leyendo políticas: hay que ejecutarlas.
+
+Verificarlo exigía Docker —que no está disponible— o un Supabase remoto, que
+habría dejado las pruebas fuera de CI. Una prueba de seguridad que corre "cuando
+alguien se acuerda" no protege nada.
+
+**Decisión**
+Las pruebas corren sobre **PGlite**, Postgres compilado a WASM, en el mismo
+proceso de Node. Aplica las migraciones reales del repo, no una copia, y aplica
+RLS igual que el servidor. Corre en CI en cada commit, sin Docker.
+
+**Verificado que las pruebas sirven**
+No alcanza con que pasen. Se rompieron dos políticas a propósito y fallaron:
+cambiar el filtro de tenant por `using (true)` tumbó 2 casos, y darle
+`member.manage` al rol staff tumbó 3.
+
+**Lo que NO cubre**
+El esquema `auth` real de Supabase, sus triggers y sus roles. El arnés recrea lo
+mínimo que las políticas necesitan, así que un cambio de comportamiento de
+Supabase Auth no se detectaría acá. Eso se verifica contra un proyecto real
+antes del piloto (T3).
+
+**Además**
+Se quitó la extensión `pgcrypto`: `gen_random_uuid()` está en el core de
+Postgres desde la 13, así que era una dependencia que no hacía falta.
