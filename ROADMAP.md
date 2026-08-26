@@ -130,7 +130,7 @@ Objetivo: storefront Astro funcional y rápido.
 - [x] Evitar full page reload al filtrar/ordenar. ClientRouter acotado a la PLP.
 - [x] Implementar Cart. Drawer y página `/carrito`, con el mismo contenido compartido.
 - [-] Implementar Checkout shell. Diferido a Fase 5: necesita los contratos de customer, address y order, que hoy habría que inventar.
-- [-] Implementar Account shell. Diferido a Fase 3: sin auth sería sólo maqueta.
+- [-] Implementar Account shell. Diferido a Fase 5, no a Fase 3: el Auth de Fase 3 es para usuarios del Admin, y la cuenta del storefront necesita el modelo de customer.
 - [x] Implementar Policies/FAQ. El FAQ emite `FAQPage`.
 - [x] Implementar 404.
 - [x] Implementar metadata SEO. Canonical absoluto, Open Graph y Twitter Card.
@@ -656,9 +656,14 @@ Estas líneas de trabajo pueden avanzar independientemente cuando exista acceso 
 
 > Registrar aquí descubrimientos que no deben interrumpir la fase actual.
 
-| Fecha | Hallazgo | Impacto | Acción | Fase destino | Estado |
-| ----- | -------- | ------- | ------ | ------------ | ------ |
-| —     | —        | —       | —      | —            | —      |
+| Fecha      | Hallazgo                                                          | Impacto                                                        | Acción                                    | Fase destino | Estado    |
+| ---------- | ----------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------- | ------------ | --------- |
+| 2026-08-24 | Los requisitos transversales quedaron en 0% con la mitad ya hecha | El ROADMAP dejó de reflejar el estado real                     | Reconciliados contra el código            | —            | Resuelto  |
+| 2026-08-24 | Falta estado de carga en el grid al filtrar la PLP                | El usuario no ve que algo pasó entre el click y los resultados | Skeletons en el grid                      | Fase 4       | Pendiente |
+| 2026-08-24 | La faceta de precio necesita rango, no valores discretos          | Con muchos precios la faceta sería inusable                    | Definir con datos reales                  | Fase 4       | Pendiente |
+| 2026-08-24 | La verificación de RLS con JWTs reales es manual                  | No corre en CI: exige credenciales fuera del repo              | Repetirla al tocar RLS y antes del piloto | Fase 12      | Pendiente |
+| 2026-08-24 | Revisión adversarial de Fase 1 interrumpida                       | Quedó sin ejecutar; puede haber hallazgos no vistos            | Relanzarla sobre el código actual         | —            | Pendiente |
+| 2026-08-24 | Lighthouse completo no corre en CI                                | El presupuesto de bytes acota, pero no cubre CWV bajo red real | Ejecutar en pre-release                   | Fase 12      | Pendiente |
 
 Ejemplos de hallazgos:
 
@@ -713,46 +718,46 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 
 ## UX / Interaction
 
-**Avance: 0%**
+**Avance: 88%**
 
-- [ ] Definir loading/pending/error/success states para acciones asíncronas.
-- [ ] Add to Cart con feedback inmediato y prevención de doble submit.
-- [ ] PLP filters sin full page reload.
-- [ ] Skeletons para grid/listas relevantes.
-- [ ] Focus states y keyboard accessibility.
-- [ ] Pointer/cursor para elementos accionables.
-- [ ] Mobile UX revisada en Storefront y Admin.
-- [ ] `prefers-reduced-motion` en motion premium.
+- [x] Definir loading/pending/error/success states para acciones asíncronas. En Add to Cart y en el login del Admin.
+- [x] Add to Cart con feedback inmediato y prevención de doble submit. El bloqueo va con un ref, no con estado: dos clicks en el mismo tick pasarían ambos.
+- [x] PLP filters sin full page reload. ClientRouter acotado a la PLP (ADR-042).
+- [ ] Skeletons para grid/listas relevantes. Pendiente: hoy el filtrado no muestra estado de carga en el grid.
+- [x] Focus states y keyboard accessibility. `focus-visible` en todo lo accionable; verificado con Playwright.
+- [x] Pointer/cursor para elementos accionables.
+- [x] Mobile UX revisada en Storefront y Admin. Playwright corre todo el smoke también en viewport mobile.
+- [x] `prefers-reduced-motion` en motion premium. `motion-reduce` en galería, carrusel y transiciones de card.
 
 ## Data loading / Pagination
 
-**Avance: 0%**
+**Avance: 40%**
 
-- [ ] Paginación PLP.
-- [ ] Server-side filters/sort.
+- [x] Paginación PLP. Con ventana de páginas y `rel=prev/next`.
+- [x] Server-side filters/sort. Ruta on-demand; nunca se filtra en el browser (ADR-024).
 - [ ] Paginación Admin Products.
 - [ ] Paginación Admin Orders.
 - [ ] Paginación Admin Customers.
 - [ ] Paginación Promotions/Discounts.
 - [ ] Paginación Audit/Sync logs.
-- [ ] Evitar fetch de datasets completos.
+- [x] Evitar fetch de datasets completos. En el storefront; el Admin todavía no tiene listas.
 
 ## PLP Facets
 
-**Avance: 0%**
+**Avance: 75%**
 
-- [ ] Accordion filters.
-- [ ] Talla/variante.
-- [ ] Género.
-- [ ] Marca.
-- [ ] Color.
-- [ ] Categoría/subcategoría.
-- [ ] Precio.
-- [ ] Atributos dinámicos.
-- [ ] Counts.
-- [ ] "Ver más".
-- [ ] URL state.
-- [ ] Mobile filter drawer.
+- [x] Accordion filters. `<details>` nativo, sin JavaScript.
+- [x] Talla/variante.
+- [-] Género. Es un atributo de catálogo; aparece cuando la taxonomía de Fase 4 lo declare.
+- [x] Marca.
+- [x] Color.
+- [~] Categoría/subcategoría. Categoría lista como faceta de producto; la subcategoría espera la taxonomía de Fase 4.
+- [-] Precio. Necesita rango, no valores discretos: se define con datos reales en Fase 4.
+- [x] Atributos dinámicos. Las facetas se proyectan desde los atributos reales de las variantes.
+- [x] Counts. Cada faceta ignora su propia selección al contar, o sus otras opciones darían cero.
+- [x] "Ver más". `<details>` anidado, sin JavaScript.
+- [x] URL state. Compartible y recargable.
+- [x] Mobile filter drawer. Sheet con `<dialog>` nativo (ADR-049).
 
 ## Multi-currency
 
