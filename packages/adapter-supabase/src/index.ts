@@ -16,3 +16,4 @@ export {
   type UsuarioAutenticado,
 } from './auth.ts';
 export { repositorioCatalogo, mapearResultadoCatalogo } from './catalogo.ts';
+export { repositorioAdminCatalogo } from './admin-catalogo.ts';

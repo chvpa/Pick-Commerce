@@ -30,7 +30,8 @@
     "e2e:ui": "playwright test --ui",
     "budget": "node scripts/budget.mjs",
     "test:rls": "node --test \"supabase/tests/**/*.test.ts\"",
-    "seed": "node scripts/seed-demo.ts"
+    "seed": "node scripts/seed-demo.ts",
+    "admin:crear": "node scripts/crear-admin.ts"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.7",

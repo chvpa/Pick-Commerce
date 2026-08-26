@@ -26,9 +26,27 @@ export interface ResolucionTenant {
   readonly locale: string;
 }
 
+/** Tienda tal como la lista el Admin para elegir sobre cuál trabajar. */
+export interface TiendaResumen {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly currency: string;
+  readonly locale: string;
+}
+
 /** Contrato del repositorio. El adapter lo implementa contra Supabase. */
 export interface RepositorioTiendas {
   porDominio(dominio: string): Promise<ResolucionTenant | null>;
+  /**
+   * Las tiendas que el usuario puede administrar.
+   *
+   * No recibe el tenant: **RLS ya acota** a las organizaciones donde el usuario
+   * tiene membresía. Pasarlo daría la impresión de que la seguridad depende de
+   * este argumento, cuando quitarlo no cambiaría nada.
+   */
+  mias(): Promise<readonly TiendaResumen[]>;
 }
 
 /**

@@ -13,5 +13,11 @@ export default defineConfig({
      */
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  /*
+   * El `.env` vive en la raíz del monorepo, no en esta app: es el mismo que usan
+   * el seed y los scripts de base. Sin esto, `pnpm dev` levantaría el Admin
+   * mostrando "falta configuración" con las variables ya definidas.
+   */
+  envDir: fileURLToPath(new URL('../../', import.meta.url)),
   server: { port: 5273 },
 });

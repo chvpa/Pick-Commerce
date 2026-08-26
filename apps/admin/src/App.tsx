@@ -1,10 +1,28 @@
-import { Button } from '@/components/ui/button';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RouterProvider } from '@tanstack/react-router';
 import { Login } from '@/features/auth/Login';
 import { ProveedorSesion, useSesion } from '@/features/auth/SesionContext';
+import { router } from '@/router';
 import { configuracionFaltante } from '@/lib/supabase';
 
+/**
+ * Una sola instancia para toda la app: creada dentro del componente se
+ * recrearía en cada render y tiraría la caché entera.
+ */
+const cliente = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // El catálogo lo edita gente, no un feed: revalidar al volver a la pestaña
+      // es ruido, y las mutaciones ya invalidan lo que corresponde.
+      refetchOnWindowFocus: false,
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
+
 function Contenido() {
-  const { estado, sesion, salir } = useSesion();
+  const { estado } = useSesion();
 
   if (estado === 'cargando') {
     return (
@@ -18,40 +36,7 @@ function Contenido() {
 
   if (estado === 'anonimo') return <Login />;
 
-  return (
-    <main className="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-6 px-6">
-      <div className="flex flex-col gap-1">
-        <p className="text-muted-foreground text-sm">{sesion?.email}</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
-      </div>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">Organizaciones</h2>
-        {sesion?.membresias.length === 0 ? (
-          // Un usuario sin membresías no ve nada, y RLS se encarga de que así
-          // sea: el mensaje sólo lo explica.
-          <p className="text-muted-foreground text-sm">
-            Tu cuenta todavía no pertenece a ninguna organización.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-1 text-sm">
-            {sesion?.membresias.map((m) => (
-              <li key={m.tenantId} className="flex gap-2">
-                <span className="font-mono text-xs">{m.tenantId.slice(0, 8)}</span>
-                <span className="text-muted-foreground">{m.role}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <div>
-        <Button variant="outline" onClick={() => void salir()}>
-          Salir
-        </Button>
-      </div>
-    </main>
-  );
+  return <RouterProvider router={router} />;
 }
 
 export function App() {
@@ -75,8 +60,10 @@ export function App() {
   }
 
   return (
-    <ProveedorSesion>
-      <Contenido />
-    </ProveedorSesion>
+    <QueryClientProvider client={cliente}>
+      <ProveedorSesion>
+        <Contenido />
+      </ProveedorSesion>
+    </QueryClientProvider>
   );
 }

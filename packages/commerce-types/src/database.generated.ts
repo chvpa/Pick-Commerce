@@ -836,6 +836,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_products: {
+        Args: {
+          p_page?: number
+          p_per_page?: number
+          p_query?: string
+          p_status?: string
+          p_store_id: string
+        }
+        Returns: Json
+      }
+      admin_save_product: {
+        Args: { p_producto: Json; p_store_id: string }
+        Returns: string
+      }
       catalog_search: {
         Args: {
           p_collection?: string

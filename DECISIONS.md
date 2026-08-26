@@ -1871,3 +1871,78 @@ chequeo del consumidor vuelve a ser correcto.
 **Cómo se sostiene**
 Un test recorre cada ítem del resultado y falla si encuentra un `null` en
 cualquier profundidad. Es la clase entera, no el campo que se rompió.
+
+---
+
+## ADR-060 — CRUD de productos en el Admin
+
+**Fecha:** 2026-08-26
+**Estado:** Accepted
+
+**Stack**
+Se adoptan TanStack Router y Query, React Hook Form y Zod: son los del stack
+aprobado en PROJECT.md y no necesitan discusión.
+
+**TanStack Table no se instala todavía.** La tabla de productos tiene cinco
+columnas, pagina en el servidor y no ordena en el cliente: un `<table>` con las
+primitivas de shadcn es menos código que las definiciones de columnas. Se adopta
+cuando aparezca la primera necesidad real —selección múltiple, orden por columna
+o virtualización—, que es el criterio de la sección de anti-overengineering.
+
+**Rutas en código, sin generación de archivos.** Son cuatro rutas; el router por
+archivos añade un paso de build y un archivo generado al repo. Se revisa cuando
+la lista pese.
+
+**Dos funciones nuevas en la base**
+
+`admin_products` no reusa `catalog_search`: el Admin ve borradores y archivados,
+que esa función excluye por diseño, y muestra lo que un operador mira en una
+tabla —cuántas variantes, cuánto stock, desde qué precio—. Además busca por SKU,
+y con PostgREST solo no se puede filtrar el padre por una columna de la tabla
+embebida.
+
+`admin_save_product` escribe las cuatro tablas de un producto en una
+transacción. Desde el browser serían cuatro peticiones sin transacción, y una
+que falle a mitad deja el producto con las variantes viejas borradas y las
+nuevas sin crear. Es también el cuerpo que reusará el import de CSV: una fila del
+archivo es exactamente ese payload.
+
+Las dos son `security invoker`: **RLS decide**. Un viewer recibe el error de la
+base, no de la interfaz, y hay un test que lo comprueba.
+
+**Los campos del ERP se protegen en el servidor, no sólo en el formulario**
+El formulario los deshabilita, pero el frontend no es la capa de autorización:
+una petición armada a mano llegaría igual. La función ignora los valores que
+lleguen para un campo cuyo `field_sources` diga ERP, y conserva el almacenado.
+
+**Archivar y no borrar**
+Un producto puede estar en pedidos. `archived` lo saca del storefront y conserva
+el historial; borrarlo dejaría referencias huérfanas.
+
+**Tres cosas de interfaz que el typecheck no ve, y el smoke sí**
+
+1. **Un enlace con pinta de botón es un enlace.** Envolver un `Link` en `Button`
+   le pone `role="button"`, y un lector de pantalla lo anuncia como botón cuando
+   en realidad navega —además de perder "abrir en otra pestaña". Las clases dan
+   el aspecto; la semántica la da el `<a>`.
+2. **Una etiqueta al lado del control no lo etiqueta.** Sin `htmlFor` no hay
+   asociación, y el campo se anuncia sin nombre. El control va dentro del
+   `<label>`, que asocia sin inventar un id por campo.
+3. **`useWatch` y no `watch()`.** El compilador de React no puede memoizar la
+   función que devuelve `useForm` y saltea el componente entero; el lint lo
+   avisa.
+
+**`<select>` nativo**
+Teclado, lectores de pantalla y el selector del sistema en mobile ya vienen
+resueltos, y no cuesta JavaScript. Es el mismo criterio que en el storefront.
+
+**Credenciales**
+`pnpm admin:crear <email> <password>` crea un usuario y le da acceso a la
+organización de demostración. Las credenciales van por argumento y **no viven en
+el repo**: un usuario y una contraseña commiteados terminan, tarde o temprano,
+existiendo en producción.
+
+**Limitación conocida**
+El stock se escribe en la primera sucursal de la tienda. El Admin todavía no
+tiene selector de sucursal, y elegir una a ciegas escondería que falta
+configurarla. Registrado en el backlog.

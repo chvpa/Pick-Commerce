@@ -177,7 +177,7 @@ Objetivo: modelo de datos y autorización confiables.
 
 ## Fase 4 — Catalog, Variants e Inventory Mirror
 
-**Avance: 80%**
+**Avance: 90%**
 
 Objetivo: catálogo universal utilizable.
 
@@ -196,7 +196,7 @@ Objetivo: catálogo universal utilizable.
 - [x] Crear stock por location. Se suma al leer, sin materializar.
 - [x] Registrar source of truth por campo cuando corresponda. `field_sources` más `assertEditable` en el core.
 - [x] Crear status activo/inactivo/archivado. El storefront sólo lee `active`, con test.
-- [ ] Implementar CRUD Admin.
+- [x] Implementar CRUD Admin. Tabla paginada con búsqueda por SKU, formulario con variantes y stock, y archivado.
 - [ ] Implementar CSV template.
 - [ ] Implementar preview y validación de import CSV.
 - [ ] Implementar export CSV básico.
@@ -667,6 +667,8 @@ Estas líneas de trabajo pueden avanzar independientemente cuando exista acceso 
 | 2026-08-26 | El drawer del carrito abrió vacío una vez en 3 corridas del smoke                    | Un cliente podría agregar al carrito y no ver lo que agregó    | Sospecha de orden de hidratación entre islands. Mitigado subiendo el drawer y el bloque de compra a `client:load`; falta reproducirlo para arreglar la causa | Fase 5       | Pendiente |
 | 2026-08-26 | El deploy necesita los secretos del Worker cargados a mano                           | Sin ellos el storefront desplegado responde 500                | `wrangler secret put SUPABASE_URL` y `SUPABASE_SECRET_KEY` en el proyecto de Cloudflare                                                                      | Fase 4       | Pendiente |
 | 2026-08-26 | El script de deploy apuntaba a `dist/client/wrangler.json`, que el build ya no emite | El deploy fallaba antes de empezar                             | Corregido a `dist/server/wrangler.json`, verificado con `--dry-run` sobre el script real                                                                     | Fase 4       | Resuelto  |
+| 2026-08-26 | El Admin escribe el stock en la primera sucursal de la tienda                        | Con más de un depósito, el ajuste va al que no es              | Selector de sucursal en el formulario                                                                                                                        | Fase 8       | Pendiente |
+| 2026-08-26 | El bundle del Admin pasa los 500 KB en un solo chunk                                 | Sólo afecta la primera carga de una app detrás de login        | Dividir por ruta si la primera carga molesta                                                                                                                 | Fase 6       | Pendiente |
 
 Ejemplos de hallazgos:
 
@@ -704,6 +706,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-24 | Fase 3 cerrada: adapter de Supabase, resolución de tenant y Auth en el Admin                                                                                                            | Fase 3 |          65% |           100% |
 | 2026-08-26 | Fase 4: schema de catálogo, `catalog_search` con paridad verificada contra el core, y seed reproducible                                                                                 | Fase 4 |           0% |            55% |
 | 2026-08-26 | Fase 4: el storefront lee el catálogo de Postgres on-demand, sitemap dinámico, facetas declaradas por la tienda y tramos de precio                                                      | Fase 4 |          55% |            80% |
+| 2026-08-26 | Fase 4: CRUD de productos en el Admin, con listado paginado, búsqueda por SKU y guardado atómico                                                                                        | Fase 4 |          80% |            90% |
 
 ---
 
