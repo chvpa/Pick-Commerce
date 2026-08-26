@@ -23,5 +23,15 @@ export const features = {
   allowAiCrawlers: true,
 } as const;
 
+/**
+ * Barra de anuncio del sitio. Va encima del header, que es donde se espera:
+ * es contexto de toda la tienda, no contenido de una página.
+ * `null` la apaga.
+ */
+export const ANUNCIO: { texto: string; href?: string } | null = {
+  texto: 'Envío gratis en compras superiores a Gs. 500.000',
+  href: '/catalogo',
+};
+
 /** Rutas que no aportan a la indexación y sí dispersan autoridad. */
 export const RUTAS_PRIVADAS = ['/carrito', '/checkout', '/cuenta'] as const;

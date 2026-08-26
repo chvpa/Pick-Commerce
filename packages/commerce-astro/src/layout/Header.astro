@@ -11,22 +11,51 @@ interface Props {
 const { storeName, homeHref = '/', class: className } = Astro.props;
 ---
 
+{
+  /*
+  Orden por defecto en desktop: logo · navegación · buscador · wishlist ·
+  cuenta · carrito. Es el orden del DOM, así que en desktop no hace falta
+  ninguna regla de `order`.
+
+  En mobile se reacomoda con `order-*`: logo y acciones en la primera fila,
+  buscador en la segunda y navegación en la tercera. En una sola fila el
+  buscador quedaría aplastado.
+
+  Cada posición es un slot: un storefront que quiera otro arreglo compone
+  distinto sin forkear el componente.
+*/
+}
 <header class={cn('border-b border-border bg-surface', className)}>
-  <Container class="flex h-16 items-center justify-between gap-6">
+  <Container
+    class="flex flex-wrap items-center gap-x-6 gap-y-3 py-3 md:h-16 md:flex-nowrap md:py-0"
+  >
     <a
       href={homeHref}
-      class="font-display cursor-pointer text-base font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+      class="order-1 font-display cursor-pointer text-base font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent md:order-none"
     >
       {storeName}
     </a>
 
     {/* La navegación la aporta el storefront: el Core no impone categorías. */}
-    <nav aria-label="Principal" class="flex items-center gap-6 text-sm">
+    <nav aria-label="Principal" class="order-4 flex items-center gap-6 text-sm md:order-none">
       <slot name="nav" />
     </nav>
 
-    <div class="flex items-center gap-2">
-      <slot name="actions" />
+    {
+      /*
+      `md:ml-auto` absorbe el espacio libre acá y no en el grupo de acciones,
+      así el buscador queda a la derecha junto a ellas en vez de pegado a la
+      navegación. En mobile el auto margin lo lleva el grupo de acciones.
+    */
+    }
+    <div class="order-3 w-full md:order-none md:ml-auto md:w-64 md:shrink-0">
+      <slot name="search" />
+    </div>
+
+    <div class="order-2 ml-auto flex items-center gap-1 md:order-none md:ml-0">
+      <slot name="wishlist" />
+      <slot name="account" />
+      <slot name="cart" />
     </div>
   </Container>
 </header>

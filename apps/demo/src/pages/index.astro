@@ -1,6 +1,5 @@
 ---
 import Hero from '@pick/commerce-astro/content/Hero.astro';
-import Banner from '@pick/commerce-astro/content/Banner.astro';
 import CategorySection from '@pick/commerce-astro/content/CategorySection.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import JsonLd from '@pick/commerce-astro/seo/JsonLd.astro';
@@ -26,8 +25,6 @@ const featured = mockProducts.filter((p) => p.variants.some((v) => v.compareAtPr
   imageAlt="Campera cortaviento"
 >
   <JsonLd slot="head" data={organizationJsonLd(seoContexto)} />
-  <Banner href="/catalogo">Envío gratis en compras superiores a Gs. 500.000</Banner>
-
   <Container class="py-8">
     <Hero image={{ url: '/products/campera-2.jpg', alt: '', width: 900, height: 1200 }}>
       <p class="text-sm">Temporada</p>

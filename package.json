@@ -26,7 +26,8 @@
     "deploy:demo": "pnpm --filter @pick/demo run build && pnpm --filter @pick/demo run deploy",
     "deploy:admin": "pnpm --filter @pick/admin run build && pnpm --filter @pick/admin run deploy",
     "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui"
+    "e2e:ui": "playwright test --ui",
+    "budget": "node scripts/budget.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,13 +1,15 @@
 ---
 import Header from '@pick/commerce-astro/layout/Header.astro';
 import Footer from '@pick/commerce-astro/layout/Footer.astro';
+import Banner from '@pick/commerce-astro/content/Banner.astro';
+import SearchInput from '@pick/commerce-astro/catalog/SearchInput.astro';
 import SeoHead from '@pick/commerce-astro/seo/SeoHead.astro';
 /* Las islands entran por subpath, no por el barrel: si entran por
    `@pick/commerce-ui`, Vite las mete a todas en un solo chunk y cada página
    descarga las que no usa. Ver ADR-040. */
 import { CartButton } from '@pick/commerce-ui/cart/CartButton';
 import { CartDrawer } from '@pick/commerce-ui/cart/CartDrawer';
-import { seoContexto } from '../lib/store-config.ts';
+import { ANUNCIO, seoContexto } from '../lib/store-config.ts';
 import '../styles/global.css';
 
 interface Props {
@@ -21,6 +23,10 @@ interface Props {
 }
 
 const { title, description, image, imageAlt, type, noindex } = Astro.props;
+
+/* El buscador del header conserva la consulta activa: en el catálogo muestra
+   qué se buscó, en el resto arranca vacío. */
+const consulta = Astro.url.searchParams.get('q') ?? '';
 const STORE_NAME = seoContexto.storeName;
 ---
 
@@ -42,10 +48,13 @@ const STORE_NAME = seoContexto.storeName;
     <slot name="head" />
   </head>
   <body class="flex min-h-dvh flex-col bg-surface text-fg antialiased">
+    {ANUNCIO && <Banner href={ANUNCIO.href}>{ANUNCIO.texto}</Banner>}
+
     <Header storeName={STORE_NAME}>
       <a slot="nav" href="/catalogo" class="cursor-pointer hover:underline">Catálogo</a>
       {/* `client:idle`: el contador del carrito no compite con el render inicial. */}
-      <CartButton slot="actions" client:idle />
+      <CartButton slot="cart" client:idle />
+      <SearchInput slot="search" value={consulta} />
     </Header>
 
     <main class="flex-1">

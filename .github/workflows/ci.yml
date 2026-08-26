@@ -35,6 +35,10 @@ jobs:
 
       # Smoke de critical paths. Corre contra el build de producción servido por
       # workerd, que es el artefacto que se despliega.
+      # Presupuesto de peso sobre el build. Determinista y barato; no
+      # reemplaza a Lighthouse, acota lo que sí se puede acotar en CI.
+      - run: pnpm budget
+
       - run: pnpm exec playwright install --with-deps chromium
 
       - run: pnpm e2e

@@ -20,7 +20,7 @@
 
 | Versión | Objetivo                                    |      Estado | Avance |
 | ------- | ------------------------------------------- | ----------: | -----: |
-| v1      | Commerce Core vendible + primer piloto real | IN PROGRESS |    16% |
+| v1      | Commerce Core vendible + primer piloto real | IN PROGRESS |    24% |
 | v2      | Operación avanzada, AI Commerce y escala    |        TODO |     0% |
 | v3      | MCP, intelligence layer y expansión LATAM   |        TODO |     0% |
 
@@ -116,7 +116,7 @@ Objetivo: construir los LEGO visuales reutilizables.
 
 ## Fase 2 — Storefront Shell
 
-**Avance: 80%**
+**Avance: 100%**
 
 Objetivo: storefront Astro funcional y rápido.
 
@@ -129,15 +129,15 @@ Objetivo: storefront Astro funcional y rápido.
 - [x] Implementar paginación/incremental loading del PLP.
 - [x] Evitar full page reload al filtrar/ordenar. ClientRouter acotado a la PLP.
 - [x] Implementar Cart. Drawer y página `/carrito`, con el mismo contenido compartido.
-- [ ] Implementar Checkout shell.
-- [ ] Implementar Account shell.
+- [-] Implementar Checkout shell. Diferido a Fase 5: necesita los contratos de customer, address y order, que hoy habría que inventar.
+- [-] Implementar Account shell. Diferido a Fase 3: sin auth sería sólo maqueta.
 - [x] Implementar Policies/FAQ. El FAQ emite `FAQPage`.
 - [x] Implementar 404.
 - [x] Implementar metadata SEO. Canonical absoluto, Open Graph y Twitter Card.
 - [x] Implementar JSON-LD base. Product, ItemList, Organization, BreadcrumbList y FAQPage, generados en el core y testeados.
 - [x] Implementar sitemap/robots/canonical. Con política de crawlers de IA por flag y `llms.txt`.
-- [ ] Definir budgets de performance razonables.
-- [ ] Verificar que sólo los componentes interactivos hidratan.
+- [x] Definir budgets de performance razonables. 25 KB de JS y 20 KB de CSS por página, gzip, verificado en CI con `pnpm budget`.
+- [x] Verificar que sólo los componentes interactivos hidratan. Fijado con tests: las páginas de contenido no superan 2 islands y la home no carga ClientRouter.
 
 **Definition of Done**
 
@@ -690,6 +690,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-24 | Smoke de navegación con Playwright en CI; corregido el panel de filtros invisible en desktop                                                                                            | Fase 1 |         100% |           100% |
 | 2026-08-24 | Fase 2: SEO y GEO (canonical, Open Graph, JSON-LD, sitemap, robots, llms.txt), 404, políticas, FAQ y página de carrito                                                                  | Fase 2 |           0% |            80% |
 | 2026-08-24 | Correcciones de UX de la demo: sheet de filtros en mobile, orden en el PLP, "Aplicar" sólo sin JavaScript                                                                               | Fase 2 |          80% |            85% |
+| 2026-08-24 | Fase 2 cerrada: buscador y orden del header, presupuesto de performance en CI, baseline de CWV                                                                                          | Fase 2 |          85% |           100% |
 
 ---
 

@@ -10,7 +10,6 @@ import ProductCardBody from '@pick/commerce-astro/product/ProductCardBody.astro'
 import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astro';
 import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
 import ProductGrid from '@pick/commerce-astro/product/ProductGrid.astro';
-import SearchInput from '@pick/commerce-astro/catalog/SearchInput.astro';
 import SortSelect from '@pick/commerce-astro/catalog/SortSelect.astro';
 import { itemListJsonLd, queryCatalog, type CatalogSort } from '@pick/commerce-core';
 import { seoContexto } from '../lib/store-config.ts';
@@ -80,9 +79,20 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
   <JsonLd slot="head" data={jsonLd} />
   <ClientRouter />
   <Container class="flex flex-col gap-6 py-10">
-    <div class="flex flex-col gap-4">
+    <div class="flex flex-col gap-3">
       <h1 class="font-display text-2xl font-semibold tracking-tight">Catálogo</h1>
-      <SearchInput value={search} class="max-w-md" />
+      {
+        search !== '' && (
+          <p class="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
+            <span>
+              Resultados para <span class="text-fg font-medium">“{search}”</span>
+            </span>
+            <a href="/catalogo" class="underline hover:text-fg">
+              Quitar búsqueda
+            </a>
+          </p>
+        )
+      }
     </div>
 
     <div class="grid gap-8 md:grid-cols-[16rem_1fr]">
@@ -199,8 +209,7 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
             hidden
             class="h-10 cursor-pointer rounded-md bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
           >
-            Ver {result.total}
-            {result.total === 1 ? 'producto' : 'productos'}
+            {`Ver ${result.total} ${result.total === 1 ? 'producto' : 'productos'}`}
           </button>
         </div>
       </dialog>
@@ -351,6 +360,12 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
     toggle.addEventListener('click', () => {
       if (!panel.open) panel.showModal();
       toggle.setAttribute('aria-expanded', 'true');
+    });
+
+    // Click en el backdrop: el evento llega al propio <dialog> y no a su
+    // contenido, así que comparar el target alcanza para distinguirlo.
+    panel.addEventListener('click', (event) => {
+      if (event.target === panel && panel.matches(':modal')) panel.close();
     });
 
     const cerrar = () => panel.open && panel.close();

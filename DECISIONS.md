@@ -1379,3 +1379,85 @@ navegador oculta; con `<dialog>` puede de más.
 **Verificado en las cuatro combinaciones** de viewport y JavaScript, incluido
 que filtrar sin JavaScript funcione en ambos anchos, y que el sheet sobreviva al
 swap de ClientRouter al tocar un filtro.
+
+---
+
+## ADR-050 — Volver a la configuración completa de tailwind-merge
+
+**Fecha:** 2026-08-24
+**Estado:** Accepted — supersede a ADR-041
+
+**Qué pasó**
+ADR-041 recortó la configuración de tailwind-merge con `createTailwindMerge`
+para sacar 27 KB del bundle, y dejó un test que comparaba la versión recortada
+contra la completa. **El test pasaba y la aplicación estaba rota.**
+
+La configuración clasificaba `border-b` como color de borde, así que
+`cn('border-b border-border')` devolvía `'border-border'`. El header perdió su
+borde inferior, el footer el superior y el cart drawer el izquierdo. Lo mismo
+con los radios: `rounded-md rounded-t-lg` perdía el radio base.
+
+**Por qué el test no lo atrapó**
+Comparaba sólo las combinaciones que producen las **recetas**. Los bordes los
+producen los **componentes**, que no estaban cubiertos. El test verificaba una
+muestra y se leía como si verificara el contrato.
+
+**Decisión**
+`cn` vuelve a la configuración por defecto de tailwind-merge. El costo medido es
+real —la home pasa de 14,1 a 19,9 KB gzip— y se acepta: un design system que
+descarta clases en silencio cuesta más que 5,8 KB.
+
+Los casos que fallaron quedan como test de regresión, no como muestra.
+
+**La lección, que vale más que el ADR**
+Una optimización cuyo modo de fallo es _silencioso_ necesita una verificación
+**exhaustiva**, no ilustrativa. Si no se puede verificar exhaustivamente, no
+conviene hacerla. ADR-041 nombraba el riesgo y aun así lo subestimó: el
+"mitigado con un test" era falso.
+
+---
+
+## ADR-051 — Orden por defecto del header y presupuesto de performance
+
+**Fecha:** 2026-08-24
+**Estado:** Accepted
+
+**Header**
+Orden por defecto en desktop: **logo · navegación · buscador · wishlist ·
+cuenta · carrito**. Es el orden del DOM, así que desktop no necesita ninguna
+regla de `order`; mobile se reacomoda con `order-*` en tres filas, porque en una
+sola el buscador queda aplastado.
+
+Cada posición es un slot, incluidas `wishlist` y `account`, que hoy están
+vacías. Un storefront que quiera otro arreglo compone distinto sin forkear el
+componente.
+
+El buscador vive en el header y no en el hero: así está disponible en todas las
+páginas, incluida la PLP, donde además conserva la consulta activa.
+
+**Presupuesto**
+`pnpm budget` mide el peso gzip por página siguiendo la **cadena de imports**,
+no sólo lo que el HTML referencia — una medición previa que contaba sólo lo
+referenciado dio 42 KB donde eran 59. Corre en CI.
+
+Límites: **25 KB de JS y 20 KB de CSS por página, comprimidos.** Hoy: 19,5–21,5
+KB de JS y 5,3 KB de CSS.
+
+`/catalogo` es on-demand y no deja HTML en disco, así que el script no la ve.
+La cubre un test de Playwright que mide lo que el navegador descarga de verdad,
+y que además verifica que la home **no** cargue ClientRouter: si se colara al
+layout, toda página del sitio pagaría 5,6 KB gzip de más.
+
+**Baseline de Core Web Vitals** (preview local con workerd, sin latencia):
+
+| Ruta                 |    LCP | CLS |  TTFB |
+| -------------------- | -----: | --: | ----: |
+| `/`                  |  60 ms |   0 | 11 ms |
+| `/catalogo`          | 104 ms |   0 | 40 ms |
+| `/productos/:handle` | 104 ms |   0 | 62 ms |
+
+CLS en 0 confirma que las dimensiones obligatorias de imagen (ADR-034) y el
+token de aspecto (ADR-044) hacen lo que debían.
+
+Lighthouse completo queda como paso manual de pre-release (T3): en CI aporta
+ruido y lentitud frente a un presupuesto determinista.

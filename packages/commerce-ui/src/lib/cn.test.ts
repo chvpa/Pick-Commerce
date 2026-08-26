@@ -1,59 +1,54 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { twMerge as twMergeCompleto } from 'tailwind-merge';
 import { cn } from './cn.ts';
 import { buttonVariants } from '../recipes/button.ts';
 import { badgeVariants } from '../recipes/badge.ts';
 
 /**
- * `cn` usa una config recortada de tailwind-merge para no enviar 27 KB al
- * browser. El riesgo es que un grupo faltante deje de resolver conflictos sin
- * avisar, así que se compara contra el tailwind-merge completo: si ambos
- * coinciden, el recorte no perdió nada en los casos que el design system usa.
+ * Estos casos existen por un bug real: una configuración recortada de
+ * tailwind-merge clasificaba `border-b` como color de borde y lo descartaba,
+ * así que el header, el footer y el cart drawer se desplegaron sin sus bordes.
+ * Ninguna prueba falló porque todas usaban combinaciones de las recetas, no las
+ * que producían los componentes.
  */
-function coincideConElCompleto(...inputs: string[]): void {
-  const recortado = cn(...inputs);
-  const completo = twMergeCompleto(...inputs);
-  assert.equal(
-    recortado,
-    completo,
-    `cn recortado difiere del completo.\n  entrada:  ${inputs.join(' ')}\n  recortado: ${recortado}\n  completo:  ${completo}`,
-  );
-}
-
-test('resuelve los conflictos que producen las recetas reales', () => {
-  // Cada uno de estos existe hoy en el código: CartDrawer y AddToCart.
-  coincideConElCompleto(buttonVariants({ variant: 'ghost', size: 'sm' }), 'px-2');
-  coincideConElCompleto(
-    buttonVariants({ variant: 'secondary', size: 'lg' }),
-    'cursor-not-allowed text-fg-subtle',
-  );
-  coincideConElCompleto(buttonVariants({ variant: 'primary', size: 'lg' }), 'cursor-wait');
-  coincideConElCompleto(badgeVariants({ tone: 'sale' }), 'px-3 text-sm');
+test('conserva el lado del borde junto con su color', () => {
+  assert.equal(cn('border-b border-border'), 'border-b border-border');
+  assert.equal(cn('border-t border-border'), 'border-t border-border');
+  assert.equal(cn('border-l border-border'), 'border-l border-border');
+  assert.equal(cn('border border-border'), 'border border-border');
 });
 
-test('resuelve los overrides que el escape hatch habilita', () => {
-  const casos: string[][] = [
-    ['p-4', 'p-6'],
-    ['px-4', 'px-6'],
-    ['p-4', 'px-6'],
-    ['w-8', 'w-12'],
-    ['h-9', 'h-11'],
-    ['size-4', 'size-6'],
-    ['text-sm', 'text-lg'],
-    ['text-fg', 'text-fg-muted'],
-    ['text-sm text-fg', 'text-lg'],
-    ['bg-surface', 'bg-accent'],
-    ['rounded-md', 'rounded-full'],
-    ['gap-2', 'gap-4'],
-    ['cursor-pointer', 'cursor-not-allowed'],
-    ['border-border', 'border-fg'],
-    ['font-medium', 'font-semibold'],
-    ['opacity-60', 'opacity-100'],
-    ['max-w-md', 'max-w-lg'],
-    ['min-w-11', 'min-w-16'],
+test('conserva el radio base junto con el de una esquina', () => {
+  assert.equal(cn('rounded-md rounded-t-lg'), 'rounded-md rounded-t-lg');
+});
+
+test('resuelve los conflictos que producen las recetas reales', () => {
+  // Cada uno existe hoy en el código: CartDrawer y AddToCart.
+  assert.equal(
+    cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'px-2').match(/px-\d/g)?.length,
+    1,
+  );
+  assert.ok(
+    cn(buttonVariants({ variant: 'primary', size: 'lg' }), 'cursor-wait').includes('cursor-wait'),
+  );
+  assert.ok(!cn(buttonVariants({ size: 'lg' }), 'cursor-wait').includes('cursor-pointer'));
+  assert.equal(cn(badgeVariants({ tone: 'sale' }), 'px-3').match(/px-\d/g)?.length, 1);
+});
+
+test('el override de quien consume gana', () => {
+  const casos: [string, string, string][] = [
+    ['p-4', 'p-6', 'p-6'],
+    ['px-4', 'px-6', 'px-6'],
+    ['w-8', 'w-12', 'w-12'],
+    ['text-sm', 'text-lg', 'text-lg'],
+    ['text-fg', 'text-fg-muted', 'text-fg-muted'],
+    ['bg-surface', 'bg-accent', 'bg-accent'],
+    ['rounded-md', 'rounded-full', 'rounded-full'],
+    ['cursor-pointer', 'cursor-not-allowed', 'cursor-not-allowed'],
   ];
-  for (const caso of casos) coincideConElCompleto(...caso);
+  for (const [base, override, esperado] of casos) {
+    assert.equal(cn(base, override), esperado, `${base} + ${override}`);
+  }
 });
 
 test('no colapsa clases que no están en conflicto', () => {
@@ -62,8 +57,7 @@ test('no colapsa clases que no están en conflicto', () => {
 });
 
 test('acepta condicionales y descarta valores vacíos', () => {
-  const activo = process.argv.length > 0; // true, pero no constante para el linter
-  const inactivo = !activo;
-  assert.equal(cn('px-4', inactivo && 'px-6', undefined, null, ''), 'px-4');
+  const activo = process.argv.length > 0;
+  assert.equal(cn('px-4', !activo && 'px-6', undefined, null, ''), 'px-4');
   assert.equal(cn('px-4', activo && 'px-6'), 'px-6');
 });
