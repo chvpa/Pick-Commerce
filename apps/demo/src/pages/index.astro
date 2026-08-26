@@ -27,7 +27,7 @@ const [cats, destacados] = await Promise.all([
   categorias(),
   // La colección la elige el storefront, no el Core: qué se destaca en la home
   // es una decisión del comercio.
-  catalogo.porColeccion(tienda.storeId, COLECCION_DESTACADA, 8),
+  catalogo().porColeccion(tienda.storeId, COLECCION_DESTACADA, 8),
 ]);
 
 const entradas = cats.map((c) => ({

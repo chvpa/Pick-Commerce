@@ -1768,6 +1768,50 @@ sí es pública, con default: es lo que decide qué tienda sirve este deploy.
    busca en la de la app. Se resuelve con `vite.envDir`, no duplicando el archivo:
    dos lugares para la misma credencial terminan divergiendo.
 
+**Lo que enseñó el primer deploy, y cambió el diseño**
+
+`astro:env` **evalúa todos los secretos declarados al cargar el módulo**, aunque
+nadie los importe. El módulo generado hace, en su cuerpo:
+
+```js
+var SUPABASE_URL = _internalGetSecret('SUPABASE_URL');
+```
+
+Con una credencial ausente eso lanza antes de que corra nada —antes del
+middleware, antes de la ruta— y el Worker responde **500 con el cuerpo vacío**.
+Ni la pantalla ni los logs dicen qué falta. Es el peor error posible de
+diagnosticar y le pasa justo a quien despliega esto por primera vez: pasó acá, y
+costó tres intentos entender que el problema no era dónde estaban las variables
+sino que no había forma de preguntarlo.
+
+Por eso los dos secretos se declaran `optional: true` —no porque puedan faltar,
+sino para que Astro no valide— y la comprobación la hace `src/middleware.ts`, que
+responde 503 con una página que los nombra. 503 y no 500: la aplicación está
+bien, es el entorno el que no está listo, y un buscador que recibe 503 vuelve a
+intentar en vez de desindexar.
+
+Dos detalles del middleware que no son obvios: también corre al prerenderizar
+—donde no hay entorno, así que sin la guarda de `context.isPrerendered` la página
+de error queda horneada en el HTML estático—, y `getSecret` no es la vía de
+escape que sugiere la documentación: valida contra el schema igual que el import.
+
+**`site` y `STOREFRONT_DOMAIN` no son lo mismo, y hoy son distintos**
+`site` es la dirección pública: de ahí salen el canonical, el `og:url`, el JSON-LD
+y el sitemap. `STOREFRONT_DOMAIN` es la llave con la que el Worker busca la tienda
+en `stores.domain`; tiene que coincidir con ese campo, no con el dominio desde el
+que se sirve. El primer deploy quedó anunciando `pick-demo.pages.dev` —un dominio
+que no existe— mientras servía desde otro, y el sitio funcionaba igual: los dos
+valores son independientes y sólo uno estaba mal.
+
+**El nombre del Worker vive en el repo**
+`apps/demo/wrangler.jsonc` declaraba `pick-demo` mientras el Worker desplegado se
+llama `pick-commerce`. Un `pnpm deploy:demo` desde local habría creado un Worker
+nuevo en vez de actualizar el que sirve el sitio.
+
+**Logs**
+`observability.enabled` va en el `wrangler.jsonc`, no en un panel: sin logs, un
+error en producción no deja rastro en ningún lado.
+
 **El sitemap ya no lo genera una integración**
 `@astrojs/sitemap` sólo conoce las rutas que existen al construir, y los
 productos dejaron de existir ahí. `sitemap-0.xml` se emite desde la base,

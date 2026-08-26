@@ -31,7 +31,7 @@ export const GET: APIRoute = async () => {
   // Paginado, no un select gigante: el catálogo puede crecer (ADR-024).
   let page = 1;
   for (;;) {
-    const resultado = await catalogo.buscar(storeId, { perPage: TAMANO, page });
+    const resultado = await catalogo().buscar(storeId, { perPage: TAMANO, page });
     for (const producto of resultado.items) {
       entradas.push({ ruta: `/productos/${producto.handle}` });
     }

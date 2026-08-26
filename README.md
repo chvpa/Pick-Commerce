@@ -145,11 +145,16 @@ raíz, donde no hay `wrangler.jsonc` ni el binario de wrangler.
 
 Configuración de cada proyecto en el dashboard de Cloudflare:
 
-| Ajuste         | `pick-demo`                           | `pick-admin`                           |
+| Ajuste         | `pick-commerce` (storefront)          | `pick-admin`                           |
 | -------------- | ------------------------------------- | -------------------------------------- |
 | Root directory | `/`                                   | `/`                                    |
 | Build command  | `pnpm --filter @pick/demo run build`  | `pnpm --filter @pick/admin run build`  |
 | Deploy command | `pnpm --filter @pick/demo run deploy` | `pnpm --filter @pick/admin run deploy` |
+
+El storefront se despliega en el Worker **`pick-commerce`**, que es el nombre que
+declara `apps/demo/wrangler.jsonc`. El nombre del archivo y el del Worker tienen
+que coincidir: si no, un deploy desde local crea un Worker nuevo en vez de
+actualizar el que sirve el sitio. Hoy el Admin todavía no está desplegado.
 
 El `run` no es opcional: `deploy` es un comando built-in de pnpm, así que
 `pnpm --filter <app> deploy` falla con `ERR_PNPM_INVALID_DEPLOY_TARGET` sin

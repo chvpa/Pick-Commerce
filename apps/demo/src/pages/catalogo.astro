@@ -68,7 +68,7 @@ const precioMin = tramo ? Number(tramo[1]) : undefined;
 const precioMax = tramo ? Number(tramo[2]) : undefined;
 const precioActivo = precioMin !== undefined;
 
-const result = await catalogo.buscar(tienda.storeId, {
+const result = await catalogo().buscar(tienda.storeId, {
   filters,
   sort,
   search,

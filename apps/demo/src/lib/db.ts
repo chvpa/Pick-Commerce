@@ -1,6 +1,16 @@
-import { STOREFRONT_DOMAIN, SUPABASE_SECRET_KEY, SUPABASE_URL } from 'astro:env/server';
-import { clienteDeServidor, repositorioCatalogo, repositorioTiendas } from '@pick/adapter-supabase';
-import { resolverTenant, type CategoriaCatalogo, type ResolucionTenant } from '@pick/commerce-core';
+import { getSecret, STOREFRONT_DOMAIN } from 'astro:env/server';
+import {
+  clienteDeServidor,
+  repositorioCatalogo,
+  repositorioTiendas,
+  type PickSupabaseClient,
+} from '@pick/adapter-supabase';
+import {
+  resolverTenant,
+  type CategoriaCatalogo,
+  type RepositorioCatalogo,
+  type ResolucionTenant,
+} from '@pick/commerce-core';
 
 /**
  * Acceso a datos del storefront.
@@ -13,9 +23,46 @@ import { resolverTenant, type CategoriaCatalogo, type ResolucionTenant } from '@
  * Sólo lo importan las rutas on-demand. Una página prerenderizada que lo
  * importara metería la base en el build, que es justo lo que ADR-057 evita.
  */
-const db = clienteDeServidor({ url: SUPABASE_URL, secretKey: SUPABASE_SECRET_KEY });
 
-export const catalogo = repositorioCatalogo(db);
+let cliente: PickSupabaseClient | undefined;
+
+/**
+ * El cliente se crea la primera vez que se usa, y las credenciales se piden con
+ * `getSecret` en ese momento.
+ *
+ * No es una optimización. Importar `SUPABASE_URL` de `astro:env/server` evalúa
+ * la variable **al cargar el módulo**, no al usarla: con una credencial ausente
+ * la excepción ocurría antes de que corriera nada, y el resultado era un 500 con
+ * el cuerpo vacío que no decía qué faltaba. Pidiéndolas dentro de la función, el
+ * middleware llega antes y muestra una pantalla que lo explica.
+ *
+ * `STOREFRONT_DOMAIN` sí se importa: tiene valor por defecto, así que nunca
+ * falta.
+ */
+function requerida(nombre: 'SUPABASE_URL' | 'SUPABASE_SECRET_KEY'): string {
+  const valor = getSecret(nombre);
+  if (!valor) {
+    // No debería llegar acá: el middleware corta antes con una pantalla que
+    // nombra lo que falta. Si llega, que el mensaje sirva igual.
+    throw new Error(`Falta ${nombre} en el entorno del Worker.`);
+  }
+  return valor;
+}
+
+function db(): PickSupabaseClient {
+  cliente ??= clienteDeServidor({
+    url: requerida('SUPABASE_URL'),
+    secretKey: requerida('SUPABASE_SECRET_KEY'),
+  });
+  return cliente;
+}
+
+let repo: RepositorioCatalogo | undefined;
+
+export function catalogo(): RepositorioCatalogo {
+  repo ??= repositorioCatalogo(db());
+  return repo;
+}
 
 /**
  * Cachea el resultado por un rato dentro del mismo isolate.
@@ -41,9 +88,13 @@ function memoizar<T>(cargar: () => Promise<T>, ttl = 60_000): () => Promise<T> {
  * Sale de la configuración y no del `Host` de la petición: un storefront sirve
  * a una tienda. Resolver por host es lo que hará el router multi-tenant cuando
  * exista, y por eso la consulta ya es por dominio.
+ *
+ * **No es la URL pública del sitio.** Es la llave con la que se busca la tienda
+ * en `stores.domain`: las dos tienen que coincidir entre sí, no con el dominio
+ * desde el que se sirve.
  */
 export const tiendaActual = memoizar(async (): Promise<ResolucionTenant> => {
-  const tienda = await resolverTenant(repositorioTiendas(db), STOREFRONT_DOMAIN);
+  const tienda = await resolverTenant(repositorioTiendas(db()), STOREFRONT_DOMAIN);
   if (!tienda) {
     // Falla ruidosa: sin tienda no hay nada que mostrar, y devolver un catálogo
     // vacío haría parecer que el comercio no tiene productos.
@@ -57,7 +108,8 @@ export const tiendaActual = memoizar(async (): Promise<ResolucionTenant> => {
 
 /** Categorías de la tienda, en el orden que definió el Admin. */
 export const categorias = memoizar(
-  async (): Promise<readonly CategoriaCatalogo[]> => catalogo.categorias((await tiendaActual()).storeId),
+  async (): Promise<readonly CategoriaCatalogo[]> =>
+    catalogo().categorias((await tiendaActual()).storeId),
 );
 
 /**
@@ -67,5 +119,5 @@ export const categorias = memoizar(
  * página, así que un atributo nuevo aparecía en la base y no en el sitio.
  */
 export const facetasFiltrables = memoizar(async () =>
-  catalogo.facetasFiltrables((await tiendaActual()).storeId),
+  catalogo().facetasFiltrables((await tiendaActual()).storeId),
 );
