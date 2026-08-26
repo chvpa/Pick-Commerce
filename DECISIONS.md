@@ -2065,3 +2065,58 @@ espera un UUID. No se había notado porque el smoke creaba productos sin
 categoría. `CategoriaCatalogo` ahora lleva su id: la faceta del storefront viaja
 por slug —es lo que aparece en la URL— y el Admin guarda el id. No son
 intercambiables.
+
+---
+
+## ADR-062 — Modelo de dominios: un storefront por cliente, un Admin compartido
+
+**Fecha:** 2026-08-26
+**Estado:** Accepted
+
+**Decisión**
+Cada comercio usa **su propio dominio**: `estilosport.com.py`, no
+`estilosport.pick-commerce.com` ni ningún subdominio nuestro. El Admin de ese
+comercio vive en `admin.estilosport.com.py`.
+
+**Storefront: un despliegue por cliente**
+Es lo que ya declara PROJECT.md §6 —"cada storefront sí puede tener un despliegue
+independiente"— y lo que el código asume. Dar de alta un comercio son tres
+valores de configuración, ninguno de ellos código:
+
+|                                | Valor                        |
+| ------------------------------ | ---------------------------- |
+| `stores.domain`                | `estilosport.com.py`         |
+| `STOREFRONT_DOMAIN` del Worker | `estilosport.com.py`         |
+| `SITE_URL`                     | `https://estilosport.com.py` |
+
+Los dos primeros tienen que coincidir entre sí: uno es la llave, el otro el dato.
+El tercero es la dirección pública, de donde salen el canonical y el sitemap
+(ADR-057).
+
+**Admin: un solo despliegue, con alias por cliente**
+PROJECT.md §6 también dice que el Admin no se despliega por cliente, y se
+mantiene. `admin.estilosport.com.py` es un dominio propio apuntando al **mismo**
+Worker que el de cualquier otro comercio.
+
+Desplegarlo por cliente daría N aplicaciones que actualizar, y un fallo de
+seguridad habría que parcharlo N veces. Sobre todo: **no mejoraría el
+aislamiento**, porque el aislamiento no lo da el despliegue.
+
+**Qué garantiza que un comercio no vea datos de otro**
+RLS más la autorización en el servicio de dominio (ADR-052), no el dominio desde
+el que se entra. El usuario de un comercio tiene membresía en una sola
+organización y la base filtra por eso en cada consulta; el Admin podría estar
+servido desde cualquier dirección y el resultado sería el mismo. Lo verifican las
+pruebas de aislamiento sobre Postgres en proceso (ADR-053), que se comprobó que
+fallan al romper las políticas a propósito.
+
+**Lo que queda abierto, y por qué puede esperar**
+El Admin no mira el dominio por el que se entró: muestra las organizaciones donde
+el usuario tiene membresía. Eso sólo se nota cuando **una misma persona**
+administra varios comercios, que es el caso de la agencia que opera Pick Commerce
+—nosotros—, no el de un comercio. Acotar el Admin por dominio queda en el
+backlog.
+
+Igual queda que `stores.domain` admite **un solo dominio por tienda**. Un comercio
+con `.com` y `.com.py` apuntando al mismo negocio necesitaría hoy dos filas, o sea
+dos tiendas. El `www.` no cuenta: ya se normaliza.

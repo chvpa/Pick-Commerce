@@ -204,7 +204,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 1. [AGENTS.md](AGENTS.md) — protocolo de trabajo con IA, reglas Core vs cliente, reglas UX.
 2. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 3. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-4. [DECISIONS.md](DECISIONS.md) — ADR-001..061 + decisiones pendientes P-001..005.
+4. [DECISIONS.md](DECISIONS.md) — ADR-001..062 + decisiones pendientes P-001..005.
 5. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.
 
 Si el código contradice un documento, no asumir que el código gana: identificar si es bug, deuda o decisión nueva, y registrarlo.
