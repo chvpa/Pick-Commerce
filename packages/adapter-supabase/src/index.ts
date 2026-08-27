@@ -17,3 +17,5 @@ export {
 } from './auth.ts';
 export { repositorioCatalogo, mapearResultadoCatalogo } from './catalogo.ts';
 export { repositorioAdminCatalogo } from './admin-catalogo.ts';
+export * from './checkout.ts';
+export * from './admin-pedidos.ts';

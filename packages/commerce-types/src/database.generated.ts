@@ -73,17 +73,17 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "attribute_definitions_category_id_fkey"
-            columns: ["category_id"]
+            columns: ["category_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "categories"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "attribute_definitions_store_id_fkey"
-            columns: ["store_id"]
+            columns: ["store_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "stores"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "attribute_definitions_tenant_id_fkey"
@@ -175,17 +175,17 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "categories_parent_id_fkey"
-            columns: ["parent_id"]
+            columns: ["parent_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "categories"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "categories_store_id_fkey"
-            columns: ["store_id"]
+            columns: ["store_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "stores"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "categories_tenant_id_fkey"
@@ -218,17 +218,17 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "collection_products_collection_id_fkey"
-            columns: ["collection_id"]
+            columns: ["collection_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "collections"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "collection_products_product_id_fkey"
-            columns: ["product_id"]
+            columns: ["product_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "products"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "collection_products_tenant_id_fkey"
@@ -273,13 +273,67 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "collections_store_id_fkey"
-            columns: ["store_id"]
+            columns: ["store_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "stores"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "collections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string
+          store_id: string
+          tax_id: string | null
+          tax_name: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          phone: string
+          store_id: string
+          tax_id?: string | null
+          tax_name?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string
+          store_id?: string
+          tax_id?: string | null
+          tax_name?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -312,10 +366,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "feature_flags_store_id_fkey"
-            columns: ["store_id"]
+            columns: ["store_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "stores"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "feature_flags_tenant_id_fkey"
@@ -354,10 +408,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "inventory_levels_location_id_fkey"
-            columns: ["location_id"]
+            columns: ["location_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "locations"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "inventory_levels_tenant_id_fkey"
@@ -368,10 +422,10 @@ export type Database = {
           },
           {
             foreignKeyName: "inventory_levels_variant_id_fkey"
-            columns: ["variant_id"]
+            columns: ["variant_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "product_variants"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
         ]
       }
@@ -409,10 +463,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "locations_store_id_fkey"
-            columns: ["store_id"]
+            columns: ["store_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "stores"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "locations_tenant_id_fkey"
@@ -451,6 +505,227 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "memberships_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_counters: {
+        Row: {
+          last_number: number
+          store_id: string
+          tenant_id: string
+        }
+        Insert: {
+          last_number: number
+          store_id: string
+          tenant_id: string
+        }
+        Update: {
+          last_number?: number
+          store_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_counters_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "order_counters_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_events: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          order_id: string
+          tenant_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          id?: string
+          order_id: string
+          tenant_id: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          order_id?: string
+          tenant_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_events_order_id_fkey"
+            columns: ["order_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "order_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          currency: string
+          id: string
+          order_id: string
+          position: number
+          quantity: number
+          sku: string
+          stock_allocation: Json
+          tenant_id: string
+          title: string
+          unit_price: number
+          variant_id: string | null
+          variant_title: string | null
+        }
+        Insert: {
+          currency: string
+          id?: string
+          order_id: string
+          position: number
+          quantity: number
+          sku: string
+          stock_allocation?: Json
+          tenant_id: string
+          title: string
+          unit_price: number
+          variant_id?: string | null
+          variant_title?: string | null
+        }
+        Update: {
+          currency?: string
+          id?: string
+          order_id?: string
+          position?: number
+          quantity?: number
+          sku?: string
+          stock_allocation?: Json
+          tenant_id?: string
+          title?: string
+          unit_price?: number
+          variant_id?: string | null
+          variant_title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_variant_id_fkey"
+            columns: ["variant_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id", "tenant_id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          address: Json
+          created_at: string
+          currency: string
+          customer: Json
+          customer_id: string | null
+          id: string
+          idempotency_key: string
+          notes: string | null
+          number: number
+          payment_method: string
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          status: Database["public"]["Enums"]["order_status"]
+          store_id: string
+          tenant_id: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          address: Json
+          created_at?: string
+          currency: string
+          customer: Json
+          customer_id?: string | null
+          id?: string
+          idempotency_key: string
+          notes?: string | null
+          number: number
+          payment_method: string
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          status?: Database["public"]["Enums"]["order_status"]
+          store_id: string
+          tenant_id: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          address?: Json
+          created_at?: string
+          currency?: string
+          customer?: Json
+          customer_id?: string | null
+          id?: string
+          idempotency_key?: string
+          notes?: string | null
+          number?: number
+          payment_method?: string
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          status?: Database["public"]["Enums"]["order_status"]
+          store_id?: string
+          tenant_id?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_customer_id_fkey"
+            columns: ["customer_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "orders_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -510,10 +785,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "product_groups_store_id_fkey"
-            columns: ["store_id"]
+            columns: ["store_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "stores"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "product_groups_tenant_id_fkey"
@@ -561,10 +836,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "product_media_product_id_fkey"
-            columns: ["product_id"]
+            columns: ["product_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "products"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "product_media_tenant_id_fkey"
@@ -630,10 +905,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "product_variants_product_id_fkey"
-            columns: ["product_id"]
+            columns: ["product_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "products"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "product_variants_tenant_id_fkey"
@@ -708,24 +983,24 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "products_category_id_fkey"
-            columns: ["category_id"]
+            columns: ["category_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "categories"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "products_product_group_id_fkey"
-            columns: ["product_group_id"]
+            columns: ["product_group_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "product_groups"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "products_store_id_fkey"
-            columns: ["store_id"]
+            columns: ["store_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "stores"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "products_tenant_id_fkey"
@@ -773,10 +1048,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "store_settings_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: true
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
             referencedRelation: "stores"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "store_settings_tenant_id_fkey"
@@ -836,6 +1111,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_orders: {
+        Args: {
+          p_page?: number
+          p_per_page?: number
+          p_query?: string
+          p_status?: string
+          p_store_id: string
+        }
+        Returns: Json
+      }
       admin_products: {
         Args: {
           p_page?: number
@@ -849,6 +1134,15 @@ export type Database = {
       admin_save_product: {
         Args: { p_producto: Json; p_store_id: string }
         Returns: string
+      }
+      admin_set_order_status: {
+        Args: {
+          p_note?: string
+          p_order_id: string
+          p_status: string
+          p_store_id: string
+        }
+        Returns: Json
       }
       catalog_search: {
         Args: {
@@ -865,13 +1159,28 @@ export type Database = {
         }
         Returns: Json
       }
+      create_order: {
+        Args: { p_idempotency_key: string; p_input: Json; p_store_id: string }
+        Returns: Json
+      }
       import_products: {
         Args: { p_productos: Json; p_store_id: string }
         Returns: Json
       }
+      order_json: { Args: { p_order_id: string }; Returns: Json }
     }
     Enums: {
       member_role: "owner" | "admin" | "staff" | "viewer"
+      order_status:
+        | "received"
+        | "confirmed"
+        | "preparing"
+        | "ready"
+        | "shipped"
+        | "in_transit"
+        | "delivered"
+        | "cancelled"
+      payment_status: "pending" | "paid"
       product_status: "draft" | "active" | "inactive" | "archived"
     }
     CompositeTypes: {
@@ -1001,6 +1310,17 @@ export const Constants = {
   public: {
     Enums: {
       member_role: ["owner", "admin", "staff", "viewer"],
+      order_status: [
+        "received",
+        "confirmed",
+        "preparing",
+        "ready",
+        "shipped",
+        "in_transit",
+        "delivered",
+        "cancelled",
+      ],
+      payment_status: ["pending", "paid"],
       product_status: ["draft", "active", "inactive", "archived"],
     },
   },

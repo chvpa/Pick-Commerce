@@ -356,7 +356,7 @@ export const COLECCION_PRODUCTOS = CATALOGO.map((p, i) => ({ p, i }))
     position: orden,
   }));
 
-/** Configuración de moneda de la tienda (PROJECT.md §33). */
+/** Configuración de moneda y pagos de la tienda (PROJECT.md §33 y §34). */
 export const CONFIGURACION = {
   store_id: IDS.store,
   tenant_id: IDS.tenant,
@@ -367,6 +367,24 @@ export const CONFIGURACION = {
       displayCurrencies: ['PYG'],
       checkoutCurrency: 'PYG',
       rounding: 'commerce-default',
+    },
+    /*
+     * Declarativo (ADR-021). Transferencia es el único método sin pasarela, que
+     * es lo que hay hasta Fase 7: el pedido nace pendiente de pago y el comercio
+     * lo confirma cuando ve la transferencia.
+     *
+     * Va explícito aunque el core caiga a lo mismo por defecto, porque las
+     * instrucciones sí son de la tienda: sin ellas, la pantalla de confirmación
+     * no puede decirle al cliente dónde pagar.
+     */
+    payments: {
+      enabled: ['bank_transfer'],
+      default: 'bank_transfer',
+      bankTransfer: {
+        instructions:
+          'Transferí el total a la cuenta 123-456789 del Banco Demo, a nombre de Pick Demo S.A. ' +
+          'Enviá el comprobante por WhatsApp al 0981 123 456 indicando el número de pedido.',
+      },
     },
   },
 };

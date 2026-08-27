@@ -136,3 +136,85 @@ export interface ActorContext {
   readonly tenantId: string;
   readonly role: MemberRole;
 }
+
+// ---------------------------------------------------------------------------
+// Pedidos
+// ---------------------------------------------------------------------------
+
+/**
+ * Estados operativos de PROJECT.md §13.
+ *
+ * En inglés como el resto de los identificadores; las etiquetas en español las
+ * pone el core (`ETIQUETA_ESTADO_PEDIDO`).
+ */
+export type OrderStatus =
+  | 'received'
+  | 'confirmed'
+  | 'preparing'
+  | 'ready'
+  | 'shipped'
+  | 'in_transit'
+  | 'delivered'
+  | 'cancelled';
+
+/**
+ * Sin pasarela (Fase 7), `pending` es lo único que un pedido puede alcanzar solo.
+ * `paid` existe porque un pendiente que nunca puede pagarse no sería un estado.
+ */
+export type PaymentStatus = 'pending' | 'paid';
+
+/** Lo que el cliente declaró al comprar. Los datos fiscales son opcionales: un consumidor final no da RUC. */
+export interface OrderCustomer {
+  readonly name: string;
+  readonly email: string;
+  readonly phone: string;
+  readonly taxId?: string;
+  readonly taxName?: string;
+}
+
+export interface OrderAddress {
+  readonly street: string;
+  readonly city: string;
+  readonly reference?: string;
+}
+
+/**
+ * Línea de un pedido: **todo copiado**. Un pedido no vuelve al catálogo a
+ * averiguar cuánto costaba, porque el precio de ese día es un hecho y el
+ * producto puede haber cambiado o haber sido archivado.
+ *
+ * `variantId` es opcional porque la referencia al catálogo es blanda: si la
+ * variante desapareciera, la línea sigue contando su historia.
+ */
+export interface OrderItem {
+  readonly variantId?: string;
+  readonly title: string;
+  readonly variantTitle?: string;
+  readonly sku: string;
+  readonly unitPrice: Money;
+  readonly quantity: number;
+}
+
+export interface Order {
+  readonly id: string;
+  /** Número legible por comercio. Un uuid no se dicta por teléfono. */
+  readonly number: number;
+  readonly status: OrderStatus;
+  /** Declarativo (ADR-021): sale de la configuración de la tienda, no de un enum. */
+  readonly paymentMethod: string;
+  readonly paymentStatus: PaymentStatus;
+  readonly customer: OrderCustomer;
+  readonly address: OrderAddress;
+  readonly notes?: string;
+  readonly total: Money;
+  readonly items: readonly OrderItem[];
+  readonly createdAt: string;
+}
+
+/** Una entrada de la timeline. `type` es `'created'` o `'status_changed'`. */
+export interface OrderEvent {
+  readonly id: string;
+  readonly type: string;
+  readonly data: Readonly<Record<string, unknown>>;
+  readonly createdAt: string;
+}

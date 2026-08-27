@@ -56,7 +56,14 @@ export async function baseDePrueba(): Promise<PGlite> {
   // sobre tablas los concede la propia migración, así que si ahí falta un grant
   // las pruebas lo notan.
   await db.exec(`
-    grant usage on schema public, auth to anon, authenticated;
+    grant usage on schema public, auth to anon, authenticated, service_role;
+
+    -- \`bypassrls\` saltea las **políticas**, no los privilegios de tabla. En
+    -- Supabase, \`service_role\` los recibe de un default privilege del proyecto,
+    -- que PGlite no reproduce. Se conceden acá y no en una migración porque son
+    -- del entorno, igual que el \`usage\` de arriba: si una migración se olvidara
+    -- de un grant propio, las pruebas lo tienen que notar.
+    grant all on all tables in schema public to service_role;
   `);
 
   return db;
@@ -93,6 +100,28 @@ export async function comoServicio<T>(db: PGlite, sql: string): Promise<T[]> {
   await db.exec('begin');
   try {
     await db.exec('set local role service_role');
+    const resultado = await db.query<T>(sql);
+    await db.exec('commit');
+    return resultado.rows;
+  } catch (error) {
+    await db.exec('rollback');
+    throw error;
+  }
+}
+
+/**
+ * Ejecuta como un usuario del Admin, **confirmando** la transacción.
+ *
+ * Mismo motivo que `comoServicio`: hay comprobaciones que necesitan que el
+ * cambio persista —cancelar un pedido y verificar que el stock volvió—. Pasa por
+ * el rol `authenticated`, así que RLS y los permisos deciden igual que en el
+ * Admin real.
+ */
+export async function comoAdmin<T>(db: PGlite, userId: string, sql: string): Promise<T[]> {
+  await db.exec('begin');
+  try {
+    await db.exec('set local role authenticated');
+    await db.query('select set_config($1, $2, true)', ['app.user_id', userId]);
     const resultado = await db.query<T>(sql);
     await db.exec('commit');
     return resultado.rows;
