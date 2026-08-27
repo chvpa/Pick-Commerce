@@ -1880,11 +1880,11 @@ las mismas migraciones y el mismo seed en cada ejecución.
 entre tenants y la paridad del catálogo se verifican sin levantar nada. Sólo los
 tests de navegación necesitan el stack.
 
-**Verificado en la primera corrida real** (26/08/2026)
+**Verificado en el CI** (26/08/2026)
 La secuencia no se pudo correr localmente —esta máquina no tiene Docker—, así que
-se validó en el CI. Los pasos 1 a 14 pasaron en **3m 54s**, `supabase start`
-incluido (2m 12s): el stack local levanta, las migraciones aplican desde cero y
-el build corre contra esa base.
+se validó en el runner. La corrida de `a30f795` terminó en verde en **3m 37s de
+punta a punta**: el stack local levanta (1m 45s), las migraciones aplican desde
+cero, el build corre contra esa base y los tests de navegación pasan en 29s.
 
 **Y lo que esa corrida encontró**
 El paso siguiente, `pnpm e2e`, quedó colgado indefinidamente. La causa no estaba

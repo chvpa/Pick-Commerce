@@ -94,11 +94,21 @@ acaba de imprimir. Consecuencias:
 
 Esto es ADR-058.
 
-**Cuánto tarda, medido en la primera corrida real** (26/08/2026): los pasos 1 a
-14 completos en **3m 54s**, de los cuales `supabase start` se lleva 2m 12s
-—baja y arranca varios contenedores— y `playwright install`, 26s. El e2e agrega
-poco menos de dos minutos. Una corrida sana termina holgada bajo los 6 minutos:
-si ves una de 40, no está lenta, está colgada.
+**Cuánto tarda, medido en una corrida completa en verde** (`a30f795`,
+26/08/2026): **3m 37s de punta a punta**. El reparto:
+
+| Paso                                      | Tiempo               |
+| ----------------------------------------- | -------------------- |
+| `supabase start`                          | 1m 45s               |
+| `playwright install`                      | 26s                  |
+| `pnpm typecheck`                          | 16s                  |
+| `pnpm install`                            | 11s                  |
+| `pnpm test` + `lint` + `build` + `budget` | 16s entre los cuatro |
+| `pnpm e2e`                                | 29s                  |
+
+Casi todo el tiempo es levantar Postgres y bajar Chromium; lo que el repo tiene
+que verificar de verdad se hace en menos de un minuto. Una corrida sana no pasa
+de cuatro minutos: **si ves una de cuarenta, no está lenta, está colgada**.
 
 ### `cancelled` no es `failure`
 
@@ -326,7 +336,7 @@ lo da la base, no la URL. Eso es ADR-062.
 1. Escribís código y corrés `pnpm lint`, `pnpm typecheck` y los tests del paquete.
 2. `git push`.
 3. **En paralelo** salen dos cosas del mismo push:
-   - GitHub Actions corre el CI completo (~6 min).
+   - GitHub Actions corre el CI completo (~4 min).
    - Cloudflare construye y publica el storefront (~1-2 min).
 4. El sitio ya está actualizado. El CI te avisa después si algo se rompió.
 
