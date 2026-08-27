@@ -1,4 +1,4 @@
-import { addLine, type CartLine } from './store.ts';
+import { addLine, pedirAperturaDelCarrito, type CartLine } from './store.ts';
 
 export type AddToCartInput = CartLine;
 
@@ -88,5 +88,9 @@ export async function addToCart(input: AddToCartInput): Promise<void> {
   }
 
   addLine(confirmada);
+
+  // La solicitud primero, el evento después: el drawer puede no estar
+  // escuchando todavía, y así la encuentra igual al montar.
+  pedirAperturaDelCarrito();
   globalThis.dispatchEvent?.(new CustomEvent(ADD_TO_CART_EVENT, { detail: confirmada }));
 }

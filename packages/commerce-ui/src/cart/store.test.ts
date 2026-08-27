@@ -144,3 +144,26 @@ test('una escritura no pisa lo que agregó otra pestaña', () => {
     'la escritura pisó lo que había agregado otra pestaña',
   );
 });
+
+// --- La carrera del drawer ------------------------------------------------------
+
+test('la apertura pedida sobrevive aunque nadie esté escuchando todavía', () => {
+  // El evento `pick:add-to-cart` es fire-and-forget: si el drawer no montó, se
+  // pierde. La solicitud no.
+  store.pedirAperturaDelCarrito();
+  assert.equal(store.tomarAperturaPendiente(), true, 'la solicitud no sobrevivió');
+});
+
+test('la apertura se consume una sola vez', () => {
+  store.pedirAperturaDelCarrito();
+  store.tomarAperturaPendiente();
+  assert.equal(
+    store.tomarAperturaPendiente(),
+    false,
+    'el drawer volvería a abrirse solo en el próximo montaje',
+  );
+});
+
+test('sin solicitud, no hay apertura', () => {
+  assert.equal(store.tomarAperturaPendiente(), false);
+});

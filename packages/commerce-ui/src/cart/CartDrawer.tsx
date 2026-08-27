@@ -3,7 +3,13 @@ import { cn } from '../lib/cn.ts';
 import { buttonVariants } from '../recipes/button.ts';
 import { ADD_TO_CART_EVENT } from './add-to-cart.ts';
 import { CartContents } from './CartContents.tsx';
-import { CART_TOGGLE_EVENT, getLines, subscribe, type CartLine } from './store.ts';
+import {
+  CART_TOGGLE_EVENT,
+  getLines,
+  subscribe,
+  tomarAperturaPendiente,
+  type CartLine,
+} from './store.ts';
 
 export interface CartDrawerProps {
   locale?: string;
@@ -36,6 +42,10 @@ export function CartDrawer({ locale, checkoutHref = '/checkout', className }: Ca
   }, []);
 
   useEffect(() => {
+    // Si alguien pidió abrir antes de que esta island montara, el evento ya pasó
+    // y no lo oyó nadie. La solicitud sí sobrevive.
+    if (tomarAperturaPendiente()) setOpen(true);
+
     const onAdded = () => setOpen(true);
     const onToggle = () => setOpen((v) => !v);
     globalThis.addEventListener(ADD_TO_CART_EVENT, onAdded);

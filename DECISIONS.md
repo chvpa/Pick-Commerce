@@ -2417,6 +2417,27 @@ sirve.
   mirar nada, en el core y en el SQL. Un carrito bien formado no las manda; el
   payload viene del browser.
 
+**El evento que abre el drawer no alcanzaba**
+`ADD_TO_CART_EVENT` es fire-and-forget, y las dos islands que participan hidratan
+por separado: el bloque de compra vive en el PDP y el drawer en el layout. Si el
+clic llegaba antes de que el efecto del drawer montara, nadie oía el evento y el
+carrito se llenaba sin que se abriera nada.
+
+Estaba registrado desde el 26/08 como «el drawer abrió vacío una vez en 3
+corridas» —el síntoma, no la causa— y sin reproducción. Se reprodujo corriendo el
+smoke con `CI=1`: falla una de cada cuatro, y sólo en mobile. El mensaje decía
+`element(s) not found`, no «invisible», y ahí estaba la pista: un `<dialog>`
+cerrado no está en el árbol de accesibilidad, así que el drawer **no había
+abierto**, no había abierto vacío.
+
+El arreglo no es esperar más ni cambiar la prioridad de hidratación: es que la
+solicitud sobreviva. `pedirAperturaDelCarrito()` la deja en el módulo del store
+—uno solo para todas las islands, porque Rollup lo hoistea a un chunk
+compartido— y el drawer la consume al montar. Quien llega tarde la encuentra.
+
+Ocho corridas seguidas en verde después, contra una de cada cuatro antes, más
+tres tests unitarios del mecanismo, que es la parte determinista.
+
 **Estados**
 `cancelled` es terminal; el resto se mueve libre, incluso hacia atrás. Un operador
 que marcó "enviado" por error tiene que poder volver, y la timeline registra los

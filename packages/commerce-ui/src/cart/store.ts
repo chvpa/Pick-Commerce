@@ -45,6 +45,35 @@ export const CART_TOGGLE_EVENT = 'pick:cart-toggle';
 let lines: CartLine[] | null = null;
 
 /**
+ * Una apertura del drawer pedida antes de que el drawer estuviera escuchando.
+ *
+ * `ADD_TO_CART_EVENT` es fire-and-forget: si se emite antes de que el efecto del
+ * drawer haya montado, no lo oye nadie y el evento se pierde. Las dos islands
+ * hidratan por separado —el bloque de compra vive en el PDP y el drawer en el
+ * layout—, así que quien hidrate primero es una carrera, y la ganaba el botón
+ * cada tantas veces: el clic agregaba la línea y el drawer no abría.
+ *
+ * Costó encontrarlo porque falla una de cada cuatro corridas y en mobile: el
+ * síntoma que se registró fue «el drawer abrió vacío», que es lo que se ve.
+ *
+ * La solicitud vive en el módulo, que es uno solo para todas las islands
+ * —Rollup lo hoistea a un chunk compartido—, así que sobrevive a la carrera:
+ * quien llegue tarde la encuentra al montar.
+ */
+let aperturaPendiente = false;
+
+export function pedirAperturaDelCarrito(): void {
+  aperturaPendiente = true;
+}
+
+/** Devuelve si había una apertura pendiente, y la consume. */
+export function tomarAperturaPendiente(): boolean {
+  const pendiente = aperturaPendiente;
+  aperturaPendiente = false;
+  return pendiente;
+}
+
+/**
  * Una línea del storage es una línea sólo si tiene la forma completa.
  *
  * `JSON.parse(raw) as CartLine[]` era un cast, no un parse: cualquier payload
