@@ -204,6 +204,17 @@ export function CheckoutForm({
     setErrorGeneral(null);
     setEstado('enviando');
 
+    /*
+     * Con éxito **no** se libera la guarda.
+     *
+     * `location.assign` no navega en el acto, así que liberar deja una ventana
+     * —corta, pero abierta— en la que un segundo click volvería a enviar. No es
+     * lo que garantiza que no haya pedido doble: eso lo hace la clave de
+     * idempotencia, que es la misma en el reintento. Es evitar el viaje de más y
+     * el parpadeo del formulario volviendo a habilitarse justo antes de irse.
+     */
+    let navegando = false;
+
     try {
       const respuesta = await fetch('/api/checkout', {
         method: 'POST',
@@ -248,13 +259,16 @@ export function CheckoutForm({
         // ya está creado, que es lo que importa.
       }
       clear();
+      navegando = true;
       globalThis.location.assign(confirmacionHref);
       return;
     } catch {
       setErrorGeneral('No pudimos conectarnos. Revisá tu conexión y probá de nuevo.');
     } finally {
-      enVuelo.current = false;
-      setEstado('listo');
+      if (!navegando) {
+        enVuelo.current = false;
+        setEstado('listo');
+      }
     }
   }
 

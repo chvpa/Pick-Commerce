@@ -3,6 +3,27 @@ import type { ProductVariant } from '@pick/commerce-types';
 /** Selección actual del usuario: nombre de atributo → valor elegido. */
 export type VariantSelection = Readonly<Record<string, string>>;
 
+/**
+ * Atributo sintético para productos cuyas variantes no declaran ninguno.
+ *
+ * El catálogo es dirigido por atributos (ADR-011): las opciones que ve el
+ * comprador son una proyección de los atributos de las variantes. Un producto
+ * cargado sin atributos —que el Admin permite— no proyectaba ninguna opción, así
+ * que no había nada que seleccionar, `findVariant` devolvía `undefined` y el PDP
+ * mostraba **«Sin stock» sobre un producto con stock**, invendible y sin
+ * explicación.
+ *
+ * No se arregla obligando a poner atributos: se arregla reconociendo que, si no
+ * hay ninguno, la única dimensión por la que se puede elegir es la variante
+ * misma. Su título pasa a ser el valor.
+ */
+export const ATRIBUTO_VARIANTE = 'Variante';
+
+/** `true` si ninguna variante declara un solo atributo. */
+function sinAtributos(variants: readonly ProductVariant[]): boolean {
+  return variants.every((v) => Object.keys(v.attributes).length === 0);
+}
+
 export interface VariantOptionValue {
   readonly value: string;
   /**
@@ -32,6 +53,21 @@ export function buildVariantOptions(
   variants: readonly ProductVariant[],
   selection: VariantSelection = {},
 ): VariantOption[] {
+  if (variants.length > 0 && sinAtributos(variants)) {
+    const values: VariantOptionValue[] = [];
+    for (const variant of variants) {
+      const existente = values.find((v) => v.value === variant.title);
+      if (existente) {
+        if (variant.availableQuantity > 0 && !existente.available) {
+          values[values.indexOf(existente)] = { value: variant.title, available: true };
+        }
+      } else {
+        values.push({ value: variant.title, available: variant.availableQuantity > 0 });
+      }
+    }
+    return [{ name: ATRIBUTO_VARIANTE, values }];
+  }
+
   const names: string[] = [];
   for (const variant of variants) {
     for (const name of Object.keys(variant.attributes)) {
@@ -72,6 +108,13 @@ export function findVariant(
   variants: readonly ProductVariant[],
   selection: VariantSelection,
 ): ProductVariant | undefined {
+  if (variants.length > 0 && sinAtributos(variants)) {
+    const elegida = selection[ATRIBUTO_VARIANTE];
+    return elegida === undefined
+      ? undefined
+      : variants.find((variant) => variant.title === elegida);
+  }
+
   const names = Object.keys(selection);
   if (names.length === 0) return undefined;
 
@@ -83,5 +126,7 @@ export function findVariant(
 /** Selección inicial: la primera variante con stock, o la primera que exista. */
 export function defaultSelection(variants: readonly ProductVariant[]): VariantSelection {
   const preferred = variants.find((v) => v.availableQuantity > 0) ?? variants[0];
-  return preferred ? { ...preferred.attributes } : {};
+  if (!preferred) return {};
+  if (sinAtributos(variants)) return { [ATRIBUTO_VARIANTE]: preferred.title };
+  return { ...preferred.attributes };
 }
