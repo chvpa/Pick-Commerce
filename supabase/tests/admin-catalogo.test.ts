@@ -17,6 +17,7 @@ const TENANT = 'aa000000-0000-4000-8000-000000000000';
 const STORE = 'bb000000-0000-4000-8000-000000000000';
 const OTRA_STORE = 'bb000000-0000-4000-8000-000000000001';
 const LOCATION = 'cc000000-0000-4000-8000-000000000000';
+const OTRA_LOCATION = 'cc000000-0000-4000-8000-000000000001';
 
 const DUENO = 'a1000000-0000-4000-8000-000000000000';
 const VIEWER = 'a2000000-0000-4000-8000-000000000000';
@@ -46,7 +47,13 @@ async function listar(consulta: {
 }): Promise<PaginaProductos> {
   const r = await db.query<{ j: PaginaProductos }>(
     `select admin_products($1::uuid, $2, $3, $4, $5) as j`,
-    [STORE, consulta.query ?? '', consulta.status ?? null, consulta.page ?? 1, consulta.perPage ?? 20],
+    [
+      STORE,
+      consulta.query ?? '',
+      consulta.status ?? null,
+      consulta.page ?? 1,
+      consulta.perPage ?? 20,
+    ],
   );
   return r.rows[0]!.j;
 }
@@ -84,7 +91,11 @@ before(async () => {
       ('${OTRA_STORE}', '${TENANT}', 'Segunda', 'segunda'),
       ('${OTRO_STORE}', '${OTRO_TENANT}', 'Ajena', 'ajena');
     insert into locations (id, tenant_id, store_id, name) values
-      ('${LOCATION}', '${TENANT}', '${STORE}', 'Depósito');
+      ('${LOCATION}', '${TENANT}', '${STORE}', 'Depósito'),
+      -- La segunda tienda también tiene la suya: guardar un producto con stock
+      -- en una tienda sin sucursal ahora falla a propósito, y este fixture
+      -- dependía sin querer de que se descartara en silencio.
+      ('${OTRA_LOCATION}', '${TENANT}', '${OTRA_STORE}', 'Depósito segunda');
     insert into memberships (tenant_id, user_id, role) values
       ('${TENANT}', '${DUENO}', 'owner'),
       ('${TENANT}', '${VIEWER}', 'viewer'),
@@ -205,8 +216,11 @@ test('un producto sin variantes falla y no deja nada a medias', async () => {
 
 test('un campo que posee el ERP no se pisa al guardar', async () => {
   const id = await guardar(producto('erp', { title: 'Título del ERP', brand: 'Norte' }));
-  await db.query(`update products set field_sources = '{"title":"ERP","price":"ERP"}'::jsonb
-                  where id = $1`, [id]);
+  await db.query(
+    `update products set field_sources = '{"title":"ERP","price":"ERP"}'::jsonb
+                  where id = $1`,
+    [id],
+  );
 
   await guardar({
     id,
@@ -216,7 +230,11 @@ test('un campo que posee el ERP no se pisa al guardar', async () => {
     status: 'active',
     variants: [
       {
-        id: (await db.query<{ id: string }>(`select id from product_variants where product_id = $1`, [id])).rows[0]!.id,
+        id: (
+          await db.query<{ id: string }>(`select id from product_variants where product_id = $1`, [
+            id,
+          ])
+        ).rows[0]!.id,
         sku: 'SKU-ERP',
         title: 'Única',
         price: 999999,
@@ -293,9 +311,9 @@ test('el listado no muestra productos de otra tienda', async () => {
 // --- Import -----------------------------------------------------------------
 
 async function importar(productos: unknown[], store = STORE) {
-  const r = await db.query<{ j: { ok: boolean; handle: string; accion: string; error?: string }[] }>(
-    `select import_products('${store}'::uuid, ${json(productos)}) as j`,
-  );
+  const r = await db.query<{
+    j: { ok: boolean; handle: string; accion: string; error?: string }[];
+  }>(`select import_products('${store}'::uuid, ${json(productos)}) as j`);
   return r.rows[0]!.j;
 }
 
@@ -437,4 +455,31 @@ test('un dueño de otra organización no ve ni escribe este catálogo', async ()
 test('el anónimo no puede ni listar', async () => {
   const r = await intentar(db, null, `select * from admin_products('${STORE}'::uuid)`);
   assert.equal(r.ok, false, 'el rol anónimo pudo listar el catálogo');
+});
+
+test('guardar con stock en una tienda sin sucursal falla en vez de descartarlo', async () => {
+  const SIN_SUCURSAL = 'bb000000-0000-4000-8000-000000000002';
+  await db.exec(
+    `insert into stores (id, tenant_id, name, slug) values
+     ('${SIN_SUCURSAL}', '${TENANT}', 'Sin sucursal', 'sin-sucursal')`,
+  );
+
+  await assert.rejects(
+    () => guardar(producto('invendible'), SIN_SUCURSAL),
+    /sucursal/i,
+    'guardó el producto y descartó el stock en silencio',
+  );
+
+  // Y sin `stock` en el payload sí guarda: la tienda todavía no configuró
+  // inventario, que es distinto de haber pedido guardar cero.
+  const sinStock = producto('sin-stock');
+  const variantes = (sinStock as { variants: Record<string, unknown>[] }).variants;
+  for (const v of variantes) delete v.stock;
+  await guardar(sinStock, SIN_SUCURSAL);
+
+  const r = await db.query<{ n: number }>(
+    `select count(*)::int as n from products where store_id = $1 and handle = 'sin-stock'`,
+    [SIN_SUCURSAL],
+  );
+  assert.equal(r.rows[0]?.n, 1);
 });

@@ -196,6 +196,29 @@ before(async () => {
       ('${OTRO_TENANT}', '${AJENO}', 'owner');
   `);
   await insertarProductos(db, [...CATALOGO, BORRADOR]);
+
+  /*
+   * Un producto en la tienda ajena, con marca, categoría, color y precio
+   * propios. Sin él, la tienda ajena existía pero estaba vacía: ninguna
+   * aserción del archivo podía notar que `catalog_search` dejara de filtrar por
+   * tienda, porque no había nada que filtrar. Eso es justo el modo de fallo que
+   * ADR-050 obliga a cubrir —silencioso, sobre la única barrera que separa los
+   * catálogos de dos comercios— y la razón de que el precio sea deliberadamente
+   * extremo: si se colara, movería `priceMin`/`priceMax` y los counts.
+   */
+  await db.exec(`
+    insert into categories (id, tenant_id, store_id, name, slug, position)
+      values ('cf000000-0000-4000-8000-000000000000', '${OTRO_TENANT}', '${OTRO_STORE}',
+              'Ajena', 'ajena', 0);
+    insert into products (id, tenant_id, store_id, handle, title, brand, category_id, status, created_at)
+      values ('df000000-0000-4000-8000-000000000000', '${OTRO_TENANT}', '${OTRO_STORE}',
+              'secreto-ajeno', 'Secreto ajeno', 'MarcaAjena',
+              'cf000000-0000-4000-8000-000000000000', 'active', '2026-01-01T00:00:00Z');
+    insert into product_variants (id, tenant_id, product_id, sku, title, price, currency, position, attributes)
+      values ('ef000000-0000-4000-8000-000000000000', '${OTRO_TENANT}',
+              'df000000-0000-4000-8000-000000000000', 'SKU-AJENO', 'Única',
+              99999999, 'PYG', 0, '{"color": "ColorAjeno"}'::jsonb);
+  `);
 });
 
 after(async () => {
@@ -279,13 +302,15 @@ test('el borrador nunca sale, ni en los ítems ni en los counts', async () => {
   const r = await porRpc({});
   assert.ok(!r.items.some((p) => p.handle === 'p5'), 'un borrador llegó al storefront');
 
-  const azul = (await porRpc({})).facets.find((f) => f.name === 'color')?.values
-    .find((v) => v.value === 'Azul');
+  const azul = (await porRpc({})).facets
+    .find((f) => f.name === 'color')
+    ?.values.find((v) => v.value === 'Azul');
   // Sólo p1 es azul entre los activos; el borrador también lo es y no debe sumar.
   assert.equal(azul?.count, 1);
 
-  const talle = (await porRpc({})).facets.find((f) => f.name === 'size')?.values
-    .map((v) => v.value);
+  const talle = (await porRpc({})).facets
+    .find((f) => f.name === 'size')
+    ?.values.map((v) => v.value);
   assert.ok(!talle?.includes('S'), 'el talle del borrador apareció como faceta');
 });
 
@@ -313,7 +338,10 @@ test('acotar por handle devuelve un solo producto', async () => {
     `select catalog_search($1::uuid, '{}'::jsonb, '', 'relevance', 1, 1, null, null, $2) as j`,
     [STORE, 'p3'],
   );
-  assert.deepEqual(r.rows[0]!.j.items.map((p) => p.handle), ['p3']);
+  assert.deepEqual(
+    r.rows[0]!.j.items.map((p) => p.handle),
+    ['p3'],
+  );
 
   const vacio = await db.query<{ j: CatalogResult }>(
     `select catalog_search($1::uuid, '{}'::jsonb, '', 'relevance', 1, 1, null, null, $2) as j`,
@@ -425,10 +453,50 @@ test('el dueño sí puede administrar su catálogo', async () => {
 });
 
 test('el stock también está protegido por el permiso de catálogo', async () => {
-  const r = await intentar(
-    db,
-    VIEWER,
-    `update inventory_levels set available = 9999`,
-  );
+  const r = await intentar(db, VIEWER, `update inventory_levels set available = 9999`);
   assert.equal(r.filas, 0, 'un viewer modificó el stock');
+});
+
+/*
+ * El camino de la secret key.
+ *
+ * Todo lo de arriba que dice "un tenant no ve el catálogo de otro" corre como
+ * `authenticated`, o sea contra RLS: es la capa del Admin. El storefront no pasa
+ * por ahí —usa la secret key, que saltea RLS por completo— y lo único que lo
+ * acota es el `p_store_id` dentro del SQL. Esa capa no tenía una sola prueba, y
+ * es la que en Fase 5 va a proteger la escritura de pedidos.
+ *
+ * `catalog_search` se llama acá como dueño de la base, que es el equivalente
+ * funcional de la secret key: sin políticas de por medio, sólo el SQL.
+ */
+test('la secret key tampoco cruza tiendas: ítems, facetas y precios', async () => {
+  const r = await porRpc({});
+
+  assert.ok(
+    !r.items.some((p) => p.handle === 'secreto-ajeno'),
+    'un producto de otra tienda apareció en los resultados',
+  );
+
+  const valores = r.facets.flatMap((f) => f.values.map((v) => v.value));
+  for (const ajeno of ['MarcaAjena', 'ColorAjeno', 'ajena']) {
+    assert.ok(!valores.includes(ajeno), `la faceta filtró un valor ajeno: ${ajeno}`);
+  }
+
+  // El precio ajeno es absurdo a propósito: si se colara, movería el rango.
+  assert.ok(
+    r.priceMax === undefined || r.priceMax < 99999999,
+    `el rango de precios incluyó el catálogo ajeno: ${r.priceMax}`,
+  );
+});
+
+test('la secret key no alcanza un producto ajeno ni sabiendo su handle', async () => {
+  const r = await porRpc({ search: '' });
+  assert.equal(r.total, (await porRpc({})).total);
+
+  const porHandle = await db.query<{ j: CatalogResult }>(
+    `select catalog_search($1::uuid, '{}'::jsonb, '', 'relevance', 1, 24, null, null,
+                           'secreto-ajeno', null) as j`,
+    [STORE],
+  );
+  assert.equal(porHandle.rows[0]?.j.items.length, 0, 'se alcanzó un producto de otra tienda');
 });

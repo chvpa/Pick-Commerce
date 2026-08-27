@@ -1,4 +1,4 @@
-import { getSecret, STOREFRONT_DOMAIN } from 'astro:env/server';
+import { getSecret } from 'astro:env/server';
 import {
   clienteDeServidor,
   repositorioCatalogo,
@@ -36,9 +36,25 @@ let cliente: PickSupabaseClient | undefined;
  * el cuerpo vacío que no decía qué faltaba. Pidiéndolas dentro de la función, el
  * middleware llega antes y muestra una pantalla que lo explica.
  *
- * `STOREFRONT_DOMAIN` sí se importa: tiene valor por defecto, así que nunca
- * falta.
+ * `STOREFRONT_DOMAIN` va por el mismo camino desde que se descubrió que, siendo
+ * `public`, quedaba incrustada en el bundle al construir: cargarla en el Worker
+ * no tenía ningún efecto.
  */
+/**
+ * Dominio de la tienda que sirve este deploy.
+ *
+ * El default es el de la demo, para que `astro dev` y el CI funcionen sin
+ * configurar nada. Tiene que coincidir con `stores.domain`, no con el dominio
+ * desde el que se sirve el sitio: son cosas distintas y hoy son distintas.
+ */
+function dominioDeLaTienda(): string {
+  try {
+    return getSecret('STOREFRONT_DOMAIN') || 'pick-demo.pages.dev';
+  } catch {
+    return 'pick-demo.pages.dev';
+  }
+}
+
 function requerida(nombre: 'SUPABASE_URL' | 'SUPABASE_SECRET_KEY'): string {
   const valor = getSecret(nombre);
   if (!valor) {
@@ -94,12 +110,13 @@ function memoizar<T>(cargar: () => Promise<T>, ttl = 60_000): () => Promise<T> {
  * desde el que se sirve.
  */
 export const tiendaActual = memoizar(async (): Promise<ResolucionTenant> => {
-  const tienda = await resolverTenant(repositorioTiendas(db()), STOREFRONT_DOMAIN);
+  const dominio = dominioDeLaTienda();
+  const tienda = await resolverTenant(repositorioTiendas(db()), dominio);
   if (!tienda) {
     // Falla ruidosa: sin tienda no hay nada que mostrar, y devolver un catálogo
     // vacío haría parecer que el comercio no tiene productos.
     throw new Error(
-      `No hay ninguna tienda con el dominio ${STOREFRONT_DOMAIN}. ` +
+      `No hay ninguna tienda con el dominio ${dominio}. ` +
         'Revisar STOREFRONT_DOMAIN y `stores.domain`.',
     );
   }
@@ -107,9 +124,8 @@ export const tiendaActual = memoizar(async (): Promise<ResolucionTenant> => {
 });
 
 /** Categorías de la tienda, en el orden que definió el Admin. */
-export const categorias = memoizar(
-  async (): Promise<readonly CategoriaCatalogo[]> =>
-    catalogo().categorias((await tiendaActual()).storeId),
+export const categorias = memoizar(async (): Promise<readonly CategoriaCatalogo[]> =>
+  catalogo().categorias((await tiendaActual()).storeId),
 );
 
 /**

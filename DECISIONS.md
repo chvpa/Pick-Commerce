@@ -1486,15 +1486,47 @@ la autorización?".
 - El **Admin** consulta con el JWT del usuario, y **RLS** es lo que impide que
   una query devuelva filas de otra organización.
 - El **storefront** y los jobs consultan desde el servidor con la secret key,
-  que **saltea RLS por completo**. En ese camino la única defensa es la
-  verificación en el servicio de dominio: `assertCan` y `assertSameTenant`.
+  que **saltea RLS por completo**. En ese camino lo que acota los datos es que
+  la tienda se resuelve en el servidor y viaja como primer parámetro de cada
+  consulta (ver más abajo).
 - El browser nunca habla con Supabase para nada sensible. La publishable key
   puede llegar al cliente; la secret key jamás.
 
 **Por qué las dos capas y no una**
 RLS sola no alcanza porque la secret key la saltea, y hay caminos legítimos que
-la usan. El servicio solo no alcanza porque no protege a quien consulte la base
+la usan. La otra capa sola no alcanza porque no protege a quien consulte la base
 por otra vía. Cada una cubre el hueco de la otra.
+
+**Corrección (27/08/2026): qué defiende realmente el camino de la secret key**
+Este ADR decía que en ese camino defendían `assertCan` y `assertSameTenant`. Es
+falso, y se verificó: esas dos funciones **no tienen un solo llamador fuera de
+sus propios tests**. Lo que efectivamente acota los datos es otra cosa, y
+conviene nombrarla bien porque es sobre lo que hay que construir:
+
+1. La tienda **nunca llega desde el cliente**. Se resuelve en el servidor a
+   partir de la configuración del deploy (`STOREFRONT_DOMAIN` → `stores.domain`)
+   y es el primer parámetro de los cinco métodos de `RepositorioCatalogo`. Un
+   endpoint que aceptara un `storeId` del body rompería la única garantía que hay.
+2. El SQL filtra por esa tienda: `catalog_search` acota por `p_store_id` y por
+   `status = 'active'`, y con `p_store_id` nulo devuelve vacío —falla cerrado—.
+3. Desde 27/08/2026, el **schema** impide que una fila cuelgue del catálogo de
+   otro comercio: las claves foráneas incluyen el tenant. Eso no era así, y se
+   explotó: ver la migración `aislamiento_en_claves_foraneas`.
+
+`assertCan` y `assertSameTenant` siguen siendo el contrato del día que exista un
+servicio de dominio con un actor identificado —MCP, jobs, API pública—. Hoy no
+hay actor en el storefront: no hay usuario detrás de una visita anónima. Decir
+que corren cuando no corren es peor que no decir nada, porque quien escriba el
+próximo endpoint asume una guarda que no existe.
+
+**Qué exige esto de Fase 5**
+Los endpoints que escriben pedidos resuelven la tienda con `tiendaActual()` y
+**jamás** aceptan `storeId`, `tenant_id` ni precios del cliente: el precio de
+cada línea se lee de la base dentro de la misma transacción que crea el pedido.
+`product_variants` no tiene `store_id` —sólo `tenant_id` y `product_id`—, así
+que resolver una variante recibida del browser obliga a joinear por
+`products.store_id`. El atajo (`select ... in (ids)` con la secret key) devuelve
+variantes de cualquier comercio, con su precio y su costo.
 
 **Los permisos son datos, no comparaciones de rol**
 Las políticas llaman a `app.has_permission(tenant, permiso)` en vez de comparar
@@ -2138,3 +2170,120 @@ backlog.
 Igual queda que `stores.domain` admite **un solo dominio por tienda**. Un comercio
 con `.com` y `.com.py` apuntando al mismo negocio necesitaría hoy dos filas, o sea
 dos tiendas. El `www.` no cuenta: ya se normaliza.
+
+---
+
+## ADR-063 — El aislamiento entre comercios vive en las claves foráneas, no en las políticas
+
+**Fecha:** 2026-08-27
+**Estado:** Accepted
+
+**Qué pasó**
+La revisión adversarial previa a Fase 5 encontró que un comercio podía escribir
+filas colgadas del catálogo de otro. No se dedujo: se reprodujo. Un owner del
+tenant B, con `catalog.write` únicamente sobre B, insertando con **su propio**
+`tenant_id`:
+
+```sql
+insert into inventory_levels (tenant_id, variant_id, location_id, available)
+values ('<B>', '<variante de A>', '<sucursal de B>', 9999);   -- pasaba
+```
+
+El storefront de A pasó de 30 unidades a 10029. El Admin de A siguió mostrando
+30: la fila envenenada pertenece a B, así que RLS se la esconde justamente a la
+víctima. Lo mismo con `product_media` sobre un producto ajeno —una imagen
+arbitraria en la PDP de otro comercio— y con `product_variants` —una variante
+fantasma con precio y SKU propios—.
+
+**Por qué RLS no lo veía**
+La política de escritura evalúa `app.has_permission(tenant_id, 'catalog.write')`,
+o sea **la columna `tenant_id` de la fila que se inserta**, no a quién pertenece
+el padre al que esa fila apunta. Y la verificación de la clave foránea tampoco
+ayuda: Postgres [no aplica políticas](https://www.postgresql.org/docs/current/sql-createpolicy.html)
+durante los chequeos de integridad referencial. Cada tabla hija declaraba dos
+constraints independientes —`tenant_id` por un lado, la FK al padre por otro— y
+nada las ataba.
+
+El `variant_id` no es un secreto: `catalog_search` lo emite en cada ítem y el PDP
+lo serializa en el HTML.
+
+**Decisión**
+Las claves foráneas llevan el tenant: `foreign key (variant_id, tenant_id)
+references product_variants (id, tenant_id)`. Los padres ganan `unique (id,
+tenant_id)` para poder ser destino. Son 18 claves foráneas, todas las hijas del
+catálogo y de multitenancy.
+
+**Por qué así y no filtrando en las lecturas**
+Filtrar por tenant en cada consulta —`and il.tenant_id = v.tenant_id`— también
+tapaba el síntoma, pero hay que acordarse en cada consulta nueva, para siempre, y
+el modo de fallo de olvidarse es silencioso. Con la FK, la fila **no puede
+existir**: lo garantiza Postgres, una vez, y una fila que no existe no necesita
+filtrarse. Es la misma razón por la que el stock no lleva `check (available >=
+0)` pero sí lleva esta restricción: acá no se está escondiendo un dato incómodo,
+se está impidiendo un dato imposible.
+
+**Dos detalles que cuestan tiempo si no se saben**
+
+- `products.category_id` es `on delete set null`. Con una FK compuesta y sin
+  lista de columnas, Postgres intentaría anular también `tenant_id`, que es `not
+null`, y borrar una categoría fallaría. La sintaxis `on delete set null
+(category_id)` existe desde Postgres 15; el proyecto corre 17.6 y PGlite 18.3.
+- `feature_flags.store_id` es nullable —un flag sin tienda vale para toda la
+  organización—. Con MATCH SIMPLE, que es el default, una FK compuesta con
+  alguna columna nula no se verifica, que es exactamente lo que ese caso
+  necesita.
+
+**Verificación**
+`supabase/tests/aislamiento-fk.test.ts` afirma los siete ataques. Se comprobó que
+**los siete pasan** —o sea que el test falla— quitando esta migración. Incluye
+dos casos de control: que un comercio sí pueda colgar filas de lo suyo, y que
+borrar una categoría deje el producto sin categoría en vez de romper. Sin ellos,
+una FK rota "hacia el lado seguro" pasaría los siete y rompería el producto.
+
+**Consecuencia para Fase 5**
+`order_items.variant_id` nace con el mismo patrón. Un pedido no puede referenciar
+una variante de otro comercio.
+
+---
+
+## ADR-064 — `revoke ... from public` no le quita nada a `anon`
+
+**Fecha:** 2026-08-27
+**Estado:** Accepted
+
+**El hallazgo**
+Cada función cerraba con `revoke all on function ... from public`, y el
+comentario al lado afirmaba que con eso `anon` —el rol del browser— quedaba
+afuera. Es falso. Consultado contra el proyecto real, las cuatro funciones
+mostraban:
+
+```
+postgres=X/postgres | anon=X/postgres | authenticated=X/postgres | service_role=X/postgres
+```
+
+Supabase declara un `default privilege` que concede EXECUTE **directamente al rol
+`anon`** sobre cada función creada en `public`. `revoke from public` sólo quita el
+permiso del pseudo-rol PUBLIC; un grant directo a un rol no se toca. El revoke
+funcionaba —ninguna función conservaba la entrada de PUBLIC— y no servía para lo
+que decía servir.
+
+**Por qué no era explotable, y por qué importaba igual**
+`catalog_search` es `security invoker`: `anon` entraba a la función y lo frenaba
+el `revoke ... from anon` sobre las **tablas**. La defensa que operaba era la
+segunda capa, no la que el comentario nombraba —y eso sólo se puede saber
+mirando, que es el problema—.
+
+Deja de ser inofensivo con la primera función `security definer`, que es
+exactamente lo que pide crear un pedido con guest checkout: quedaría invocable
+desde cualquier browser con la publishable key, corriendo con privilegios de
+dueño, con los parámetros que elija quien llame.
+
+**Decisión**
+El revoke va explícito por rol: `revoke all on function ... from anon`. Toda
+función nueva lo declara.
+
+**Lo que esto le enseña al harness**
+PGlite **no puede detectarlo**: no reproduce los default privileges de Supabase,
+así que para la suite el agujero era invisible. Es un caso donde el entorno de
+prueba es más seguro que producción, que es la dirección peligrosa. Los grants de
+funciones nuevas se verifican contra el proyecto real, no sólo en PGlite.

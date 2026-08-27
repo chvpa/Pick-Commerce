@@ -38,6 +38,12 @@ export async function baseDePrueba(): Promise<PGlite> {
 
     create role anon nologin;
     create role authenticated nologin;
+
+    -- El rol de la secret key. El storefront consulta con él, y **saltea RLS**:
+    -- es el camino que protege el scoping por tienda en el SQL, no las
+    -- políticas. Sin este rol acá, esa capa no se puede testear, y hasta ahora
+    -- no se testeaba.
+    create role service_role nologin bypassrls;
   `);
 
   for (const archivo of readdirSync(MIGRACIONES)
@@ -72,6 +78,27 @@ export async function como<T>(db: PGlite, userId: string | null, sql: string): P
     return resultado.rows;
   } finally {
     await db.exec('rollback');
+  }
+}
+
+/**
+ * Ejecuta como el rol de la secret key, **confirmando** la transacción.
+ *
+ * `como` e `intentar` hacen rollback siempre, que es lo correcto para afirmar
+ * sobre lecturas y rechazos sin ensuciar la base. No sirve para lo que escribe:
+ * verificar que crear un pedido descontó stock **una sola vez** exige que la
+ * primera llamada persista.
+ */
+export async function comoServicio<T>(db: PGlite, sql: string): Promise<T[]> {
+  await db.exec('begin');
+  try {
+    await db.exec('set local role service_role');
+    const resultado = await db.query<T>(sql);
+    await db.exec('commit');
+    return resultado.rows;
+  } catch (error) {
+    await db.exec('rollback');
+    throw error;
   }
 }
 

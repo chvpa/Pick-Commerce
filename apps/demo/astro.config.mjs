@@ -67,13 +67,25 @@ export default defineConfig({
         optional: true,
       }),
       /*
-       * Qué tienda sirve este deploy. El default es el dominio de la demo, así
-       * que `astro dev` y el CI funcionan sin configurar nada.
+       * Qué tienda sirve este deploy.
+       *
+       * `secret` y no `public` **aunque un dominio no sea secreto**: en
+       * `astro:env` lo público se incrusta al construir, y esta variable salía
+       * en el bundle como `var STOREFRONT_DOMAIN = "pick-demo.pages.dev"`,
+       * literal. Cargarla en el Worker no hacía nada, y el script `deploy` del
+       * paquete no reconstruye: desplegar un segundo comercio con el `dist` del
+       * primero le habría servido el catálogo del primero, y desde la Fase 5 le
+       * habría escrito los pedidos **dentro del tenant equivocado**. Silencioso,
+       * y RLS no lo ve porque este camino usa la secret key.
+       *
+       * `optional` para conservar lo que el default daba: `astro dev` y el CI
+       * siguen funcionando sin configurar nada. El valor por defecto vive ahora
+       * en `src/lib/db.ts`, que es quien la usa.
        */
       STOREFRONT_DOMAIN: envField.string({
         context: 'server',
-        access: 'public',
-        default: 'pick-demo.pages.dev',
+        access: 'secret',
+        optional: true,
       }),
     },
   },
