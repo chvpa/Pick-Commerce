@@ -1880,9 +1880,27 @@ las mismas migraciones y el mismo seed en cada ejecución.
 entre tenants y la paridad del catálogo se verifican sin levantar nada. Sólo los
 tests de navegación necesitan el stack.
 
-**Pendiente de verificación**
-La secuencia no se pudo correr localmente: esta máquina no tiene Docker. Se
-valida en la primera corrida del CI.
+**Verificado en la primera corrida real** (26/08/2026)
+La secuencia no se pudo correr localmente —esta máquina no tiene Docker—, así que
+se validó en el CI. Los pasos 1 a 14 pasaron en **3m 54s**, `supabase start`
+incluido (2m 12s): el stack local levanta, las migraciones aplican desde cero y
+el build corre contra esa base.
+
+**Y lo que esa corrida encontró**
+El paso siguiente, `pnpm e2e`, quedó colgado indefinidamente. La causa no estaba
+en el CI sino en el setup de Playwright: `astro preview` sólo se manda al fondo
+con `--background` **o cuando Astro detecta que lo corre un agente de código**
+(`am-i-vibing`, en `astro/dist/cli/preview/index.js`). Como el desarrollo de este
+repo pasa por un agente, el preview se demonizaba solo y el `execSync` volvía; en
+el runner —que no es ningún agente— arranca en primer plano y no vuelve nunca.
+Lo mismo le habría pasado a cualquier persona corriendo `pnpm e2e` en su terminal.
+
+Vale como recordatorio de por qué la regla del harness dice ejecutar el comando
+exacto que correrá en CI: acá el comando era el mismo y **el entorno** era el que
+cambiaba el comportamiento, que es todavía más difícil de ver. Comprobado en las
+dos direcciones antes de dar el arreglo por bueno: sin la bandera y sin las
+variables del agente, el comando no vuelve —timeout, código 124—; con ella
+vuelve en el acto y `astro preview stop` encuentra el pid.
 
 ---
 

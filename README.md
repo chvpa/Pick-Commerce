@@ -6,9 +6,10 @@ resuelven con presets, feature flags, atributos y adapters.
 
 ## Estado
 
-Fases 0 a 3 cerradas: monorepo y CI, design system, storefront con PLP facetada
-server-side y SEO, y multitenancy con RLS aplicado a Supabase. **Fase 4
-(Catalog) es la siguiente**: el catálogo todavía es un mock.
+Fases 0 a 4 cerradas: monorepo y CI, design system, storefront con PLP facetada
+server-side y SEO, multitenancy con RLS aplicado a Supabase, y catálogo en
+Postgres con CRUD e import/export en el Admin. **Fase 5 (Cart, Checkout y
+Orders) es la siguiente.**
 
 El avance detallado está en [ROADMAP.md](ROADMAP.md), que es la fuente de verdad.
 
@@ -24,6 +25,7 @@ tocar código:
 | [DECISIONS.md](DECISIONS.md)                     | Por qué se decidió cada cosa (ADRs)                             |
 | [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) | Cómo desarrollar, testear y cerrar una tarea                    |
 | [AGENTS.md](AGENTS.md) / [CLAUDE.md](CLAUDE.md)  | Protocolo de trabajo asistido por IA                            |
+| [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md)         | Cómo corre esto: CI, Workers, entornos y credenciales           |
 
 ## Ramas
 
@@ -45,8 +47,10 @@ Dos cosas no viajan por git:
    pnpm exec playwright install chromium
    ```
 
-Sin el `.env` todo funciona igual por ahora: ningún código lee Supabase todavía,
-eso llega en Fase 3. Sin los navegadores falla `pnpm e2e`, no el resto.
+Sin el `.env`, `pnpm lint`, `pnpm typecheck` y `pnpm test` funcionan igual: los
+tests de base corren sobre Postgres en proceso. Lo que no anda es todo lo que
+consulta el catálogo real —`pnpm dev`, `pnpm seed`, `pnpm e2e` y los comandos de
+base—. Sin los navegadores de Playwright falla `pnpm e2e`, no el resto.
 
 Para desplegar desde local hace falta además `wrangler login`. No es necesario
 para el deploy automático, que corre en Workers Builds al hacer push.
@@ -137,6 +141,10 @@ Prioridad de cobertura: orders, stock, payments, tenants, permisos, ERP,
 promociones y migraciones. Ver ENGINEERING_HARNESS.md §5–6.
 
 ## Deploy
+
+Lo que sigue es la referencia mínima; el recorrido completo —qué hace el CI, qué
+despliega Cloudflare, y por qué son independientes— está en
+[INFRAESTRUCTURA.md](INFRAESTRUCTURA.md).
 
 Ambas apps corren sobre Cloudflare Workers, cada una con su propio Worker. El
 monorepo tiene dos apps, así que **hacen falta dos proyectos de Workers Builds**,

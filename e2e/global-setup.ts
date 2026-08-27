@@ -33,9 +33,15 @@ export default function setup(): void {
   execSync('pnpm seed', { stdio: 'inherit' });
 
   /*
-   * `astro preview` se demoniza y devuelve el control, así que el `webServer` de
-   * Playwright lo daría por muerto apenas arranca. Se lo levanta acá y se lo baja
-   * en el teardown.
+   * `--background` **no es opcional**: sin esa bandera `astro preview` corre en
+   * primer plano y `execSync` no vuelve nunca. En una máquina donde el comando lo
+   * lanza un agente de código, Astro lo detecta —`am-i-vibing`— y lo manda al
+   * fondo solo, así que localmente parecía funcionar sin la bandera; en el runner
+   * del CI, que no es ningún agente, la corrida quedaba colgada acá para siempre.
+   * Ver `astro/dist/cli/preview/index.js`: `flags.background || agentDetected`.
+   *
+   * En background escribe un lockfile con el pid, que es lo que después usa
+   * `astro preview stop` en el teardown.
    *
    * Parar ANTES de construir: en Windows el preview mantiene `dist` abierto y
    * `astro build`, que lo vacía, muere con un fallo de handle.
@@ -65,8 +71,9 @@ export default function setup(): void {
     'utf8',
   );
 
-  execSync('pnpm --filter @pick/demo exec astro preview --host 127.0.0.1 --port 4321', {
-    stdio: 'ignore',
-  });
+  execSync(
+    'pnpm --filter @pick/demo exec astro preview --background --host 127.0.0.1 --port 4321',
+    { stdio: 'ignore' },
+  );
   execSync('npx --yes wait-on -t 120000 http-get://127.0.0.1:4321/', { stdio: 'ignore' });
 }
