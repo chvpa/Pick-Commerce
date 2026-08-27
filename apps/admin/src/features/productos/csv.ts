@@ -92,7 +92,10 @@ const numeroOpcional = (nombre: string) =>
     .string()
     .trim()
     .transform((v) => (v === '' ? undefined : Number(v.replace(/\./g, '').replace(',', '.'))))
-    .refine((v) => v === undefined || (Number.isFinite(v) && v >= 0), `${nombre} tiene que ser un número`);
+    .refine(
+      (v) => v === undefined || (Number.isFinite(v) && v >= 0),
+      `${nombre} tiene que ser un número`,
+    );
 
 const filaSchema = z.object({
   handle: z
@@ -157,7 +160,10 @@ export function prepararImport(
   },
 ): Preparado {
   const errores: ErrorFila[] = [];
-  const porHandle = new Map<string, { producto: ProductoEditable; variantes: VarianteEditable[] }>();
+  const porHandle = new Map<
+    string,
+    { producto: ProductoEditable; variantes: VarianteEditable[] }
+  >();
 
   filas.forEach((cruda, i) => {
     // +2: la línea 1 es el encabezado y las planillas cuentan desde 1.
@@ -244,9 +250,10 @@ export function prepararImport(
     });
   });
 
-  const productos = [...porHandle.values()].map(
-    ({ producto, variantes }): ProductoEditable => ({ ...producto, variants: variantes }),
-  );
+  const productos = [...porHandle.values()].map(({ producto, variantes }): ProductoEditable => ({
+    ...producto,
+    variants: variantes,
+  }));
 
   return {
     productos,

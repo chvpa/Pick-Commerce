@@ -38,7 +38,9 @@ if (!TOKEN) {
 // El token tiene los privilegios de la cuenta entera, no de un proyecto.
 console.log(`Aplicando ${basename(archivo)} a ${REF}`);
 
-const nombre = basename(archivo).replace(/^\d+_/, '').replace(/\.sql$/, '');
+const nombre = basename(archivo)
+  .replace(/^\d+_/, '')
+  .replace(/\.sql$/, '');
 const payload = join(tmpdir(), `pick-migracion-${process.pid}.json`);
 writeFileSync(payload, JSON.stringify({ query: readFileSync(archivo, 'utf8'), name: nombre }));
 

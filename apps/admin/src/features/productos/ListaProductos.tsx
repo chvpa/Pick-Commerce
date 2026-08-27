@@ -203,10 +203,7 @@ export function ListaProductos() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{p.variantes}</TableCell>
                     <TableCell
-                      className={cn(
-                        'text-right tabular-nums',
-                        p.stock <= 0 && 'text-destructive',
-                      )}
+                      className={cn('text-right tabular-nums', p.stock <= 0 && 'text-destructive')}
                     >
                       {p.stock}
                     </TableCell>

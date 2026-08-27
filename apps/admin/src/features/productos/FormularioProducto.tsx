@@ -87,8 +87,10 @@ function Campo({
  * nombre de campo; acá sólo se lee el mensaje, así que se acota a eso.
  */
 type ErroresVariante = Partial<
-  Record<'sku' | 'title' | 'precio' | 'precioAnterior' | 'costo' | 'stock' | 'atributos',
-    { message?: string }>
+  Record<
+    'sku' | 'title' | 'precio' | 'precioAnterior' | 'costo' | 'stock' | 'atributos',
+    { message?: string }
+  >
 >;
 
 const claseTextarea =
@@ -161,7 +163,11 @@ export function FormularioProducto({ id }: { id?: string }) {
       })),
       // El formulario administra las imágenes, así que siempre manda la clave:
       // vacía significa "sin imágenes", no "no las toques".
-      media: (p.media ?? []).map((m) => ({ ...m, width: String(m.width), height: String(m.height) })),
+      media: (p.media ?? []).map((m) => ({
+        ...m,
+        width: String(m.width),
+        height: String(m.height),
+      })),
     } as unknown as Valores);
   }, [cargado.data, reset]);
 
@@ -347,7 +353,10 @@ export function FormularioProducto({ id }: { id?: string }) {
         </p>
 
         {medios.fields.map((campo, i) => (
-          <div key={campo.id} className="border-border grid gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_5rem_5rem_auto]">
+          <div
+            key={campo.id}
+            className="border-border grid gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_5rem_5rem_auto]"
+          >
             <Campo label="URL" error={errors.media?.[i]?.url?.message}>
               <Input {...register(`media.${i}.url`)} placeholder="/products/foto.jpg" />
             </Campo>
@@ -420,8 +429,16 @@ function FilaVariante({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-4">
-        <Campo label={`Precio (${moneda})`} error={errores?.precio?.message} ayuda={precioBloqueado ? 'Lo administra el ERP' : undefined}>
-          <Input {...register(`variantes.${i}.precio`)} inputMode="numeric" disabled={precioBloqueado} />
+        <Campo
+          label={`Precio (${moneda})`}
+          error={errores?.precio?.message}
+          ayuda={precioBloqueado ? 'Lo administra el ERP' : undefined}
+        >
+          <Input
+            {...register(`variantes.${i}.precio`)}
+            inputMode="numeric"
+            disabled={precioBloqueado}
+          />
         </Campo>
         <Campo label="Precio anterior" error={errores?.precioAnterior?.message}>
           <Input {...register(`variantes.${i}.precioAnterior`)} inputMode="numeric" />
@@ -429,11 +446,7 @@ function FilaVariante({
         <Campo label="Costo" error={errores?.costo?.message}>
           <Input {...register(`variantes.${i}.costo`)} inputMode="numeric" />
         </Campo>
-        <Campo
-          label="Stock"
-          error={errores?.stock?.message}
-          ayuda="Vacío deja el actual"
-        >
+        <Campo label="Stock" error={errores?.stock?.message} ayuda="Vacío deja el actual">
           <Input {...register(`variantes.${i}.stock`)} inputMode="numeric" />
         </Campo>
       </div>

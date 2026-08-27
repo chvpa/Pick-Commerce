@@ -21,7 +21,7 @@ const [email, password, rolCrudo] = process.argv.slice(2);
 const rol = rolCrudo ?? 'owner';
 
 if (!email || !password) {
-  console.error("Uso: pnpm admin:crear <email> <password> [rol]");
+  console.error('Uso: pnpm admin:crear <email> <password> [rol]');
   console.error('Roles: owner, admin, staff, viewer');
   process.exit(1);
 }
@@ -60,7 +60,10 @@ if (error) {
 
 const { error: errorMembresia } = await db
   .from('memberships')
-  .upsert({ tenant_id: IDS.tenant, user_id: userId!, role: rol }, { onConflict: 'tenant_id,user_id' });
+  .upsert(
+    { tenant_id: IDS.tenant, user_id: userId!, role: rol },
+    { onConflict: 'tenant_id,user_id' },
+  );
 
 if (errorMembresia) {
   console.error(`No se pudo dar acceso a la organización: ${errorMembresia.message}`);

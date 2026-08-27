@@ -113,10 +113,19 @@ test('las filas vacías del final no son errores', () => {
 });
 
 test('el estado acepta la etiqueta en español y el valor interno', () => {
-  assert.equal(prepararImport([fila({ estado: 'borrador' })], OPCIONES).productos[0]?.status, 'draft');
-  assert.equal(prepararImport([fila({ estado: 'ACTIVE' })], OPCIONES).productos[0]?.status, 'active');
+  assert.equal(
+    prepararImport([fila({ estado: 'borrador' })], OPCIONES).productos[0]?.status,
+    'draft',
+  );
+  assert.equal(
+    prepararImport([fila({ estado: 'ACTIVE' })], OPCIONES).productos[0]?.status,
+    'active',
+  );
   assert.equal(prepararImport([fila({ estado: '' })], OPCIONES).productos[0]?.status, 'draft');
-  assert.match(prepararImport([fila({ estado: 'vendido' })], OPCIONES).errores[0]!.motivo, /estado/);
+  assert.match(
+    prepararImport([fila({ estado: 'vendido' })], OPCIONES).errores[0]!.motivo,
+    /estado/,
+  );
 });
 
 test('exportar e importar dan el mismo producto', () => {

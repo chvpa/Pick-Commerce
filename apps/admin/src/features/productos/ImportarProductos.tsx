@@ -259,7 +259,11 @@ export function ImportarProductos() {
                 ? `Importando… ${avance?.hechos ?? 0}/${avance?.total ?? 0}`
                 : `Importar ${preparado.productos.length} producto(s)`}
             </Button>
-            <Button variant="ghost" disabled={importar.isPending} onClick={() => setPreparado(null)}>
+            <Button
+              variant="ghost"
+              disabled={importar.isPending}
+              onClick={() => setPreparado(null)}
+            >
               Descartar
             </Button>
           </div>
