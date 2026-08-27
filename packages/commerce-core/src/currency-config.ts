@@ -58,8 +58,7 @@ export function configuracionDeMoneda(
       Array.isArray(bruto?.displayCurrencies) && bruto.displayCurrencies.length > 0
         ? bruto.displayCurrencies
         : [base],
-    checkoutCurrency:
-      typeof bruto?.checkoutCurrency === 'string' ? bruto.checkoutCurrency : base,
+    checkoutCurrency: typeof bruto?.checkoutCurrency === 'string' ? bruto.checkoutCurrency : base,
     ...(bruto?.exchangeRate ? { exchangeRate: bruto.exchangeRate } : {}),
     rounding: 'commerce-default',
   };

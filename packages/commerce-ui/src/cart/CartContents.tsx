@@ -1,4 +1,4 @@
-import { formatMoney } from '@pick/commerce-core';
+import { formatMoney, totalDelCarrito } from '@pick/commerce-core';
 import { cn } from '../lib/cn.ts';
 import { buttonVariants } from '../recipes/button.ts';
 import { removeLine, setQuantity, type CartLine } from './store.ts';
@@ -27,8 +27,18 @@ export function CartContents({
   catalogHref = '/catalogo',
   className,
 }: CartContentsProps) {
-  const total = lines.reduce((sum, l) => sum + l.price.amount * l.quantity, 0);
-  const currency = lines[0]?.price.currency;
+  /*
+   * El total lo suma el core con `addMoney`, que **lanza** si las monedas no
+   * coinciden. Antes se sumaba a mano y se rotulaba con la moneda del primer
+   * ítem: un carrito con Gs. 389.000 y USD 50 mostraba «Gs. 394.000», sin error
+   * ni aviso. Un total silenciosamente equivocado en una pantalla de compra es
+   * peor que un error, y el schema ya permite una moneda por variante.
+   */
+  const total = totalDelCarrito(
+    lines.map((l) => ({
+      subtotal: { amount: l.price.amount * l.quantity, currency: l.price.currency },
+    })),
+  );
 
   if (lines.length === 0) {
     return (
@@ -72,6 +82,15 @@ export function CartContents({
                   value={line.quantity}
                   onChange={(q) => setQuantity(line.variantId, q)}
                   min={1}
+                  /*
+                   * Techo del stock que el servidor informó al agregar. Sin él
+                   * se podía subir a 44 unidades de un producto con 4: el PDP
+                   * respetaba el stock y el carrito no tenía contra qué
+                   * acotar. No reemplaza la revalidación del checkout —el
+                   * número puede haber envejecido—, evita que la persona llegue
+                   * hasta ahí con un total imposible.
+                   */
+                  max={line.available}
                 />
                 <button
                   type="button"
@@ -86,12 +105,12 @@ export function CartContents({
         ))}
       </ul>
 
-      {currency ? (
+      {lines.length > 0 ? (
         <div className="flex flex-col gap-3 border-t border-border px-5 py-4">
           <div className="flex items-baseline justify-between">
             <span className="text-sm text-fg-muted">Subtotal</span>
             <span className="text-base font-medium" aria-live="polite">
-              {formatMoney({ amount: total, currency }, locale)}
+              {formatMoney(total, locale)}
             </span>
           </div>
           {/* El stock se revalida en checkout, siempre. Ver ADR-009. */}

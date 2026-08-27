@@ -6,13 +6,15 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-**Fases 0 a 4 cerradas. Fase 5 (Cart, Checkout y Orders) es la siguiente.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+**Fases 0 a 5 cerradas. Fase 6 (Admin v1) es la siguiente.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
 - **Fase 2** — storefront: Home, PLP facetada server-side, PDP, carrito, SEO y GEO.
 - **Fase 3** — multitenancy: schema con RLS aplicado a Supabase, adapter y Auth en el Admin.
 - **Fase 4** — catálogo en Postgres: storefront on-demand, CRUD en el Admin e import/export CSV.
+- **Fase 5** — pedidos: cart service, checkout guest, `create_order` idempotente
+  que revalida y descuenta stock, y vista de pedidos en el Admin.
 
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,
@@ -204,7 +206,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 1. [AGENTS.md](AGENTS.md) — protocolo de trabajo con IA, reglas Core vs cliente, reglas UX.
 2. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 3. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-4. [DECISIONS.md](DECISIONS.md) — ADR-001..064 + decisiones pendientes P-001..005.
+4. [DECISIONS.md](DECISIONS.md) — ADR-001..066 + decisiones pendientes P-001..005.
 5. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.
 6. [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md) — cómo corre el proyecto: CI, Workers,
    entornos, credenciales y diagnóstico.

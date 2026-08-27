@@ -1,0 +1,76 @@
+import type { APIRoute } from 'astro';
+import { validarDatosDeCheckout } from '@pick/commerce-core';
+import { checkout, pagos, tiendaActual } from '../../lib/db.ts';
+import { cuerpoJson, falla, json, lineasRecibidas } from './_respuesta.ts';
+
+export const prerender = false;
+
+/** Un uuid v4 de verdad, no cualquier texto: es la clave del `unique` de la base. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Crea el pedido.
+ *
+ * Todo lo que decide algo pasa del lado del servidor:
+ *
+ * - La **tienda** sale de `tiendaActual()`. El cuerpo no trae `storeId` ni
+ *   podría: sería la única forma de escribir un pedido en otro comercio.
+ * - Los **precios** los lee `create_order` de la base. Del carrito sólo viajan
+ *   `variantId` y `quantity`.
+ * - Los **datos del cliente** se revalidan con la misma función que corre en el
+ *   island. Que corra en los dos lados es el punto: el servidor no puede confiar
+ *   en que el browser validó.
+ * - La **forma de pago** tiene que estar habilitada para esta tienda (ADR-021).
+ *
+ * La clave de idempotencia la genera el checkout al montarse y la conserva entre
+ * reintentos. Con la misma clave, la base devuelve el pedido que ya existe en
+ * vez de crear otro: es lo que cumple «no se crea doble order por reintento
+ * simple» de la Definition of Done.
+ */
+export const POST: APIRoute = async ({ request }) => {
+  const cuerpo = await cuerpoJson(request);
+  const bruto = (cuerpo ?? {}) as Record<string, unknown>;
+
+  const clave = typeof bruto.idempotencyKey === 'string' ? bruto.idempotencyKey : '';
+  if (!UUID.test(clave)) {
+    return json({ error: 'bad_request', message: 'Falta la clave del pedido.' }, 400);
+  }
+
+  const { lines: lineas, invalidas } = lineasRecibidas(cuerpo);
+  if (invalidas > 0) {
+    return json({ error: 'bad_request', message: 'El carrito tiene líneas mal formadas.' }, 400);
+  }
+  if (lineas.length === 0) {
+    return json({ error: 'empty_cart', message: 'Tu carrito está vacío.' }, 400);
+  }
+
+  const { datos, errores } = validarDatosDeCheckout(cuerpo);
+  if (!datos) return json({ error: 'invalid_data', errores }, 400);
+
+  try {
+    const [{ storeId }, formasDePago] = await Promise.all([tiendaActual(), pagos()]);
+
+    if (!formasDePago.enabled.includes(datos.paymentMethod)) {
+      return json(
+        {
+          error: 'invalid_data',
+          errores: { paymentMethod: 'Esa forma de pago no está disponible.' },
+        },
+        400,
+      );
+    }
+
+    const resultado = await checkout().crearPedido(storeId, clave, { ...datos, lines: lineas });
+
+    if ('issues' in resultado) {
+      // 409 y no 400: la petición estaba bien formada, el mundo cambió mientras
+      // la persona compraba. El checkout usa eso para corregir el carrito y
+      // dejarla reintentar con la misma clave.
+      return json({ error: 'invalid_cart', issues: resultado.issues }, 409);
+    }
+
+    return json({ order: resultado.order }, 201);
+  } catch (error) {
+    return falla('checkout', error);
+  }
+};

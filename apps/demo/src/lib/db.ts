@@ -2,13 +2,17 @@ import { getSecret } from 'astro:env/server';
 import {
   clienteDeServidor,
   repositorioCatalogo,
+  repositorioCheckout,
   repositorioTiendas,
   type PickSupabaseClient,
 } from '@pick/adapter-supabase';
 import {
+  configuracionDePagos,
   resolverTenant,
   type CategoriaCatalogo,
+  type ConfiguracionDePagos,
   type RepositorioCatalogo,
+  type RepositorioCheckout,
   type ResolucionTenant,
 } from '@pick/commerce-core';
 
@@ -137,3 +141,26 @@ export const categorias = memoizar(async (): Promise<readonly CategoriaCatalogo[
 export const facetasFiltrables = memoizar(async () =>
   catalogo().facetasFiltrables((await tiendaActual()).storeId),
 );
+
+let repoCheckout: RepositorioCheckout | undefined;
+
+/** Carrito y creación de pedidos. Ver ADR-065. */
+export function checkout(): RepositorioCheckout {
+  repoCheckout ??= repositorioCheckout(db());
+  return repoCheckout;
+}
+
+/**
+ * Formas de pago habilitadas (PROJECT.md §34).
+ *
+ * Se memoiza como el resto de la configuración: cambia cuando el comercio la
+ * edita, no en cada visita.
+ */
+export const pagos = memoizar(async (): Promise<ConfiguracionDePagos> => {
+  const { data } = await db()
+    .from('store_settings')
+    .select('settings')
+    .eq('store_id', (await tiendaActual()).storeId)
+    .maybeSingle();
+  return configuracionDePagos(data?.settings);
+});

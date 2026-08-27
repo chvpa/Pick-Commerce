@@ -39,5 +39,10 @@ export const ANUNCIO: { texto: string; href?: string } | null = {
  */
 export const COLECCION_DESTACADA = 'ofertas';
 
-/** Rutas que no aportan a la indexación y sí dispersan autoridad. */
-export const RUTAS_PRIVADAS = ['/carrito', '/checkout', '/cuenta'] as const;
+/**
+ * Rutas que no aportan a la indexación y sí dispersan autoridad.
+ *
+ * `/api` no es una página: son endpoints que sólo responden a POST, así que un
+ * crawler sólo puede gastar presupuesto ahí para recibir un 405.
+ */
+export const RUTAS_PRIVADAS = ['/carrito', '/checkout', '/cuenta', '/api'] as const;

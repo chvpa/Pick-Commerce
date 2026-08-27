@@ -11,6 +11,8 @@ import { useSesion } from '@/features/auth/SesionContext';
 import { ListaProductos } from '@/features/productos/ListaProductos';
 import { FormularioProducto } from '@/features/productos/FormularioProducto';
 import { ImportarProductos } from '@/features/productos/ImportarProductos';
+import { ListaPedidos } from '@/features/pedidos/ListaPedidos';
+import { DetallePedido } from '@/features/pedidos/DetallePedido';
 import { ProveedorTienda, useTienda } from '@/features/tienda/TiendaContext';
 
 /**
@@ -68,12 +70,18 @@ function Cascara() {
             <Link to="/productos" className="font-semibold">
               Pick Admin
             </Link>
-            <nav>
+            <nav className="flex items-center gap-4">
               <Link
                 to="/productos"
                 className="text-muted-foreground text-sm hover:underline data-[status=active]:text-foreground"
               >
                 Productos
+              </Link>
+              <Link
+                to="/pedidos"
+                className="text-muted-foreground text-sm hover:underline data-[status=active]:text-foreground"
+              >
+                Pedidos
               </Link>
             </nav>
           </div>
@@ -158,12 +166,29 @@ const editarRoute = createRoute({
   },
 });
 
+const pedidosRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/pedidos',
+  component: ListaPedidos,
+});
+
+const pedidoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/pedidos/$id',
+  component: function Pedido() {
+    const { id } = pedidoRoute.useParams();
+    return <DetallePedido id={id} />;
+  },
+});
+
 const arbol = rootRoute.addChildren([
   indexRoute,
   productosRoute,
   nuevoRoute,
   importarRoute,
   editarRoute,
+  pedidosRoute,
+  pedidoRoute,
 ]);
 
 export const router = createRouter({ routeTree: arbol });

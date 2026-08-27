@@ -211,26 +211,26 @@ Objetivo: catálogo universal utilizable.
 
 ## Fase 5 — Cart, Checkout y Orders
 
-**Avance: 0%**
+**Avance: 100%**
 
 Objetivo: convertir catálogo en pedidos reales.
 
-- [ ] Crear cart service.
-- [ ] Agregar/quitar/actualizar ítems.
-- [ ] Validar variantes.
-- [ ] Validar stock en Add to Cart cuando el provider lo permita.
-- [ ] Revalidar stock antes de confirmar checkout.
-- [ ] Crear customer/address mínimo.
-- [ ] Crear checkout.
-- [ ] Crear order.
-- [ ] Crear order items snapshot.
-- [ ] Crear order status.
-- [ ] Crear timeline.
-- [ ] Crear idempotency para creación de pedidos.
-- [ ] Implementar guest checkout.
-- [ ] Crear página de confirmación.
-- [ ] Crear vista Admin de pedidos.
-- [ ] Crear quick status.
+- [x] Crear cart service.
+- [x] Agregar/quitar/actualizar ítems.
+- [x] Validar variantes.
+- [x] Validar stock en Add to Cart cuando el provider lo permita.
+- [x] Revalidar stock antes de confirmar checkout.
+- [x] Crear customer/address mínimo.
+- [x] Crear checkout.
+- [x] Crear order.
+- [x] Crear order items snapshot.
+- [x] Crear order status.
+- [x] Crear timeline.
+- [x] Crear idempotency para creación de pedidos.
+- [x] Implementar guest checkout.
+- [x] Crear página de confirmación.
+- [x] Crear vista Admin de pedidos.
+- [x] Crear quick status.
 
 **Fuera de esta fase**
 
@@ -674,6 +674,7 @@ Estas líneas de trabajo pueden avanzar independientemente cuando exista acceso 
 | 2026-08-27 | `STOREFRONT_DOMAIN` quedaba horneado en el bundle y `deploy` no reconstruía                    | Cargarla en el Worker no hacía nada. El segundo comercio habría servido el catálogo del primero, y desde Fase 5 le habría escrito los pedidos en el tenant equivocado                      | Pasa a leerse en runtime; `deploy` construye siempre. ADR-052 corregido                                                                                                            | Fase 5       | Resuelto  |
 | 2026-08-27 | Guardar stock en una tienda sin sucursal se descartaba en silencio                             | El Admin mostraba éxito y el producto quedaba invendible; en un import de 500 filas, las 500 decían ok                                                                                     | La función falla nombrando la causa. Lo destapó un test existente que dependía del descarte                                                                                        | Fase 5       | Resuelto  |
 | 2026-08-27 | ADR-052 nombraba `assertCan`/`assertSameTenant` como la defensa del camino secret-key          | No tienen un solo llamador fuera de sus tests: quien escribiera el checkout asumiría una guarda inexistente                                                                                | ADR-052 corregido con lo que defiende de verdad y con lo que eso le exige a Fase 5                                                                                                 | Fase 5       | Resuelto  |
+| 2026-08-27 | Correr `pnpm e2e` en local deja pedidos de prueba en el proyecto de desarrollo                 | El seed restituye el catálogo pero no borra pedidos, así que el Admin se llena de basura entre corridas. En CI no pasa: la base es efímera                                                 | Limpiarlos en el teardown, o un `pnpm db:limpiar` aparte del seed                                                                                                                  | Fase 6       | Pendiente |
 | 2026-08-27 | El carrito no valida lo que lee de `localStorage`, y toda excepción se ve como «carrito vacío» | Con la forma vieja de `CartLine`, el día del deploy de Fase 5 cada cliente con carrito guardado lo ve vacío mientras el badge dice que tiene ítems                                         | Parse validador + versión de la clave, al reemplazar el store en T2                                                                                                                | Fase 5       | Pendiente |
 | 2026-08-27 | Dos pestañas: la segunda pisa el carrito de la primera                                         | Caché de módulo que no relee y `persist` que escribe el array entero. El cliente pierde ítems sin ninguna señal                                                                            | Releer al escribir y escuchar `storage`, en T2                                                                                                                                     | Fase 5       | Pendiente |
 | 2026-08-27 | El carrito no tiene tope de cantidad: 44 unidades de un producto con 4 en stock                | `CartLine` no lleva `available` y `CartContents` monta el selector sin `max`                                                                                                               | `available` en la línea, en T2                                                                                                                                                     | Fase 5       | Pendiente |
@@ -731,6 +732,9 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-26 | Fase 4 cerrada: import y export de catálogo por CSV, con preview que no escribe y reporte por producto                                                                                  | Fase 4 |          90% |           100% |
 | 2026-08-26 | Storefront en línea: secretos del Worker, dirección pública corregida y falla legible cuando falta configuración                                                                        | Fase 4 |         100% |           100% |
 | 2026-08-26 | Primera corrida real del CI: valida ADR-058 y destapa que el e2e colgaba fuera de un agente; documentada la infraestructura en INFRAESTRUCTURA.md                                       | Fase 4 |         100% |           100% |
+| 2026-08-27 | Revisión adversarial: cerrado el agujero cross-tenant de las claves foráneas, el `EXECUTE` de `anon` y el dominio horneado en el build                                                  | Fase 5 |           0% |           100% |
+| 2026-08-27 | Fase 5 T1: schema de pedidos y `create_order` idempotente con revalidación y descuento de stock                                                                                         | Fase 5 |          35% |           100% |
+| 2026-08-27 | Fase 5 T2 y T3: cart service, checkout, confirmación y vista de pedidos del Admin                                                                                                       | Fase 5 |         100% |           100% |
 
 ---
 
@@ -763,16 +767,16 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 
 ## Data loading / Pagination
 
-**Avance: 50%**
+**Avance: 62%**
 
 - [x] Paginación PLP. Con ventana de páginas y `rel=prev/next`.
 - [x] Server-side filters/sort. Ruta on-demand; nunca se filtra en el browser (ADR-024).
 - [x] Paginación Admin Products. En el servidor, con búsqueda por título, marca y SKU.
-- [ ] Paginación Admin Orders.
+- [x] Paginación Admin Orders. En el servidor, con búsqueda por número, nombre, correo y teléfono, y filtro por estado.
 - [ ] Paginación Admin Customers.
 - [ ] Paginación Promotions/Discounts.
 - [ ] Paginación Audit/Sync logs.
-- [x] Evitar fetch de datasets completos. En el storefront; el Admin todavía no tiene listas.
+- [x] Evitar fetch de datasets completos. En el storefront y en las dos listas del Admin.
 
 ## PLP Facets
 

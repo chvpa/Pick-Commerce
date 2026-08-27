@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { cn } from '../lib/cn.ts';
-import { subscribe, totalQuantity } from './store.ts';
+import { CART_TOGGLE_EVENT, subscribe, totalQuantity } from './store.ts';
 
 export interface CartButtonProps {
   /** Página de carrito. Es a dónde lleva el control cuando no hay JavaScript. */
@@ -35,7 +35,7 @@ export function CartButton({ href = '/carrito', className }: CartButtonProps) {
         // modificadores para no romper "abrir en pestaña nueva".
         if (!hidratado || event.metaKey || event.ctrlKey || event.shiftKey) return;
         event.preventDefault();
-        globalThis.dispatchEvent(new CustomEvent('pick:cart-toggle'));
+        globalThis.dispatchEvent(new CustomEvent(CART_TOGGLE_EVENT));
       }}
       className={cn(
         'relative cursor-pointer rounded-md px-3 py-2 text-sm transition-colors hover:bg-surface-sunken',

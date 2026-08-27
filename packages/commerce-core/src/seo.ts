@@ -187,8 +187,10 @@ export function sitemapXml(ctx: SeoContexto, entradas: readonly EntradaSitemap[]
   const urls = entradas
     .map(({ ruta, lastmod }) => {
       const loc = `    <loc>${escaparXml(urlAbsoluta(ctx, ruta))}</loc>`;
-      const mod = lastmod ? `
-    <lastmod>${escaparXml(lastmod)}</lastmod>` : '';
+      const mod = lastmod
+        ? `
+    <lastmod>${escaparXml(lastmod)}</lastmod>`
+        : '';
       return `  <url>
 ${loc}${mod}
   </url>`;
@@ -205,9 +207,11 @@ ${urls}
 /** Índice que apunta a los sitemaps. Uno solo hoy; el formato ya soporta más. */
 export function sitemapIndexXml(ctx: SeoContexto, rutas: readonly string[]): string {
   const items = rutas
-    .map((ruta) => `  <sitemap>
+    .map(
+      (ruta) => `  <sitemap>
     <loc>${escaparXml(urlAbsoluta(ctx, ruta))}</loc>
-  </sitemap>`)
+  </sitemap>`,
+    )
     .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>

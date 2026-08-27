@@ -12,38 +12,104 @@ export interface CartLine {
   readonly title: string;
   readonly price: Money;
   readonly imageUrl?: string;
+  /**
+   * Stock conocido la última vez que el servidor lo dijo.
+   *
+   * Es un techo para el selector de cantidad, no una autoridad: sin esto el
+   * carrito dejaba subir a 44 unidades de un producto con 4 en stock, porque la
+   * línea no llevaba el dato y el selector no tenía contra qué acotar. Lo que
+   * decide de verdad sigue siendo la revalidación del checkout (ADR-009).
+   */
+  readonly available?: number;
 }
 
-const STORAGE_KEY = 'pick:cart';
+/**
+ * La clave lleva versión.
+ *
+ * Sin versión, el día que `CartLine` cambie de forma cada cliente con un carrito
+ * guardado se encuentra con uno inservible: los consumidores lo leen con un
+ * `as`, así que una línea vieja sin `price` hace explotar el render y —porque
+ * Preact aborta el re-render y deja el anterior— la persona ve **«tu carrito
+ * está vacío»** mientras el contador del header le dice que tiene ítems. Con
+ * versión, lo viejo simplemente no se lee y el carrito arranca vacío, que es
+ * honesto y visible.
+ */
+const STORAGE_KEY = 'pick:cart:v1';
 
 /** Cambió el carrito. El drawer y el contador del header escuchan esto. */
 export const CART_CHANGED_EVENT = 'pick:cart-changed';
 
+/** Abrir o cerrar el drawer. Lo emite el botón del header, lo escucha el drawer. */
+export const CART_TOGGLE_EVENT = 'pick:cart-toggle';
+
 let lines: CartLine[] | null = null;
 
-function load(): CartLine[] {
-  if (lines) return lines;
-  // El storefront es un MPA: sin persistencia el carrito se vaciaría al navegar
-  // de la PDP al catálogo. Ver ADR-039.
+/**
+ * Una línea del storage es una línea sólo si tiene la forma completa.
+ *
+ * `JSON.parse(raw) as CartLine[]` era un cast, no un parse: cualquier payload
+ * parseable pero con otra forma llegaba entero a los consumidores. Con
+ * `quantity` como string, el contador concatenaba —dos altas daban «021»
+ * unidades—; sin `price`, el subtotal tiraba `TypeError` y la página se veía
+ * vacía. Una línea que no cumple se descarta, y el resto del carrito sobrevive.
+ */
+function esLinea(valor: unknown): valor is CartLine {
+  if (!valor || typeof valor !== 'object') return false;
+  const l = valor as Record<string, unknown>;
+  const precio = l.price as Record<string, unknown> | undefined;
+
+  return (
+    typeof l.variantId === 'string' &&
+    l.variantId.length > 0 &&
+    typeof l.quantity === 'number' &&
+    Number.isFinite(l.quantity) &&
+    l.quantity > 0 &&
+    typeof l.title === 'string' &&
+    typeof precio === 'object' &&
+    precio !== null &&
+    typeof precio.amount === 'number' &&
+    Number.isFinite(precio.amount) &&
+    typeof precio.currency === 'string'
+  );
+}
+
+function leerStorage(): CartLine[] {
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
-    lines = raw ? (JSON.parse(raw) as CartLine[]) : [];
+    const crudo: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(crudo) ? crudo.filter(esLinea) : [];
   } catch {
     // Modo privado, storage lleno o JSON corrupto: el carrito arranca vacío en
     // vez de romper la página.
-    lines = [];
+    return [];
   }
+}
+
+function load(): CartLine[] {
+  // El storefront es un MPA: sin persistencia el carrito se vaciaría al navegar
+  // de la PDP al catálogo. Ver ADR-039.
+  lines ??= leerStorage();
   return lines;
 }
 
-function persist(next: CartLine[]): void {
-  lines = next;
+/**
+ * Toda escritura relee primero.
+ *
+ * El caché de módulo se llenaba una vez y no volvía a mirar el storage, y
+ * `persist` escribe el array entero: con dos pestañas abiertas, agregar algo en
+ * la segunda borraba lo de la primera —sin ningún aviso, y la pestaña vieja
+ * seguía mostrando el total que ya no existía—. Releer antes de escribir hace
+ * que la última escritura sume en vez de pisar.
+ */
+function actualizar(cambio: (actuales: CartLine[]) => CartLine[]): void {
+  const siguiente = cambio(leerStorage());
+  lines = siguiente;
   try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(next));
+    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(siguiente));
   } catch {
     // Sin persistencia el carrito sigue funcionando en memoria.
   }
-  globalThis.dispatchEvent?.(new CustomEvent(CART_CHANGED_EVENT, { detail: next }));
+  globalThis.dispatchEvent?.(new CustomEvent(CART_CHANGED_EVENT, { detail: siguiente }));
 }
 
 export function getLines(): readonly CartLine[] {
@@ -56,17 +122,16 @@ export function totalQuantity(): number {
 
 /** Suma cantidad si la variante ya está; si no, agrega la línea al final. */
 export function addLine(line: CartLine): void {
-  const current = load();
-  const existing = current.findIndex((l) => l.variantId === line.variantId);
+  actualizar((current) => {
+    const existing = current.findIndex((l) => l.variantId === line.variantId);
+    if (existing === -1) return [...current, line];
 
-  if (existing === -1) {
-    persist([...current, line]);
-    return;
-  }
-
-  const next = [...current];
-  next[existing] = { ...current[existing]!, quantity: current[existing]!.quantity + line.quantity };
-  persist(next);
+    const next = [...current];
+    // La línea nueva trae el snapshot más fresco del servidor: se conserva ése,
+    // no el que estaba guardado.
+    next[existing] = { ...line, quantity: current[existing]!.quantity + line.quantity };
+    return next;
+  });
 }
 
 export function setQuantity(variantId: string, quantity: number): void {
@@ -74,15 +139,37 @@ export function setQuantity(variantId: string, quantity: number): void {
     removeLine(variantId);
     return;
   }
-  persist(load().map((l) => (l.variantId === variantId ? { ...l, quantity } : l)));
+  actualizar((current) => current.map((l) => (l.variantId === variantId ? { ...l, quantity } : l)));
 }
 
 export function removeLine(variantId: string): void {
-  persist(load().filter((l) => l.variantId !== variantId));
+  actualizar((current) => current.filter((l) => l.variantId !== variantId));
+}
+
+/** Reemplaza el carrito entero. Lo usa el checkout al corregirlo contra el servidor. */
+export function replaceLines(siguientes: readonly CartLine[]): void {
+  actualizar(() => siguientes.filter(esLinea));
+}
+
+export function clear(): void {
+  actualizar(() => []);
 }
 
 export function subscribe(listener: (lines: readonly CartLine[]) => void): () => void {
   const handler = () => listener(load());
+
+  // `storage` sólo lo emiten las **otras** pestañas. Sin esto, dos pestañas de
+  // la misma tienda muestran totales distintos hasta que se recargue una.
+  const deOtraPestana = (evento: StorageEvent) => {
+    if (evento.key !== null && evento.key !== STORAGE_KEY) return;
+    lines = null;
+    listener(load());
+  };
+
   globalThis.addEventListener?.(CART_CHANGED_EVENT, handler);
-  return () => globalThis.removeEventListener?.(CART_CHANGED_EVENT, handler);
+  globalThis.addEventListener?.('storage', deOtraPestana as EventListener);
+  return () => {
+    globalThis.removeEventListener?.(CART_CHANGED_EVENT, handler);
+    globalThis.removeEventListener?.('storage', deOtraPestana as EventListener);
+  };
 }

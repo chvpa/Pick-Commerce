@@ -2287,3 +2287,139 @@ PGlite **no puede detectarlo**: no reproduce los default privileges de Supabase,
 así que para la suite el agujero era invisible. Es un caso donde el entorno de
 prueba es más seguro que producción, que es la dirección peligrosa. Los grants de
 funciones nuevas se verifican contra el proyecto real, no sólo en PGlite.
+
+---
+
+## ADR-065 — El carrito sigue siendo un espejo; la autoridad es `create_order`
+
+**Fecha:** 2026-08-27
+**Estado:** Accepted
+
+**La pregunta**
+El ROADMAP pide un "cart service". ¿Eso es una tabla `carts` en la base?
+
+**Decisión: no.** El carrito sigue viviendo en `localStorage` —ADR-039 ya lo
+declaró "espejo de cliente, no autoridad"— y el cart service es un endpoint que
+lo valida: `POST /api/cart/validate`. Devuelve, para cada línea, el **precio y el
+stock de la base**, y los problemas de las que no se pueden comprar.
+
+Una tabla `carts` exigiría sesión anónima persistida, merge al identificarse y
+limpieza de carritos abandonados. Ninguno de los checkboxes de la fase lo pide, y
+ninguna pantalla lo consumiría: sería infraestructura para una necesidad que
+todavía no existe.
+
+**Qué gana el espejo con esto**
+Antes, la línea guardaba lo que la página había serializado al renderizarse. Un
+precio cambiado quedaba viejo en el carrito hasta que alguien recargara. Ahora la
+línea se guarda con lo que el servidor acaba de decir, y lleva el stock conocido
+—que es lo que le faltaba al selector de cantidad para tener un techo—.
+
+**La degradación no es uniforme, y ahí está el criterio**
+
+| Qué pasó                                                | Qué hace `addToCart`                                                                      |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| La variante no existe, no está publicada o no hay stock | **Lanza.** El botón muestra el error. Agregar igual sería mentir.                         |
+| Red caída, 5xx, JSON roto                               | **Agrega igual.** No sabemos nada del producto, y el checkout revalida siempre (ADR-009). |
+
+Quedarse sin poder comprar por un 502 pasajero es peor que un carrito optimista
+que el checkout va a corregir.
+
+**El checkout requiere JavaScript**
+Es consecuencia de lo anterior: si el carrito vive en el navegador, el servidor no
+puede renderizar un checkout con su contenido. La página lo dice con un
+`<noscript>` y ofrece `/carrito`, que sí funciona sin JS. La alternativa —carrito
+en el servidor— es la tabla que se descartó arriba.
+
+**La confirmación no consulta el pedido**
+Tras crear el pedido, el checkout lo guarda en `sessionStorage` y redirige. No hay
+endpoint público para pedir un pedido por su número, y no es un olvido: la
+numeración es secuencial por tienda, así que un endpoint así sería un recorrido
+por los pedidos del comercio. Cuando exista "ver mi pedido" será con un token por
+pedido.
+
+**Reglas para los `/api/*`, que salieron de mirar los endpoints que ya había**
+
+- **El mensaje del adapter nunca llega al cuerpo.** El adapter lanza
+  `No se pudo consultar el carrito: <mensaje de Postgres>`, y el reflejo al
+  escribir un endpoint es devolver `e.message`. Eso publica nombres de tablas y
+  restricciones. Va al log del Worker; afuera, un texto fijo.
+- **`no-store` siempre.** Ninguna ruta on-demand emitía `Cache-Control`, y el
+  sitemap enseña `public, max-age=3600` sobre datos de un tenant. Estas
+  respuestas son por cliente.
+- **Lo que llega de afuera se acota**, y **rechazar no es descartar**: la primera
+  versión filtraba las líneas fuera de rango en silencio, así que un carrito con
+  una cantidad absurda llegaba como carrito vacío y el endpoint respondía "tu
+  carrito está vacío" sobre un carrito que tenía algo. Ahora una línea mal formada
+  es un 400 que lo dice.
+
+---
+
+## ADR-066 — Un pedido se crea una sola vez, y el stock se descuenta al crearlo
+
+**Fecha:** 2026-08-27
+**Estado:** Accepted
+
+**Idempotencia: dos mecanismos, no uno**
+La clave la genera el checkout **al montarse**, no al hacer click, y la conserva
+entre reintentos; se renueva sólo tras un éxito. Con esa clave:
+
+1. `create_order` busca primero si ya existe un pedido con ella y lo devuelve.
+2. `unique (store_id, idempotency_key)` lo garantiza igual si dos peticiones
+   llegan a la vez: la que pierde recibe `unique_violation`, la atrapa y devuelve
+   la que ganó.
+
+Que sean dos no es redundancia por miedo: el primero cubre el reintento del
+usuario, el segundo la carrera. Se comprobó desactivando cada uno por separado —el
+test sigue en verde con cualquiera de los dos— y **los dos a la vez**, que es
+cuando falla. En la UI, además, el botón se deshabilita y hay una guarda por
+referencia para el doble click que ocurre antes de que el estado se pinte.
+
+**El pedido descuenta stock. Es la decisión discutible de la fase.**
+Hoy no existe ningún adapter de ERP: todo el stock es de Pick Commerce. Si crear
+el pedido no descontara, la revalidación sería teatro —dos personas comprando la
+última unidad pasarían las dos, siempre—. El descuento va dentro de la misma
+transacción, con las filas de inventario bloqueadas en orden determinista de
+`variant_id` para que dos checkouts simultáneos no se traben.
+
+Cada línea guarda **de qué sucursal salió cada unidad** (`stock_allocation`). Sin
+eso, cancelar un pedido tendría que adivinar dónde devolverlo, y con más de una
+sucursal adivinaría mal.
+
+Cuando el stock sea del ERP (Fase 8) esto se revisa por capabilities, que es lo
+que manda ADR-009: sin `supportsReservations` no se promete cero overselling. La
+política de reparto —de la sucursal con más stock hacia abajo— es una elección
+mínima, no una decisión de logística; el modelo real de sucursales está en el
+backlog.
+
+**Sin paridad core/SQL, y por qué**
+ADR-055 exige una implementación gemela en el core para `catalog_search` porque su
+modo de fallo es **silencioso**: un count mal calculado no rompe nada. `create_order`
+falla ruidoso, y su parte riesgosa —transacción, bloqueos, `unique`, contador— es
+justamente la que no se puede traducir a un gemelo en memoria. Una paridad acá
+probaría lo que no importa.
+
+En su lugar: funciones puras en el core con tests unitarios, y el RPC probado
+directo en PGlite. Los tests se validaron contra cuatro sabotajes —idempotencia,
+revalidación, filtro de tienda y precio—. El del precio **no falló al primer
+intento**, y eso destapó un hueco propio: comprobaba el total, que se calcula
+aparte del `unit_price` que se guarda, así que un precio del cliente podía entrar
+en la línea sin mover el total. Un test que no se intenta romper no se sabe si
+sirve.
+
+**Dos cosas que el SQL enseñó al probarlo**
+
+- La numeración con `xmax` para distinguir insert de update era innecesariamente
+  oscura. Un contador que guarda **el último número usado** y devuelve lo que
+  acaba de incrementar dice lo mismo en una línea.
+- Dos líneas de la misma variante se validaban por separado contra el stock
+  entero y después se descontaban las dos: con 5 unidades, dos líneas de 3 pasaban
+  y el inventario terminaba en −1. Las líneas se consolidan por variante antes de
+  mirar nada, en el core y en el SQL. Un carrito bien formado no las manda; el
+  payload viene del browser.
+
+**Estados**
+`cancelled` es terminal; el resto se mueve libre, incluso hacia atrás. Un operador
+que marcó "enviado" por error tiene que poder volver, y la timeline registra los
+dos movimientos. Una máquina de estados rígida produciría pedidos trabados que se
+destraban editando la base a mano. Cancelar es distinto porque devuelve stock:
+salir de cancelado obligaría a volver a descontar algo que puede haberse vendido.

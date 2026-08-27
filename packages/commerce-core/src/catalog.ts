@@ -191,7 +191,8 @@ export function queryCatalog(
   } = query;
 
   const filtered = products.filter(
-    (p) => matchesSearch(p, search) && matchesPrecio(p, precioMin, precioMax) && matches(p, filters),
+    (p) =>
+      matchesSearch(p, search) && matchesPrecio(p, precioMin, precioMax) && matches(p, filters),
   );
   const sorted =
     sort === 'relevance' ? filtered : [...filtered].sort((a, b) => compare(a, b, sort));
@@ -231,7 +232,12 @@ export interface CategoriaCatalogo {
   readonly id: string;
   readonly name: string;
   readonly slug: string;
-  readonly image?: { readonly url: string; readonly alt: string; readonly width: number; readonly height: number };
+  readonly image?: {
+    readonly url: string;
+    readonly alt: string;
+    readonly width: number;
+    readonly height: number;
+  };
 }
 
 /** Faceta que la tienda declaró filtrable. Ver PROJECT.md §35. */

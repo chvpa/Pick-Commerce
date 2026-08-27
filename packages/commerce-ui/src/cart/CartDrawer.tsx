@@ -3,7 +3,7 @@ import { cn } from '../lib/cn.ts';
 import { buttonVariants } from '../recipes/button.ts';
 import { ADD_TO_CART_EVENT } from './add-to-cart.ts';
 import { CartContents } from './CartContents.tsx';
-import { getLines, subscribe, type CartLine } from './store.ts';
+import { CART_TOGGLE_EVENT, getLines, subscribe, type CartLine } from './store.ts';
 
 export interface CartDrawerProps {
   locale?: string;
@@ -39,10 +39,10 @@ export function CartDrawer({ locale, checkoutHref = '/checkout', className }: Ca
     const onAdded = () => setOpen(true);
     const onToggle = () => setOpen((v) => !v);
     globalThis.addEventListener(ADD_TO_CART_EVENT, onAdded);
-    globalThis.addEventListener('pick:cart-toggle', onToggle);
+    globalThis.addEventListener(CART_TOGGLE_EVENT, onToggle);
     return () => {
       globalThis.removeEventListener(ADD_TO_CART_EVENT, onAdded);
-      globalThis.removeEventListener('pick:cart-toggle', onToggle);
+      globalThis.removeEventListener(CART_TOGGLE_EVENT, onToggle);
     };
   }, []);
 

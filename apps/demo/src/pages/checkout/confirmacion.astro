@@ -1,0 +1,26 @@
+---
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import { OrderConfirmation } from '@pick/commerce-ui/checkout/OrderConfirmation';
+import Base from '../../layouts/Base.astro';
+import { pagos } from '../../lib/db.ts';
+
+/*
+ * On-demand por las instrucciones de pago, que son de la tienda. El pedido en sí
+ * no viaja por acá: lo lee la island de `sessionStorage`, donde lo dejó el
+ * checkout. No hay lookup público de pedidos —la numeración es secuencial y
+ * sería enumerable—.
+ */
+export const prerender = false;
+
+const formasDePago = await pagos();
+---
+
+<Base title="Pedido confirmado · Pick Demo" description="Recibimos tu pedido." noindex>
+  <Container class="flex max-w-2xl flex-col gap-6 py-12">
+    <OrderConfirmation
+      client:load
+      instrucciones={formasDePago.bankTransfer?.instructions}
+      locale="es-PY"
+    />
+  </Container>
+</Base>
