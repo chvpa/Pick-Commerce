@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { usePuede } from '@/features/auth/usePuede';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -53,6 +54,7 @@ function fecha(iso: string, locale: string): string {
 export function ListaPedidos() {
   const tienda = useTiendaActiva();
   const cliente = useQueryClient();
+  const escribe = usePuede()('order.write');
 
   const [texto, setTexto] = useState('');
   const [query, setQuery] = useState('');
@@ -206,10 +208,11 @@ export function ListaPedidos() {
 
                         Cancelado es terminal, así que ahí se muestra la etiqueta
                         y no un control: ofrecer una acción que la base va a
-                        rechazar es peor que no ofrecerla.
+                        rechazar es peor que no ofrecerla. Por eso mismo un
+                        viewer ve la etiqueta y no el selector.
                       */}
-                      {p.status === 'cancelled' ? (
-                        <Badge className={TONO.cancelled}>{ETIQUETA_ESTADO_PEDIDO.cancelled}</Badge>
+                      {p.status === 'cancelled' || !escribe ? (
+                        <Badge className={TONO[p.status]}>{ETIQUETA_ESTADO_PEDIDO[p.status]}</Badge>
                       ) : (
                         <select
                           aria-label={`Estado del pedido #${p.number}`}

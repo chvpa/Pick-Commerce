@@ -1,11 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  type RowSelectionState,
+} from '@tanstack/react-table';
 import { repositorioAdminCatalogo } from '@pick/adapter-supabase';
-import { ETIQUETA_ESTADO, formatMoney } from '@pick/commerce-core';
+import { ETIQUETA_ESTADO, formatMoney, type ResumenProducto } from '@pick/commerce-core';
 import type { ProductStatus } from '@pick/commerce-types';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -16,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { usePuede } from '@/features/auth/usePuede';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -31,14 +40,36 @@ const TONO: Record<ProductStatus, string> = {
   archived: 'border-transparent bg-muted text-muted-foreground line-through',
 };
 
+const columna = createColumnHelper<ResumenProducto>();
+
+/**
+ * El catálogo.
+ *
+ * Usa TanStack Table sólo para modelar filas y selección: la búsqueda, el filtro
+ * y la paginación siguen siendo del servidor (`manualPagination`,
+ * `manualFiltering`), como manda ADR-024. Traer el catálogo al browser para que
+ * la tabla lo ordene sería exactamente lo que esa decisión prohíbe.
+ *
+ * ADR-060 dejó escrito que la tabla entraba cuando apareciera la selección
+ * múltiple. Apareció acá, y no se migró la de pedidos: no la necesita.
+ *
+ * Tiene un costo declarado: el compilador de React **no memoiza** este
+ * componente, porque `useReactTable` devuelve funciones que no se pueden
+ * memoizar sin arriesgar UI vieja. El lint lo avisa y el aviso queda. Con
+ * veinte filas por página no se nota; si alguna vez se notara, la salida es
+ * virtualizar, no pelearse con el compilador.
+ */
 export function ListaProductos() {
   const tienda = useTiendaActiva();
   const cliente = useQueryClient();
+  const puede = usePuede();
+  const escribe = puede('catalog.write');
 
   const [texto, setTexto] = useState('');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<ProductStatus | ''>('');
   const [page, setPage] = useState(1);
+  const [seleccion, setSeleccion] = useState<RowSelectionState>({});
 
   // La búsqueda va al servidor: sin esperar, cada tecla sería una consulta.
   useEffect(() => {
@@ -62,12 +93,168 @@ export function ListaProductos() {
     placeholderData: keepPreviousData,
   });
 
+  // Al cambiar de página, de búsqueda o de filtro se limpia la selección: las
+  // filas marcadas ya no están a la vista, y actuar sobre lo que nadie ve es la
+  // forma de archivar veinte productos sin querer.
+  useEffect(() => {
+    setSeleccion({});
+  }, [query, status, page]);
+
+  const invalidar = () => cliente.invalidateQueries({ queryKey: ['productos', tienda.id] });
+
   const archivar = useMutation({
     mutationFn: (id: string) => repositorioAdminCatalogo(db).archivar(tienda.id, id),
-    onSuccess: () => cliente.invalidateQueries({ queryKey: ['productos', tienda.id] }),
+    onSuccess: invalidar,
+  });
+
+  const enLote = useMutation({
+    mutationFn: ({ ids, status }: { ids: readonly string[]; status: 'archived' | 'draft' }) =>
+      repositorioAdminCatalogo(db).cambiarEstadoEnLote(tienda.id, ids, status),
+    onSuccess: () => {
+      setSeleccion({});
+      return invalidar();
+    },
   });
 
   const datos = consulta.data;
+  const filas = useMemo(() => datos?.items ?? [], [datos]);
+
+  const columnas = useMemo(
+    () => [
+      columna.display({
+        id: 'seleccion',
+        header: ({ table }) => (
+          <Checkbox
+            aria-label="Seleccionar todo lo que se ve"
+            checked={table.getIsAllRowsSelected()}
+            // Base UI lo lleva como prop aparte y no como un valor más de
+            // `checked`: marca «algunas sí» sin mentir sobre si está marcado.
+            indeterminate={table.getIsSomeRowsSelected()}
+            onCheckedChange={(v) => table.toggleAllRowsSelected(v === true)}
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            aria-label={`Seleccionar ${row.original.title}`}
+            checked={row.getIsSelected()}
+            onCheckedChange={(v) => row.toggleSelected(v === true)}
+          />
+        ),
+      }),
+      columna.accessor('title', {
+        header: 'Producto',
+        cell: ({ row }) => {
+          const p = row.original;
+          return (
+            <div className="flex items-center gap-3">
+              {p.imagen ? (
+                <img
+                  src={p.imagen}
+                  alt=""
+                  width={32}
+                  height={32}
+                  className="bg-muted size-8 rounded object-cover"
+                />
+              ) : (
+                <div className="bg-muted size-8 rounded" />
+              )}
+              <div className="flex flex-col">
+                <Link
+                  to="/productos/$id"
+                  params={{ id: p.id }}
+                  className="font-medium hover:underline"
+                >
+                  {p.title}
+                </Link>
+                <span className="text-muted-foreground text-xs">
+                  {p.brand ? `${p.brand} · ` : ''}
+                  {p.handle}
+                </span>
+              </div>
+            </div>
+          );
+        },
+      }),
+      columna.accessor('status', {
+        header: 'Estado',
+        cell: ({ getValue }) => (
+          <Badge className={cn(TONO[getValue()])}>{ETIQUETA_ESTADO[getValue()]}</Badge>
+        ),
+      }),
+      columna.accessor('variantes', {
+        header: () => <span className="block text-right">Variantes</span>,
+        cell: ({ getValue }) => <span className="block text-right tabular-nums">{getValue()}</span>,
+      }),
+      columna.accessor('stock', {
+        header: () => <span className="block text-right">Stock</span>,
+        cell: ({ getValue }) => (
+          <span
+            className={cn('block text-right tabular-nums', getValue() <= 0 && 'text-destructive')}
+          >
+            {getValue()}
+          </span>
+        ),
+      }),
+      columna.accessor('precioDesde', {
+        header: () => <span className="block text-right">Desde</span>,
+        cell: ({ row, getValue }) => (
+          <span className="block text-right tabular-nums">
+            {getValue() === undefined
+              ? '—'
+              : formatMoney(
+                  { amount: getValue()!, currency: (row.original.currency ?? 'PYG') as 'PYG' },
+                  tienda.locale,
+                )}
+          </span>
+        ),
+      }),
+      columna.display({
+        id: 'acciones',
+        cell: ({ row }) =>
+          row.original.status !== 'archived' && (
+            <span className="block text-right">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={archivar.isPending}
+                onClick={() => {
+                  // Archivar saca el producto del storefront y se puede deshacer;
+                  // aun así se confirma, porque la fila de al lado es un click de
+                  // distancia.
+                  if (confirm(`¿Archivar “${row.original.title}”?`))
+                    archivar.mutate(row.original.id);
+                }}
+              >
+                Archivar
+              </Button>
+            </span>
+          ),
+      }),
+    ],
+    [archivar, tienda.locale],
+  );
+
+  const tabla = useReactTable({
+    // La copia es por la firma de la tabla, que pide un array mutable; el
+    // repositorio devuelve `readonly` a propósito y no se le quita.
+    data: filas as ResumenProducto[],
+    columns: columnas,
+    getCoreRowModel: getCoreRowModel(),
+    // Sin esto la clave de la fila es su índice, y la selección se quedaría
+    // pegada a la posición al cambiar de página.
+    getRowId: (p) => p.id,
+    state: { rowSelection: seleccion },
+    onRowSelectionChange: setSeleccion,
+    enableRowSelection: escribe,
+    manualPagination: true,
+    manualFiltering: true,
+    // La columna de selección sólo existe para quien puede escribir: a un viewer
+    // no se le ofrece marcar filas que no va a poder tocar.
+    initialState: { columnVisibility: { seleccion: escribe, acciones: escribe } },
+  });
+
+  const marcados = tabla.getSelectedRowModel().rows.map((r) => r.original);
+  const columnasVisibles = tabla.getVisibleFlatColumns().length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -115,15 +302,66 @@ export function ListaProductos() {
           lo anuncia como botón cuando en realidad navega. Las clases dan el
           aspecto; la semántica la da el <a>.
         */}
-        <div className="flex gap-2">
-          <Link to="/productos/importar" className={buttonVariants({ variant: 'outline' })}>
-            Importar / exportar
-          </Link>
-          <Link to="/productos/nuevo" className={buttonVariants()}>
-            Nuevo producto
-          </Link>
-        </div>
+        {escribe && (
+          <div className="flex gap-2">
+            <Link to="/productos/importar" className={buttonVariants({ variant: 'outline' })}>
+              Importar / exportar
+            </Link>
+            <Link to="/productos/nuevo" className={buttonVariants()}>
+              Nuevo producto
+            </Link>
+          </div>
+        )}
       </div>
+
+      {marcados.length > 0 && (
+        <div
+          className="border-border bg-muted/40 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-2.5"
+          role="group"
+          aria-label="Acciones sobre lo seleccionado"
+        >
+          <p className="text-sm" aria-live="polite">
+            {marcados.length} {marcados.length === 1 ? 'seleccionado' : 'seleccionados'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={enLote.isPending}
+              onClick={() => {
+                if (confirm(`¿Archivar ${marcados.length} producto(s)?`)) {
+                  enLote.mutate({ ids: marcados.map((p) => p.id), status: 'archived' });
+                }
+              }}
+            >
+              Archivar
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={enLote.isPending}
+              onClick={() => {
+                // A borrador y no a publicado: volver al storefront es una
+                // decisión producto por producto —precio, stock, fotos— y en
+                // lote devolvería cosas que se archivaron por algo.
+                if (confirm(`¿Pasar ${marcados.length} producto(s) a borrador?`)) {
+                  enLote.mutate({ ids: marcados.map((p) => p.id), status: 'draft' });
+                }
+              }}
+            >
+              Desarchivar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={enLote.isPending}
+              onClick={() => setSeleccion({})}
+            >
+              Limpiar
+            </Button>
+          </div>
+        </div>
+      )}
 
       {consulta.isError ? (
         <div className="border-destructive/40 flex flex-col items-start gap-3 rounded-lg border p-6">
@@ -137,14 +375,17 @@ export function ListaProductos() {
         <div className="border-border overflow-x-auto rounded-lg border">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Producto</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Variantes</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-                <TableHead className="text-right">Desde</TableHead>
-                <TableHead />
-              </TableRow>
+              {tabla.getHeaderGroups().map((grupo) => (
+                <TableRow key={grupo.id}>
+                  {grupo.headers.map((h) => (
+                    <TableHead key={h.id}>
+                      {h.isPlaceholder
+                        ? null
+                        : flexRender(h.column.columnDef.header, h.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
             </TableHeader>
             <TableBody>
               {consulta.isPending ? (
@@ -152,14 +393,14 @@ export function ListaProductos() {
                 // página no salta cuando llegan los datos.
                 Array.from({ length: 5 }, (_, i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={columnasVisibles}>
                       <div className="bg-muted h-5 w-full animate-pulse rounded" />
                     </TableCell>
                   </TableRow>
                 ))
-              ) : datos && datos.items.length === 0 ? (
+              ) : filas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center">
+                  <TableCell colSpan={columnasVisibles} className="py-10 text-center">
                     <p className="text-muted-foreground text-sm">
                       {query || status
                         ? 'Ningún producto coincide con la búsqueda.'
@@ -168,70 +409,16 @@ export function ListaProductos() {
                   </TableCell>
                 </TableRow>
               ) : (
-                datos?.items.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        {p.imagen ? (
-                          <img
-                            src={p.imagen}
-                            alt=""
-                            width={32}
-                            height={32}
-                            className="bg-muted size-8 rounded object-cover"
-                          />
-                        ) : (
-                          <div className="bg-muted size-8 rounded" />
-                        )}
-                        <div className="flex flex-col">
-                          <Link
-                            to="/productos/$id"
-                            params={{ id: p.id }}
-                            className="font-medium hover:underline"
-                          >
-                            {p.title}
-                          </Link>
-                          <span className="text-muted-foreground text-xs">
-                            {p.brand ? `${p.brand} · ` : ''}
-                            {p.handle}
-                          </span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={cn(TONO[p.status])}>{ETIQUETA_ESTADO[p.status]}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{p.variantes}</TableCell>
-                    <TableCell
-                      className={cn('text-right tabular-nums', p.stock <= 0 && 'text-destructive')}
-                    >
-                      {p.stock}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {p.precioDesde === undefined
-                        ? '—'
-                        : formatMoney(
-                            { amount: p.precioDesde, currency: (p.currency ?? 'PYG') as 'PYG' },
-                            tienda.locale,
-                          )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {p.status !== 'archived' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={archivar.isPending}
-                          onClick={() => {
-                            // Archivar saca el producto del storefront y se puede
-                            // deshacer; aun así se confirma, porque la fila de al
-                            // lado es un click de distancia.
-                            if (confirm(`¿Archivar “${p.title}”?`)) archivar.mutate(p.id);
-                          }}
-                        >
-                          Archivar
-                        </Button>
-                      )}
-                    </TableCell>
+                tabla.getRowModel().rows.map((fila) => (
+                  <TableRow
+                    key={fila.id}
+                    data-state={fila.getIsSelected() ? 'selected' : undefined}
+                  >
+                    {fila.getVisibleCells().map((celda) => (
+                      <TableCell key={celda.id}>
+                        {flexRender(celda.column.columnDef.cell, celda.getContext())}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))
               )}
@@ -240,9 +427,9 @@ export function ListaProductos() {
         </div>
       )}
 
-      {archivar.isError && (
+      {(archivar.isError || enLote.isError) && (
         <p className="text-destructive text-sm" role="alert">
-          No se pudo archivar: {(archivar.error as Error).message}
+          {((archivar.error ?? enLote.error) as Error).message}
         </p>
       )}
 

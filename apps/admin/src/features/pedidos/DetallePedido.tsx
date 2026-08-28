@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { usePuede } from '@/features/auth/usePuede';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,7 @@ function fecha(iso: string, locale: string): string {
  */
 export function DetallePedido({ id }: DetallePedidoProps) {
   const tienda = useTiendaActiva();
+  const escribe = usePuede()('order.write');
   const cliente = useQueryClient();
   const [nota, setNota] = useState('');
 
@@ -205,7 +207,11 @@ export function DetallePedido({ id }: DetallePedidoProps) {
             </section>
           ) : null}
 
-          {terminal ? (
+          {!escribe ? (
+            <p className="text-muted-foreground text-sm">
+              Tu rol no permite cambiar el estado de los pedidos.
+            </p>
+          ) : terminal ? (
             <p className="text-muted-foreground text-sm">
               El pedido está cancelado y su stock volvió al inventario.
             </p>

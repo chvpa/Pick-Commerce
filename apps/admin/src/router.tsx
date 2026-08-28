@@ -1,30 +1,100 @@
-import {
-  createRootRoute,
-  createRoute,
-  createRouter,
-  Link,
-  Outlet,
-  redirect,
-} from '@tanstack/react-router';
-import { Button } from '@/components/ui/button';
+import { Suspense, lazy, type FunctionComponent, type ReactNode } from 'react';
+import { createRootRoute, createRoute, createRouter, Link, Outlet } from '@tanstack/react-router';
+import type { Permission } from '@pick/commerce-types';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { useSesion } from '@/features/auth/SesionContext';
-import { ListaProductos } from '@/features/productos/ListaProductos';
-import { FormularioProducto } from '@/features/productos/FormularioProducto';
-import { ImportarProductos } from '@/features/productos/ImportarProductos';
-import { ListaPedidos } from '@/features/pedidos/ListaPedidos';
-import { DetallePedido } from '@/features/pedidos/DetallePedido';
+import { usePuede } from '@/features/auth/usePuede';
 import { ProveedorTienda, useTienda } from '@/features/tienda/TiendaContext';
 
 /**
  * Rutas del Admin, declaradas en código.
  *
- * Sin generación de archivos: son cuatro rutas y el router por archivos añade un
- * paso de build y un archivo generado al repo. Se revisa cuando el Admin tenga
- * suficientes pantallas como para que la lista pese.
+ * Sin generación de archivos: son once rutas y el router por archivos añade un
+ * paso de build y un archivo generado al repo.
+ *
+ * Cada pantalla se carga con `React.lazy`, así que Vite le da su propio chunk y
+ * la cáscara —esto, la sesión y el contexto de tienda— es lo único del bundle
+ * inicial. Se usa `lazy` y no `lazyRouteComponent` del router porque dos de las
+ * pantallas reciben props del parámetro de la ruta, y el componente de ruta no
+ * las recibe. Un solo mecanismo para todas es más fácil de seguir que dos.
  */
+
+/** `React.lazy` para un módulo que exporta su componente con nombre. */
+function pantalla<P extends object>(
+  carga: () => Promise<Record<string, unknown>>,
+  nombre: string,
+): FunctionComponent<P> {
+  return lazy(async () => ({ default: (await carga())[nombre] as FunctionComponent<P> }));
+}
+
+const Dashboard = pantalla(() => import('@/features/dashboard/Dashboard'), 'Dashboard');
+const ListaProductos = pantalla(
+  () => import('@/features/productos/ListaProductos'),
+  'ListaProductos',
+);
+const FormularioProducto = pantalla<{ id?: string }>(
+  () => import('@/features/productos/FormularioProducto'),
+  'FormularioProducto',
+);
+const ImportarProductos = pantalla(
+  () => import('@/features/productos/ImportarProductos'),
+  'ImportarProductos',
+);
+const ListaPedidos = pantalla(() => import('@/features/pedidos/ListaPedidos'), 'ListaPedidos');
+const DetallePedido = pantalla<{ id: string }>(
+  () => import('@/features/pedidos/DetallePedido'),
+  'DetallePedido',
+);
+const ListaClientes = pantalla(() => import('@/features/clientes/ListaClientes'), 'ListaClientes');
+const DetalleCliente = pantalla<{ id: string }>(
+  () => import('@/features/clientes/DetalleCliente'),
+  'DetalleCliente',
+);
+const Equipo = pantalla(() => import('@/features/equipo/Equipo'), 'Equipo');
+const Configuracion = pantalla(
+  () => import('@/features/configuracion/Configuracion'),
+  'Configuracion',
+);
+
+function Enlace({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className="text-muted-foreground text-sm hover:underline data-[status=active]:text-foreground"
+    >
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * Lo que la persona no puede hacer, no se le ofrece.
+ *
+ * No es la autorización: quien fuerce la URL igual recibe el rechazo de la base
+ * (ADR-052). Por eso es un panel y no un redirect — decir "no tenés acceso" es
+ * más honesto que mandarla a otra pantalla sin explicar por qué.
+ */
+function Gate({ permiso, children }: { permiso: Permission; children: ReactNode }) {
+  const puede = usePuede();
+  if (puede(permiso)) return <>{children}</>;
+
+  return (
+    <div className="flex flex-col items-start gap-3">
+      <h1 className="text-lg font-semibold">No tenés acceso a esta sección</h1>
+      <p className="text-muted-foreground text-sm">
+        Tu rol en esta organización no incluye este permiso. Pedíselo a un propietario.
+      </p>
+      <Link to="/" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+        Volver al resumen
+      </Link>
+    </div>
+  );
+}
+
 function Cascara() {
   const { sesion, salir } = useSesion();
   const { tiendas, tienda, elegir, cargando, error } = useTienda();
+  const puede = usePuede();
 
   if (cargando) {
     return (
@@ -66,23 +136,17 @@ function Cascara() {
     <div className="min-h-dvh">
       <header className="border-border border-b">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-3">
-          <div className="flex items-center gap-4">
-            <Link to="/productos" className="font-semibold">
+          <div className="flex flex-wrap items-center gap-4">
+            <Link to="/" className="font-semibold">
               Pick Admin
             </Link>
-            <nav className="flex items-center gap-4">
-              <Link
-                to="/productos"
-                className="text-muted-foreground text-sm hover:underline data-[status=active]:text-foreground"
-              >
-                Productos
-              </Link>
-              <Link
-                to="/pedidos"
-                className="text-muted-foreground text-sm hover:underline data-[status=active]:text-foreground"
-              >
-                Pedidos
-              </Link>
+            <nav className="flex flex-wrap items-center gap-4">
+              <Enlace to="/">Resumen</Enlace>
+              <Enlace to="/productos">Productos</Enlace>
+              <Enlace to="/pedidos">Pedidos</Enlace>
+              <Enlace to="/clientes">Clientes</Enlace>
+              {puede('member.manage') && <Enlace to="/equipo">Equipo</Enlace>}
+              {puede('settings.write') && <Enlace to="/configuracion">Configuración</Enlace>}
             </nav>
           </div>
 
@@ -115,7 +179,20 @@ function Cascara() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8">
-        <Outlet />
+        {/*
+          Un solo límite para todas las pantallas: el chunk tarda lo que tarde la
+          red la primera vez, y sin esto el click no da ninguna señal hasta que
+          llega.
+        */}
+        <Suspense
+          fallback={
+            <p className="text-muted-foreground text-sm" role="status">
+              Cargando…
+            </p>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );
@@ -132,11 +209,7 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  // El Admin abre en productos: es lo único que hay, y una home vacía sería un
-  // click de más en cada sesión.
-  beforeLoad: () => {
-    throw redirect({ to: '/productos' });
-  },
+  component: Dashboard,
 });
 
 const productosRoute = createRoute({
@@ -181,6 +254,41 @@ const pedidoRoute = createRoute({
   },
 });
 
+const clientesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/clientes',
+  component: ListaClientes,
+});
+
+const clienteRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/clientes/$id',
+  component: function Cliente() {
+    const { id } = clienteRoute.useParams();
+    return <DetalleCliente id={id} />;
+  },
+});
+
+const equipoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/equipo',
+  component: () => (
+    <Gate permiso="member.manage">
+      <Equipo />
+    </Gate>
+  ),
+});
+
+const configuracionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/configuracion',
+  component: () => (
+    <Gate permiso="settings.write">
+      <Configuracion />
+    </Gate>
+  ),
+});
+
 const arbol = rootRoute.addChildren([
   indexRoute,
   productosRoute,
@@ -189,6 +297,10 @@ const arbol = rootRoute.addChildren([
   editarRoute,
   pedidosRoute,
   pedidoRoute,
+  clientesRoute,
+  clienteRoute,
+  equipoRoute,
+  configuracionRoute,
 ]);
 
 export const router = createRouter({ routeTree: arbol });

@@ -20,6 +20,7 @@
     "@pick/commerce-types": "workspace:*",
     "@tanstack/react-query": "^5.102.5",
     "@tanstack/react-router": "^1.170.32",
+    "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.33.0",
