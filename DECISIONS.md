@@ -405,13 +405,13 @@ El ERP permite un sandbox o writes seguros.
 
 # Decisiones pendientes
 
-| ID    | Tema                               | Motivo                                       |
-| ----- | ---------------------------------- | -------------------------------------------- |
-| P-001 | Primer gateway real                | Elegir el que mejor sirva al primer piloto   |
-| P-002 | Storage media definitivo           | Supabase Storage vs R2 por caso de uso/costo |
-| P-003 | Analytics store inicial            | Postgres/Analytics Engine/otro según volumen |
-| P-004 | Primera estrategia de reservations | Depende de capabilities del ERP piloto       |
-| P-005 | CLI/provisioner exacto             | Puede empezar manual y automatizarse luego   |
+| ID    | Tema                               | Motivo                                                                                 |
+| ----- | ---------------------------------- | -------------------------------------------------------------------------------------- |
+| P-001 | Primer gateway real                | Elegir el que mejor sirva al primer piloto                                             |
+| P-002 | Storage media definitivo           | Supabase Storage vs R2 por costo y operación: el rendimiento ya no lo decide (ADR-079) |
+| P-003 | Analytics store inicial            | Postgres/Analytics Engine/otro según volumen                                           |
+| P-004 | Primera estrategia de reservations | Depende de capabilities del ERP piloto                                                 |
+| P-005 | CLI/provisioner exacto             | Puede empezar manual y automatizarse luego                                             |
 
 ---
 
@@ -2820,3 +2820,58 @@ términos que se probaron primero —el número, el nombre, el correo— funcion
 todos, y el reporte parecía equivocado. Apareció al probar lo que una persona
 escribe de verdad: lo que tiene delante, copiado tal como se ve. Un buscador se
 prueba con lo que la interfaz muestra, no con lo que la base guarda.
+
+---
+
+## ADR-079 — Hoy no se optimiza ninguna imagen de producto, y por qué eso decide P-002
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+Salió de una pregunta: si referenciar una URL es peor que subir la imagen a un
+bucket. La respuesta obligó a mirar qué hace el storefront de verdad, y lo que
+hace es nada.
+
+**Medido en producción.** El catálogo emite `<img>` con un `srcset` de ocho
+candidatos —`640w`, `750w`, `828w`…— que apuntan **todos al mismo archivo**. No
+hay conversión de formato, ni redimensionado, ni elección real. La primera página
+baja 324 KB de imágenes y 6 KB de HTML son ese `srcset` que no ofrece nada.
+
+La causa está en la documentación de Astro, y es explícita: «Astro's image
+components will only process images from authorized image sources specified in
+your configuration. Remote images from other sources will be displayed with no
+processing». Y para las locales: «Images stored in the `public/` folder are never
+optimized». Las cinco imágenes del seed viven en `public/`, y `astro.config.mjs`
+no declara ningún `image.remotePatterns`. O sea que **ninguno de los dos caminos
+que existen hoy pasa por el optimizador**, aunque el componente `<Image />` esté
+puesto en todas partes y el adapter de Cloudflare inyecte el binding `IMAGES`.
+
+**Comprobado, no supuesto.** Autorizando `cdn.dummyjson.com` y reconstruyendo, el
+mismo componente pasa a emitir `/_image?href=…&w=640&f=webp`, con candidatos de
+anchos distintos, y la variante de 640 pesa 28 KB contra 62 KB del original. El
+experimento se revirtió: fijar el CDN de unos datos de prueba en la configuración
+de producción sería exactamente la clase de atajo que después nadie encuentra.
+
+**Lo que esto decide sobre P-002.** La pregunta parecía de latencia —un host
+ajeno, otro handshake— y la latencia es lo de menos. Lo determinante es que
+`remotePatterns` es una **lista de hosts**, así que:
+
+- Con los medios en un almacenamiento propio hay **un** host estable que se
+  autoriza una vez, y a partir de ahí todo se redimensiona y se convierte.
+- Con URLs pegadas a mano no hay lista posible: los hosts son los que sean. La
+  única forma de autorizarlas sería abrir el patrón a todo `https`, y eso
+  convierte al storefront en un redimensionador de imágenes gratis para
+  cualquiera que arme una URL — con Cloudflare Images, además, facturable.
+
+Por eso pegar una URL no puede optimizarse **por diseño**, no por una limitación
+que se arregle configurando mejor. Es el argumento que faltaba para cerrar P-002 a
+favor de almacenamiento propio, y el que hay que tener presente al elegir entre
+Supabase Storage y R2: los dos sirven, y lo que decide es costo y operación, no
+rendimiento.
+
+Un bucket, por sí solo, tampoco optimiza: sigue haciendo falta autorizar su host.
+Lo que el bucket aporta es que ese host **exista y sea uno**.
+
+Queda sin implementar a propósito. La carga de archivos desde el Admin, el host
+de medios por despliegue y su `remotePatterns` son P-002, y esta entrada existe
+para que esa decisión se tome con el número delante en vez de por intuición.

@@ -52,6 +52,7 @@ pnpm db:new <n>     # nueva migración; ver supabase/migrations/README.md
 pnpm db:apply <sql> # aplica una migración al proyecto remoto
 pnpm db:types       # regenera los tipos desde el schema remoto
 pnpm seed           # siembra el catálogo de demostración; idempotente
+pnpm seed:dummy [n] # catálogo de prueba desde dummyjson (--limpiar para quitarlo)
 pnpm tienda:crear <slug> <nombre>      # provisiona organización, tienda, sucursal y settings
 pnpm admin:crear <email> <password> [rol] [org]   # usuario del Admin; sin org, la demo
 ```
