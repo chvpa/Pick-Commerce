@@ -1111,6 +1111,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_customers: {
+        Args: {
+          p_customer_id?: string
+          p_page?: number
+          p_per_page?: number
+          p_query?: string
+          p_store_id: string
+        }
+        Returns: Json
+      }
+      admin_dashboard: {
+        Args: { p_from: string; p_store_id: string; p_to: string }
+        Returns: Json
+      }
       admin_orders: {
         Args: {
           p_page?: number
@@ -1135,6 +1149,10 @@ export type Database = {
         Args: { p_producto: Json; p_store_id: string }
         Returns: string
       }
+      admin_save_settings: {
+        Args: { p_audit?: Json; p_settings: Json; p_store_id: string }
+        Returns: Json
+      }
       admin_set_order_status: {
         Args: {
           p_note?: string
@@ -1144,6 +1162,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_team: { Args: { p_tenant: string }; Returns: Json }
       catalog_search: {
         Args: {
           p_collection?: string

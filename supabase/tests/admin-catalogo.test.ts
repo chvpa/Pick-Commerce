@@ -483,3 +483,29 @@ test('guardar con stock en una tienda sin sucursal falla en vez de descartarlo',
   );
   assert.equal(r.rows[0]?.n, 1);
 });
+
+test('el archivado en lote no alcanza productos de otra organización', async () => {
+  // El camino exacto que usa la barra de acciones del Admin: un solo update con
+  // los ids elegidos. Si el `store_id` del where se cayera, RLS igual tendría
+  // que frenar al producto ajeno — pero los ids llegan del browser, así que las
+  // dos capas se comprueban juntas.
+  const propio = await guardar(producto('lote-propio'));
+  // Insertado directo: la tienda ajena no tiene sucursal, y `admin_save_product`
+  // con stock falla ahí a propósito. Lo que este caso necesita es la fila, no el
+  // camino de guardado.
+  const idAjeno = 'ef000000-0000-4000-8000-000000000009';
+  await db.exec(
+    `insert into products (id, tenant_id, store_id, handle, title, status) values
+     ('${idAjeno}', '${OTRO_TENANT}', '${OTRO_STORE}', 'lote-ajeno', 'De otra organización', 'active')`,
+  );
+
+  const r = await intentar(
+    db,
+    DUENO,
+    `update products set status = 'archived'
+     where store_id = '${STORE}'::uuid and id in ('${propio}'::uuid, '${idAjeno}'::uuid)`,
+  );
+
+  assert.equal(r.ok, true);
+  assert.equal(r.filas, 1, 'el archivado en lote tocó un producto de otra organización');
+});

@@ -9,3 +9,5 @@ export * from './field-sources.ts';
 export * from './currency-config.ts';
 export * from './checkout.ts';
 export * from './orders.ts';
+export * from './dashboard.ts';
+export * from './team.ts';

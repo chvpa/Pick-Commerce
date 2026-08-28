@@ -17,16 +17,29 @@ export interface SesionActiva {
 /**
  * Membresías del usuario autenticado.
  *
- * La consulta no filtra por usuario a propósito: **RLS ya lo hace**. Agregar un
- * `.eq('user_id', ...)` daría la impresión de que la seguridad depende del
- * cliente, y no es así — si esa cláusula fuera lo único que separa a un tenant
- * de otro, bastaría con quitarla.
+ * El `.eq('user_id', ...)` **hace falta**, y el motivo no es la seguridad.
+ * `memberships_lectura` acota por organización —`tenant_id in
+ * (select app.current_tenants())`— porque un miembro tiene que poder ver a su
+ * equipo. O sea que sin ese filtro la consulta devuelve una fila por **cada
+ * compañero**, y este mapeo le estampa a todas el id del usuario actual con el
+ * rol ajeno.
+ *
+ * No es teórico: durante Fase 6 el Admin le mostró a un `viewer` los controles
+ * de un `owner`, porque tomaba la primera fila de su organización. La base
+ * rechazó igual cada operación —esa capa nunca dependió de acá—, pero la
+ * pantalla mentía sobre lo que la persona podía hacer.
+ *
+ * RLS sigue siendo lo que separa un tenant de otro. Esta cláusula sólo hace que
+ * la pregunta sea la correcta.
  */
 export async function membresiasDe(db: PickSupabaseClient): Promise<ActorContext[]> {
   const { data: auth } = await db.auth.getUser();
   if (!auth.user) return [];
 
-  const { data, error } = await db.from('memberships').select('tenant_id, role');
+  const { data, error } = await db
+    .from('memberships')
+    .select('tenant_id, role')
+    .eq('user_id', auth.user.id);
   if (error) throw new Error(`No se pudieron cargar las membresías: ${error.message}`);
 
   return (data ?? []).map((m) => ({

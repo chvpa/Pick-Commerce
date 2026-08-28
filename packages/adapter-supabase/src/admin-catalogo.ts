@@ -132,6 +132,22 @@ export function repositorioAdminCatalogo(db: PickSupabaseClient): RepositorioAdm
       if (error) throw new Error(`No se pudo archivar el producto: ${error.message}`);
     },
 
+    async cambiarEstadoEnLote(storeId, ids, status): Promise<void> {
+      if (ids.length === 0) return;
+
+      // Un solo update y no un RPC: no hay nada transaccional que coordinar —una
+      // columna de una tabla— y el `store_id` más RLS ya acotan qué filas
+      // alcanza. Los ids llegan del browser, así que el filtro por tienda no es
+      // decoración: sin él, un id ajeno pasaría a depender sólo de las políticas.
+      const { error } = await db
+        .from('products')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('store_id', storeId)
+        .in('id', ids as string[]);
+
+      if (error) throw new Error(`No se pudieron actualizar los productos: ${error.message}`);
+    },
+
     async completos(storeId, page, perPage): Promise<readonly ProductoEditable[]> {
       // Paginado también para exportar: un catálogo grande no entra en una
       // consulta, y traerlo entero es lo que ADR-024 prohíbe.

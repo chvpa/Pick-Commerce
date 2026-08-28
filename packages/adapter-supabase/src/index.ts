@@ -19,3 +19,7 @@ export { repositorioCatalogo, mapearResultadoCatalogo } from './catalogo.ts';
 export { repositorioAdminCatalogo } from './admin-catalogo.ts';
 export * from './checkout.ts';
 export * from './admin-pedidos.ts';
+export { repositorioDashboard } from './admin-dashboard.ts';
+export { repositorioAdminClientes } from './admin-clientes.ts';
+export { repositorioEquipo } from './equipo.ts';
+export { repositorioConfiguracion } from './configuracion.ts';

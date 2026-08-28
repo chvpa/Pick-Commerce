@@ -114,3 +114,46 @@ export interface RepositorioAdminPedidos {
   porId(storeId: string, id: string): Promise<PedidoConTimeline | null>;
   cambiarEstado(storeId: string, id: string, estado: OrderStatus, nota?: string): Promise<Order>;
 }
+
+// ---------------------------------------------------------------------------
+// Clientes
+// ---------------------------------------------------------------------------
+//
+// Van con los pedidos y no en un módulo propio porque un cliente, para el
+// Admin, **son sus pedidos**: la ficha es nombre, contacto y agregados de
+// compra. No hay perfil, ni login, ni direcciones guardadas — el checkout es
+// guest (ADR-065) y el pedido conserva su propia copia de todo.
+
+export interface ClienteDeLista {
+  readonly id: string;
+  readonly name: string;
+  readonly email: string;
+  readonly phone: string;
+  readonly taxId?: string;
+  readonly taxName?: string;
+  readonly createdAt: string;
+  /** Pedidos no cancelados: lo que se anuló no es una compra. */
+  readonly orderCount: number;
+  readonly totalSpent: { readonly amount: number; readonly currency: string };
+  /** Ausente si nunca compró, o si su único pedido se canceló. */
+  readonly lastOrderAt?: string;
+}
+
+export interface PaginaClientes {
+  readonly items: readonly ClienteDeLista[];
+  readonly total: number;
+  readonly page: number;
+  readonly perPage: number;
+  readonly pageCount: number;
+}
+
+export interface ConsultaClientes {
+  readonly query?: string;
+  readonly page?: number;
+  readonly perPage?: number;
+}
+
+export interface RepositorioAdminClientes {
+  listar(storeId: string, consulta: ConsultaClientes): Promise<PaginaClientes>;
+  porId(storeId: string, id: string): Promise<ClienteDeLista | null>;
+}

@@ -101,6 +101,18 @@ export interface RepositorioAdminCatalogo {
    */
   archivar(storeId: string, id: string): Promise<void>;
   /**
+   * Cambia el estado de varios productos de una vez, para la selección múltiple.
+   *
+   * Desarchivar deja en `draft` y no en `active` a propósito: volver a publicar
+   * es una decisión producto por producto —precio, stock, fotos— y hacerla en
+   * lote para veinte devolvería al storefront cosas que se archivaron por algo.
+   */
+  cambiarEstadoEnLote(
+    storeId: string,
+    ids: readonly string[],
+    status: 'archived' | 'draft',
+  ): Promise<void>;
+  /**
    * Productos completos, paginados. Es lo que necesita el export: el listado de
    * la tabla no trae variantes ni atributos.
    */

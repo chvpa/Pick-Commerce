@@ -102,3 +102,28 @@ export function actualizarTasa(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Puerto de la configuración
+// ---------------------------------------------------------------------------
+
+/**
+ * Lee y escribe `store_settings.settings`.
+ *
+ * `guardar` recibe un **parcial de primer nivel** —`{ currency: ... }` o
+ * `{ payments: ... }`— y no la configuración entera: cada formulario del Admin
+ * edita una sección y no conoce las otras. Mandar todo obligaría a leer y
+ * reenviar lo que no se tocó, que es la forma más fácil de pisarlo.
+ *
+ * La auditoría viaja con la escritura, no después, y del otro lado las dos
+ * quedan en la misma transacción. Es lo que hace imposible guardar una tasa de
+ * cambio sin dejar registro de quién la cambió (PROJECT.md §33).
+ */
+export interface RepositorioConfiguracion {
+  leer(storeId: string): Promise<Readonly<Record<string, unknown>>>;
+  guardar(
+    storeId: string,
+    parcial: Readonly<Record<string, unknown>>,
+    auditoria?: EntradaDeAuditoria,
+  ): Promise<Readonly<Record<string, unknown>>>;
+}
