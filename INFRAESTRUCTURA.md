@@ -366,6 +366,60 @@ Tres cosas que conviene saber antes de necesitarlas:
 - Dar de baja la organización sí borra todo en cascada, y eso el trigger no lo
   frena (ADR-068).
 
+### Secretos del Worker que trajo la Fase 7
+
+Van como **secretos de runtime** del Worker del storefront, junto a los que ya
+estaban. Ninguno es obligatorio, y esa es la idea: su ausencia degrada en vez de
+romper, así que un despliegue sin ellos sigue vendiendo.
+
+| Variable                 | Si falta                                                         |
+| ------------------------ | ---------------------------------------------------------------- |
+| `RESEND_API_KEY`         | No sale ningún correo. La cola crece y se vacía cuando aparezca. |
+| `PAYMENT_WEBHOOK_SECRET` | El método de tarjeta no se ofrece y el webhook responde 503.     |
+| `EMAIL_FROM`             | Se usa `Pick Commerce <onboarding@resend.dev>`.                  |
+
+Cargar `PAYMENT_WEBHOOK_SECRET` con un valor largo y aleatorio: es lo que firma
+los avisos de pago, y quien lo tenga puede marcar pedidos como pagados.
+
+### Correos: el techo del sandbox
+
+Sin un dominio verificado, **Resend sólo entrega a la casilla del dueño de la
+cuenta**. Comprobado: un pedido con el correo de otro comprador devuelve un 403
+que lo dice con todas las letras. El pipeline funciona igual —la fila queda en la
+cola y cuenta el intento— pero el comprador no recibe nada.
+
+Antes del piloto: verificar un dominio en `resend.com/domains`, y cargar
+`EMAIL_FROM` con una dirección de ese dominio.
+
+### Que el correo de recuperación salga por Resend
+
+El enlace para restablecer la contraseña lo manda **Supabase Auth con su propio
+SMTP**, no la API de Resend: el token lo acuña Supabase. Por defecto usa su
+servidor compartido, que admite pocos correos por hora y sólo escribe a miembros
+del proyecto — alcanza para probar, no para un comercio.
+
+Para apuntarlo a Resend, en el panel de Supabase (_Authentication › Emails ›
+SMTP Settings_): servidor `smtp.resend.com`, puerto `465`, usuario `resend`,
+contraseña la misma `RESEND_API_KEY`, y un remitente del dominio verificado. Se
+puede hacer también con la API de Management y el `SUPABASE_ACCESS_TOKEN` que ya
+está en `.env`, pero es una operación única: no vale automatizarla.
+
+### Comprobar que los avisos están saliendo
+
+La cola vive en `notification_outbox`. Una fila con `sent_at` en nulo y
+`attempts` en 5 es un aviso abandonado.
+
+```sql
+select event, recipient, attempts, sent_at
+from notification_outbox
+where sent_at is null
+order by created_at;
+```
+
+Se vacía sola con el tráfico del sitio —el middleware la drena como mucho cada
+treinta segundos— y el Admin la empuja al cambiar el estado de un pedido. A mano:
+`GET /api/notificaciones/drenar` sobre el dominio de la tienda.
+
 ---
 
 ## 7. El recorrido de un cambio
@@ -425,6 +479,10 @@ pegan directo contra la base real y no esperan a ningún push.
   `VITE_SUPABASE_PUBLISHABLE_KEY` como variables de **build**, porque el Admin
   las hornea al construir.
 - **El CI no bloquea el deploy** (§4).
+- **No hay gateway de pago real.** El contrato existe y hay una pasarela simulada
+  declarada como tal; falta elegir proveedor y conseguir credenciales (P-001).
+- **Los correos sólo llegan a la casilla del dueño de la cuenta de Resend**
+  mientras no haya un dominio verificado.
 - **Nadie mira si el sitio se cayó.** No hay alerta: si el Worker empieza a
   responder 503, te enterás entrando.
 - **Un solo entorno.** No hay staging: lo que se pushea a `main` es producción.

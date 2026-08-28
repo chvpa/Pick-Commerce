@@ -179,7 +179,12 @@ const CATALOGO: readonly Product[] = [
         sku: 'RUT-MOC-028',
         title: 'Única',
         price: money(455000, 'PYG'),
-        availableQuantity: 7,
+        /*
+         * Holgado a propósito: es el producto que consume el smoke de pagos, y
+         * ahí compran cuatro tests × dos viewports en la misma corrida. Ningún
+         * test afirma sobre este número, a diferencia de los de la campera.
+         */
+        availableQuantity: 40,
         attributes: { color: 'Verde' },
       },
     ],
@@ -195,7 +200,7 @@ export const TIENDA = {
   slug: 'principal',
   // Es lo que resuelve el tenant en runtime. Debe coincidir con el dominio que
   // el storefront declara en `STOREFRONT_DOMAIN`.
-  domain: 'pick-demo.pages.dev',
+  domain: 'pick-commerce.chvpa-contacto.workers.dev',
   currency: 'PYG',
   locale: 'es-PY',
 };
@@ -378,7 +383,10 @@ export const CONFIGURACION = {
      * no puede decirle al cliente dónde pagar.
      */
     payments: {
-      enabled: ['bank_transfer'],
+      // La demo ofrece los dos para que se vea el flujo con pasarela. El
+      // simulado no cobra nada y está declarado como prueba en toda la interfaz
+      // (ADR-080).
+      enabled: ['bank_transfer', 'simulated_card'],
       default: 'bank_transfer',
       bankTransfer: {
         instructions:

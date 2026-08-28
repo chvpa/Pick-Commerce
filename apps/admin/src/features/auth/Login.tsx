@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { useSesion } from './SesionContext';
 
-export function Login() {
+export function Login({ alRecuperar }: { alRecuperar: () => void }) {
   const { entrar } = useSesion();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -77,6 +77,10 @@ export function Login() {
 
         <Button type="submit" disabled={enviando} aria-busy={enviando}>
           {enviando ? 'Ingresando…' : 'Ingresar'}
+        </Button>
+
+        <Button type="button" variant="ghost" onClick={alRecuperar}>
+          ¿Olvidaste tu contraseña?
         </Button>
       </form>
     </main>

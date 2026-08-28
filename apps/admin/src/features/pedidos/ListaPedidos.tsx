@@ -23,6 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { usePuede } from '@/features/auth/usePuede';
+import { avisarStorefront } from '@/lib/notificaciones';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -50,6 +51,8 @@ const TONO: Record<OrderStatus, string> = {
 const TONO_PAGO: Record<PaymentStatus, string> = {
   paid: 'border-transparent bg-primary/10 text-primary',
   pending: 'border-transparent bg-muted text-muted-foreground',
+  // Rechazado es lo único que pide atención: el pedido está ahí y no se cobró.
+  failed: 'border-transparent bg-destructive/10 text-destructive',
 };
 
 function fecha(iso: string, locale: string): string {
@@ -93,7 +96,12 @@ export function ListaPedidos() {
     placeholderData: keepPreviousData,
   });
 
-  const invalidar = () => cliente.invalidateQueries({ queryKey: ['pedidos', tienda.id] });
+  const invalidar = () => {
+    // El cambio pudo encolar un correo —confirmado, enviado, entregado— y el
+    // storefront es quien lo manda.
+    avisarStorefront(tienda.domain);
+    return cliente.invalidateQueries({ queryKey: ['pedidos', tienda.id] });
+  };
 
   const cambiarEstado = useMutation({
     mutationFn: ({ id, estado }: { id: string; estado: OrderStatus }) =>

@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { Login } from '@/features/auth/Login';
+import { NuevaPassword, Recuperar } from '@/features/auth/Recuperar';
 import { ProveedorSesion, useSesion } from '@/features/auth/SesionContext';
 import { router } from '@/router';
 import { configuracionFaltante } from '@/lib/supabase';
@@ -23,6 +25,7 @@ const cliente = new QueryClient({
 
 function Contenido() {
   const { estado } = useSesion();
+  const [recuperando, setRecuperando] = useState(false);
 
   if (estado === 'cargando') {
     return (
@@ -34,7 +37,20 @@ function Contenido() {
     );
   }
 
-  if (estado === 'anonimo') return <Login />;
+  if (estado === 'anonimo') {
+    return recuperando ? (
+      <Recuperar alVolver={() => setRecuperando(false)} />
+    ) : (
+      <Login alRecuperar={() => setRecuperando(true)} />
+    );
+  }
+
+  /*
+   * Antes del router a propósito: quien llega por el enlace de recuperación
+   * tiene una sesión válida, y si viera el panel se iría sin cambiar la
+   * contraseña que vino a cambiar.
+   */
+  if (estado === 'restablecer') return <NuevaPassword />;
 
   return <RouterProvider router={router} />;
 }

@@ -1,9 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFieldArray, useForm, useWatch, type UseFormRegister } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { repositorioAdminCatalogo, repositorioCatalogo } from '@pick/adapter-supabase';
+import {
+  repositorioAdminCatalogo,
+  repositorioCatalogo,
+  subirImagenDeProducto,
+} from '@pick/adapter-supabase';
 import {
   ETIQUETA_ESTADO,
   esEditable,
@@ -128,6 +132,39 @@ export function FormularioProducto({ id }: { id?: string }) {
 
   const variantes = useFieldArray({ control, name: 'variantes' });
   const medios = useFieldArray({ control, name: 'media' });
+
+  const archivoRef = useRef<HTMLInputElement>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [errorImagen, setErrorImagen] = useState<string | null>(null);
+
+  /**
+   * Sube la imagen y la agrega con sus dimensiones **reales**.
+   *
+   * Las mide en el browser con `createImageBitmap`, que es lo único que las
+   * conoce sin volver a descargar el archivo. Inventarlas produciría exactamente
+   * el salto de layout que las columnas existen para evitar (ADR-034).
+   */
+  async function subir(archivo: File): Promise<void> {
+    setSubiendo(true);
+    setErrorImagen(null);
+    try {
+      const bitmap = await createImageBitmap(archivo);
+      const { width, height } = bitmap;
+      bitmap.close();
+
+      const { url } = await subirImagenDeProducto(db, tienda.tenantId, archivo);
+      medios.append({
+        url,
+        alt: '',
+        width: String(width),
+        height: String(height),
+      } as never);
+    } catch (error) {
+      setErrorImagen((error as Error).message);
+    } finally {
+      setSubiendo(false);
+    }
+  }
 
   /** Qué campos administra el ERP. Ausente = los administra el comercio. */
   const fuentes: FieldSources = cargado.data?.fieldSources ?? {};
@@ -338,19 +375,54 @@ export function FormularioProducto({ id }: { id?: string }) {
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium">Imágenes</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => medios.append({ url: '', alt: '', width: '', height: '' } as never)}
-          >
-            Agregar imagen
-          </Button>
+          <div className="flex gap-2">
+            {/*
+              Subir es lo primero porque es lo que conviene: una imagen en el
+              almacenamiento propio se sirve desde un host que el storefront
+              autoriza, y por eso se optimiza. Una URL pegada nunca va a estar en
+              esa lista, así que se sirve tal cual (ADR-079, ADR-082).
+            */}
+            <Button
+              type="button"
+              size="sm"
+              disabled={subiendo}
+              onClick={() => archivoRef.current?.click()}
+            >
+              {subiendo ? 'Subiendo…' : 'Subir imagen'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => medios.append({ url: '', alt: '', width: '', height: '' } as never)}
+            >
+              Pegar URL
+            </Button>
+          </div>
         </div>
 
+        <input
+          ref={archivoRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            const archivo = e.currentTarget.files?.[0];
+            e.currentTarget.value = '';
+            if (archivo) void subir(archivo);
+          }}
+        />
+
         <p className="text-muted-foreground text-xs">
-          Por URL. El alto y el ancho son obligatorios: sin ellos el layout salta al cargar.
+          Las subidas se guardan en la tienda y se optimizan solas. Una URL de otro sitio funciona,
+          pero se sirve tal cual y depende de que ese sitio siga en pie.
         </p>
+
+        {errorImagen && (
+          <p className="text-destructive text-sm" role="alert">
+            {errorImagen}
+          </p>
+        )}
 
         {medios.fields.map((campo, i) => (
           <div

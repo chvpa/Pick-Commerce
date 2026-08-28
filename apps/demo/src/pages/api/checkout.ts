@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { validarDatosDeCheckout } from '@pick/commerce-core';
 import { checkout, pagos, tiendaActual } from '../../lib/db.ts';
+import { drenarNotificaciones, enSegundoPlano } from '../../lib/notificaciones.ts';
+import { proveedorDePago } from '../../lib/proveedor-de-pago.ts';
 import { cuerpoJson, falla, json, lineasRecibidas } from './_respuesta.ts';
 
 export const prerender = false;
@@ -26,8 +28,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
  * reintentos. Con la misma clave, la base devuelve el pedido que ya existe en
  * vez de crear otro: es lo que cumple «no se crea doble order por reintento
  * simple» de la Definition of Done.
+ *
+ * Con una forma de pago que tenga proveedor, la respuesta trae además a dónde
+ * mandar al comprador. El pedido **ya existe** para entonces: se crea antes de
+ * cobrar, no después. Es lo que permite que un pago rechazado deje un pedido que
+ * el comercio puede rescatar por otro medio, en vez de un carrito perdido.
  */
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   const cuerpo = await cuerpoJson(request);
   const bruto = (cuerpo ?? {}) as Record<string, unknown>;
 
@@ -69,7 +76,34 @@ export const POST: APIRoute = async ({ request }) => {
       return json({ error: 'invalid_cart', issues: resultado.issues }, 409);
     }
 
-    return json({ order: resultado.order }, 201);
+    const { order } = resultado;
+
+    // El aviso de «recibimos tu pedido» ya está encolado por el trigger; esto
+    // sólo lo empuja. Va en segundo plano: el comprador no tiene por qué esperar
+    // a que salga un correo para ver su confirmación.
+    await enSegundoPlano(locals, drenarNotificaciones());
+
+    const proveedor = proveedorDePago(datos.paymentMethod);
+    if (!proveedor) return json({ order }, 201);
+
+    try {
+      const pago = await proveedor.createPayment({
+        storeId,
+        orderId: order.id,
+        orderNumber: order.number,
+        amount: order.total,
+        returnUrl: new URL('/checkout/confirmacion?pago=aprobado', request.url).href,
+        failureUrl: new URL('/checkout/confirmacion?pago=rechazado', request.url).href,
+        webhookUrl: new URL('/api/webhooks/pago', request.url).href,
+      });
+      return json({ order, pago: { url: pago.url } }, 201);
+    } catch (error) {
+      // El pedido ya está creado y el stock descontado: devolverlo sin URL de
+      // pago es mucho mejor que fallar. La confirmación lo muestra pendiente y
+      // el comercio puede cobrarlo por otro medio.
+      console.error('[checkout] el proveedor de pago no respondió', error);
+      return json({ order }, 201);
+    }
   } catch (error) {
     return falla('checkout', error);
   }

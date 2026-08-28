@@ -3,6 +3,8 @@ import {
   clienteDeServidor,
   repositorioCatalogo,
   repositorioCheckout,
+  repositorioNotificaciones,
+  repositorioPagos,
   repositorioTiendas,
   type PickSupabaseClient,
 } from '@pick/adapter-supabase';
@@ -13,6 +15,8 @@ import {
   type ConfiguracionDePagos,
   type RepositorioCatalogo,
   type RepositorioCheckout,
+  type RepositorioNotificaciones,
+  type RepositorioPagos,
   type ResolucionTenant,
 } from '@pick/commerce-core';
 
@@ -53,9 +57,9 @@ let cliente: PickSupabaseClient | undefined;
  */
 function dominioDeLaTienda(): string {
   try {
-    return getSecret('STOREFRONT_DOMAIN') || 'pick-demo.pages.dev';
+    return getSecret('STOREFRONT_DOMAIN') || 'pick-commerce.chvpa-contacto.workers.dev';
   } catch {
-    return 'pick-demo.pages.dev';
+    return 'pick-commerce.chvpa-contacto.workers.dev';
   }
 }
 
@@ -145,6 +149,22 @@ export const facetasFiltrables = memoizar(async () =>
 let repoCheckout: RepositorioCheckout | undefined;
 
 /** Carrito y creación de pedidos. Ver ADR-065. */
+let repoPagos: RepositorioPagos | undefined;
+
+/** Lo que informó el gateway. Sólo lo usa el webhook. */
+export function pagosDelGateway(): RepositorioPagos {
+  repoPagos ??= repositorioPagos(db());
+  return repoPagos;
+}
+
+let repoNotificaciones: RepositorioNotificaciones | undefined;
+
+/** La cola de correos. */
+export function notificaciones(): RepositorioNotificaciones {
+  repoNotificaciones ??= repositorioNotificaciones(db());
+  return repoNotificaciones;
+}
+
 export function checkout(): RepositorioCheckout {
   repoCheckout ??= repositorioCheckout(db());
   return repoCheckout;

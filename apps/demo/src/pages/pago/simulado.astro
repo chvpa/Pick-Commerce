@@ -1,0 +1,87 @@
+---
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import { formatMoney } from '@pick/commerce-core';
+import { firmarResultado, verificarToken } from '@pick/adapter-payment-simulated';
+import Base from '../../layouts/Base.astro';
+import { secretoDelWebhook } from '../../lib/proveedor-de-pago.ts';
+
+/*
+ * La pantalla de pago del gateway **simulado**.
+ *
+ * Un proveedor real sirve esta página él; el simulado no tiene dónde, así que
+ * vive en el propio storefront. Es la única parte de todo el flujo que un
+ * proveedor de verdad reemplaza por completo.
+ *
+ * Funciona sin JavaScript: son dos formularios que postean al webhook. Que no
+ * dependa de una island no es purismo — es que el camino del dinero tenga la
+ * menor cantidad de cosas que puedan fallar.
+ */
+export const prerender = false;
+
+const secreto = secretoDelWebhook();
+const token = Astro.url.searchParams.get('token') ?? '';
+const datos = secreto && token ? await verificarToken(token, secreto) : null;
+
+/*
+ * Un token que no se puede verificar no muestra nada. Si esta página aceptara
+ * cualquier cosa, sería una forma de averiguar números de pedido probando.
+ */
+if (!datos || !secreto) {
+  return new Response('Este enlace de pago no es válido o ya venció.', {
+    status: 400,
+    headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+  });
+}
+
+// Los dos avisos posibles, firmados con el mismo secreto que verifica el
+// webhook. El comprador elige cuál mandar; el proveedor real lo decidiría él.
+const tokenAprobado = await firmarResultado(datos, 'paid', secreto);
+const tokenRechazado = await firmarResultado(datos, 'failed', secreto);
+const total = formatMoney({ amount: datos.amount, currency: datos.currency }, 'es-PY');
+---
+
+<Base title="Pago de prueba · Pick Demo" description="Pago simulado." noindex>
+  <Container class="flex max-w-md flex-col gap-6 py-12">
+    <div class="rounded-md border border-border bg-surface-muted px-4 py-3">
+      <p class="text-sm font-medium">Pago simulado — modo de prueba</p>
+      <p class="mt-1 text-sm text-fg-muted">
+        Esto no es una pasarela real y no se cobra nada. Elegí cómo querés que termine el pago
+        para probar el flujo completo.
+      </p>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <h1 class="font-display text-2xl font-semibold tracking-tight">
+        Pedido #{datos.orderNumber}
+      </h1>
+      <p class="text-fg-muted">Total a pagar: <strong class="text-fg">{total}</strong></p>
+    </div>
+
+    <div class="flex flex-col gap-3">
+      <form method="post" action="/api/webhooks/pago">
+        <input type="hidden" name="token" value={tokenAprobado} />
+        <button
+          type="submit"
+          class="w-full cursor-pointer rounded-md bg-fg px-4 py-2.5 text-sm font-medium text-bg transition-colors hover:bg-fg/90"
+        >
+          Aprobar el pago
+        </button>
+      </form>
+
+      <form method="post" action="/api/webhooks/pago">
+        <input type="hidden" name="token" value={tokenRechazado} />
+        <button
+          type="submit"
+          class="w-full cursor-pointer rounded-md border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-surface-muted"
+        >
+          Rechazar el pago
+        </button>
+      </form>
+    </div>
+
+    <p class="text-sm text-fg-muted">
+      Tu pedido ya quedó registrado. Si el pago se rechaza, el comercio se va a contactar para
+      coordinarlo por otro medio.
+    </p>
+  </Container>
+</Base>

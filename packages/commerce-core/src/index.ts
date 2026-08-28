@@ -11,3 +11,5 @@ export * from './checkout.ts';
 export * from './orders.ts';
 export * from './dashboard.ts';
 export * from './team.ts';
+export * from './payments.ts';
+export * from './notifications.ts';

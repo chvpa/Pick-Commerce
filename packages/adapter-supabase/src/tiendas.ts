@@ -12,7 +12,7 @@ export function repositorioTiendas(db: PickSupabaseClient): RepositorioTiendas {
     async porDominio(dominio: string): Promise<ResolucionTenant | null> {
       const { data, error } = await db
         .from('stores')
-        .select('id, tenant_id, currency, locale')
+        .select('id, tenant_id, name, currency, locale')
         .eq('domain', dominio)
         // `maybeSingle` y no `single`: no encontrar la tienda es un caso normal
         // —un dominio que todavía no se configuró—, no una excepción.
@@ -26,6 +26,7 @@ export function repositorioTiendas(db: PickSupabaseClient): RepositorioTiendas {
         storeId: data.id,
         currency: data.currency,
         locale: data.locale,
+        name: data.name,
       };
     },
 
@@ -34,7 +35,7 @@ export function repositorioTiendas(db: PickSupabaseClient): RepositorioTiendas {
       // organizaciones donde el usuario tiene membresía.
       const { data, error } = await db
         .from('stores')
-        .select('id, tenant_id, name, slug, currency, locale')
+        .select('id, tenant_id, name, slug, currency, locale, domain')
         .order('name');
 
       if (error) throw new Error(`No se pudieron leer las tiendas: ${error.message}`);
@@ -45,6 +46,7 @@ export function repositorioTiendas(db: PickSupabaseClient): RepositorioTiendas {
         slug: s.slug,
         currency: s.currency,
         locale: s.locale,
+        ...(s.domain ? { domain: s.domain } : {}),
       }));
     },
   };

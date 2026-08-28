@@ -13,6 +13,10 @@ import { pagos } from '../../lib/db.ts';
 export const prerender = false;
 
 const formasDePago = await pagos();
+
+/* Cómo volvió de la pasarela, si pasó por una. */
+const pago = Astro.url.searchParams.get('pago');
+const resultadoDePago = pago === 'aprobado' || pago === 'rechazado' ? pago : undefined;
 ---
 
 <Base title="Pedido confirmado · Pick Demo" description="Recibimos tu pedido." noindex>
@@ -20,6 +24,7 @@ const formasDePago = await pagos();
     <OrderConfirmation
       client:load
       instrucciones={formasDePago.bankTransfer?.instructions}
+      resultadoDePago={resultadoDePago}
       locale="es-PY"
     />
   </Container>

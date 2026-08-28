@@ -238,6 +238,8 @@ export function CheckoutForm({
 
       const cuerpo = (await respuesta.json()) as {
         order?: unknown;
+        /** Presente cuando la forma de pago tiene pasarela: a dónde mandarla. */
+        pago?: { url?: string };
         errores?: Record<string, string>;
         message?: string;
       };
@@ -260,7 +262,12 @@ export function CheckoutForm({
       }
       clear();
       navegando = true;
-      globalThis.location.assign(confirmacionHref);
+      /*
+       * Con pasarela, el siguiente paso es pagar; sin ella, el pedido ya está
+       * completo y va directo a la confirmación. En los dos casos el pedido
+       * **ya existe** y el carrito ya se vació: no se vuelve acá.
+       */
+      globalThis.location.assign(cuerpo.pago?.url ?? confirmacionHref);
       return;
     } catch {
       setErrorGeneral('No pudimos conectarnos. Revisá tu conexión y probá de nuevo.');

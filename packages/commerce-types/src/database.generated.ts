@@ -512,6 +512,67 @@ export type Database = {
           },
         ]
       }
+      notification_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          event: string
+          id: string
+          order_id: string
+          payload: Json
+          recipient: string
+          sent_at: string | null
+          store_id: string
+          tenant_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          event: string
+          id?: string
+          order_id: string
+          payload?: Json
+          recipient: string
+          sent_at?: string | null
+          store_id: string
+          tenant_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          event?: string
+          id?: string
+          order_id?: string
+          payload?: Json
+          recipient?: string
+          sent_at?: string | null
+          store_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_outbox_order_id_fkey"
+            columns: ["order_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "notification_outbox_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "notification_outbox_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_counters: {
         Row: {
           last_number: number
@@ -1187,6 +1248,27 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_notifications: {
+        Args: { p_limit?: number; p_store_id: string }
+        Returns: {
+          attempts: number
+          created_at: string
+          event: string
+          id: string
+          order_id: string
+          payload: Json
+          recipient: string
+          sent_at: string | null
+          store_id: string
+          tenant_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "notification_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       create_order: {
         Args: { p_idempotency_key: string; p_input: Json; p_store_id: string }
         Returns: Json
@@ -1195,7 +1277,21 @@ export type Database = {
         Args: { p_productos: Json; p_store_id: string }
         Returns: Json
       }
+      mark_notification_sent: {
+        Args: { p_id: string; p_store_id: string }
+        Returns: undefined
+      }
       order_json: { Args: { p_order_id: string }; Returns: Json }
+      record_payment: {
+        Args: {
+          p_note?: string
+          p_order_id: string
+          p_reference: string
+          p_status: string
+          p_store_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       member_role: "owner" | "admin" | "staff" | "viewer"
@@ -1208,7 +1304,7 @@ export type Database = {
         | "in_transit"
         | "delivered"
         | "cancelled"
-      payment_status: "pending" | "paid"
+      payment_status: "pending" | "paid" | "failed"
       product_status: "draft" | "active" | "inactive" | "archived"
     }
     CompositeTypes: {
@@ -1348,7 +1444,7 @@ export const Constants = {
         "delivered",
         "cancelled",
       ],
-      payment_status: ["pending", "paid"],
+      payment_status: ["pending", "paid", "failed"],
       product_status: ["draft", "active", "inactive", "archived"],
     },
   },

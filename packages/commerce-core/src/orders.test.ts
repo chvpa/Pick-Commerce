@@ -74,3 +74,59 @@ test('un evento con datos inesperados no rompe la pantalla', () => {
     'no sobrevivió a un estado que no conoce',
   );
 });
+
+// --- La timeline con gateway y correos -----------------------------------------
+
+test('un pago con referencia se distingue de uno marcado a mano', () => {
+  // El día que un pago no cuadre, lo primero que se pregunta es si lo informó el
+  // proveedor o lo marcó alguien.
+  const delGateway = describirEvento({
+    id: '1',
+    type: 'payment_changed',
+    data: { from: 'pending', to: 'paid', reference: 'sim_abc' },
+    createdAt: '',
+  });
+  assert.match(delGateway, /acreditado/i);
+  assert.match(delGateway, /sim_abc/);
+
+  const aMano = describirEvento({
+    id: '2',
+    type: 'payment_changed',
+    data: { from: 'pending', to: 'paid' },
+    createdAt: '',
+  });
+  assert.match(aMano, /Marcado como pagado/);
+  assert.ok(!aMano.includes('('), 'inventó una referencia que no existía');
+});
+
+test('un pago rechazado se lee como rechazado', () => {
+  const texto = describirEvento({
+    id: '1',
+    type: 'payment_changed',
+    data: { from: 'pending', to: 'failed', reference: 'sim_no' },
+    createdAt: '',
+  });
+  assert.match(texto, /rechazado/i);
+});
+
+test('un correo enviado dice cuál y a quién', () => {
+  const texto = describirEvento({
+    id: '1',
+    type: 'email_sent',
+    data: { event: 'order_confirmed', to: 'ana@cliente.test' },
+    createdAt: '',
+  });
+  assert.match(texto, /Correo enviado/);
+  assert.match(texto, /pago confirmado/);
+  assert.match(texto, /ana@cliente.test/);
+});
+
+test('un evento de correo desconocido se muestra sin romper', () => {
+  const texto = describirEvento({
+    id: '1',
+    type: 'email_sent',
+    data: { event: 'welcome' },
+    createdAt: '',
+  });
+  assert.match(texto, /welcome/);
+});

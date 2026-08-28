@@ -67,6 +67,37 @@ export async function cerrarSesion(db: PickSupabaseClient): Promise<void> {
 }
 
 /**
+ * Pide el correo de recuperación.
+ *
+ * **Resuelve siempre**, exista o no la cuenta, por el mismo motivo que
+ * `iniciarSesion` no distingue usuario de contraseña: un mensaje distinto para
+ * cada caso convierte este formulario en una forma de averiguar qué correos
+ * tienen cuenta. Quien lo llame muestra el mismo texto en los dos casos.
+ *
+ * El correo lo manda Supabase Auth con su propio SMTP, no la API de Resend: el
+ * enlace lleva un token que sólo Supabase sabe acuñar. Apuntar ese SMTP a Resend
+ * es configuración del proyecto, no código.
+ */
+export async function pedirReset(
+  db: PickSupabaseClient,
+  email: string,
+  redirectTo: string,
+): Promise<void> {
+  await db.auth.resetPasswordForEmail(email, { redirectTo });
+}
+
+/**
+ * Cambia la contraseña de quien ya entró por el enlace de recuperación.
+ *
+ * No recibe la contraseña anterior: quien llega acá lo hace con una sesión que
+ * Supabase abrió al validar el token del correo, y esa es la prueba.
+ */
+export async function actualizarPassword(db: PickSupabaseClient, nueva: string): Promise<void> {
+  const { error } = await db.auth.updateUser({ password: nueva });
+  if (error) throw new Error(`No se pudo cambiar la contraseña: ${error.message}`);
+}
+
+/**
  * Observa los cambios de sesión.
  *
  * Vive en el adapter y no en el Admin para que la app no importe
@@ -77,10 +108,15 @@ export async function cerrarSesion(db: PickSupabaseClient): Promise<void> {
  * El callback recibe `null` cuando no hay sesión. Se emite también al
  * suscribirse —evento `INITIAL_SESSION`—, así que no hace falta una carga
  * inicial aparte.
+ *
+ * El segundo argumento distingue **cómo** se abrió la sesión. Entrar por el
+ * enlace de un correo de recuperación produce una sesión válida como cualquier
+ * otra, así que sin esta señal el Admin mostraría el panel en vez del formulario
+ * de contraseña nueva, y la persona se quedaría sin poder cambiarla.
  */
 export function observarSesion(
   db: PickSupabaseClient,
-  alCambiar: (usuario: UsuarioAutenticado | null) => void,
+  alCambiar: (usuario: UsuarioAutenticado | null, contexto?: 'recovery') => void,
 ): () => void {
   const { data } = db.auth.onAuthStateChange((_evento, session) => {
     // Se difiere: la documentación de Supabase advierte que llamar a sus
@@ -88,6 +124,7 @@ export function observarSesion(
     setTimeout(() => {
       alCambiar(
         session?.user ? { userId: session.user.id, email: session.user.email ?? '' } : null,
+        _evento === 'PASSWORD_RECOVERY' ? 'recovery' : undefined,
       );
     }, 0);
   });

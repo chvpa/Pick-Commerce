@@ -405,13 +405,13 @@ El ERP permite un sandbox o writes seguros.
 
 # Decisiones pendientes
 
-| ID    | Tema                               | Motivo                                                                                 |
-| ----- | ---------------------------------- | -------------------------------------------------------------------------------------- |
-| P-001 | Primer gateway real                | Elegir el que mejor sirva al primer piloto                                             |
-| P-002 | Storage media definitivo           | Supabase Storage vs R2 por costo y operación: el rendimiento ya no lo decide (ADR-079) |
-| P-003 | Analytics store inicial            | Postgres/Analytics Engine/otro según volumen                                           |
-| P-004 | Primera estrategia de reservations | Depende de capabilities del ERP piloto                                                 |
-| P-005 | CLI/provisioner exacto             | Puede empezar manual y automatizarse luego                                             |
+| ID    | Tema                               | Motivo                                                                                                            |
+| ----- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| P-001 | Primer gateway real                | Sigue abierta: el contrato y un proveedor simulado ya existen (ADR-080); falta el adapter real y sus credenciales |
+| P-002 | ~~Storage media definitivo~~       | **Resuelta:** Supabase Storage, por estar ya en el stack (ADR-082). R2 queda como salida si el egress pesa        |
+| P-003 | Analytics store inicial            | Postgres/Analytics Engine/otro según volumen                                                                      |
+| P-004 | Primera estrategia de reservations | Depende de capabilities del ERP piloto                                                                            |
+| P-005 | CLI/provisioner exacto             | Puede empezar manual y automatizarse luego                                                                        |
 
 ---
 
@@ -2875,3 +2875,202 @@ Lo que el bucket aporta es que ese host **exista y sea uno**.
 Queda sin implementar a propósito. La carga de archivos desde el Admin, el host
 de medios por despliegue y su `remotePatterns` son P-002, y esta entrada existe
 para que esa decisión se tome con el número delante en vez de por intuición.
+
+---
+
+## ADR-080 — El primer `PaymentProvider` es un gateway simulado, declarado como tal
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+P-001 sigue abierta: no hay credenciales de sandbox de ningún proveedor
+paraguayo. La alternativa era escribir el adapter de Bancard desde la memoria del
+modelo, y eso es exactamente lo que este repo prohíbe — un adapter que asume una
+capacidad que el proveedor no tiene produce cobros mal conciliados, y el error
+aparece en producción, no en el typecheck.
+
+Así que se implementó el **contrato completo** (PROJECT.md §14: `createPayment`,
+`getPaymentStatus`, `verifyWebhook`, `healthCheck`, `cancelPayment` opcional) y un
+proveedor simulado que lo cumple. El simulado dice que es simulado en el nombre
+del paquete, en el id del método (`simulated_card`), en la etiqueta del checkout,
+en la casilla del Admin y en la propia pantalla de pago.
+
+**Qué ejercita de verdad**, que es lo que justifica que exista: el checkout
+redirigiendo a una pasarela externa; un webhook firmado que hay que verificar
+antes de creerle; el mismo webhook llegando tres veces; y un pago **rechazado**,
+que es el camino que nadie prueba y siempre está roto.
+
+**Qué no valida:** conciliación, cuotas, monedas del proveedor, tiempos de
+acreditación, y los modos de fallo que sólo existen cuando hay un tercero. El
+día que haya credenciales, el adapter real se escribe contra su documentación y
+este queda para desarrollo.
+
+**Sin tabla de intentos de pago.** Todo lo que el flujo necesita —pedido, tienda,
+monto, resultado— viaja en un token firmado con HMAC-SHA256 sobre Web Crypto, que
+existe igual en Node y en workerd. Un gateway real trae su propio identificador y
+su propia forma de consultarlo; inventar la tabla ahora sería modelar para un
+proveedor que todavía no se eligió.
+
+**El pedido se crea antes de cobrar, no después.** Es lo que permite que un pago
+rechazado deje un pedido que el comercio puede rescatar por otro medio, en vez de
+un carrito perdido. Y por eso el rechazo **no vuelve al checkout**: al navegar, la
+island se desmonta y su clave de idempotencia se pierde, así que un reintento
+crearía un segundo pedido con su stock descontado otra vez. La confirmación dice
+que el pedido quedó registrado y que el comercio se va a contactar.
+
+`bank_transfer` no tiene proveedor y no es un olvido: no hay nada que cobrar en
+línea. Un `PaymentProvider` para transferencia sería un adaptador vacío alrededor
+de una ausencia.
+
+---
+
+## ADR-081 — Los correos salen de una cola en la base, no de un trigger que llame por HTTP
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+Un aviso al comprador tiene que ser tan seguro como el pedido que lo origina: «se
+creó el pedido pero no se avisó» no puede pasar. Por eso el correo se **encola en
+la misma transacción** que el evento del pedido, con un trigger sobre
+`order_events`. Si la transacción se cae, no hay ni pedido ni aviso.
+
+**Por qué no `pg_net`.** Está disponible en el proyecto, y mandar el correo desde
+el trigger parecía más directo. Dos razones lo descartan: metería la URL y la
+clave del proveedor dentro de una migración, y sobre todo **no corre en PGlite**
+—la suite de aislamiento aplica todas las migraciones, así que una dependencia de
+extensión ahí deja los 177 tests sin poder arrancar—. Con la cola, encolar es SQL
+puro y enviar es trabajo de la aplicación, donde los secretos ya viven y donde se
+puede reintentar.
+
+**El trigger es `security definer`, y no es opcional.** Corre dentro de
+`admin_set_order_status`, que es invoker: o sea con el rol del operador del
+Admin, que no tiene ningún permiso sobre la cola —la tabla no tiene políticas—.
+Sin definer, el insert fallaría y se caería el cambio de estado entero.
+
+**El corte del ciclo es estructural.** Marcar un correo como enviado inserta un
+evento `email_sent`, que vuelve a disparar el trigger. Al no estar en el mapeo de
+eventos que producen correo, sale sin encolar. Que el corte sea la **ausencia de
+una rama** y no una condición explícita es lo que hace que un tipo de evento nuevo
+sea seguro por defecto. Hay un test que lo fija.
+
+**El intento se cuenta al reclamar, no al fallar.** Un drenaje que se muere a
+mitad —el Worker se corta, la red se cae— ya gastó su turno, así que una fila no
+se reintenta para siempre. El tope es cinco.
+
+**Dos drenajes simultáneos pueden reclamar la misma fila**, y contra eso no hay
+lock sino la clave de idempotencia que Resend recibe con el id de la fila
+(verificado en su documentación: header `Idempotency-Key`, vence a las 24 horas,
+256 caracteres). La defensa está donde se envía, no donde se reclama.
+
+**Quién drena.** El checkout y el webhook llaman a la función directo, con
+`waitUntil` — un Worker de Cloudflare no puede hacerse `fetch` a sí mismo. El
+middleware drena de forma oportunista como mucho una vez cada treinta segundos
+por isolate, aprovechando el tráfico del sitio. Y el Admin, que vive en otro
+dominio, tiene un endpoint para empujar.
+
+Ese endpoint es un **GET**, y la razón es concreta: la comprobación de origen de
+Astro rechaza todo POST de otro origen salvo que traiga un `content-type` que no
+sea de formulario, y un `fetch` en modo `no-cors` —el único que no exige montar
+CORS— sólo puede mandar justamente los tres que se consideran de formulario. O
+sea que **ningún POST del browser del Admin podría llegar**. Los métodos seguros
+no pasan por esa comprobación, el endpoint no recibe parámetros y es idempotente.
+
+Va **sin autenticación**: sólo vacía la cola de la tienda de este despliegue, cada
+fila se manda una vez y el contenido no se devuelve. Lo peor que puede hacer un
+extraño es adelantar un envío. Lo que sí podría, con insistencia y el proveedor
+caído, es quemar los cinco intentos de una fila; está anotado, y si pasa, un
+secreto compartido es una línea de cada lado.
+
+**Resend por REST, sin SDK.** La superficie que se usa es un endpoint. El paquete
+oficial es un envoltorio de `fetch` alrededor de eso, y agregar una dependencia
+para cuarenta líneas la hace más difícil de auditar, no menos. El stack cerrado
+nombra al proveedor, no a su cliente.
+
+**Cuatro eventos y no los ocho de PROJECT.md §24.** `welcome` y `back_in_stock`
+exigen cuentas de comprador y suscripciones que no existen; `order_preparing` es
+ruido. Se agregan cuando haya a quién mandárselos.
+
+---
+
+## ADR-082 — Los medios viven en Supabase Storage, y por eso ahora se optimizan
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted — **cierra P-002**
+
+ADR-079 midió que ninguna imagen de producto se optimizaba, y explicó por qué eso
+decidía la elección de almacenamiento: `image.remotePatterns` de Astro es una
+**lista de hosts**, así que las URLs pegadas a mano no forman lista y no se pueden
+autorizar sin abrir el patrón a todo `https`. Con medios propios hay un host
+estable que se autoriza una vez.
+
+Se elige **Supabase Storage** sobre R2: ya está en el stack, no agrega credenciales
+ni un servicio más que operar, y el rendimiento no distingue a los dos —eso ya lo
+resolvió ADR-079—. R2 sigue siendo la salida si el egress llega a pesar.
+
+**El bucket es público; lo que se protege es escribir.** El catálogo de una tienda
+se ve sin credenciales, y servir por URL firmada obligaría a renovarlas en cada
+render. Subir y borrar exigen `catalog.write` sobre el tenant, por una política de
+Storage.
+
+**La convención del path es la política:** `{tenant_id}/{archivo}`. El primer
+directorio _es_ el tenant, y la política lo castea a uuid antes de comprobar el
+permiso — un path fuera de convención no falla la comparación, falla el casteo,
+que es un rechazo más difícil de eludir.
+
+Se verificó contra el proyecto real que `postgres` puede crear políticas sobre
+`storage.objects` pese a que la tabla sea de `supabase_storage_admin`; el bloque
+va guardado con un `do` porque PGlite no tiene el schema `storage` y sin la
+guarda la suite de aislamiento no arrancaría.
+
+**El patrón autorizado es `**.supabase.co` acotado por pathname** a los objetos
+públicos de un bucket `product-media`. El comodín es necesario porque la URL del
+proyecto se lee en runtime y `remotePatterns` se decide al construir. El alcance
+del abuso queda dicho: el optimizador quedaría disponible para buckets
+`product-media` públicos de otros proyectos Supabase. Se cierra el día que haya un
+dominio de medios propio.
+
+**Las imágenes del seed migran.** Si se quedaban en `public/`, la demo insignia
+seguía sin optimizar nada y el ítem quedaba abierto de hecho. De paso arregla las
+miniaturas del Admin: una ruta relativa no resuelve desde su dominio, una URL
+absoluta sí.
+
+Eso tuvo una consecuencia que ningún tipo podía anticipar: el uuid del tenant
+pasó a aparecer en el HTML del PDP, dentro de la ruta de las imágenes. El smoke
+del checkout sacaba el id de variante buscando «el primer uuid con esa forma» en
+la página, y empezó a comprar una variante inexistente — fallando con un 409 de
+stock que no tenía nada que ver. El helper ahora ancla en las props serializadas.
+Una heurística que funciona hasta que el HTML cambia no es una heurística, es una
+bomba con temporizador.
+
+---
+
+## ADR-083 — El reset de contraseña lo hace Supabase Auth, no código propio
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+El enlace de recuperación lleva un token que sólo Supabase sabe acuñar y validar.
+Escribir uno propio significaría manejar expiración, un solo uso y almacenamiento
+seguro — tres cosas fáciles de hacer casi bien, y «casi bien» en recuperación de
+cuentas es una puerta abierta.
+
+**El correo sale por el SMTP de Supabase, no por la API de Resend.** Apuntar ese
+SMTP a Resend es configuración del proyecto y queda como runbook en
+INFRAESTRUCTURA.md, no automatizado: es una operación única, y meterla en un
+script obligaría a versionar credenciales SMTP.
+
+Hasta que se configure, aplica el límite del SMTP por defecto de Supabase —pocos
+correos por hora y sólo a miembros del proyecto—, que es exactamente el mismo
+techo que el sandbox de Resend sin dominio verificado. Alcanza para el Definition
+of Done; para un piloto hay que verificar un dominio.
+
+**El formulario responde siempre lo mismo**, exista o no la cuenta, por el mismo
+motivo por el que el login no distingue usuario inexistente de contraseña
+incorrecta: decirlo convierte el formulario en una forma de averiguar qué correos
+tienen acceso al Admin.
+
+**La sesión de recuperación se distingue de una normal.** Entrar por el enlace
+produce una sesión válida como cualquier otra, así que sin esa señal el Admin
+mostraría el panel y la persona se iría sin cambiar la contraseña que vino a
+cambiar. `observarSesion` reporta el contexto y la pantalla de contraseña nueva se
+muestra **antes** del router.

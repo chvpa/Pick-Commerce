@@ -6,7 +6,7 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-**Fases 0 a 6 cerradas. Fase 7 (Payment + Email) es la siguiente.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+**Fases 0 a 7 cerradas. Fase 8 (ERP Adapter) es la siguiente.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
@@ -17,6 +17,9 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
   que revalida y descuenta stock, y vista de pedidos en el Admin.
 - **Fase 6** — Admin v1: resumen derivado de los pedidos, clientes, equipo,
   configuración de pagos y moneda, acciones en lote y gating por rol.
+- **Fase 7** — cobro y avisos: contrato `PaymentProvider` con una pasarela
+  simulada, cola de correos por trigger enviada con Resend, medios propios en
+  Supabase Storage y reset de contraseña.
 
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,
@@ -29,6 +32,8 @@ packages/
   commerce-ui/       tokens de diseño, recetas de clases e islands Preact
   commerce-astro/    componentes .astro de presentación estática
   adapter-supabase/  clientes, repositorios y sesión
+  adapter-resend/    envío de correos transaccionales
+  adapter-payment-simulated/  pasarela de prueba; el contrato vive en el core
 apps/
   admin/             React 19 + Vite 8 + Tailwind v4 + shadcn sobre Base UI
   demo/              Astro 7 + Preact islands + Tailwind v4 + adapter Cloudflare
@@ -200,6 +205,10 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
 - CSS **no** puede mostrar el contenido de un `<details>` cerrado, pero **sí** puede mostrar y ocultar un `<dialog>` en ambas direcciones: un `display` sin acotar a `[open]` o `:modal` lo deja visible estando cerrado (ADR-045, ADR-049).
 - Las islands se importan por subpath, nunca desde el barrel: desde el barrel Vite las agrupa en un solo chunk y toda página descarga las que no usa (ADR-040).
 - Astro colapsa el espacio entre dos expresiones adyacentes: `{a} {b}` sale pegado. Usar una sola expresión.
+- El contexto de Workers es `Astro.locals.cfContext`, no `locals.runtime.ctx`: eso último existía en adapters viejos y **falla en runtime**, no al compilar. Todo trabajo posterior a la respuesta va con su `waitUntil`.
+- Un Worker de Cloudflare **no puede hacerse `fetch` a sí mismo** (error 1042). Lo que el storefront tenga que hacer sobre sí mismo, lo hace llamando a la función.
+- La comprobación de origen de Astro rechaza todo POST de otro origen salvo con un `content-type` que no sea de formulario, y `no-cors` sólo puede mandar los tres que sí lo son: **ningún POST cross-origin del browser llega** sin montar CORS.
+- Una migración que dependa de una extensión o de un schema que PGlite no tenga —`pg_net`, `storage`— deja la suite de aislamiento sin arrancar. Va guardada con un `do` que compruebe que existe.
 
 ---
 

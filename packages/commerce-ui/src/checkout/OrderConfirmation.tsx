@@ -7,6 +7,8 @@ import { buttonVariants } from '../recipes/button.ts';
 export interface OrderConfirmationProps {
   /** Instrucciones de pago de la tienda, resueltas en el servidor. */
   instrucciones?: string;
+  /** Cómo volvió el comprador de la pasarela, si pasó por una. */
+  resultadoDePago?: 'aprobado' | 'rechazado';
   locale?: string;
   catalogHref?: string;
   className?: string;
@@ -25,6 +27,7 @@ export interface OrderConfirmationProps {
  */
 export function OrderConfirmation({
   instrucciones,
+  resultadoDePago,
   locale,
   catalogHref = '/catalogo',
   className,
@@ -62,6 +65,25 @@ export function OrderConfirmation({
 
   return (
     <div class={cn('flex flex-col gap-8', className)}>
+      {resultadoDePago === 'aprobado' ? (
+        <p class="rounded-md border border-border bg-surface-muted px-4 py-3 text-sm" role="status">
+          <strong class="font-medium">Pago aprobado.</strong> Ya estamos preparando tu pedido.
+        </p>
+      ) : null}
+
+      {resultadoDePago === 'rechazado' ? (
+        /*
+         * El pedido existe y su stock está descontado: no se ofrece reintentar
+         * acá porque el carrito ya se vació y la clave de idempotencia se perdió
+         * al navegar, así que un reintento crearía un **segundo** pedido. Lo
+         * honesto es decir que quedó registrado y que el comercio se contacta.
+         */
+        <p class="rounded-md border border-border bg-surface-muted px-4 py-3 text-sm" role="alert">
+          <strong class="font-medium">El pago fue rechazado.</strong> Tu pedido quedó registrado y
+          el comercio se va a contactar para coordinarlo por otro medio.
+        </p>
+      ) : null}
+
       <div class="flex flex-col gap-2">
         <p class="text-sm text-fg-muted">Recibimos tu pedido</p>
         <p class="font-display text-3xl font-semibold tracking-tight tabular-nums">
@@ -73,7 +95,7 @@ export function OrderConfirmation({
         </p>
       </div>
 
-      {instrucciones ? (
+      {instrucciones && order.paymentMethod === 'bank_transfer' ? (
         <section class="flex flex-col gap-2 rounded-md border border-border bg-surface-muted p-5">
           <h2 class="text-sm font-medium">Cómo pagar</h2>
           <p class="text-sm whitespace-pre-line text-fg-muted">{instrucciones}</p>

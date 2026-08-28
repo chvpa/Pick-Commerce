@@ -24,6 +24,8 @@ export interface ResolucionTenant {
   readonly storeId: string;
   readonly currency: string;
   readonly locale: string;
+  /** Lo firma cada correo transaccional: sin él, el aviso no dice de quién es. */
+  readonly name: string;
 }
 
 /** Tienda tal como la lista el Admin para elegir sobre cuál trabajar. */
@@ -34,6 +36,12 @@ export interface TiendaResumen {
   readonly slug: string;
   readonly currency: string;
   readonly locale: string;
+  /**
+   * El dominio del storefront de esta tienda. Opcional porque una tienda recién
+   * provisionada puede no tenerlo todavía; el Admin lo necesita para avisarle al
+   * storefront que hay correos por mandar.
+   */
+  readonly domain?: string;
 }
 
 /** Contrato del repositorio. El adapter lo implementa contra Supabase. */

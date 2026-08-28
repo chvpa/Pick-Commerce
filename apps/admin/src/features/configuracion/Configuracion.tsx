@@ -113,6 +113,7 @@ export function Configuracion() {
 function Pagos({ settings, guardado }: { settings: Settings; guardado: Guardado }) {
   const inicial = configuracionDePagos(settings);
   const [habilitada, setHabilitada] = useState(inicial.enabled.includes('bank_transfer'));
+  const [simulada, setSimulada] = useState(inicial.enabled.includes('simulated_card'));
   const [instrucciones, setInstrucciones] = useState(inicial.bankTransfer?.instructions ?? '');
   const [listo, setListo] = useState(false);
 
@@ -127,10 +128,16 @@ function Pagos({ settings, guardado }: { settings: Settings; guardado: Guardado 
           onSubmit={(e) => {
             e.preventDefault();
             setListo(false);
+            const enabled = [
+              ...(habilitada ? ['bank_transfer'] : []),
+              ...(simulada ? ['simulated_card'] : []),
+            ];
             guardado.guardar({
               payments: {
-                enabled: habilitada ? ['bank_transfer'] : [],
-                default: 'bank_transfer',
+                enabled,
+                // El primero habilitado, o transferencia: un default que no está
+                // en la lista no es un default, y el core lo corregiría igual.
+                default: enabled[0] ?? 'bank_transfer',
                 ...(instrucciones.trim()
                   ? { bankTransfer: { instructions: instrucciones.trim() } }
                   : {}),
@@ -151,6 +158,23 @@ function Pagos({ settings, guardado }: { settings: Settings; guardado: Guardado 
               </Label>
               <p className="text-muted-foreground text-xs">
                 El pedido queda pendiente de pago hasta que confirmes el comprobante.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="simulada"
+              checked={simulada}
+              onCheckedChange={(v) => setSimulada(v === true)}
+            />
+            <div className="flex flex-col gap-0.5">
+              <Label htmlFor="simulada" className="cursor-pointer">
+                Tarjeta (pago de prueba)
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                Pasarela simulada para probar el flujo completo: no cobra nada y no es un proveedor
+                real. Sirve para ver cómo queda el checkout con tarjeta antes de contratar uno.
               </p>
             </div>
           </div>
@@ -181,7 +205,7 @@ function Pagos({ settings, guardado }: { settings: Settings; guardado: Guardado 
             )}
           </div>
 
-          {!habilitada && (
+          {!habilitada && !simulada && (
             <p className="text-muted-foreground text-xs">
               Sin ningún medio habilitado el checkout vuelve a transferencia bancaria: una tienda
               que no puede cobrar no puede vender.

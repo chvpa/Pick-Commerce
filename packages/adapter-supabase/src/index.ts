@@ -11,6 +11,8 @@ export {
   cerrarSesion,
   iniciarSesion,
   membresiasDe,
+  pedirReset,
+  actualizarPassword,
   observarSesion,
   type SesionActiva,
   type UsuarioAutenticado,
@@ -23,3 +25,6 @@ export { repositorioDashboard } from './admin-dashboard.ts';
 export { repositorioAdminClientes } from './admin-clientes.ts';
 export { repositorioEquipo } from './equipo.ts';
 export { repositorioConfiguracion } from './configuracion.ts';
+export { repositorioPagos } from './pagos.ts';
+export { repositorioNotificaciones } from './notificaciones.ts';
+export { subirImagenDeProducto } from './media.ts';

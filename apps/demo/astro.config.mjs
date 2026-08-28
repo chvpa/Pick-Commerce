@@ -43,6 +43,28 @@ export default defineConfig({
    * que se emite desde la base en `sitemap-0.xml.ts`.
    */
   integrations: [preact()],
+  /*
+   * Qué hosts de imágenes se pueden optimizar.
+   *
+   * Astro **sólo** procesa imágenes remotas de hosts autorizados; las de otros
+   * lados se sirven tal cual. Sin esta lista, el `<Image />` del catálogo emitía
+   * un `srcset` de ocho candidatos que apuntaban todos al mismo archivo: la
+   * apariencia de optimizar sin optimizar nada (ADR-079).
+   *
+   * El comodín cubre cualquier proyecto de Supabase porque la URL del bucket se
+   * lee en runtime y acá se decide al construir. El `pathname` lo acota a los
+   * objetos públicos de un bucket llamado `product-media`; el alcance de eso
+   * está en ADR-082, y se cierra el día que haya un dominio de medios propio.
+   */
+  image: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+        pathname: '/storage/v1/object/public/product-media/**',
+      },
+    ],
+  },
   env: {
     schema: {
       /*
@@ -83,6 +105,24 @@ export default defineConfig({
        * en `src/lib/db.ts`, que es quien la usa.
        */
       STOREFRONT_DOMAIN: envField.string({
+        context: 'server',
+        access: 'secret',
+        optional: true,
+      }),
+      /*
+       * Correos transaccionales y cobro por gateway.
+       *
+       * `optional` como el resto, y además porque su ausencia **degrada** en vez
+       * de romper: sin `RESEND_API_KEY` la cola de avisos crece y nadie recibe
+       * correo, sin `PAYMENT_WEBHOOK_SECRET` el método de tarjeta no se ofrece.
+       * En los dos casos se sigue pudiendo comprar, así que no van a las
+       * variables que el middleware exige.
+       */
+      RESEND_API_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
+      /* Sin dominio verificado en Resend, sólo sirve el remitente de prueba. */
+      EMAIL_FROM: envField.string({ context: 'server', access: 'secret', optional: true }),
+      /* Firma los avisos del gateway simulado. Sin él, no hay pago con tarjeta. */
+      PAYMENT_WEBHOOK_SECRET: envField.string({
         context: 'server',
         access: 'secret',
         optional: true,

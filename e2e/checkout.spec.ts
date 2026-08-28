@@ -43,11 +43,19 @@ function problemasDe(page: unknown): string[] {
 async function sembrarCarrito(page: Page, quantity: number): Promise<string> {
   await page.goto(`/productos/${HANDLE}/`);
 
-  // El id de la variante viaja en el HTML que la página serializa para la
-  // island. Se lo saca de ahí en vez de agregarle un atributo al markup sólo
-  // para el test: los ids del seed son fijos y tienen forma reconocible.
+  /*
+   * El id de la variante viaja en las props que la página serializa para la
+   * island. Se lo saca de ahí en vez de agregarle un atributo al markup sólo
+   * para el test.
+   *
+   * El ancla es `"id":[0,"…"` y no «el primer uuid de la página», que es lo que
+   * había antes: cuando las imágenes del catálogo pasaron a servirse desde el
+   * bucket, su ruta —que lleva el uuid del tenant— quedó **antes** en el HTML, y
+   * el test empezó a comprar una variante que no existe. Fallaba con un 409 de
+   * stock, que no tenía nada que ver.
+   */
   const html = await page.content();
-  const id = html.match(/[0-9a-f]{8}-0000-4000-8000-[0-9a-f]{12}/)?.[0];
+  const id = html.match(/&quot;id&quot;:\[0,&quot;([0-9a-f-]{36})&quot;/)?.[1];
   expect(id, 'no se encontró el id de variante en el PDP').toBeTruthy();
 
   await page.evaluate(

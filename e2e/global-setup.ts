@@ -8,6 +8,9 @@ import { existsSync, writeFileSync } from 'node:fs';
  * antes de construir hay que darle credenciales y datos. En local salen de
  * `.env`; en CI, del stack de Supabase que levanta el runner. Ver ADR-058.
  */
+/** El secreto con el que se firman los pagos de prueba. Lo comparte el spec. */
+export const SECRETO_DE_PAGO = 'secreto-de-prueba-del-e2e';
+
 function silencioso(comando: string): void {
   try {
     execSync(comando, { stdio: 'ignore' });
@@ -65,9 +68,20 @@ export default function setup(): void {
    * ya está en `.env`, no un segundo lugar donde configurarlo, y está ignorado
    * por git.
    */
+  /*
+   * `PAYMENT_WEBHOOK_SECRET` con un valor fijo: el flujo de pago simulado firma
+   * y verifica con él, y los tests necesitan poder acuñar sus propios avisos
+   * para probar el webhook repetido.
+   *
+   * `RESEND_API_KEY` **no** se pasa, a propósito. Sin proveedor de correo el
+   * drenaje es un no-op, así que una corrida de tests no le manda nada a nadie;
+   * lo que se encola queda pendiente y se va en cascada con los pedidos que
+   * borra el teardown.
+   */
   writeFileSync(
     'apps/demo/dist/server/.dev.vars',
-    `SUPABASE_URL=${url}\nSUPABASE_SECRET_KEY=${secretKey}\n`,
+    `SUPABASE_URL=${url}\nSUPABASE_SECRET_KEY=${secretKey}\n` +
+      `PAYMENT_WEBHOOK_SECRET=${SECRETO_DE_PAGO}\n`,
     'utf8',
   );
 

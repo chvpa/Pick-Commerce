@@ -10,12 +10,13 @@ import {
   formatMoney,
   puedeTransicionar,
 } from '@pick/commerce-core';
-import type { OrderStatus } from '@pick/commerce-types';
+import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePuede } from '@/features/auth/usePuede';
+import { avisarStorefront } from '@/lib/notificaciones';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -47,23 +48,30 @@ export function DetallePedido({ id }: DetallePedidoProps) {
     queryFn: () => repositorioAdminPedidos(db).porId(tienda.id, id),
   });
 
+  /**
+   * Lo que sigue a cualquier cambio del pedido.
+   *
+   * Además de refrescar la pantalla, le avisa al storefront: el cambio pudo
+   * encolar un correo —pago confirmado, enviado, entregado— y quien lo manda es
+   * él, que es donde están la clave de Resend y las plantillas.
+   */
+  function trasCambiar(): Promise<void> {
+    setNota('');
+    avisarStorefront(tienda.domain);
+    void cliente.invalidateQueries({ queryKey: ['pedidos', tienda.id] });
+    return cliente.invalidateQueries({ queryKey: ['pedido', tienda.id, id] });
+  }
+
   const cambiarPago = useMutation({
-    mutationFn: (pago: 'pending' | 'paid') =>
+    mutationFn: (pago: PaymentStatus) =>
       repositorioAdminPedidos(db).cambiarPago(tienda.id, id, pago, nota || undefined),
-    onSuccess: () => {
-      setNota('');
-      return cliente.invalidateQueries({ queryKey: ['pedido', tienda.id, id] });
-    },
+    onSuccess: trasCambiar,
   });
 
   const cambiarEstado = useMutation({
     mutationFn: (estado: OrderStatus) =>
       repositorioAdminPedidos(db).cambiarEstado(tienda.id, id, estado, nota || undefined),
-    onSuccess: () => {
-      setNota('');
-      void cliente.invalidateQueries({ queryKey: ['pedido', tienda.id, id] });
-      void cliente.invalidateQueries({ queryKey: ['pedidos', tienda.id] });
-    },
+    onSuccess: trasCambiar,
   });
 
   if (consulta.isPending) {

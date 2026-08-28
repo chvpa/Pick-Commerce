@@ -30,15 +30,34 @@ export const ETIQUETA_ESTADO_PEDIDO: Readonly<Record<OrderStatus, string>> = {
 };
 
 /**
- * Cobrar, con transferencia bancaria, es una persona mirando un comprobante. Son
- * dos estados y no más: si el pago se confirma solo, lo confirma el gateway
- * (Fase 7) y esta lista no cambia.
+ * Con transferencia bancaria cobrar es una persona mirando un comprobante; con
+ * un gateway, un aviso que llega solo. El tercer estado, `failed`, lo trajo el
+ * gateway: una persona no marca «rechazado», simplemente no marca nada.
+ *
+ * `refunded` **no** está, y no es un olvido: devolver plata es un refund, y los
+ * refunds están fuera del core (ADR-008). Un estado que nada sabe producir sería
+ * una promesa vacía en la interfaz.
  */
-export const ESTADOS_DE_PAGO: readonly PaymentStatus[] = ['pending', 'paid'];
+export const ESTADOS_DE_PAGO: readonly PaymentStatus[] = ['pending', 'paid', 'failed'];
 
 export const ETIQUETA_ESTADO_PAGO: Readonly<Record<PaymentStatus, string>> = {
   pending: 'Pendiente',
   paid: 'Pagado',
+  failed: 'Rechazado',
+};
+
+/**
+ * Cómo se lee un correo en la timeline.
+ *
+ * Se duplican las cuatro etiquetas en vez de importarlas de `notifications.ts`
+ * a propósito: la timeline tiene que poder describir un evento aunque el
+ * catálogo de correos cambie, y el fallback ya muestra el nombre crudo.
+ */
+const ETIQUETA_EVENTO_CORREO: Readonly<Record<string, string>> = {
+  order_received: 'pedido recibido',
+  order_confirmed: 'pago confirmado',
+  order_shipped: 'pedido enviado',
+  order_delivered: 'pedido entregado',
 };
 
 /**
@@ -69,7 +88,13 @@ export function esTerminal(estado: OrderStatus): boolean {
  * cuidado en vez de castear.
  */
 export function describirEvento(evento: OrderEvent): string {
-  const data = evento.data as { from?: string; to?: string; note?: string };
+  const data = evento.data as {
+    from?: string;
+    to?: string;
+    note?: string;
+    reference?: string;
+    event?: string;
+  };
 
   if (evento.type === 'created') return 'Pedido recibido';
 
@@ -84,8 +109,22 @@ export function describirEvento(evento: OrderEvent): string {
 
   if (evento.type === 'payment_changed' && data.to) {
     const hacia = ETIQUETA_ESTADO_PAGO[data.to as PaymentStatus] ?? data.to;
-    const base = data.to === 'paid' ? 'Marcado como pagado' : `Pago: ${hacia}`;
-    return data.note ? `${base} — ${data.note}` : base;
+    // Con `reference` el pago lo informó el gateway; sin ella lo marcó una
+    // persona. La distinción importa el día que un pago no cuadre.
+    const base = data.reference
+      ? data.to === 'paid'
+        ? 'Pago acreditado'
+        : 'Pago rechazado'
+      : data.to === 'paid'
+        ? 'Marcado como pagado'
+        : `Pago: ${hacia}`;
+    const conReferencia = data.reference ? `${base} (${data.reference})` : base;
+    return data.note ? `${conReferencia} — ${data.note}` : conReferencia;
+  }
+
+  if (evento.type === 'email_sent') {
+    const evt = data.event ? (ETIQUETA_EVENTO_CORREO[data.event] ?? data.event) : 'aviso';
+    return data.to ? `Correo enviado (${evt}) a ${data.to}` : `Correo enviado: ${evt}`;
   }
 
   return evento.type;

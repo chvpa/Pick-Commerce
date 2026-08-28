@@ -1,5 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
 import { getSecret } from 'astro:env/server';
+import { drenarNotificaciones, enSegundoPlano } from './lib/notificaciones.ts';
 
 /**
  * Falla legible cuando falta configuración.
@@ -16,6 +17,38 @@ import { getSecret } from 'astro:env/server';
  * un buscador que recibe 503 vuelve a intentar en vez de desindexar la página.
  */
 const REQUERIDAS = ['SUPABASE_URL', 'SUPABASE_SECRET_KEY'] as const;
+
+/**
+ * Cada cuánto, como mucho, se mira si hay correos por mandar.
+ *
+ * Sin freno, cada visita a cada página costaría una consulta a la cola. Con él,
+ * el costo es una consulta cada medio minuto por isolate, y el retraso máximo de
+ * un aviso es ese medio minuto más lo que tarde en llegar la próxima visita.
+ */
+const CADA = 30_000;
+let ultimoDrenaje = 0;
+
+/**
+ * Manda lo que haya quedado encolado, aprovechando el tráfico del sitio.
+ *
+ * El correo de «recibimos tu pedido» ya sale en el propio checkout; los que
+ * dependen de esto son los que dispara el Admin —pago confirmado, enviado,
+ * entregado—, y el Admin vive en otro dominio. Podría avisar por HTTP, y de
+ * hecho hay un endpoint para eso, pero apoyarse **sólo** en ese aviso deja la
+ * cola varada si el Admin no alcanza al storefront.
+ *
+ * Va con `waitUntil`: no toca el tiempo de respuesta de nadie.
+ */
+function vaciarLaColaDeCorreos(locals: App.Locals): void {
+  const ahora = Date.now();
+  if (ahora - ultimoDrenaje < CADA) return;
+  ultimoDrenaje = ahora;
+
+  void enSegundoPlano(locals, drenarNotificaciones()).catch(() => {
+    // El drenaje ya registra sus propios fallos. Que no salga un correo no
+    // puede afectar a quien está mirando una página.
+  });
+}
 
 function llego(nombre: string): boolean {
   try {
@@ -34,7 +67,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (context.isPrerendered) return next();
 
   const faltan = REQUERIDAS.filter((nombre) => !llego(nombre));
-  if (faltan.length === 0) return next();
+  if (faltan.length === 0) {
+    const respuesta = await next();
+    vaciarLaColaDeCorreos(context.locals);
+    return respuesta;
+  }
 
   const lista = faltan.map((n) => `<li><code>${n}</code></li>`).join('');
 

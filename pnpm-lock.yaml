@@ -156,6 +156,15 @@ importers:
       '@astrojs/preact':
         specifier: ^6.0.4
         version: 6.0.4(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(preact@10.29.8)(rollup@4.62.5)(supports-color@10.2.2)(yaml@2.9.0)
+      '@pick/adapter-payment-simulated':
+        specifier: workspace:*
+        version: link:../../packages/adapter-payment-simulated
+      '@pick/adapter-resend':
+        specifier: workspace:*
+        version: link:../../packages/adapter-resend
+      '@pick/adapter-supabase':
+        specifier: workspace:*
+        version: link:../../packages/adapter-supabase
       '@pick/commerce-astro':
         specifier: workspace:*
         version: link:../../packages/commerce-astro
@@ -190,6 +199,35 @@ importers:
       wrangler:
         specifier: ^4.125.0
         version: 4.125.0
+
+  packages/adapter-payment-simulated:
+    dependencies:
+      '@pick/commerce-core':
+        specifier: workspace:*
+        version: link:../commerce-core
+      '@pick/commerce-types':
+        specifier: workspace:*
+        version: link:../commerce-types
+    devDependencies:
+      '@types/node':
+        specifier: ^26.2.0
+        version: 26.2.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/adapter-resend:
+    dependencies:
+      '@pick/commerce-core':
+        specifier: workspace:*
+        version: link:../commerce-core
+    devDependencies:
+      '@types/node':
+        specifier: ^26.2.0
+        version: 26.2.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/adapter-supabase:
     dependencies:

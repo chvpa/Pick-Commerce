@@ -161,7 +161,7 @@ export type OrderStatus =
  * Sin pasarela (Fase 7), `pending` es lo único que un pedido puede alcanzar solo.
  * `paid` existe porque un pendiente que nunca puede pagarse no sería un estado.
  */
-export type PaymentStatus = 'pending' | 'paid';
+export type PaymentStatus = 'pending' | 'paid' | 'failed';
 
 /** Lo que el cliente declaró al comprar. Los datos fiscales son opcionales: un consumidor final no da RUC. */
 export interface OrderCustomer {

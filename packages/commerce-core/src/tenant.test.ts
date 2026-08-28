@@ -19,7 +19,7 @@ test('no descarta subdominios que no sean www', () => {
 const repo: RepositorioTiendas = {
   async porDominio(dominio) {
     return dominio === 'tienda.com'
-      ? { tenantId: 't1', storeId: 's1', currency: 'PYG', locale: 'es-PY' }
+      ? { tenantId: 't1', storeId: 's1', currency: 'PYG', locale: 'es-PY', name: 'Tienda' }
       : null;
   },
   // `resolverTenant` no la usa; existe para cumplir el contrato del puerto.
