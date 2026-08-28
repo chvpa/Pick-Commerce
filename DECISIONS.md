@@ -2444,3 +2444,252 @@ que marcó "enviado" por error tiene que poder volver, y la timeline registra lo
 dos movimientos. Una máquina de estados rígida produciría pedidos trabados que se
 destraban editando la base a mano. Cancelar es distinto porque devuelve stock:
 salir de cancelado obligaría a volver a descontar algo que puede haberse vendido.
+
+---
+
+## ADR-067 — El resumen del Admin se deriva de los pedidos, no de eventos
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+El dashboard responde «cuánto vendí», no «cuánta gente miró». Todo sale de
+`orders` y `order_items` con una función `admin_dashboard`; no hay `page_view`,
+ni `add_to_cart`, ni conversión. Ese seguimiento es Fase 10 y no se adelanta:
+media capacidad de analytics es peor que ninguna, porque el panel invita a leer
+tasas que no puede calcular.
+
+Un criterio que se repite y conviene tener escrito: **un pedido cancelado no es
+una venta**. Queda fuera de ventas, de la cantidad de pedidos, del ticket
+promedio, de lo más vendido y de lo que gastó cada cliente. Sí entra en el
+desglose por estado, porque ahí lo que se mira es la operación y no la
+facturación: al operador le importa cuántos se cancelaron.
+
+«Últimos pedidos» ignora el período a propósito. Es la bandeja de entrada, no una
+métrica: filtrarla por el rango dejaría el panel vacío justo el día que no hubo
+ventas, que es cuando se lo mira.
+
+Lo más vendido agrupa por el **snapshot** de la línea (título, variante, SKU) y
+no por `variant_id`. El pedido guarda lo que se vendió ese día: si después le
+cambian el título a la variante el histórico no se reescribe, y si la variante se
+borra lo vendido no desaparece del informe.
+
+Es `security invoker`, como el resto de las `admin_*`: para un usuario de otro
+comercio las políticas no devuelven filas y el resumen sale en cero, sin ninguna
+guarda propia. Agrega sobre `orders (store_id, created_at)`, que es exactamente
+lo que cubre `orders_listado_idx`. A escala de un comercio alcanza; si alguna vez
+no alcanzara, la salida es una vista materializada, no un índice más.
+
+---
+
+## ADR-068 — El equipo: el invariante vive en un trigger, los correos en un definer
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+**No hay RPC para cambiar un rol, y es deliberado**
+`memberships_escritura` ya exige `member.manage` para update y delete, así que el
+Admin escribe directo por PostgREST. Un `admin_set_member_role` no habría cerrado
+nada: el update directo que la política permite seguiría existiendo, y la guarda
+del RPC sería una segunda puerta con candado al lado de una abierta.
+
+Por eso «una organización no se queda sin owner» es un **trigger**. Es un
+invariante de los datos, así que se defiende en los datos: frena al Admin, al
+update directo, a la secret key y a los scripts por igual. Verificado por los
+tres caminos.
+
+Usa `for update` y no un `count`: dos propietarios bajándose a la vez leerían
+cada uno al otro y pasarían los dos. Con el lock, el segundo espera, vuelve a
+mirar cuando el primero confirmó, y ya no encuentra a nadie.
+
+**Dos cosas que costaron una corrección cada una**
+
+`new` no está asignado en un DELETE, y `old.role = 'owner' and (tg_op = 'DELETE'
+or new.role <> 'owner')` no lo esquiva: plpgsql evalúa la expresión entera como
+SQL y ahí no hay cortocircuito garantizado. Van dos salidas tempranas separadas.
+
+Y la primera versión hacía **imposible dar de baja una organización**:
+`memberships` cascadea desde `organizations`, así que la baja disparaba el
+trigger y fallaba diciendo que le faltaba un propietario, cuando lo que pasaba es
+que se estaba yendo. Se reprodujo antes de tocar nada. La corrección se apoya en
+que Postgres borra la fila padre antes de cascadear: si la organización ya no
+está, no hay a quién dejar al mando. Los dos lados tienen test.
+
+**`admin_team` es `security definer`, y por eso verifica el permiso**
+Los correos viven en `auth.users`, que el rol de la aplicación no puede
+consultar; sin eso la pantalla mostraría uuids. Como saltea RLS, la primera línea
+de la función es `member.manage` — el mismo permiso que exige la política de
+escritura. Es la diferencia con las `admin_*` de catálogo y pedidos, que no
+verifican nada porque no lo necesitan.
+
+**El alta sigue por CLI**
+Crear un usuario exige la secret key, y el Admin es una SPA estática que no puede
+tenerla sin dejarla en el bundle de cualquiera. Se hace con `pnpm admin:crear`, y
+la pantalla lo dice en vez de esconder la ausencia. Invitar por correo desde la
+interfaz exigiría una superficie de servidor propia del Admin —hoy no existe— y
+eso es un ADR aparte, no un detalle de esta pantalla.
+
+---
+
+## ADR-069 — La configuración y su auditoría se guardan juntas o no se guardan
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+PROJECT.md §33 pide registrar quién cambió el tipo de cambio manual. La forma de
+incumplirlo sin que nadie lo note es que la segunda escritura falle sola, así que
+las dos van en `admin_save_settings`, que es una transacción.
+
+Es `security definer` por dos razones distintas, y conviene no confundirlas:
+
+1. `audit_log` no tiene grant de insert para la aplicación —se lee, no se
+   escribe— así que el cliente no podría registrarlo ni queriendo.
+2. El `actor_id` lo fija la función con `auth.uid()`, no el payload. Un registro
+   de auditoría donde el actor lo declara el propio actor no sirve como
+   evidencia.
+
+Como saltea RLS, verifica `settings.write` en la primera línea. Una tienda
+inexistente y una ajena dan el **mismo** error: un mensaje distinto para cada caso
+le confirmaría a un tercero qué ids de tienda existen.
+
+**Merge de primer nivel, no reemplazo ni merge profundo**
+El Admin manda sólo la sección que editó —`{"currency": ...}` o `{"payments":
+...}`— y la función hace `settings || p_settings`. Con reemplazo completo, guardar
+los medios de pago borraría la configuración de moneda sin que nada lo diga. Con
+merge profundo sería imposible borrar una clave. Dentro de una sección sí
+reemplaza, y es lo correcto: el formulario que la edita la conoce entera.
+
+Dos operadores tocando la misma sección a la vez: gana el último. Aceptado para un
+comercio con un operador; si deja de serlo, se resuelve con una versión optimista.
+
+Del lado de la interfaz, la firma de `actualizarTasa` —que devuelve la
+configuración y su entrada de auditoría **juntas**— hace que no se pueda guardar
+una sin obtener la otra. La regla vive en un solo lugar, no repetida en un
+esquema del formulario que podría divergir.
+
+---
+
+## ADR-070 — TanStack Table entra en el listado de productos, y sólo ahí
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+ADR-060 dejó escrito que la tabla se adopta cuando aparezca selección múltiple,
+orden por columna o virtualización. Apareció la primera, con las acciones en lote.
+
+Se usa **sólo para modelar filas y selección**: `manualPagination` y
+`manualFiltering`, porque la búsqueda, el filtro y la paginación siguen siendo del
+servidor (ADR-024). Traer el catálogo al browser para que la tabla lo ordene sería
+exactamente lo que esa decisión prohíbe. El listado de pedidos no se migró: no lo
+necesita.
+
+**Versión 8, pineada.** La última es 9.2.3, pero la 9.0.0 salió el 2026-08-04 y
+en veinticuatro días lleva seis publicaciones; la 8.21.3 es de abril de 2025 y es
+la línea que documenta el resto del ecosistema. Se revisa cuando la 9 se asiente.
+
+Tiene un costo declarado: el compilador de React **no memoiza** esa pantalla,
+porque `useReactTable` devuelve funciones que no se pueden memoizar sin arriesgar
+interfaz vieja. El lint lo avisa, el aviso queda y el comentario del archivo lo
+explica. Con veinte filas por página no se nota; si alguna vez se notara, la
+salida es virtualizar.
+
+La selección se limpia al cambiar de página, de búsqueda o de filtro: actuar sobre
+filas que ya no están a la vista es la forma de archivar veinte productos sin
+querer. Y el update en lote lleva `store_id` en el `where` además de los ids: los
+ids llegan del browser, así que el filtro por tienda no es decoración.
+
+---
+
+## ADR-071 — Cada pantalla del Admin es su propio chunk
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+El bundle pasaba los 500 KB en un solo archivo (backlog #32). Con cinco pantallas
+más, dividir dejó de ser opcional.
+
+Se usa `React.lazy` con un solo `<Suspense>` alrededor del `<Outlet/>`, y no
+`lazyRouteComponent` del router, por una razón concreta: dos pantallas reciben
+props del parámetro de la ruta y el componente de ruta no las recibe. Un
+mecanismo para todas es más fácil de seguir que dos. Las rutas siguen declaradas
+en código: son once, y el router por archivos añade un paso de build y un archivo
+generado al repositorio.
+
+Medido: la primera carga pasó de **714 KB en un chunk a ~561 KB** repartidos entre
+el runtime y la cáscara, y lo pesado —el formulario de producto, el importador,
+los esquemas de Zod, la tabla— sólo baja cuando se visita. Los 561 KB restantes
+son React, el router, TanStack Query y el cliente de Supabase, que la cáscara
+necesita para dibujar el encabezado y resolver la sesión. Bajar de ahí ya no es
+dividir, es cambiar de dependencias.
+
+---
+
+## ADR-072 — La URL no define qué tenant ve el Admin
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+Registrado como pendiente en el backlog: si `admin.estilosport.com.py` debería
+mostrar sólo Estilo Sport. **Decisión: no**, y no hay nada que implementar.
+
+ADR-062 fijó que el Admin es una sola aplicación en un solo dominio, compartida
+por todos los comercios; el storefront es el que tiene dominio propio por cliente.
+Acotar por URL exigiría un despliegue de Admin por dominio, que es justamente lo
+que ADR-062 descartó.
+
+El aislamiento de datos no depende de esto y nunca dependió: lo da RLS. Lo único
+que cambia es la comodidad de quien administra varios comercios, y para eso está
+el selector de tienda, que además ahora decide qué puede hacer la persona —una
+misma cuenta puede ser propietaria de un comercio y sólo lectura de otro—.
+
+Se revisa si alguna vez hay un Admin con marca blanca, que es un producto distinto.
+
+---
+
+## ADR-073 — Preguntar «mis membresías» no es lo mismo que confiar en RLS
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+`membresiasDe` consultaba `memberships` **sin filtrar por usuario**, con un
+comentario que decía que RLS ya lo hacía. No lo hace: `memberships_lectura` acota
+por organización —`tenant_id in (select app.current_tenants())`— porque un
+miembro tiene que poder ver a su equipo. La consulta devolvía una fila por cada
+compañero, y el mapeo le estampaba a todas el id del usuario actual con el rol
+ajeno.
+
+Quedó latente tres fases porque nadie consumía el rol. Al cablear el gating de la
+interfaz apareció enseguida: el Admin le mostraba a un `viewer` los controles de
+un `owner`, porque tomaba la primera fila de su organización. La base rechazó
+cada operación igual —esa capa nunca dependió de acá— pero la pantalla mentía
+sobre lo que la persona podía hacer.
+
+La corrección es un `.eq('user_id', ...)`, y la lección es la del comentario que
+lo justificaba mal: **RLS responde «qué filas puedo ver», no «cuál es la mía»**.
+Confiar en una política para acotar algo que no acota es un error que no se nota
+hasta que alguien lee el resultado. El test de PGlite fija el comportamiento de la
+política —un viewer ve el rol de los owners de su organización— para que el
+motivo del filtro no se vuelva a perder.
+
+Vale también al revés: el gating del frontend es cortesía, no seguridad. Se
+comprobó con tres usuarios reales —owner, staff y viewer— que la base rechaza
+igual lo que la interfaz oculta.
+
+---
+
+## ADR-074 — Dominios alternativos: alias con un canónico
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+`stores.domain` admite un solo dominio, así que un comercio con `.com` y `.com.py`
+necesitaría dos tiendas — y dos catálogos, y dos listas de pedidos (backlog #35).
+
+El modelo queda decidido: una tabla `store_domains (domain primary key, tenant_id,
+store_id)` con los alias, y `stores.domain` sigue siendo el canónico. Un alias
+responde con un 301 al canónico; nunca sirve contenido. Así el tenant se sigue
+resolviendo por un solo dominio, el SEO no se parte en dos —que es el problema
+real de servir el mismo catálogo en dos direcciones— y `catalog_search` no cambia.
+
+**La implementación se difiere hasta el primer caso real.** Hoy no hay ningún
+comercio con dos dominios, y la tabla vacía sólo agregaría una consulta al camino
+de resolución de tenant, que es el más caliente del storefront.

@@ -249,32 +249,38 @@ Objetivo: convertir catálogo en pedidos reales.
 
 ## Fase 6 — Admin v1
 
-**Avance: 0%**
+**Avance: 100%**
 
 Objetivo: operación diaria sin tocar base de datos.
 
-- [ ] Dashboard Resumen.
-- [ ] Productos.
-- [ ] Pedidos.
-- [ ] Clientes.
-- [ ] Promociones básicas.
-- [ ] CMS/Banners.
-- [ ] Equipo.
-- [ ] Roles predeterminados.
-- [ ] Configuración.
-- [ ] Configuración de métodos de pago habilitados.
-- [ ] Configuración de moneda/tipo de cambio.
-- [ ] Integraciones.
-- [ ] Analytics básico.
-- [ ] Búsqueda/filtros.
-- [ ] Bulk actions prioritarias.
-- [ ] Estados de loading/error/empty.
-- [ ] Responsive razonable para tablet/desktop.
+- [x] Dashboard Resumen. Ventas, pedidos, ticket promedio, desglose por estado, lo más vendido y últimos pedidos, por período.
+- [x] Productos.
+- [x] Pedidos.
+- [x] Clientes. Listado paginado con agregados de compra y ficha con sus pedidos.
+- [-] Promociones básicas. Diferido a Fase 9: lo desbloquea el `Promotion model`, que es de esa fase.
+- [-] CMS/Banners. Diferido a Fase 9, por lo mismo: la fase se llama «Promotions y CMS v1».
+- [x] Equipo. Ver miembros, cambiar rol y quitar. El alta sigue por `pnpm admin:crear` (ADR-068).
+- [x] Roles predeterminados. Cableados en la interfaz con `usePuede`; RLS sigue siendo la autorización.
+- [x] Configuración.
+- [x] Configuración de métodos de pago habilitados.
+- [x] Configuración de moneda/tipo de cambio. Con auditoría en la misma transacción (ADR-069).
+- [-] Integraciones. Diferido a Fase 7/8: lo desbloquea el primer provider real. Hoy no hay ninguno que listar.
+- [x] Analytics básico. Derivado de los pedidos; el seguimiento de eventos es Fase 10 (ADR-067).
+- [x] Búsqueda/filtros.
+- [x] Bulk actions prioritarias. Selección múltiple y archivar/desarchivar en lote (ADR-070).
+- [x] Estados de loading/error/empty.
+- [x] Responsive razonable para tablet/desktop.
+
+**Fuera de esta fase**
+
+- invitaciones por correo desde la interfaz (exige superficie de servidor propia del Admin)
+- edición de datos del cliente y export CSV de clientes
+- e2e de Playwright del Admin
 
 **Definition of Done**
 
 - operador puede administrar catálogo y pedidos sin herramientas técnicas
-- superadmin puede provisionar tenant manualmente
+- superadmin puede provisionar tenant manualmente — `pnpm tienda:crear`, con runbook en INFRAESTRUCTURA.md
 
 ---
 
@@ -674,9 +680,9 @@ Estas líneas de trabajo pueden avanzar independientemente cuando exista acceso 
 | 2026-08-27 | `STOREFRONT_DOMAIN` quedaba horneado en el bundle y `deploy` no reconstruía                    | Cargarla en el Worker no hacía nada. El segundo comercio habría servido el catálogo del primero, y desde Fase 5 le habría escrito los pedidos en el tenant equivocado                                                                                                                      | Pasa a leerse en runtime; `deploy` construye siempre. ADR-052 corregido                                                                                                                                                                                               | Fase 5       | Resuelto  |
 | 2026-08-27 | Guardar stock en una tienda sin sucursal se descartaba en silencio                             | El Admin mostraba éxito y el producto quedaba invendible; en un import de 500 filas, las 500 decían ok                                                                                                                                                                                     | La función falla nombrando la causa. Lo destapó un test existente que dependía del descarte                                                                                                                                                                           | Fase 5       | Resuelto  |
 | 2026-08-27 | ADR-052 nombraba `assertCan`/`assertSameTenant` como la defensa del camino secret-key          | No tienen un solo llamador fuera de sus tests: quien escribiera el checkout asumiría una guarda inexistente                                                                                                                                                                                | ADR-052 corregido con lo que defiende de verdad y con lo que eso le exige a Fase 5                                                                                                                                                                                    | Fase 5       | Resuelto  |
-| 2026-08-27 | Correr `pnpm e2e` en local deja pedidos de prueba en el proyecto de desarrollo                 | El seed restituye el catálogo pero no borra pedidos, así que el Admin se llena de basura entre corridas. En CI no pasa: la base es efímera                                                                                                                                                 | Limpiarlos en el teardown, o un `pnpm db:limpiar` aparte del seed                                                                                                                                                                                                     | Fase 6       | Pendiente |
+| 2026-08-27 | Correr `pnpm e2e` en local deja pedidos de prueba en el proyecto de desarrollo                 | El seed restituye el catálogo pero no borra pedidos, así que el Admin se llena de basura entre corridas. En CI no pasa: la base es efímera                                                                                                                                                 | El teardown borra los pedidos cuyo correo termina en `@e2e.test`, en un subproceso: hecho en el mismo proceso, el cliente de Supabase dejaba sockets abiertos y Node en Windows moría con una aserción de libuv, devolviendo error con todo en verde                  | Fase 6       | Resuelto  |
 | 2026-08-27 | Un producto cuyas variantes no declaran atributos quedaba invendible                           | El Admin permite crearlo, el catálogo devolvía su stock correctamente y el PDP igual mostraba «Sin stock»: sin atributos no había opciones, la selección quedaba vacía y no resolvía ninguna variante. Ninguna variante del seed tiene atributos vacíos, así que el caso nunca se ejercitó | Sin atributos, la dimensión por la que se elige es la variante misma, y su título es el valor. Cinco tests que fallan sin el arreglo                                                                                                                                  | Fase 5       | Resuelto  |
-| 2026-08-27 | La guarda contra el doble submit del checkout no se puede verificar desde afuera               | Cuándo se libera depende de si la respuesta llega antes que el segundo click: contra una base local pasa, contra una remota no. Un test sobre eso pasa por latencia, no por corrección                                                                                                     | El e2e afirma la garantía —un solo pedido— en vez de la carrera. La guarda queda como endurecimiento, sin test propio                                                                                                                                                 | Fase 6       | Pendiente |
+| 2026-08-27 | La guarda contra el doble submit del checkout no se puede verificar desde afuera               | Cuándo se libera depende de si la respuesta llega antes que el segundo click: contra una base local pasa, contra una remota no. Un test sobre eso pasa por latencia, no por corrección                                                                                                     | Cerrado con la justificación registrada: el e2e afirma la garantía —un solo pedido— y la guarda queda como endurecimiento, sin test propio                                                                                                                            | Fase 6       | Resuelto  |
 | 2026-08-27 | El carrito no valida lo que lee de `localStorage`, y toda excepción se ve como «carrito vacío» | Con la forma vieja de `CartLine`, el día del deploy de Fase 5 cada cliente con carrito guardado lo ve vacío mientras el badge dice que tiene ítems                                                                                                                                         | Parse validador + versión de la clave, al reemplazar el store en T2                                                                                                                                                                                                   | Fase 5       | Pendiente |
 | 2026-08-27 | Dos pestañas: la segunda pisa el carrito de la primera                                         | Caché de módulo que no relee y `persist` que escribe el array entero. El cliente pierde ítems sin ninguna señal                                                                                                                                                                            | Releer al escribir y escuchar `storage`, en T2                                                                                                                                                                                                                        | Fase 5       | Pendiente |
 | 2026-08-27 | El carrito no tiene tope de cantidad: 44 unidades de un producto con 4 en stock                | `CartLine` no lleva `available` y `CartContents` monta el selector sin `max`                                                                                                                                                                                                               | `available` en la línea, en T2                                                                                                                                                                                                                                        | Fase 5       | Pendiente |
@@ -689,10 +695,15 @@ Estas líneas de trabajo pueden avanzar independientemente cuando exista acceso 
 | 2026-08-26 | El deploy necesita los secretos del Worker cargados a mano                                     | Sin ellos el storefront responde 500 sin cuerpo, y nada dice qué falta                                                                                                                                                                                                                     | Cargados en `pick-commerce`. Además el sitio ahora responde 503 nombrando las variables ausentes                                                                                                                                                                      | Fase 4       | Resuelto  |
 | 2026-08-26 | El script de deploy apuntaba a `dist/client/wrangler.json`, que el build ya no emite           | El deploy fallaba antes de empezar                                                                                                                                                                                                                                                         | Corregido a `dist/server/wrangler.json`, verificado con `--dry-run` sobre el script real                                                                                                                                                                              | Fase 4       | Resuelto  |
 | 2026-08-26 | El Admin escribe el stock en la primera sucursal de la tienda                                  | Con más de un depósito, el ajuste va al que no es                                                                                                                                                                                                                                          | Selector de sucursal en el formulario                                                                                                                                                                                                                                 | Fase 8       | Pendiente |
-| 2026-08-26 | El bundle del Admin pasa los 500 KB en un solo chunk                                           | Sólo afecta la primera carga de una app detrás de login                                                                                                                                                                                                                                    | Dividir por ruta si la primera carga molesta                                                                                                                                                                                                                          | Fase 6       | Pendiente |
+| 2026-08-26 | El bundle del Admin pasa los 500 KB en un solo chunk                                           | Sólo afecta la primera carga de una app detrás de login                                                                                                                                                                                                                                    | Una pantalla por chunk con `React.lazy`. La primera carga pasó de 714 KB a ~561 KB, y lo pesado sólo baja al visitarse. ADR-071                                                                                                                                       | Fase 6       | Resuelto  |
 | 2026-08-26 | El `site` del storefront apuntaba a un dominio inexistente                                     | Canonical, og:url, JSON-LD y sitemap anunciaban una dirección que no resuelve, anulando el SEO y el GEO de Fase 2                                                                                                                                                                          | Corregido a la URL real del Worker; `SITE_URL` acepta el dominio sin esquema                                                                                                                                                                                          | Fase 4       | Resuelto  |
-| 2026-08-26 | El Admin no acota por el dominio desde el que se entra                                         | Sólo se nota cuando una misma persona administra varios comercios: el branding dice uno y el selector muestra todos. El aislamiento de datos no depende de esto, lo da RLS                                                                                                                 | Decidir si la URL define el tenant visible                                                                                                                                                                                                                            | Fase 6       | Pendiente |
-| 2026-08-26 | `stores.domain` admite un solo dominio por tienda                                              | Un comercio con `.com` y `.com.py` necesitaría dos tiendas                                                                                                                                                                                                                                 | Modelar dominios alternativos con uno canónico                                                                                                                                                                                                                        | Fase 6       | Pendiente |
+| 2026-08-26 | El Admin no acota por el dominio desde el que se entra                                         | Sólo se nota cuando una misma persona administra varios comercios: el branding dice uno y el selector muestra todos. El aislamiento de datos no depende de esto, lo da RLS                                                                                                                 | Decidido que no: el Admin es una sola aplicación en un dominio compartido (ADR-062), el aislamiento lo da RLS y el selector resuelve la comodidad. ADR-072                                                                                                            | Fase 6       | Resuelto  |
+| 2026-08-26 | `stores.domain` admite un solo dominio por tienda                                              | Un comercio con `.com` y `.com.py` necesitaría dos tiendas                                                                                                                                                                                                                                 | Modelo decidido —tabla `store_domains` de alias con 301 al canónico— e implementación diferida al primer caso real. ADR-074                                                                                                                                           | Fase 6       | Resuelto  |
+| 2026-08-28 | `membresiasDe` devolvía las membresías de todo el equipo con el rol ajeno                      | La consulta no filtraba por usuario porque un comentario afirmaba que RLS lo hacía; RLS acota por organización, no por persona. Latente tres fases: apareció al cablear el gating, cuando el Admin le mostró a un `viewer` los controles de un `owner`. La base rechazó todo igual         | Filtrado por `user_id`, con un test de PGlite que fija el comportamiento de la política para que el motivo no se pierda. ADR-073                                                                                                                                      | Fase 6       | Resuelto  |
+| 2026-08-28 | La guarda del último owner impedía dar de baja una organización                                | Reproducido: `delete from organizations` cascadea a `memberships` y disparaba el trigger, que fallaba diciendo que faltaba un propietario cuando la organización se estaba yendo. Offboarding de un cliente imposible                                                                      | El trigger se saltea si la organización ya no existe, que es el orden que garantiza Postgres en una cascada. Test de los dos lados. ADR-068                                                                                                                           | Fase 6       | Resuelto  |
+| 2026-08-28 | Dos tests de e2e clicaban islands antes de que hidrataran                                      | Fallo intermitente que parecía de la aplicación: el botón existe, el click no hace nada y el drawer nunca abre. Aparece o no según lo cargada que esté la máquina, así que en CI sería ruido rojo sin causa                                                                                | Esperar a que no queden `astro-island[ssr]`, que es la señal que da Astro al terminar de hidratar. Tres corridas seguidas en verde                                                                                                                                    | Fase 6       | Resuelto  |
+| 2026-08-28 | El compilador de React no memoiza el listado de productos                                      | TanStack Table devuelve funciones que no se pueden memoizar sin arriesgar interfaz vieja, así que el compilador saltea el componente entero. Con veinte filas no se nota                                                                                                                   | Aceptado y anotado en el archivo; el lint lo avisa en cada corrida. Si alguna vez pesa, la salida es virtualizar                                                                                                                                                      | Fase 8       | Pendiente |
+| 2026-08-28 | El Admin no tiene e2e propio                                                                   | Las pantallas se validan con unitarios, PGlite, typecheck y un recorrido manual con tres roles. Un cambio que rompa el gating o un formulario no lo detecta nadie automáticamente                                                                                                          | Evaluar un smoke de Playwright del Admin cuando aparezcan flujos de dinero en él                                                                                                                                                                                      | Fase 7       | Pendiente |
 
 Ejemplos de hallazgos:
 
@@ -737,6 +748,9 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-27 | Revisión adversarial: cerrado el agujero cross-tenant de las claves foráneas, el `EXECUTE` de `anon` y el dominio horneado en el build                                                  | Fase 5 |           0% |           100% |
 | 2026-08-27 | Fase 5 T1: schema de pedidos y `create_order` idempotente con revalidación y descuento de stock                                                                                         | Fase 5 |          35% |           100% |
 | 2026-08-27 | Fase 5 T2 y T3: cart service, checkout, confirmación y vista de pedidos del Admin                                                                                                       | Fase 5 |         100% |           100% |
+| 2026-08-28 | Fase 6 T1: `admin_dashboard`, `admin_customers`, `admin_team` y `admin_save_settings`, con el invariante del último owner en un trigger                                                 | Fase 6 |           0% |            40% |
+| 2026-08-28 | Fase 6 T2 y T3: resumen, clientes, equipo y configuración, con gating por rol y una pantalla por chunk                                                                                  | Fase 6 |          40% |            85% |
+| 2026-08-28 | Fase 6 cerrada: acciones en lote con TanStack Table, provisionamiento por CLI y limpieza de los pedidos que dejaba el e2e                                                               | Fase 6 |          85% |           100% |
 
 ---
 
@@ -761,7 +775,7 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 - [x] Definir loading/pending/error/success states para acciones asíncronas. En Add to Cart y en el login del Admin.
 - [x] Add to Cart con feedback inmediato y prevención de doble submit. El bloqueo va con un ref, no con estado: dos clicks en el mismo tick pasarían ambos.
 - [x] PLP filters sin full page reload. ClientRouter acotado a la PLP (ADR-042).
-- [x] Skeletons para grid/listas relevantes. Filas skeleton en la tabla del Admin; en la PLP, `aria-busy` y atenuado mientras el router trae la página — no placeholders, porque la ruta es on-demand y el HTML ya llega con productos.
+- [x] Skeletons para grid/listas relevantes. Filas skeleton en las tablas del Admin y bloques en el resumen y la configuración; en la PLP, `aria-busy` y atenuado mientras el router trae la página — no placeholders, porque la ruta es on-demand y el HTML ya llega con productos.
 - [x] Focus states y keyboard accessibility. `focus-visible` en todo lo accionable; verificado con Playwright.
 - [x] Pointer/cursor para elementos accionables.
 - [x] Mobile UX revisada en Storefront y Admin. Playwright corre todo el smoke también en viewport mobile.
@@ -769,16 +783,16 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 
 ## Data loading / Pagination
 
-**Avance: 62%**
+**Avance: 75%**
 
 - [x] Paginación PLP. Con ventana de páginas y `rel=prev/next`.
 - [x] Server-side filters/sort. Ruta on-demand; nunca se filtra en el browser (ADR-024).
 - [x] Paginación Admin Products. En el servidor, con búsqueda por título, marca y SKU.
 - [x] Paginación Admin Orders. En el servidor, con búsqueda por número, nombre, correo y teléfono, y filtro por estado.
-- [ ] Paginación Admin Customers.
+- [x] Paginación Admin Customers. En el servidor, con búsqueda por nombre, correo y teléfono.
 - [ ] Paginación Promotions/Discounts.
 - [ ] Paginación Audit/Sync logs.
-- [x] Evitar fetch de datasets completos. En el storefront y en las dos listas del Admin.
+- [x] Evitar fetch de datasets completos. En el storefront y en las tres listas del Admin.
 
 ## PLP Facets
 
@@ -799,7 +813,7 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 
 ## Multi-currency
 
-**Avance: 45%**
+**Avance: 78%**
 
 - [x] Moneda base.
 - [x] Monedas de display.
@@ -807,7 +821,7 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 - [x] Tipo de cambio manual.
 - [x] Audit del cambio. `actualizarTasa` devuelve la configuración y su entrada de auditoría juntas: no se puede cambiar la tasa sin obtener qué auditar.
 - [x] Regla de redondeo.
-- [ ] UI Admin.
+- [x] UI Admin. Tipo de cambio manual con su fecha, quién lo cambió y auditoría en la misma transacción.
 - [ ] Product/PDP price display.
 - [ ] Compatibilidad ERP/gateway documentada.
 

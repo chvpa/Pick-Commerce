@@ -15,4 +15,20 @@ export default function teardown(): void {
    * una línea; dejar una credencial que saltea RLS tirada, no.
    */
   rmSync('apps/demo/dist/server/.dev.vars', { force: true });
+
+  /*
+   * Los pedidos que la corrida dejó en el proyecto de desarrollo.
+   *
+   * En un proceso aparte y no acá: el cliente de Supabase deja sockets abiertos
+   * con keep-alive, y al salir Playwright justo después, Node en Windows se
+   * caía con una aserción de libuv. La corrida terminaba en verde y el comando
+   * devolvía error igual, de forma intermitente —tres corridas idénticas dieron
+   * 127, 127 y 0—. Es exactamente la clase de fallo que enrojece el CI sin que
+   * nada esté roto.
+   */
+  try {
+    execSync('node scripts/limpiar-e2e.ts', { stdio: 'inherit' });
+  } catch {
+    // Sin credenciales, o con la red caída. No es motivo para tumbar la corrida.
+  }
 }

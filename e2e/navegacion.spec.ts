@@ -43,6 +43,24 @@ function problemasDe(page: unknown): string[] {
   return (page as { problemas: string[] }).problemas;
 }
 
+/**
+ * Espera a que las islands de la página estén vivas.
+ *
+ * Sin esto, Playwright clica el HTML que llegó del servidor antes de que Preact
+ * le haya puesto los manejadores, y el click se pierde sin dejar rastro: la
+ * página se ve bien, el botón existe, y no pasa nada. Da un fallo que parece de
+ * la aplicación y es de la prueba, y aparece o no según lo cargada que esté la
+ * máquina — que es la peor clase de intermitencia.
+ *
+ * `astro-island[ssr]` es la señal que da el propio Astro: el atributo lo pone al
+ * renderizar en el servidor y lo quita al terminar de hidratar
+ * (`astro-island.prebuilt.js`, `removeAttribute("ssr")`). Esperar eso es esperar
+ * el hecho, no un tiempo arbitrario.
+ */
+async function hidratada(page: import('@playwright/test').Page) {
+  await expect(page.locator('astro-island[ssr]')).toHaveCount(0);
+}
+
 test('Home → PLP → PDP y vuelta, sin errores', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /ropa técnica/i })).toBeVisible();
@@ -109,6 +127,7 @@ test('los filtros funcionan sin JavaScript', async ({ browser }) => {
 
 test('agregar al carrito abre el drawer y persiste al navegar', async ({ page }) => {
   await page.goto('/productos/campera-cortaviento');
+  await hidratada(page);
 
   await page.getByRole('button', { name: 'Agregar al carrito' }).click();
 
@@ -131,6 +150,7 @@ test('agregar al carrito abre el drawer y persiste al navegar', async ({ page })
 
 test('cambiar de variante actualiza precio y stock', async ({ page }) => {
   await page.goto('/productos/campera-cortaviento');
+  await hidratada(page);
 
   await expect(page.getByText('Gs. 389.000')).toBeVisible();
 

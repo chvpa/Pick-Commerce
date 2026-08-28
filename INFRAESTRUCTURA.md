@@ -329,6 +329,43 @@ saber que un test sirve.
 Que cada comercio tenga su dominio no aporta nada al aislamiento: el aislamiento
 lo da la base, no la URL. Eso es ADR-062.
 
+### Dar de alta un comercio nuevo
+
+Los cuatro primeros pasos de PROJECT.md §6 —los que viven en la base— los hace un
+comando. El resto es infraestructura y sigue siendo manual, porque hoy son cuatro
+clicks por cliente y automatizarlo entero es P-005.
+
+```bash
+# 1. Organización, tienda, sucursal «Casa matriz» y configuración por defecto.
+#    Idempotente por slug: repetirlo corrige el nombre o el dominio.
+pnpm tienda:crear estilosport 'Estilo Sport' estilosport.com.py PYG es-PY
+
+# 2. El propietario. Sin el slug de la organización, el usuario entra a la demo.
+pnpm admin:crear duenio@estilosport.com.py 'una-contraseña-larga' owner estilosport
+```
+
+La tienda nace pudiendo vender: transferencia bancaria habilitada y sin
+conversión de moneda. Lo que le falta es catálogo, que se carga desde el Admin o
+por CSV.
+
+Después, en Cloudflare: un proyecto de Workers Builds para el storefront de ese
+comercio, con `SUPABASE_URL` y `SUPABASE_SECRET_KEY` como **secretos de runtime**
+y `STOREFRONT_DOMAIN` con el dominio que se acaba de registrar —esa variable
+también se lee en runtime desde que ADR-052 se corrigió—. El dominio se conecta
+al Worker desde el panel. El Admin **no** se despliega por cliente: es uno solo
+para todos (ADR-062, ADR-072).
+
+Tres cosas que conviene saber antes de necesitarlas:
+
+- El dominio de `stores.domain` tiene que coincidir exactamente con el
+  `STOREFRONT_DOMAIN` del Worker. Si no coinciden, el storefront no resuelve el
+  tenant y responde 503 nombrando lo que falta.
+- Una organización no puede quedarse sin propietario: un trigger lo impide por
+  todos los caminos, incluida la secret key. Bajarle el rol al único owner con
+  `pnpm admin:crear ... staff` falla, y el mensaje dice por qué.
+- Dar de baja la organización sí borra todo en cascada, y eso el trigger no lo
+  frena (ADR-068).
+
 ---
 
 ## 7. El recorrido de un cambio
@@ -381,8 +418,12 @@ pegan directo contra la base real y no esperan a ningún push.
 
 ## 10. Lo que hoy no está resuelto
 
-- **El Admin no está desplegado.** El Worker `pick-admin` está configurado pero
-  nunca se publicó.
+- **El Admin se despliega a mano.** Está en línea en
+  `pick-admin.chvpa-contacto.workers.dev`, pero no tiene proyecto de Workers
+  Builds: cada cambio necesita `pnpm --filter @pick/admin run deploy`. Para
+  automatizarlo hace falta un segundo proyecto con `VITE_SUPABASE_URL` y
+  `VITE_SUPABASE_PUBLISHABLE_KEY` como variables de **build**, porque el Admin
+  las hornea al construir.
 - **El CI no bloquea el deploy** (§4).
 - **Nadie mira si el sitio se cayó.** No hay alerta: si el Worker empieza a
   responder 503, te enterás entrando.

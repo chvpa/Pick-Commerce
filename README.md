@@ -6,10 +6,11 @@ resuelven con presets, feature flags, atributos y adapters.
 
 ## Estado
 
-Fases 0 a 5 cerradas: monorepo y CI, design system, storefront con PLP facetada
+Fases 0 a 6 cerradas: monorepo y CI, design system, storefront con PLP facetada
 server-side y SEO, multitenancy con RLS aplicado a Supabase, catálogo en Postgres
-con CRUD e import/export en el Admin, y pedidos con checkout guest e idempotencia.
-**Fase 6 (Admin v1) es la siguiente.**
+con CRUD e import/export en el Admin, pedidos con checkout guest e idempotencia, y
+un Admin con resumen, clientes, equipo, configuración y acciones en lote.
+**Fase 7 (Payment + Email) es la siguiente.**
 
 El avance detallado está en [ROADMAP.md](ROADMAP.md), que es la fuente de verdad.
 

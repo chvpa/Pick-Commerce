@@ -6,7 +6,7 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-**Fases 0 a 5 cerradas. Fase 6 (Admin v1) es la siguiente.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+**Fases 0 a 6 cerradas. Fase 7 (Payment + Email) es la siguiente.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
@@ -15,6 +15,8 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 - **Fase 4** — catálogo en Postgres: storefront on-demand, CRUD en el Admin e import/export CSV.
 - **Fase 5** — pedidos: cart service, checkout guest, `create_order` idempotente
   que revalida y descuenta stock, y vista de pedidos en el Admin.
+- **Fase 6** — Admin v1: resumen derivado de los pedidos, clientes, equipo,
+  configuración de pagos y moneda, acciones en lote y gating por rol.
 
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,
@@ -50,7 +52,8 @@ pnpm db:new <n>     # nueva migración; ver supabase/migrations/README.md
 pnpm db:apply <sql> # aplica una migración al proyecto remoto
 pnpm db:types       # regenera los tipos desde el schema remoto
 pnpm seed           # siembra el catálogo de demostración; idempotente
-pnpm admin:crear <email> <password>   # usuario del Admin con acceso a la demo
+pnpm tienda:crear <slug> <nombre>      # provisiona organización, tienda, sucursal y settings
+pnpm admin:crear <email> <password> [rol] [org]   # usuario del Admin; sin org, la demo
 ```
 
 Deploy: `pnpm --filter <app> run deploy`. El `run` **no es opcional** — `deploy` es un comando built-in de pnpm y sin `run` nunca llega al script del paquete.
