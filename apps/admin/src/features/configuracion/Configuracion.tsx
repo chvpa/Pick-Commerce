@@ -83,15 +83,15 @@ export function Configuracion() {
   }
 
   const guardado: Guardado = {
-    guardar: (parcial, auditoria) => mutacion.mutate({ parcial, ...(auditoria ? { auditoria } : {}) }),
+    guardar: (parcial, auditoria) =>
+      mutacion.mutate({ parcial, ...(auditoria ? { auditoria } : {}) }),
     guardando: mutacion.isPending,
   };
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-lg font-semibold">Configuración</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
+        <p className="text-muted-foreground text-sm">
           Cómo cobra y en qué moneda opera {tienda.name}.
         </p>
       </div>

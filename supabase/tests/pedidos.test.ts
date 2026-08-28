@@ -591,3 +591,124 @@ test('el rol anónimo no puede crear un pedido', async () => {
   );
   assert.equal(r.ok, false, 'anon pudo invocar create_order');
 });
+
+test('buscar el número con almohadilla encuentra el pedido', async () => {
+  // La tabla del Admin muestra «#1001», así que es lo que se escribe al buscar
+  // el pedido que se está mirando. Antes daba cero resultados, y eso se lee como
+  // «el buscador no anda» — que fue exactamente lo que pasó.
+  const r = await comoAdmin<{ j: { items: { number: number }[] } }>(
+    db,
+    DUENO,
+    `select admin_orders(${sql(TIENDA)}::uuid, '#1001', null, 1, 20) as j`,
+  );
+  assert.deepEqual(
+    r[0]!.j.items.map((i) => i.number),
+    [1001],
+    'buscar con almohadilla no encuentra el pedido',
+  );
+});
+
+test('buscar el número sin almohadilla sigue funcionando', async () => {
+  const r = await comoAdmin<{ j: { items: { number: number }[] } }>(
+    db,
+    DUENO,
+    `select admin_orders(${sql(TIENDA)}::uuid, '1001', null, 1, 20) as j`,
+  );
+  assert.deepEqual(
+    r[0]!.j.items.map((i) => i.number),
+    [1001],
+  );
+});
+
+// --- Estado de pago ------------------------------------------------------------
+
+test('marcar pagado cambia el estado y queda en la timeline', async () => {
+  const o = pedido(await crear([{ variantId: V_REMERA, quantity: 1 }]));
+  assert.equal(o.paymentStatus, 'pending', 'un pedido nuevo no nace pendiente');
+
+  const r = await comoAdmin<{ j: Pedido }>(
+    db,
+    DUENO,
+    `select admin_set_payment_status(${sql(TIENDA)}::uuid, ${sql(o.id)}::uuid, 'paid', 'Comprobante por WhatsApp') as j`,
+  );
+  assert.equal(r[0]!.j.paymentStatus, 'paid');
+
+  const eventos = await db.query<{
+    type: string;
+    data: { from: string; to: string; note: string };
+  }>(`select type, data from order_events where order_id = $1 and type = 'payment_changed'`, [
+    o.id,
+  ]);
+  assert.equal(eventos.rows.length, 1, 'no registró el cambio en la timeline');
+  assert.equal(eventos.rows[0]!.data.from, 'pending');
+  assert.equal(eventos.rows[0]!.data.to, 'paid');
+  assert.equal(eventos.rows[0]!.data.note, 'Comprobante por WhatsApp');
+});
+
+test('volver a marcar lo mismo no ensucia la timeline', async () => {
+  const o = pedido(await crear([{ variantId: V_REMERA, quantity: 1 }]));
+  await comoAdmin(
+    db,
+    DUENO,
+    `select admin_set_payment_status(${sql(TIENDA)}::uuid, ${sql(o.id)}::uuid, 'paid')`,
+  );
+  await comoAdmin(
+    db,
+    DUENO,
+    `select admin_set_payment_status(${sql(TIENDA)}::uuid, ${sql(o.id)}::uuid, 'paid')`,
+  );
+
+  const n = await db.query<{ n: number }>(
+    `select count(*)::int as n from order_events where order_id = $1 and type = 'payment_changed'`,
+    [o.id],
+  );
+  assert.equal(n.rows[0]!.n, 1, 'registró dos veces el mismo cambio');
+});
+
+test('un pedido cancelado no cambia su estado de pago', async () => {
+  // Devolver plata es un refund, y los refunds están fuera del core (ADR-008).
+  // Marcarlo pagado acá sólo produciría una contabilidad que no coincide con nada.
+  const o = pedido(await crear([{ variantId: V_REMERA, quantity: 1 }]));
+  await comoAdmin(
+    db,
+    DUENO,
+    `select admin_set_order_status(${sql(TIENDA)}::uuid, ${sql(o.id)}::uuid, 'cancelled')`,
+  );
+
+  const r = await intentar(
+    db,
+    DUENO,
+    `select admin_set_payment_status(${sql(TIENDA)}::uuid, ${sql(o.id)}::uuid, 'paid')`,
+  );
+  assert.equal(r.ok, false, 'un pedido cancelado quedó marcado como pagado');
+  assert.match(r.error!, /cancelado/);
+});
+
+test('un viewer no puede marcar un pedido como pagado', async () => {
+  const o = pedido(await crear([{ variantId: V_REMERA, quantity: 1 }]));
+  const r = await intentar(
+    db,
+    VIEWER,
+    `select admin_set_payment_status(${sql(TIENDA)}::uuid, ${sql(o.id)}::uuid, 'paid')`,
+  );
+  assert.equal(r.ok, false, 'un viewer cobró un pedido');
+});
+
+test('un comercio no puede cobrar el pedido de otro', async () => {
+  const o = pedido(await crear([{ variantId: V_REMERA, quantity: 1 }]));
+  const r = await intentar(
+    db,
+    AJENO_USER,
+    `select admin_set_payment_status(${sql(TIENDA)}::uuid, ${sql(o.id)}::uuid, 'paid')`,
+  );
+  assert.equal(r.ok, false, 'un comercio cobró el pedido de otro');
+});
+
+test('el rol anónimo no puede marcar pagos', async () => {
+  const r = await intentar(
+    db,
+    null,
+    `select admin_set_payment_status('${TIENDA}'::uuid, '${crypto.randomUUID()}'::uuid, 'paid')`,
+  );
+  assert.equal(r.ok, false, 'anon pudo invocar admin_set_payment_status');
+});

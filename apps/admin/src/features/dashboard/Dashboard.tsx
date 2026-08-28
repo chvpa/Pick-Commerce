@@ -90,8 +90,7 @@ export function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-lg font-semibold">{tienda.name}</h1>
+      <div className="flex flex-wrap items-end justify-end gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="periodo">Período</Label>
           <select
@@ -128,10 +127,7 @@ export function Dashboard() {
                 nota="Sin los pedidos cancelados"
               />
               <Metrica titulo="Pedidos" valor={String(datos.orderCount)} />
-              <Metrica
-                titulo="Ticket promedio"
-                valor={formatMoney(datos.aov, tienda.locale)}
-              />
+              <Metrica titulo="Ticket promedio" valor={formatMoney(datos.aov, tienda.locale)} />
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">

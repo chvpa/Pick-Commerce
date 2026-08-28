@@ -9,12 +9,18 @@ import {
   type RowSelectionState,
 } from '@tanstack/react-table';
 import { repositorioAdminCatalogo } from '@pick/adapter-supabase';
-import { ETIQUETA_ESTADO, formatMoney, type ResumenProducto } from '@pick/commerce-core';
+import {
+  ETIQUETA_ESTADO,
+  formatMoney,
+  type EstadoAlternable,
+  type ResumenProducto,
+} from '@pick/commerce-core';
 import type { ProductStatus } from '@pick/commerce-types';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
   Table,
@@ -102,13 +108,16 @@ export function ListaProductos() {
 
   const invalidar = () => cliente.invalidateQueries({ queryKey: ['productos', tienda.id] });
 
-  const archivar = useMutation({
-    mutationFn: (id: string) => repositorioAdminCatalogo(db).archivar(tienda.id, id),
+  // Una fila y el lote usan la misma operación: publicar o archivar, en los dos
+  // sentidos. Dos caminos distintos para el mismo cambio se desincronizan.
+  const cambiarEstado = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: EstadoAlternable }) =>
+      repositorioAdminCatalogo(db).cambiarEstadoEnLote(tienda.id, [id], status),
     onSuccess: invalidar,
   });
 
   const enLote = useMutation({
-    mutationFn: ({ ids, status }: { ids: readonly string[]; status: 'archived' | 'draft' }) =>
+    mutationFn: ({ ids, status }: { ids: readonly string[]; status: EstadoAlternable }) =>
       repositorioAdminCatalogo(db).cambiarEstadoEnLote(tienda.id, ids, status),
     onSuccess: () => {
       setSeleccion({});
@@ -147,17 +156,28 @@ export function ListaProductos() {
           const p = row.original;
           return (
             <div className="flex items-center gap-3">
-              {p.imagen ? (
-                <img
-                  src={p.imagen}
-                  alt=""
-                  width={32}
-                  height={32}
-                  className="bg-muted size-8 rounded object-cover"
-                />
-              ) : (
-                <div className="bg-muted size-8 rounded" />
-              )}
+              {/*
+                La miniatura va dentro del recuadro gris, no en su lugar: los
+                medios del catálogo guardan rutas del storefront —`/products/x.jpg`—
+                que desde el dominio del Admin no resuelven, y el icono de imagen
+                rota deja la tabla con pinta de estar mal. Si no carga, queda el
+                recuadro. Resolver esas rutas contra el dominio de la tienda es
+                otra cosa y está anotada.
+              */}
+              <div className="bg-muted size-8 shrink-0 overflow-hidden rounded">
+                {p.imagen && (
+                  <img
+                    src={p.imagen}
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="size-8 object-cover"
+                    onError={(e) => {
+                      e.currentTarget.hidden = true;
+                    }}
+                  />
+                )}
+              </div>
               <div className="flex flex-col">
                 <Link
                   to="/productos/$id"
@@ -176,10 +196,41 @@ export function ListaProductos() {
         },
       }),
       columna.accessor('status', {
-        header: 'Estado',
-        cell: ({ getValue }) => (
-          <Badge className={cn(TONO[getValue()])}>{ETIQUETA_ESTADO[getValue()]}</Badge>
-        ),
+        header: 'En la tienda',
+        cell: ({ row, getValue }) => {
+          const estado = getValue();
+          const publicado = estado === 'active';
+          return (
+            <span className="flex items-center gap-2.5">
+              {/*
+                Un interruptor y no un botón de archivar: archivar era un camino
+                de ida —la fila dejaba de ofrecer el botón y no había forma de
+                volver desde el listado—.
+
+                Encender siempre publica, venga de donde venga, que es lo que
+                significa «habilitarlo de nuevo». Apagar archiva, con
+                confirmación porque saca el producto de la tienda. Los otros dos
+                estados no caben en un interruptor, así que se leen en la
+                etiqueta de al lado y se eligen desde el formulario.
+              */}
+              <Switch
+                checked={publicado}
+                disabled={!escribe || cambiarEstado.isPending}
+                aria-label={`${publicado ? 'Quitar de la tienda' : 'Publicar en la tienda'} ${row.original.title}`}
+                onCheckedChange={(v) => {
+                  if (v) {
+                    cambiarEstado.mutate({ id: row.original.id, status: 'active' });
+                    return;
+                  }
+                  if (confirm(`¿Archivar “${row.original.title}”? Deja de verse en la tienda.`)) {
+                    cambiarEstado.mutate({ id: row.original.id, status: 'archived' });
+                  }
+                }}
+              />
+              <Badge className={cn(TONO[estado])}>{ETIQUETA_ESTADO[estado]}</Badge>
+            </span>
+          );
+        },
       }),
       columna.accessor('variantes', {
         header: () => <span className="block text-right">Variantes</span>,
@@ -208,30 +259,8 @@ export function ListaProductos() {
           </span>
         ),
       }),
-      columna.display({
-        id: 'acciones',
-        cell: ({ row }) =>
-          row.original.status !== 'archived' && (
-            <span className="block text-right">
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={archivar.isPending}
-                onClick={() => {
-                  // Archivar saca el producto del storefront y se puede deshacer;
-                  // aun así se confirma, porque la fila de al lado es un click de
-                  // distancia.
-                  if (confirm(`¿Archivar “${row.original.title}”?`))
-                    archivar.mutate(row.original.id);
-                }}
-              >
-                Archivar
-              </Button>
-            </span>
-          ),
-      }),
     ],
-    [archivar, tienda.locale],
+    [cambiarEstado, escribe, tienda.locale],
   );
 
   const tabla = useReactTable({
@@ -341,15 +370,16 @@ export function ListaProductos() {
               size="sm"
               disabled={enLote.isPending}
               onClick={() => {
-                // A borrador y no a publicado: volver al storefront es una
-                // decisión producto por producto —precio, stock, fotos— y en
-                // lote devolvería cosas que se archivaron por algo.
-                if (confirm(`¿Pasar ${marcados.length} producto(s) a borrador?`)) {
-                  enLote.mutate({ ids: marcados.map((p) => p.id), status: 'draft' });
+                // Misma semántica que el interruptor de cada fila: publicar es
+                // publicar, venga el producto de donde venga. Que en lote y de a
+                // uno signifiquen cosas distintas es peor que el riesgo de
+                // publicar de más, que además se deshace con el mismo control.
+                if (confirm(`¿Publicar ${marcados.length} producto(s) en la tienda?`)) {
+                  enLote.mutate({ ids: marcados.map((p) => p.id), status: 'active' });
                 }
               }}
             >
-              Desarchivar
+              Publicar
             </Button>
             <Button
               variant="ghost"
@@ -427,9 +457,9 @@ export function ListaProductos() {
         </div>
       )}
 
-      {(archivar.isError || enLote.isError) && (
+      {(cambiarEstado.isError || enLote.isError) && (
         <p className="text-destructive text-sm" role="alert">
-          {((archivar.error ?? enLote.error) as Error).message}
+          {((cambiarEstado.error ?? enLote.error) as Error).message}
         </p>
       )}
 

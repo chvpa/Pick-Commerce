@@ -2614,12 +2614,20 @@ mecanismo para todas es más fácil de seguir que dos. Las rutas siguen declarad
 en código: son once, y el router por archivos añade un paso de build y un archivo
 generado al repositorio.
 
-Medido: la primera carga pasó de **714 KB en un chunk a ~561 KB** repartidos entre
+Medido: la primera carga pasó de **714 KB en un chunk a 561 KB** repartidos entre
 el runtime y la cáscara, y lo pesado —el formulario de producto, el importador,
-los esquemas de Zod, la tabla— sólo baja cuando se visita. Los 561 KB restantes
-son React, el router, TanStack Query y el cliente de Supabase, que la cáscara
-necesita para dibujar el encabezado y resolver la sesión. Bajar de ahí ya no es
-dividir, es cambiar de dependencias.
+los esquemas de Zod, la tabla— sólo baja cuando se visita.
+
+**Actualización del 28/08:** el sidebar devolvió parte de eso. Sus primitivas
+—menús, tooltips y la hoja de mobile— las carga la cáscara, así que la primera
+carga quedó en **707 KB** sobre un total de 965 KB en 27 chunks. Frente al punto
+de partida no se ganó peso inicial; se ganó que cinco de esas pantallas ya no
+bajan hasta que alguien las abre, y se pagó por una navegación que aguanta más
+secciones. Está anotado, y la salida si alguna vez molesta es cargar la hoja de
+mobile y el tooltip bajo demanda dentro del propio primitive.
+
+Lo que queda en la cáscara son React, el router, TanStack Query, el cliente de
+Supabase y el sidebar. Bajar de ahí ya no es dividir, es cambiar de dependencias.
 
 ---
 
@@ -2693,3 +2701,122 @@ real de servir el mismo catálogo en dos direcciones— y `catalog_search` no ca
 **La implementación se difiere hasta el primer caso real.** Hoy no hay ningún
 comercio con dos dominios, y la tabla vacía sólo agregaría una consulta al camino
 de resolución de tenant, que es el más caliente del storefront.
+
+---
+
+## ADR-075 — La navegación del Admin es un sidebar
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+Con seis secciones la barra horizontal ya se quedaba corta, y la lista sólo va a
+crecer: promociones, contenido e integraciones están en fases siguientes. Se
+adopta el bloque `sidebar-07` de shadcn como modelo, que existe para `base-nova`
+—la variante sobre Base UI que fija ADR-043— así que no hubo que traducir nada.
+
+Del bloque se conservan las primitivas (`ui/sidebar.tsx` y lo que arrastra) y se
+descarta el andamiaje: `nav-main`, `nav-projects`, `team-switcher`, `nav-user` y
+su `app-sidebar` traían «Upgrade to Pro», «Billing», «Add team» y proyectos de
+ejemplo. Dejar eso es peor que no tener sidebar: cada opción falsa es una promesa
+que la aplicación no cumple. En su lugar hay un solo componente con lo que este
+Admin tiene de verdad — la tienda activa arriba, las seis secciones en el medio,
+la sesión abajo.
+
+**Tres cosas que el cambio obligó a corregir**
+
+El `use-mobile` que trae shadcn arranca en `undefined` y siembra el valor real
+dentro de un efecto, lo que dispara un render en cascada en cada montaje y lo
+rechaza el lint del repo. Reescrito con `useSyncExternalStore`, que es
+exactamente para esto.
+
+La cabecera ahora aporta el `h1` de cada página, así que las pantallas que
+repetían ese mismo título lo perdieron y las que aportan uno más específico —el
+nombre de un cliente, el número de un pedido— bajaron a `h2`. Antes del cambio
+varias páginas tenían dos `h1`.
+
+Y las miniaturas del catálogo se rompían: los medios guardan rutas del storefront
+(`/products/x.jpg`) que desde el dominio del Admin no resuelven. No es nuevo, se
+volvió visible. La miniatura pasa a ir **dentro** del recuadro gris, así que
+cuando no carga queda el recuadro en vez del icono de imagen rota. Resolverlas
+contra el dominio de la tienda es otra cosa, y está en el backlog.
+
+**El costo, medido:** la cáscara carga las primitivas del sidebar —menús,
+tooltips, la hoja de mobile— así que la primera carga subió de 561 KB a 707 KB.
+Se acepta: es una aplicación detrás de un login, y lo que se compra es una
+navegación que aguanta las secciones que faltan. La salida, si molesta, es cargar
+la hoja de mobile y el tooltip bajo demanda dentro del propio primitive.
+
+---
+
+## ADR-076 — Publicar y archivar es un interruptor, no un botón de ida
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+Archivar un producto desde el listado era un camino de ida: la fila dejaba de
+ofrecer el botón y no había forma de volver sin abrir el formulario. Un producto
+archivado por error quedaba, para quien miraba la lista, roto.
+
+El listado pasa a tener un interruptor: encender publica —venga el producto de
+donde venga, que es lo que significa «habilitarlo de nuevo»— y apagar archiva,
+con confirmación porque lo saca de la tienda. La etiqueta de estado sigue al
+lado, así que `draft` e `inactive` se ven aunque el interruptor no pueda
+representarlos; esos dos se eligen desde el formulario, que es donde caben los
+cuatro.
+
+Un interruptor no puede con cuatro estados, y la alternativa —un selector como el
+de pedidos— resolvía lo mismo mostrando dos opciones que casi nadie usa desde una
+lista. La decisión es que la lista opere el eje que se usa a diario y el
+formulario conserve el modelo completo.
+
+Las acciones en lote cambiaron para decir lo mismo: «Publicar» en vez de
+«Desarchivar a borrador». Que en lote y de a uno el mismo control signifique
+cosas distintas es peor que el riesgo de publicar de más, que además se deshace
+con el mismo interruptor.
+
+---
+
+## ADR-077 — El estado de pago es un eje aparte del estado del pedido
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+`payment_status` existía desde Fase 5 y ninguna pantalla lo tocaba: un pedido
+nacía `pending` y se quedaba ahí para siempre. Con transferencia bancaria —el
+único medio de la demo— cobrar es una persona mirando un comprobante, así que sin
+esto la operación de cobro no existía.
+
+Es una función y no un update directo —que las políticas ya permitirían— porque
+el cambio tiene que quedar en la timeline. Quién marcó un pedido como pagado y
+cuándo es exactamente lo que se va a querer saber el día que el dinero no
+aparezca. Repetir el mismo valor no registra nada: una timeline con veinte
+entradas idénticas no es historial.
+
+Va separado de `admin_set_order_status` porque son dos ejes distintos: un pedido
+puede estar entregado y sin cobrar, o pagado y todavía en preparación. Meterlos en
+la misma máquina de estados obligaría a inventar combinaciones que nadie pidió.
+
+Un pedido cancelado no cambia su estado de pago. Si hubo que devolver plata eso es
+un refund, y los refunds están fuera del core (ADR-008); marcarlo pagado acá sólo
+produciría una contabilidad que no coincide con nada.
+
+---
+
+## ADR-078 — Buscar un pedido por su número, con o sin almohadilla
+
+**Fecha:** 2026-08-28
+**Estado:** Accepted
+
+El buscador de pedidos «no funcionaba». Funcionaba: el heno guardaba `1028` y la
+tabla muestra `#1028`, así que quien buscaba el pedido que estaba mirando escribía
+la almohadilla y recibía cero resultados, sin ninguna pista de por qué.
+
+La corrección es guardar el número **con** la almohadilla, porque el filtro busca
+subcadenas y `1028` sigue apareciendo dentro de `#1028`. Los dos funcionan con un
+carácter de cambio.
+
+Lo que vale la pena registrar no es el arreglo sino cómo se encontró. Los tres
+términos que se probaron primero —el número, el nombre, el correo— funcionaban
+todos, y el reporte parecía equivocado. Apareció al probar lo que una persona
+escribe de verdad: lo que tiene delante, copiado tal como se ve. Un buscador se
+prueba con lo que la interfaz muestra, no con lo que la base guarda.

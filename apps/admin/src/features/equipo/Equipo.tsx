@@ -64,11 +64,10 @@ export function Equipo() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-lg font-semibold">Equipo</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Quién puede entrar al Admin de esta organización. Para dar de alta a alguien nuevo, se
-          usa <code className="bg-muted rounded px-1 py-0.5 text-xs">pnpm admin:crear</code> desde
-          el repositorio.
+        <p className="text-muted-foreground text-sm">
+          Quién puede entrar al Admin de esta organización. Para dar de alta a alguien nuevo, se usa{' '}
+          <code className="bg-muted rounded px-1 py-0.5 text-xs">pnpm admin:crear</code> desde el
+          repositorio.
         </p>
       </div>
 

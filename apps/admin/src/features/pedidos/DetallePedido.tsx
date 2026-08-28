@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router';
 import { repositorioAdminPedidos } from '@pick/adapter-supabase';
 import {
   ESTADOS_DE_PEDIDO,
+  ETIQUETA_ESTADO_PAGO,
   ETIQUETA_ESTADO_PEDIDO,
   describirEvento,
   formatMoney,
@@ -44,6 +45,15 @@ export function DetallePedido({ id }: DetallePedidoProps) {
   const consulta = useQuery({
     queryKey: ['pedido', tienda.id, id],
     queryFn: () => repositorioAdminPedidos(db).porId(tienda.id, id),
+  });
+
+  const cambiarPago = useMutation({
+    mutationFn: (pago: 'pending' | 'paid') =>
+      repositorioAdminPedidos(db).cambiarPago(tienda.id, id, pago, nota || undefined),
+    onSuccess: () => {
+      setNota('');
+      return cliente.invalidateQueries({ queryKey: ['pedido', tienda.id, id] });
+    },
   });
 
   const cambiarEstado = useMutation({
@@ -96,7 +106,7 @@ export function DetallePedido({ id }: DetallePedidoProps) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tabular-nums">#{order.number}</h1>
+            <h2 className="text-2xl font-semibold tabular-nums">#{order.number}</h2>
             <Badge
               className={cn(
                 'border-transparent',
@@ -115,7 +125,7 @@ export function DetallePedido({ id }: DetallePedidoProps) {
                   : 'bg-muted text-muted-foreground',
               )}
             >
-              {order.paymentStatus === 'paid' ? 'Pagado' : 'Pago pendiente'}
+              {ETIQUETA_ESTADO_PAGO[order.paymentStatus]}
             </Badge>
           </div>
           <p className="text-muted-foreground text-sm">{fecha(order.createdAt, tienda.locale)}</p>
@@ -229,6 +239,23 @@ export function DetallePedido({ id }: DetallePedidoProps) {
                 />
               </div>
 
+              {/*
+                El cobro va con los mismos controles que el estado y comparte la
+                nota: con transferencia bancaria, «lo marqué pagado porque mandó
+                el comprobante» es una sola acción con su explicación.
+              */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="self-start"
+                disabled={cambiarPago.isPending}
+                onClick={() =>
+                  cambiarPago.mutate(order.paymentStatus === 'paid' ? 'pending' : 'paid')
+                }
+              >
+                {order.paymentStatus === 'paid' ? 'Marcar como pendiente' : 'Marcar como pagado'}
+              </Button>
+
               <div className="flex flex-wrap gap-2">
                 {ESTADOS_DE_PEDIDO.filter(
                   (e) => e !== 'cancelled' && puedeTransicionar(order.status, e),
@@ -262,9 +289,9 @@ export function DetallePedido({ id }: DetallePedidoProps) {
             </section>
           )}
 
-          {cambiarEstado.isError && (
+          {(cambiarEstado.isError || cambiarPago.isError) && (
             <p className="text-destructive text-sm" role="alert">
-              {(cambiarEstado.error as Error).message}
+              {((cambiarEstado.error ?? cambiarPago.error) as Error).message}
             </p>
           )}
         </aside>

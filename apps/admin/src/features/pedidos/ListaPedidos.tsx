@@ -2,8 +2,14 @@ import { useEffect, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { repositorioAdminPedidos } from '@pick/adapter-supabase';
-import { ESTADOS_DE_PEDIDO, ETIQUETA_ESTADO_PEDIDO, formatMoney } from '@pick/commerce-core';
-import type { OrderStatus } from '@pick/commerce-types';
+import {
+  ESTADOS_DE_PAGO,
+  ESTADOS_DE_PEDIDO,
+  ETIQUETA_ESTADO_PAGO,
+  ETIQUETA_ESTADO_PEDIDO,
+  formatMoney,
+} from '@pick/commerce-core';
+import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +45,11 @@ const TONO: Record<OrderStatus, string> = {
   in_transit: 'border-transparent bg-muted text-muted-foreground',
   delivered: 'border-transparent bg-muted text-muted-foreground',
   cancelled: 'border-transparent bg-muted text-muted-foreground line-through',
+};
+
+const TONO_PAGO: Record<PaymentStatus, string> = {
+  paid: 'border-transparent bg-primary/10 text-primary',
+  pending: 'border-transparent bg-muted text-muted-foreground',
 };
 
 function fecha(iso: string, locale: string): string {
@@ -82,10 +93,18 @@ export function ListaPedidos() {
     placeholderData: keepPreviousData,
   });
 
+  const invalidar = () => cliente.invalidateQueries({ queryKey: ['pedidos', tienda.id] });
+
   const cambiarEstado = useMutation({
     mutationFn: ({ id, estado }: { id: string; estado: OrderStatus }) =>
       repositorioAdminPedidos(db).cambiarEstado(tienda.id, id, estado),
-    onSuccess: () => cliente.invalidateQueries({ queryKey: ['pedidos', tienda.id] }),
+    onSuccess: invalidar,
+  });
+
+  const cambiarPago = useMutation({
+    mutationFn: ({ id, pago }: { id: string; pago: PaymentStatus }) =>
+      repositorioAdminPedidos(db).cambiarPago(tienda.id, id, pago),
+    onSuccess: invalidar,
   });
 
   const datos = consulta.data;
@@ -189,16 +208,42 @@ export function ListaPedidos() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        className={cn(
-                          'border-transparent',
-                          p.paymentStatus === 'paid'
-                            ? 'bg-primary/10 text-primary'
-                            : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        {p.paymentStatus === 'paid' ? 'Pagado' : 'Pendiente'}
-                      </Badge>
+                      {/*
+                        Con transferencia bancaria, cobrar es una persona mirando
+                        un comprobante, así que marcar pagado es una acción de
+                        todos los días y tiene que estar en la lista. Un pedido
+                        cancelado no la ofrece: devolver plata es un refund, y los
+                        refunds están fuera del core (ADR-008).
+                      */}
+                      {!escribe || p.status === 'cancelled' ? (
+                        <Badge className={cn(TONO_PAGO[p.paymentStatus])}>
+                          {ETIQUETA_ESTADO_PAGO[p.paymentStatus]}
+                        </Badge>
+                      ) : (
+                        <select
+                          aria-label={`Estado de pago del pedido #${p.number}`}
+                          value={p.paymentStatus}
+                          disabled={cambiarPago.isPending}
+                          onChange={(e) =>
+                            cambiarPago.mutate({
+                              id: p.id,
+                              pago: e.currentTarget.value as PaymentStatus,
+                            })
+                          }
+                          className={cn(
+                            'h-7 cursor-pointer rounded-lg border px-2 text-xs outline-none',
+                            'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3',
+                            'disabled:cursor-wait disabled:opacity-60',
+                            TONO_PAGO[p.paymentStatus],
+                          )}
+                        >
+                          {ESTADOS_DE_PAGO.map((e) => (
+                            <option key={e} value={e}>
+                              {ETIQUETA_ESTADO_PAGO[e]}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </TableCell>
                     <TableCell>
                       {/*
@@ -254,9 +299,9 @@ export function ListaPedidos() {
         </div>
       )}
 
-      {cambiarEstado.isError && (
+      {(cambiarEstado.isError || cambiarPago.isError) && (
         <p className="text-destructive text-sm" role="alert">
-          No se pudo cambiar el estado: {(cambiarEstado.error as Error).message}
+          {((cambiarEstado.error ?? cambiarPago.error) as Error).message}
         </p>
       )}
 

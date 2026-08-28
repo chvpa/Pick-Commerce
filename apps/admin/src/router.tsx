@@ -2,6 +2,9 @@ import { Suspense, lazy, type FunctionComponent, type ReactNode } from 'react';
 import { createRootRoute, createRoute, createRouter, Link, Outlet } from '@tanstack/react-router';
 import type { Permission } from '@pick/commerce-types';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { AppSidebar, useTituloDeSeccion } from '@/features/navegacion/AppSidebar';
 import { useSesion } from '@/features/auth/SesionContext';
 import { usePuede } from '@/features/auth/usePuede';
 import { ProveedorTienda, useTienda } from '@/features/tienda/TiendaContext';
@@ -56,17 +59,6 @@ const Configuracion = pantalla(
   'Configuracion',
 );
 
-function Enlace({ to, children }: { to: string; children: ReactNode }) {
-  return (
-    <Link
-      to={to}
-      className="text-muted-foreground text-sm hover:underline data-[status=active]:text-foreground"
-    >
-      {children}
-    </Link>
-  );
-}
-
 /**
  * Lo que la persona no puede hacer, no se le ofrece.
  *
@@ -91,10 +83,20 @@ function Gate({ permiso, children }: { permiso: Permission; children: ReactNode 
   );
 }
 
+/** Lo que se muestra cuando todavía no hay sobre qué trabajar. */
+function Aviso({ titulo, children }: { titulo: string; children?: ReactNode }) {
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-3 px-6">
+      <h1 className="text-lg font-semibold">{titulo}</h1>
+      {children}
+    </main>
+  );
+}
+
 function Cascara() {
-  const { sesion, salir } = useSesion();
-  const { tiendas, tienda, elegir, cargando, error } = useTienda();
-  const puede = usePuede();
+  const { salir } = useSesion();
+  const { tienda, cargando, error } = useTienda();
+  const titulo = useTituloDeSeccion();
 
   if (cargando) {
     return (
@@ -108,18 +110,16 @@ function Cascara() {
 
   if (error) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-3 px-6">
-        <h1 className="text-lg font-semibold">No se pudieron cargar las tiendas</h1>
+      <Aviso titulo="No se pudieron cargar las tiendas">
         <p className="text-muted-foreground text-sm">{error.message}</p>
-      </main>
+      </Aviso>
     );
   }
 
   if (!tienda) {
     // RLS es lo que hace que esta lista esté vacía; el mensaje sólo lo explica.
     return (
-      <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-3 px-6">
-        <h1 className="text-lg font-semibold">Todavía no hay ninguna tienda</h1>
+      <Aviso titulo="Todavía no hay ninguna tienda">
         <p className="text-muted-foreground text-sm">
           Tu cuenta no pertenece a ninguna organización con tiendas configuradas.
         </p>
@@ -128,73 +128,43 @@ function Cascara() {
             Salir
           </Button>
         </div>
-      </main>
+      </Aviso>
     );
   }
 
   return (
-    <div className="min-h-dvh">
-      <header className="border-border border-b">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-3">
-          <div className="flex flex-wrap items-center gap-4">
-            <Link to="/" className="font-semibold">
-              Pick Admin
-            </Link>
-            <nav className="flex flex-wrap items-center gap-4">
-              <Enlace to="/">Resumen</Enlace>
-              <Enlace to="/productos">Productos</Enlace>
-              <Enlace to="/pedidos">Pedidos</Enlace>
-              <Enlace to="/clientes">Clientes</Enlace>
-              {puede('member.manage') && <Enlace to="/equipo">Equipo</Enlace>}
-              {puede('settings.write') && <Enlace to="/configuracion">Configuración</Enlace>}
-            </nav>
-          </div>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          {/*
+            El título de la sección, no una miga de pan: la navegación del Admin
+            es plana —seis secciones, sin jerarquía— y una miga de un solo nivel
+            es una miga que miente.
+          */}
+          <h1 className="text-sm font-medium">{titulo}</h1>
+        </header>
 
-          <div className="flex items-center gap-3">
-            {tiendas.length > 1 && (
-              <>
-                <label htmlFor="tienda" className="sr-only">
-                  Tienda
-                </label>
-                <select
-                  id="tienda"
-                  value={tienda.id}
-                  onChange={(e) => elegir(e.currentTarget.value)}
-                  className="border-border bg-background h-8 cursor-pointer rounded-lg border px-2.5 text-sm outline-none"
-                >
-                  {tiendas.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-            <span className="text-muted-foreground hidden text-sm sm:inline">{sesion?.email}</span>
-            <Button variant="outline" size="sm" onClick={() => void salir()}>
-              Salir
-            </Button>
-          </div>
+        <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+          {/*
+            Un solo límite para todas las pantallas: el chunk tarda lo que tarde
+            la red la primera vez, y sin esto el click no da ninguna señal hasta
+            que llega.
+          */}
+          <Suspense
+            fallback={
+              <p className="text-muted-foreground text-sm" role="status">
+                Cargando…
+              </p>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-6 py-8">
-        {/*
-          Un solo límite para todas las pantallas: el chunk tarda lo que tarde la
-          red la primera vez, y sin esto el click no da ninguna señal hasta que
-          llega.
-        */}
-        <Suspense
-          fallback={
-            <p className="text-muted-foreground text-sm" role="status">
-              Cargando…
-            </p>
-          }
-        >
-          <Outlet />
-        </Suspense>
-      </main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 

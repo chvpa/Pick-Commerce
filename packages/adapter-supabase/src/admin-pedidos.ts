@@ -82,5 +82,17 @@ export function repositorioAdminPedidos(db: PickSupabaseClient): RepositorioAdmi
       if (error) throw new Error(`No se pudo cambiar el estado: ${error.message}`);
       return data as unknown as Order;
     },
+
+    async cambiarPago(storeId, id, pago, nota): Promise<Order> {
+      const { data, error } = await db.rpc('admin_set_payment_status', {
+        p_store_id: storeId,
+        p_order_id: id,
+        p_status: pago,
+        p_note: nota ?? undefined,
+      });
+
+      if (error) throw new Error(`No se pudo cambiar el estado de pago: ${error.message}`);
+      return data as unknown as Order;
+    },
   };
 }

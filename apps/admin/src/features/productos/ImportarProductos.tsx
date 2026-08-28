@@ -148,7 +148,7 @@ export function ImportarProductos() {
   return (
     <div className="flex max-w-4xl flex-col gap-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold">Importar productos</h1>
+        <h2 className="text-lg font-semibold">Importar productos</h2>
         <Link to="/productos" className={buttonVariants({ variant: 'ghost' })}>
           Volver
         </Link>

@@ -1,4 +1,4 @@
-import type { Order, OrderEvent, OrderStatus } from '@pick/commerce-types';
+import type { Order, OrderEvent, OrderStatus, PaymentStatus } from '@pick/commerce-types';
 
 /**
  * Estados de un pedido: etiquetas, orden y transiciones.
@@ -27,6 +27,18 @@ export const ETIQUETA_ESTADO_PEDIDO: Readonly<Record<OrderStatus, string>> = {
   in_transit: 'En tránsito',
   delivered: 'Entregado',
   cancelled: 'Cancelado',
+};
+
+/**
+ * Cobrar, con transferencia bancaria, es una persona mirando un comprobante. Son
+ * dos estados y no más: si el pago se confirma solo, lo confirma el gateway
+ * (Fase 7) y esta lista no cambia.
+ */
+export const ESTADOS_DE_PAGO: readonly PaymentStatus[] = ['pending', 'paid'];
+
+export const ETIQUETA_ESTADO_PAGO: Readonly<Record<PaymentStatus, string>> = {
+  pending: 'Pendiente',
+  paid: 'Pagado',
 };
 
 /**
@@ -70,6 +82,12 @@ export function describirEvento(evento: OrderEvent): string {
     return data.note ? `${base} — ${data.note}` : base;
   }
 
+  if (evento.type === 'payment_changed' && data.to) {
+    const hacia = ETIQUETA_ESTADO_PAGO[data.to as PaymentStatus] ?? data.to;
+    const base = data.to === 'paid' ? 'Marcado como pagado' : `Pago: ${hacia}`;
+    return data.note ? `${base} — ${data.note}` : base;
+  }
+
   return evento.type;
 }
 
@@ -84,7 +102,7 @@ export interface PedidoDeLista {
   readonly customerName: string;
   readonly total: { readonly amount: number; readonly currency: string };
   readonly status: OrderStatus;
-  readonly paymentStatus: string;
+  readonly paymentStatus: PaymentStatus;
   readonly itemCount: number;
 }
 
@@ -113,6 +131,14 @@ export interface RepositorioAdminPedidos {
   listar(storeId: string, consulta: ConsultaPedidos): Promise<PaginaPedidos>;
   porId(storeId: string, id: string): Promise<PedidoConTimeline | null>;
   cambiarEstado(storeId: string, id: string, estado: OrderStatus, nota?: string): Promise<Order>;
+  /**
+   * Marca el pedido como pagado o pendiente.
+   *
+   * Separado de `cambiarEstado` porque son dos ejes distintos: un pedido puede
+   * estar entregado y sin cobrar, o pagado y todavía en preparación. Meterlos en
+   * la misma máquina de estados obligaría a inventar combinaciones.
+   */
+  cambiarPago(storeId: string, id: string, pago: PaymentStatus, nota?: string): Promise<Order>;
 }
 
 // ---------------------------------------------------------------------------

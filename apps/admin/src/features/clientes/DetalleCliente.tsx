@@ -105,7 +105,7 @@ export function DetalleCliente({ id }: { id: string }) {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">{c.name}</h1>
+          <h2 className="text-lg font-semibold">{c.name}</h2>
           <p className="text-muted-foreground text-sm">
             Cliente desde {fecha(c.createdAt, tienda.locale)}
           </p>

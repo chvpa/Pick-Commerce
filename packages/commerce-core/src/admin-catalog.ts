@@ -90,6 +90,14 @@ export interface ProductoCargado {
   readonly fieldSources: FieldSources;
 }
 
+/**
+ * Los dos estados que el listado alterna: en la tienda o archivado.
+ *
+ * `draft` e `inactive` existen y siguen siendo válidos; se eligen desde el
+ * formulario, que es donde caben los cuatro.
+ */
+export type EstadoAlternable = Extract<ProductStatus, 'active' | 'archived'>;
+
 export interface RepositorioAdminCatalogo {
   listar(storeId: string, consulta: ConsultaProductos): Promise<PaginaProductos>;
   porId(storeId: string, id: string): Promise<ProductoCargado | null>;
@@ -101,16 +109,18 @@ export interface RepositorioAdminCatalogo {
    */
   archivar(storeId: string, id: string): Promise<void>;
   /**
-   * Cambia el estado de varios productos de una vez, para la selección múltiple.
+   * Publica o archiva productos: uno desde el interruptor de su fila, varios
+   * desde la selección múltiple.
    *
-   * Desarchivar deja en `draft` y no en `active` a propósito: volver a publicar
-   * es una decisión producto por producto —precio, stock, fotos— y hacerla en
-   * lote para veinte devolvería al storefront cosas que se archivaron por algo.
+   * Los dos estados que faltan —`draft` e `inactive`— se eligen desde el
+   * formulario. Un interruptor no puede representar cuatro estados, y el que la
+   * lista necesita resolver es el único que era de ida: archivar sacaba el
+   * producto de la tienda y desde el listado no había forma de volver.
    */
   cambiarEstadoEnLote(
     storeId: string,
     ids: readonly string[],
-    status: 'archived' | 'draft',
+    status: EstadoAlternable,
   ): Promise<void>;
   /**
    * Productos completos, paginados. Es lo que necesita el export: el listado de
