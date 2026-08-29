@@ -1,14 +1,19 @@
+import { useState } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import {
+  ChevronRightIcon,
   ChevronsUpDownIcon,
+  GalleryVerticalEndIcon,
   LayoutDashboardIcon,
   LayoutTemplateIcon,
+  LibraryBigIcon,
   LogOutIcon,
   PackageIcon,
   PercentIcon,
   ReceiptTextIcon,
   SettingsIcon,
   StoreIcon,
+  TagsIcon,
   UsersIcon,
   UsersRoundIcon,
 } from 'lucide-react';
@@ -32,6 +37,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
@@ -52,11 +60,19 @@ import { useTienda } from '@/features/tienda/TiendaContext';
  * abrir.
  */
 
+interface Hijo {
+  readonly to: string;
+  readonly label: string;
+  readonly icono: typeof PackageIcon;
+}
+
 interface Seccion {
   readonly to: string;
   readonly label: string;
   readonly icono: typeof PackageIcon;
   readonly permiso?: Permission;
+  /** Si los tiene, la entrada no navega: despliega. Ver `EntradaConHijos`. */
+  readonly hijos?: readonly Hijo[];
 }
 
 const SECCIONES: readonly Seccion[] = [
@@ -67,9 +83,24 @@ const SECCIONES: readonly Seccion[] = [
   // saber qué campañas están corriendo es información operativa. Crear y editar
   // sí exigen `promotion.write`, y eso lo decide la ruta.
   { to: '/promociones', label: 'Promociones', icono: PercentIcon },
-  // Banners, colecciones y categorías en una sola entrada con pestañas: son lo
-  // mismo —lo que se cura para la vidriera— y con tres el sidebar pasaba a diez.
-  { to: '/contenido', label: 'Contenido', icono: LayoutTemplateIcon },
+  /*
+   * Contenido agrupa a otras tres y no es una pantalla.
+   *
+   * Antes era una sola con pestañas adentro. La diferencia no es estética: con
+   * pestañas, para llegar a Categorías había que entrar a Contenido y recién ahí
+   * elegir, y cuál estaba abierta vivía en un parámetro de búsqueda que había
+   * que arrastrar en cada navegación (ADR-098).
+   */
+  {
+    to: '/contenido',
+    label: 'Contenido',
+    icono: LayoutTemplateIcon,
+    hijos: [
+      { to: '/contenido/secciones', label: 'Secciones', icono: GalleryVerticalEndIcon },
+      { to: '/contenido/colecciones', label: 'Colecciones', icono: LibraryBigIcon },
+      { to: '/contenido/categorias', label: 'Categorías', icono: TagsIcon },
+    ],
+  },
   { to: '/clientes', label: 'Clientes', icono: UsersIcon },
   { to: '/equipo', label: 'Equipo', icono: UsersRoundIcon, permiso: 'member.manage' },
   { to: '/configuracion', label: 'Configuración', icono: SettingsIcon, permiso: 'settings.write' },
@@ -206,6 +237,104 @@ function MenuDeUsuario() {
   );
 }
 
+/**
+ * Una entrada que agrupa a otras: no navega, despliega.
+ *
+ * Es la diferencia que importa. Si «Contenido» fuera un enlace, en mobile —donde
+ * el menú es un sheet que se cierra al navegar— tocarlo llevaría a la primera
+ * subpantalla y **cerraría el menú antes de que las otras dos se vieran**: para
+ * llegar a Colecciones habría que volver a abrirlo. Como disclosure, un toque
+ * las muestra y el segundo elige.
+ *
+ * El estado arranca abierto si ya estás adentro de la sección, así que entrar
+ * por una miga o pegando la URL deja el menú diciendo dónde estás. No se
+ * sincroniza después: si alguien lo cierra a propósito, se queda cerrado.
+ */
+function EntradaConHijos({ seccion, ruta }: { seccion: Seccion; ruta: string }) {
+  const { state, isMobile, setOpen, setOpenMobile } = useSidebar();
+  const dentro = estaActiva(ruta, seccion.to);
+  const [abierto, setAbierto] = useState(dentro);
+
+  const hijos = seccion.hijos ?? [];
+  const id = `submenu-${seccion.to.replace(/\W+/g, '-')}`;
+
+  /*
+   * Abierto **y a la vista**.
+   *
+   * No es lo mismo: colapsada a íconos, la barra esconde el submenú por CSS
+   * aunque el estado siga en abierto. Sin esta distinción, estando adentro de
+   * Contenido y con la barra en íconos no quedaba **ninguna** fila marcada, y la
+   * barra no decía en qué sección estabas.
+   */
+  const submenuALaVista = abierto && !(state === 'collapsed' && !isMobile);
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        // Sólo se marca cuando el submenú no se ve: con las tres desplegadas ya
+        // hay una fila activa adentro, y pintar las dos señala dos lugares para
+        // uno solo.
+        isActive={dentro && !submenuALaVista}
+        tooltip={seccion.label}
+        aria-expanded={abierto}
+        /*
+         * `aria-controls` sólo mientras el submenú existe: cerrado se desmonta, y
+         * un `aria-controls` que apunta a un id inexistente es una referencia
+         * rota. La APG lo da por opcional en el patrón disclosure —lo que hace
+         * falta es `aria-expanded`—, así que se omite en vez de dejar mentir.
+         */
+        {...(abierto ? { 'aria-controls': id } : {})}
+        onClick={() => {
+          /*
+           * Colapsado a íconos el submenú está oculto por CSS
+           * (`group-data-[collapsible=icon]:hidden`), así que desde ahí el clic
+           * **abre**, no alterna: alternar podía expandir la barra y cerrar el
+           * grupo en el mismo gesto —el estado seguía en «abierto» de antes de
+           * colapsar—, dejando a la persona con menos a la vista que lo que
+           * acababa de pedir.
+           *
+           * En mobile el sheet ya está abierto —es lo que se está tocando—, así
+           * que no aplica.
+           */
+          if (!isMobile && state === 'collapsed') {
+            setOpen(true);
+            setAbierto(true);
+            return;
+          }
+          setAbierto((v) => !v);
+        }}
+      >
+        <seccion.icono />
+        <span>{seccion.label}</span>
+        <ChevronRightIcon
+          className={`ml-auto transition-transform ${abierto ? 'rotate-90' : ''}`}
+          aria-hidden="true"
+        />
+      </SidebarMenuButton>
+
+      {abierto && (
+        <SidebarMenuSub id={id}>
+          {hijos.map((h) => (
+            <SidebarMenuSubItem key={h.to}>
+              <SidebarMenuSubButton
+                isActive={estaActiva(ruta, h.to)}
+                // Mismo motivo que en las entradas de primer nivel: en mobile el
+                // sidebar es un sheet modal y navegar sin cerrarlo deja la
+                // pantalla nueva tapada.
+                onClick={() => setOpenMobile(false)}
+                render={<Link to={h.to} />}
+              >
+                <h.icono />
+                <span>{h.label}</span>
+              </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+          ))}
+        </SidebarMenuSub>
+      )}
+    </SidebarMenuItem>
+  );
+}
+
 export function AppSidebar() {
   const puede = usePuede();
   const ruta = useRouterState({ select: (s) => s.location.pathname });
@@ -221,26 +350,30 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {SECCIONES.filter((s) => !s.permiso || puede(s.permiso)).map((s) => (
-                <SidebarMenuItem key={s.to}>
-                  <SidebarMenuButton
-                    isActive={estaActiva(ruta, s.to)}
-                    tooltip={s.label}
-                    /*
-                     * En mobile el sidebar es un sheet modal: navegar sin
-                     * cerrarlo deja la sección nueva tapada por el menú, y como
-                     * el sheet marca el resto de la página `aria-hidden`, un
-                     * lector de pantalla tampoco llega al contenido. En desktop
-                     * no hay sheet y esto no hace nada.
-                     */
-                    onClick={() => setOpenMobile(false)}
-                    render={<Link to={s.to} />}
-                  >
-                    <s.icono />
-                    <span>{s.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {SECCIONES.filter((s) => !s.permiso || puede(s.permiso)).map((s) =>
+                s.hijos ? (
+                  <EntradaConHijos key={s.to} seccion={s} ruta={ruta} />
+                ) : (
+                  <SidebarMenuItem key={s.to}>
+                    <SidebarMenuButton
+                      isActive={estaActiva(ruta, s.to)}
+                      tooltip={s.label}
+                      /*
+                       * En mobile el sidebar es un sheet modal: navegar sin
+                       * cerrarlo deja la sección nueva tapada por el menú, y como
+                       * el sheet marca el resto de la página `aria-hidden`, un
+                       * lector de pantalla tampoco llega al contenido. En desktop
+                       * no hay sheet y esto no hace nada.
+                       */
+                      onClick={() => setOpenMobile(false)}
+                      render={<Link to={s.to} />}
+                    >
+                      <s.icono />
+                      <span>{s.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ),
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

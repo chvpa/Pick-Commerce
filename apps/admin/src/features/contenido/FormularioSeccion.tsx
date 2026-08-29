@@ -177,7 +177,7 @@ function Campos({
         await navegar({ to: '/contenido/secciones/$id', params: { id: nuevoId } });
         return;
       }
-      await navegar({ to: '/contenido', search: { tab: 'secciones' } });
+      await navegar({ to: '/contenido/secciones' });
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -193,7 +193,7 @@ function Campos({
             type="button"
             variant="outline"
             size="lg"
-            onClick={() => void navegar({ to: '/contenido', search: { tab: 'secciones' } })}
+            onClick={() => void navegar({ to: '/contenido/secciones' })}
           >
             Cancelar
           </Button>

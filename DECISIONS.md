@@ -3748,7 +3748,12 @@ contexto— no está escrita en ningún lado; es lo que React hace por defecto.
 ## ADR-096 — Confirmar, ordenar y volver: las tres piezas que faltaban en el Admin
 
 **Fecha:** 2026-08-29
-**Estado:** Accepted
+**Estado:** Accepted.
+
+> **Corregido en parte por ADR-098.** Las migas de contenido ya no arrancan en
+> «Contenido»: esa pantalla dejó de existir y ahora redirige, así que enlazarla
+> daría dos migas seguidas al mismo lugar. Todo lo demás —la confirmación, el
+> orden por flechas, el resto de las migas— sigue vigente.
 
 **Contexto**
 Al usar el Admin recién terminado aparecieron dieciséis problemas de uso, casi
@@ -3917,3 +3922,78 @@ Dos afirmaciones del smoke del Admin buscaban el texto «Borrador» y «Publicad
 No se relajaron: se movieron al atributo del interruptor, que es más estricto
 —un texto puede aparecer en cualquier parte de la fila; `aria-checked` sólo puede
 estar bien o mal—.
+
+---
+
+## ADR-098 — Contenido deja de ser una pantalla con pestañas y pasa a ser un grupo del sidebar
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted. **Corrige ADR-096** en lo que decía de las migas de contenido.
+
+**Contexto**
+Secciones, Colecciones y Categorías vivían como tres pestañas dentro de una
+pantalla «Contenido». La justificación original —están escrita en el componente—
+era que el sidebar pasaba de siete entradas a diez y dejaba de leerse de un
+vistazo. Al usarlo, el costo apareció del otro lado: para llegar a Categorías hay
+que entrar a Contenido y recién ahí elegir, y desde el sidebar no se ve que esas
+tres cosas existen.
+
+**Decisión**
+El sidebar gana un nivel. «Contenido» ya no navega: **despliega** las tres, que
+son pantallas propias en `/contenido/secciones`, `/contenido/colecciones` y
+`/contenido/categorias`.
+
+**Por qué disclosure y no enlace al primer hijo**
+Es lo que decide si el cambio sirve en mobile. Ahí el sidebar es un sheet modal
+que se cierra al navegar: si «Contenido» fuera un enlace, tocarlo llevaría a
+Secciones y **cerraría el menú antes de que las otras dos se vieran** — para
+llegar a Colecciones habría que volver a abrirlo, que es exactamente el paso de
+más que las pestañas ya cobraban. Como disclosure, un toque las muestra y el
+segundo elige.
+
+El estado es local y arranca en «abierto si ya estás adentro», así que entrar por
+una miga o pegando la URL deja el menú diciendo dónde estás. No se sincroniza
+después: si alguien lo cierra a propósito, se queda cerrado. Sincronizarlo sería
+un control que se reabre solo.
+
+Colapsado a íconos, el submenú está oculto por CSS
+(`group-data-[collapsible=icon]:hidden`, que ya trae `SidebarMenuSub`), así que
+tocar el grupo **primero abre la barra**: desplegar algo invisible es un clic que
+no hace nada.
+
+**Rutas reales, no un parámetro de búsqueda**
+Cuál pestaña estaba abierta vivía en `?tab=`. Eran doce lugares que escribían ese
+valor —el conmutador, cuatro navegaciones de los formularios, cuatro migas— y
+**ninguno tipado**: `validateSearch` devolvía `{ tab?: string }`, `useSearch` iba
+con cast a mano y `Miga.search` era un `Record<string, string>`. Un valor mal
+escrito compilaba, pasaba el typecheck y en runtime caía en la primera pestaña
+sin decir nada. Ese modo de falla —la navegación rota en silencio— es el que ya
+había mandado a alguien a la pestaña equivocada después de guardar una colección.
+
+Con rutas reales el destino es el path, el router valida, y `?tab=` desaparece
+junto con sus doce call sites.
+
+`/contenido` se conserva como ruta que redirige a `/contenido/secciones`. No se
+borra porque quedan enlaces vivos —marcadores, historial— y un 404 sería peor.
+
+**Las migas arrancan en la subpantalla**
+ADR-096 las dejó como `Contenido → Colecciones → Nueva colección`. Ahora
+`/contenido` redirige, así que esas dos primeras migas llevarían al mismo lugar.
+Quedan en `Colecciones → Nueva colección`, y el tipo `Miga` pierde el campo
+`search`, que existía sólo para esto.
+
+**Lo que se ganó sin buscarlo**
+Cada pantalla es su propio módulo y su propio chunk; el botón «Nueva categoría»
+pudo volver al encabezado —antes vivía en una franja aparte porque la pantalla
+compartida no podía tener tres acciones distintas—; y el smoke pasó de comprobar
+que existe un `role="tab"` a comprobar que el grupo despliega y que cada entrada
+llega a su pantalla, que es lo que la persona hace.
+
+**Un helper de test que estaba mal desde antes**
+`abrirSidebar` del smoke daba por hecho que en mobile el sheet estaba cerrado.
+Con el disclosure eso dejó de ser cierto —desplegar no navega, así que el menú se
+queda abierto— y la función se colgaba esperando que desapareciera. Se lo hizo
+idempotente distinguiendo «abierto» de «cerrándose» con `data-ending-style`, que
+es lo que marca Base UI mientras el panel se va. Preguntarlo con `getAttribute`
+no sirve: sobre un elemento que puede no existir, espera hasta el timeout. Va en
+el selector.

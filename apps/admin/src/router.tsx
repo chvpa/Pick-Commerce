@@ -5,6 +5,7 @@ import {
   createRouter,
   Link,
   Outlet,
+  redirect,
   useRouterState,
 } from '@tanstack/react-router';
 import type { Permission } from '@pick/commerce-types';
@@ -64,7 +65,9 @@ const FormularioPromocion = pantalla<{ id?: string }>(
   () => import('@/features/promociones/FormularioPromocion'),
   'FormularioPromocion',
 );
-const Contenido = pantalla(() => import('@/features/contenido/Contenido'), 'Contenido');
+const Secciones = pantalla(() => import('@/features/contenido/Secciones'), 'Secciones');
+const Colecciones = pantalla(() => import('@/features/contenido/Colecciones'), 'Colecciones');
+const Categorias = pantalla(() => import('@/features/contenido/Categorias'), 'Categorias');
 const FormularioSeccion = pantalla<{ id?: string }>(
   () => import('@/features/contenido/FormularioSeccion'),
   'FormularioSeccion',
@@ -313,20 +316,55 @@ const promocionRoute = createRoute({
  * el catálogo cura la vidriera, y ADR-056 dice no inventar permisos cuando
  * ningún rol distingue.
  */
+/*
+ * `/contenido` no es una pantalla: es el grupo del sidebar.
+ *
+ * Se conserva como ruta que redirige y no se borra, porque quedan enlaces vivos
+ * a ella —marcadores, la barra del navegador de quien ya la usaba— y un 404 sería
+ * peor que una redirección. Antes era una pantalla con pestañas cuyo estado vivía
+ * en `?tab=`, y ese parámetro había que arrastrarlo a mano en cada navegación de
+ * vuelta: doce lugares, ninguno tipado, y equivocarse no fallaba —caía en la
+ * primera pestaña sin decir nada— (ADR-098).
+ */
 const contenidoRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/contenido',
   /*
-   * La pestaña va en la URL y no en estado local. Sin esto, guardar una
-   * colección devolvía a `/contenido`, que abre en Banners: la persona no veía
-   * lo que acababa de crear. De paso la pestaña se puede compartir y sobrevive a
-   * un refresh.
+   * El `?tab=` viejo se sigue leyendo, sólo para mandar a la pantalla correcta.
+   *
+   * Si esta ruta se conserva por los marcadores vivos, mandarlos a todos a
+   * Secciones rompería justamente a los únicos que apuntaban a otra cosa: la
+   * pantalla vieja ponía la pestaña en la URL **a propósito**, para poder
+   * compartirla. `search: true` no sirve — arrastraría el parámetro muerto al
+   * destino.
    */
-  validateSearch: (busqueda: Record<string, unknown>): { tab?: string } => {
-    const tab = busqueda.tab;
-    return typeof tab === 'string' ? { tab } : {};
+  validateSearch: (busqueda: Record<string, unknown>): { tab?: string } =>
+    typeof busqueda.tab === 'string' ? { tab: busqueda.tab } : {},
+  beforeLoad: ({ search }) => {
+    const viejas = {
+      colecciones: '/contenido/colecciones',
+      categorias: '/contenido/categorias',
+    } as const;
+    throw redirect({ to: viejas[search.tab as keyof typeof viejas] ?? '/contenido/secciones' });
   },
-  component: Contenido,
+});
+
+const seccionesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/contenido/secciones',
+  component: Secciones,
+});
+
+const coleccionesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/contenido/colecciones',
+  component: Colecciones,
+});
+
+const categoriasRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/contenido/categorias',
+  component: Categorias,
 });
 
 const seccionNuevaRoute = createRoute({
@@ -422,6 +460,9 @@ const arbol = rootRoute.addChildren([
   promocionNuevaRoute,
   promocionRoute,
   contenidoRoute,
+  seccionesRoute,
+  coleccionesRoute,
+  categoriasRoute,
   seccionNuevaRoute,
   seccionRoute,
   coleccionNuevaRoute,

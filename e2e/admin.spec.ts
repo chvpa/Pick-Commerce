@@ -56,20 +56,68 @@ async function entrar(page: Page): Promise<void> {
 async function abrirSidebar(page: Page): Promise<void> {
   const pie = page.locator('[data-slot="sidebar-footer"]');
   const sheet = page.locator('[role="dialog"]');
+  /*
+   * El sheet abierto **y quieto**.
+   *
+   * Base UI marca `data-ending-style` mientras el panel se va, así que sin ese
+   * atributo está abierto de verdad. Se filtra en el selector y no con
+   * `getAttribute`: preguntarle un atributo a un elemento que puede no existir
+   * lo hace esperar, y en desktop —donde no hay sheet— esperaría hasta el
+   * timeout del test.
+   */
+  const abierto = page.locator('[role="dialog"]:not([data-ending-style])');
 
   // Desktop: el sidebar es permanente y no hay sheet de por medio.
-  if ((await sheet.count()) === 0 && (await pie.isVisible().catch(() => false))) return;
+  if ((await sheet.count()) === 0) {
+    if (await pie.isVisible().catch(() => false)) return;
+  } else if ((await abierto.count()) === 1) {
+    /*
+     * Mobile con el sheet ya abierto: no hay nada que hacer, y tocar el botón lo
+     * cerraría. Pasa desde que «Contenido» es un disclosure — desplegarlo no
+     * navega, así que el menú se queda abierto y el siguiente `abrirSidebar` lo
+     * encuentra así.
+     */
+    await expect(pie).toBeVisible();
+    return;
+  }
 
   /*
    * Mobile: esperar a que el sheet termine de cerrarse antes de volver a
-   * abrirlo. Mientras se va sigue estando "visible", así que decidir por eso
-   * llevaba a tocar el botón a mitad de la animación: el panel se cerraba, el
-   * clic lo volvía a abrir, y el enlace quedaba en movimiento o directamente
-   * desprendido del DOM. Un `waitForTimeout` lo tapaba; esto lo resuelve.
+   * abrirlo. Decidir por la visibilidad llevaba a tocar el botón a mitad de la
+   * animación: el panel se cerraba, el clic lo volvía a abrir, y el enlace
+   * quedaba en movimiento o directamente desprendido del DOM. Un
+   * `waitForTimeout` lo tapaba; esto lo resuelve.
    */
   await expect(sheet).toHaveCount(0);
   await page.locator('[data-slot="sidebar-trigger"]').click();
   await expect(pie).toBeVisible();
+}
+
+/**
+ * Entra a una de las tres subpantallas de Contenido por el sidebar.
+ *
+ * «Contenido» dejó de ser un enlace: es un disclosure que despliega Secciones,
+ * Colecciones y Categorías. Un toque las muestra y el segundo elige — que es lo
+ * que lo hace usable en mobile, donde navegar cierra el sheet y un enlace habría
+ * cerrado el menú antes de que las otras dos se vieran.
+ *
+ * Se comprueba `aria-expanded` en vez de tocar siempre: el grupo se queda
+ * abierto entre navegaciones, y un clic de más lo cerraría.
+ */
+async function irAContenido(
+  page: Page,
+  sub: 'Secciones' | 'Colecciones' | 'Categorías',
+): Promise<void> {
+  await abrirSidebar(page);
+
+  const grupo = page.getByRole('button', { name: 'Contenido' });
+  if ((await grupo.getAttribute('aria-expanded')) !== 'true') await grupo.click();
+
+  // Acotado al submenú: «Colecciones» también nombra migas y encabezados.
+  await page
+    .locator('[data-slot="sidebar-menu-sub"]')
+    .getByRole('link', { name: sub, exact: true })
+    .click();
 }
 
 test.describe('Admin', () => {
@@ -119,13 +167,77 @@ test.describe('Admin', () => {
     await entrar(page);
     await abrirSidebar(page);
 
-    for (const seccion of ['Productos', 'Pedidos', 'Promociones', 'Contenido', 'Clientes']) {
+    for (const seccion of ['Productos', 'Pedidos', 'Promociones', 'Clientes']) {
       await page.getByRole('link', { name: seccion }).click();
       await expect(page.getByRole('heading', { name: seccion, level: 1 })).toBeVisible({
         timeout: 15_000,
       });
       await abrirSidebar(page);
     }
+
+    // Contenido no es una pantalla sino un grupo, así que se prueba lo que hace:
+    // desplegar tres entradas que llevan cada una a la suya.
+    for (const sub of ['Secciones', 'Colecciones', 'Categorías'] as const) {
+      await irAContenido(page, sub);
+      await expect(page.getByRole('heading', { name: sub, level: 1 })).toBeVisible({
+        timeout: 15_000,
+      });
+    }
+
+    /*
+     * Y se vuelve a plegar. Va aparte porque `irAContenido` sólo lo toca cuando
+     * está cerrado: sin esta comprobación, cambiar el toggle por un
+     * `setAbierto(true)` dejaba la suite entera en verde.
+     */
+    await abrirSidebar(page);
+    const grupo = page.getByRole('button', { name: 'Contenido' });
+    await expect(grupo).toHaveAttribute('aria-expanded', 'true');
+    await grupo.click();
+    await expect(grupo).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('[data-slot="sidebar-menu-sub"]')).toHaveCount(0);
+
+    expect(problemas, problemas.join('\n')).toEqual([]);
+  });
+
+  test('las URLs de contenido aguantan entrar por la barra del navegador', async ({ page }) => {
+    /*
+     * Dos cosas que el sidebar no puede probar, porque el sidebar es justamente
+     * el camino que no se usa acá.
+     *
+     * `/contenido` dejó de ser una pantalla, pero sigue viva en marcadores y en
+     * el historial de quien ya la usaba: tiene que redirigir, no dar 404. Y
+     * entrar directo a una subpantalla tiene que dejar el grupo desplegado —si
+     * no, el menú diría que estás en otro lado que donde estás—.
+     */
+    const problemas = vigilar(page);
+    await entrar(page);
+
+    await page.goto(`${ADMIN}/contenido`);
+    await expect(page).toHaveURL(/\/contenido\/secciones$/);
+    await expect(page.getByRole('heading', { name: 'Secciones', level: 1 })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    /*
+     * Y una URL vieja con su pestaña llega a la pantalla que nombraba, no a la
+     * primera. La pantalla vieja ponía `?tab=` en la URL a propósito, para poder
+     * compartirla: los marcadores que apuntan a otra cosa que Secciones son
+     * exactamente los que esta ruta existe para no romper, así que mandarlos a
+     * todos al mismo lado sería conservar la ruta sin conservar lo que decía.
+     */
+    await page.goto(`${ADMIN}/contenido?tab=categorias`);
+    await expect(page).toHaveURL(/\/contenido\/categorias$/);
+
+    await page.goto(`${ADMIN}/contenido/categorias`);
+    await expect(page.getByRole('heading', { name: 'Categorías', level: 1 })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await abrirSidebar(page);
+    await expect(page.getByRole('button', { name: 'Contenido' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
 
     expect(problemas, problemas.join('\n')).toEqual([]);
   });
@@ -178,8 +290,7 @@ test.describe('Admin', () => {
     await entrar(page);
     await abrirSidebar(page);
 
-    await page.getByRole('link', { name: 'Contenido' }).click();
-    await page.getByRole('tab', { name: 'Colecciones' }).click();
+    await irAContenido(page, 'Colecciones');
     await page.getByRole('link', { name: 'Nueva colección' }).click();
 
     const titulo = `Novedades del smoke ${Date.now()}`;
@@ -211,16 +322,17 @@ test.describe('Admin', () => {
     await entrar(page);
     await abrirSidebar(page);
 
-    await page.getByRole('link', { name: 'Contenido' }).click();
-    await page.getByRole('tab', { name: 'Colecciones' }).click();
+    await irAContenido(page, 'Colecciones');
     await page.getByRole('link', { name: 'Nueva colección' }).click();
 
     const migas = page.getByRole('navigation', { name: 'Migas de pan' });
-    await expect(migas).toContainText('Contenido');
+    // Arrancan en la subpantalla y no en «Contenido»: ése dejó de ser una
+    // pantalla, y enlazarlo daría dos migas seguidas al mismo lugar.
+    await expect(migas).toContainText('Colecciones');
     await expect(migas).toContainText('Nueva colección');
 
     await migas.getByRole('link', { name: 'Colecciones' }).click();
-    await expect(page).toHaveURL(/\/contenido\?tab=colecciones/);
+    await expect(page).toHaveURL(/\/contenido\/colecciones$/);
     await expect(page.getByRole('link', { name: 'Nueva colección' })).toBeVisible();
 
     expect(problemas, problemas.join('\n')).toEqual([]);
@@ -233,7 +345,7 @@ test.describe('Admin', () => {
     await entrar(page);
     await abrirSidebar(page);
 
-    await page.getByRole('link', { name: 'Contenido' }).click();
+    await irAContenido(page, 'Secciones');
 
     // Acotado a la lista de secciones: `getByRole('listitem')` a secas agarra
     // también los ítems del menú lateral, que también son una lista.
@@ -258,7 +370,10 @@ test.describe('Admin', () => {
     const antes = await titulos();
     const esperado = [antes[1], antes[0], ...antes.slice(2)];
 
-    await filas.nth(1).getByRole('button', { name: /^Subir / }).click();
+    await filas
+      .nth(1)
+      .getByRole('button', { name: /^Subir / })
+      .click();
 
     /*
      * Primero se espera a que la pantalla lo refleje, y **recién después** se
@@ -289,8 +404,7 @@ test.describe('Admin', () => {
     await entrar(page);
     await abrirSidebar(page);
 
-    await page.getByRole('link', { name: 'Contenido' }).click();
-    await page.getByRole('tab', { name: 'Colecciones' }).click();
+    await irAContenido(page, 'Colecciones');
     await page.getByRole('link', { name: 'Nueva colección' }).click();
 
     const titulo = `Novedades del smoke ${Date.now()}`;
@@ -322,8 +436,7 @@ test.describe('Admin', () => {
     await entrar(page);
     await abrirSidebar(page);
 
-    await page.getByRole('link', { name: 'Contenido' }).click();
-    await page.getByRole('tab', { name: 'Colecciones' }).click();
+    await irAContenido(page, 'Colecciones');
     await page.getByRole('link', { name: 'Nueva colección' }).click();
 
     const titulo = `Novedades del smoke ${Date.now()}`;
@@ -357,8 +470,7 @@ test.describe('Admin', () => {
     await entrar(page);
     await abrirSidebar(page);
 
-    await page.getByRole('link', { name: 'Contenido' }).click();
-    await page.getByRole('tab', { name: 'Categorías' }).click();
+    await irAContenido(page, 'Categorías');
 
     await page.getByRole('button', { name: 'Nueva categoría' }).click();
     const nombre = `Categoría del smoke ${Date.now()}`;

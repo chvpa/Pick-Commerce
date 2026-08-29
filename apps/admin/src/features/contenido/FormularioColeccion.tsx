@@ -121,7 +121,7 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
       ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['colecciones', tienda.id] });
-      await navegar({ to: '/contenido', search: { tab: 'colecciones' } });
+      await navegar({ to: '/contenido/colecciones' });
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -144,7 +144,7 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
               type="button"
               variant="outline"
               size="lg"
-              onClick={() => void navegar({ to: '/contenido', search: { tab: 'colecciones' } })}
+              onClick={() => void navegar({ to: '/contenido/colecciones' })}
             >
               Cancelar
             </Button>

@@ -21,16 +21,19 @@ interface Miga {
   readonly label: string;
   /** Ausente en el último: la página actual no se enlaza a sí misma. */
   readonly to?: string;
-  readonly search?: Record<string, string>;
 }
 
 /**
  * De un pathname a sus migas.
  *
- * Se resuelve por prefijos declarados y no partiendo la URL en segmentos: los
- * segmentos de `/contenido/colecciones/$id` no son tres niveles navegables
- * —`/contenido/colecciones` no existe como pantalla— y unas migas que llevan a
- * un 404 son peores que no tenerlas.
+ * Se resuelve por prefijos declarados y no partiendo la URL en segmentos: no
+ * todo segmento es un nivel navegable, y unas migas que llevan a un 404 son
+ * peores que no tenerlas.
+ *
+ * Las de contenido arrancan en la subpantalla —«Colecciones», no «Contenido →
+ * Colecciones»— porque `/contenido` dejó de ser una pantalla: es el grupo del
+ * sidebar y redirige a la primera. Enlazarlo daría dos migas seguidas al mismo
+ * lugar (ADR-098).
  */
 export function migasDe(ruta: string): readonly Miga[] {
   const REGLAS: readonly {
@@ -64,35 +67,19 @@ export function migasDe(ruta: string): readonly Miga[] {
     },
     {
       patron: /^\/contenido\/secciones\/nueva$/,
-      migas: [
-        ruta1('Contenido', '/contenido'),
-        { label: 'Secciones', to: '/contenido', search: { tab: 'secciones' } },
-        { label: 'Nueva sección' },
-      ],
+      migas: [ruta1('Secciones', '/contenido/secciones'), { label: 'Nueva sección' }],
     },
     {
       patron: /^\/contenido\/secciones\/[^/]+$/,
-      migas: [
-        ruta1('Contenido', '/contenido'),
-        { label: 'Secciones', to: '/contenido', search: { tab: 'secciones' } },
-        { label: 'Editar sección' },
-      ],
+      migas: [ruta1('Secciones', '/contenido/secciones'), { label: 'Editar sección' }],
     },
     {
       patron: /^\/contenido\/colecciones\/nueva$/,
-      migas: [
-        ruta1('Contenido', '/contenido'),
-        { label: 'Colecciones', to: '/contenido', search: { tab: 'colecciones' } },
-        { label: 'Nueva colección' },
-      ],
+      migas: [ruta1('Colecciones', '/contenido/colecciones'), { label: 'Nueva colección' }],
     },
     {
       patron: /^\/contenido\/colecciones\/[^/]+$/,
-      migas: [
-        ruta1('Contenido', '/contenido'),
-        { label: 'Colecciones', to: '/contenido', search: { tab: 'colecciones' } },
-        { label: 'Editar colección' },
-      ],
+      migas: [ruta1('Colecciones', '/contenido/colecciones'), { label: 'Editar colección' }],
     },
   ];
 
@@ -120,7 +107,6 @@ export function Migas() {
             {miga.to ? (
               <Link
                 to={miga.to}
-                search={miga.search}
                 className="hover:text-foreground truncate rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 {miga.label}
