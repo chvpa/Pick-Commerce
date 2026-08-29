@@ -176,6 +176,8 @@ Cada regla sale de un fallo real cometido en este repo, y cada una costó un cic
 
 **Reproducir el fallo y confirmar la hipótesis antes de arreglar.** El badge que no renderizaba se aisló con un experimento mínimo — string vs JSX — antes de tocar la arquitectura. Sin ese paso el arreglo habría sido una conjetura.
 
+**El Admin no se despliega solo.** El storefront sale a producción con cada push; el Admin **no tiene Workers Builds** y necesita `pnpm --filter @pick/admin run deploy` a mano (INFRAESTRUCTURA §10). Una pantalla nueva del Admin dada por terminada sin desplegarla no existe para quien la va a usar, aunque el build, el typecheck y el Playwright estén en verde: todos corren contra el local. Ya pasó con la sección de promociones.
+
 **No afirmar "validado" sin la evidencia a la vista.** Si se reporta que algo pasa, mostrar la salida. Si un paso se salteó, decirlo.
 
 **En un ADR, registrar la razón real, no la primera hipótesis.** ADR-032 afirmó que Preact era imposible cuando en realidad era posible vía named slots y sólo era peor. Un ADR con la justificación equivocada envenena decisiones futuras.
