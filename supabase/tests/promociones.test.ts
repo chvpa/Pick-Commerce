@@ -527,6 +527,167 @@ test('un cupón con tope de uso lo consume una sola vez', async () => {
   assert.equal(filas[0]!.usage_count, 1, 'el contador no quedó en uno');
 });
 
+// ---------------------------------------------------------------------------
+// El catálogo
+// ---------------------------------------------------------------------------
+
+interface Catalogo {
+  readonly items: readonly {
+    readonly handle: string;
+    readonly variants: readonly {
+      readonly price: { amount: number };
+      readonly compareAtPrice?: { amount: number };
+    }[];
+  }[];
+  readonly priceMin: number;
+  readonly priceMax: number;
+}
+
+/**
+ * Sin cambiar de rol, igual que `catalogo.test.ts`: `catalog_search` tiene grant
+ * a `authenticated` y en la base de prueba `service_role` no hereda los
+ * privilegios que sí tiene en Supabase.
+ */
+async function catalogo(opciones: { sort?: string; precioMax?: number } = {}): Promise<Catalogo> {
+  const r = await db.query<{ j: Catalogo }>(
+    `select catalog_search($1::uuid, '{}'::jsonb, '', $2, 1, 24, null, $3) as j`,
+    [TIENDA, opciones.sort ?? 'relevance', opciones.precioMax ?? null],
+  );
+  return r.rows[0]!.j;
+}
+
+function porHandle(c: Catalogo, handle: string) {
+  const p = c.items.find((i) => i.handle === handle);
+  assert.ok(p, `no vino el producto ${handle}`);
+  return p.variants[0]!;
+}
+
+test('el catálogo devuelve el precio con descuento y tacha el de lista', async () => {
+  await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
+  await comoServicio(
+    db,
+    `insert into promotions (tenant_id, store_id, title, status, discount_type, discount_value, target)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, 'Veinte', 'active', 'percentage', 2000,
+             '{"kind":"category","ids":["${CATEGORIA}"]}'::jsonb)`,
+  );
+
+  const c = await catalogo();
+  const remera = porHandle(c, 'remera');
+  assert.equal(remera.price.amount, 120_000, 'la PLP no muestra el precio rebajado');
+  assert.equal(remera.compareAtPrice?.amount, 150_000, 'no tachó el precio de lista');
+
+  // La gorra no está en esa categoría: no se toca.
+  const gorra = porHandle(c, 'gorra');
+  assert.equal(gorra.price.amount, PRECIO_GORRA);
+  assert.equal(gorra.compareAtPrice, undefined);
+});
+
+test('una promoción con condición de carrito no baja el precio del catálogo', async () => {
+  // Sin carrito no hay subtotal contra el que evaluarla. Es la regla que parte
+  // el modelo en dos y se rompe sin hacer ruido.
+  await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
+  await comoServicio(
+    db,
+    `insert into promotions (tenant_id, store_id, title, status, discount_type, discount_value, min_subtotal)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, 'Con mínimo', 'active', 'percentage', 5000, 10000)`,
+  );
+
+  const c = await catalogo();
+  assert.equal(porHandle(c, 'remera').price.amount, PRECIO_REMERA);
+});
+
+test('un cupón tampoco baja el precio del catálogo', async () => {
+  await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
+  await comoServicio(
+    db,
+    `insert into promotions (tenant_id, store_id, title, status, code, discount_type, discount_value)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, 'Cupón', 'active', 'SECRETO', 'percentage', 5000)`,
+  );
+
+  const c = await catalogo();
+  assert.equal(porHandle(c, 'remera').price.amount, PRECIO_REMERA);
+});
+
+test('el orden por precio usa el efectivo, no el de lista', async () => {
+  // El bug que parece que funciona: la grilla muestra bien y ordena mal. La
+  // remera vale más que la gorra de lista (150.000 contra 89.990) y menos con un
+  // 60 % encima (60.000), así que el orden tiene que darse vuelta.
+  await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
+
+  const sinPromo = await catalogo({ sort: 'price-asc' });
+  assert.deepEqual(
+    sinPromo.items.map((i) => i.handle),
+    ['gorra', 'remera'],
+    'el orden de partida no es el esperado',
+  );
+
+  await comoServicio(
+    db,
+    `insert into promotions (tenant_id, store_id, title, status, discount_type, discount_value, target)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, 'Sesenta', 'active', 'percentage', 6000,
+             '{"kind":"product","ids":["${REMERA}"]}'::jsonb)`,
+  );
+
+  const conPromo = await catalogo({ sort: 'price-asc' });
+  assert.deepEqual(
+    conPromo.items.map((i) => i.handle),
+    ['remera', 'gorra'],
+    'ordenó por el precio de lista y no por el que se muestra',
+  );
+});
+
+test('el filtro de precio y los extremos de la barra siguen al descuento', async () => {
+  await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
+
+  // Sin descuento la remera queda fuera de un techo de 100.000.
+  const sinPromo = await catalogo({ precioMax: 100_000 });
+  assert.deepEqual(sinPromo.items.map((i) => i.handle), ['gorra']);
+
+  await comoServicio(
+    db,
+    `insert into promotions (tenant_id, store_id, title, status, discount_type, discount_value, target)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, 'Sesenta', 'active', 'percentage', 6000,
+             '{"kind":"product","ids":["${REMERA}"]}'::jsonb)`,
+  );
+
+  // Con 60 % sale 60.000 y tiene que entrar: si no, el filtro esconde algo que
+  // el comprador sí puede pagar.
+  const conPromo = await catalogo({ precioMax: 100_000 });
+  assert.deepEqual([...conPromo.items.map((i) => i.handle)].sort(), ['gorra', 'remera']);
+
+  const todo = await catalogo();
+  assert.equal(todo.priceMin, 60_000, 'el extremo inferior de la barra no bajó');
+});
+
+test('una promoción vencida no toca el catálogo', async () => {
+  await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
+  await comoServicio(
+    db,
+    `insert into promotions (tenant_id, store_id, title, status, discount_type, discount_value, ends_at)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, 'Vencida', 'active', 'percentage', 5000,
+             now() - interval '1 day')`,
+  );
+
+  const c = await catalogo();
+  assert.equal(porHandle(c, 'remera').price.amount, PRECIO_REMERA);
+});
+
+test('el catálogo y el pedido cobran lo mismo', async () => {
+  // La comprobación que cierra el círculo: lo que el comprador vio en la grilla
+  // es lo que termina pagando.
+  await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
+  await comoServicio(
+    db,
+    `insert into promotions (tenant_id, store_id, title, status, discount_type, discount_value)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, 'Quince', 'active', 'percentage', 1500)`,
+  );
+
+  const enLaGrilla = porHandle(await catalogo(), 'gorra').price.amount;
+  const o = (await crear([{ variantId: V_GORRA, quantity: 3 }])).order!;
+
+  assert.equal(o.total.amount, enLaGrilla * 3, 'el pedido no cobra lo que mostraba la grilla');
+});
+
 test('un carrito inválido no consume el tope de uso', async () => {
   // Las promociones se resuelven después de la revalidación justamente por esto.
   await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
