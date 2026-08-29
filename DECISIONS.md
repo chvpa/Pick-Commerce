@@ -3286,3 +3286,83 @@ Un detalle que costó un susto: con esa clave, las tablas sensibles responden
 **200 con un array vacío**, no un 403. Leer eso como «expuesta» es un falso
 positivo — es RLS filtrando, que es el comportamiento correcto. La exposición
 sería un 200 **con filas**.
+
+---
+
+## ADR-089 — Los tres códigos de un producto, cada uno en su nivel
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted — **corrige el mapeo de ADR-085**
+
+La Fase 8 los confundió: puso el código del ERP en el producto y usó el código de
+barras como SKU de la variante. Son tres cosas distintas, y mezclarlas se paga al
+facturar, porque el ERP espera recibir **el suyo**:
+
+|                   | Qué es                                                    | Dónde vive                       | ¿Único?        |
+| ----------------- | --------------------------------------------------------- | -------------------------------- | -------------- |
+| **SKU**           | el código del modelo: `NK123-01`, donde `-01` es el color | `products.sku`                   | sí, por tienda |
+| **internal_code** | el código del ERP del comercio                            | `product_variants.internal_code` | **no**         |
+| **barcode**       | el impreso en la caja, del proveedor                      | `product_variants.barcode`       | **no**         |
+
+**Que los dos últimos no lleven unicidad es la decisión, no un olvido.** Según el
+ERP, su código se repite en todo el modelo o cambia en cada talla; y hay modelos
+con un solo código impreso para todas las tallas. Una restricción parecería
+prolija y rechazaría catálogos legítimos.
+
+De ahí sale todo lo demás:
+
+- **El producto se agrupa y se cruza por el SKU.** Es lo único estable a nivel
+  producto. Agrupar por el código del ERP daría un producto por talla en cuanto
+  aparezca un ERP que codifique por variante.
+- **La variante se cruza dentro de su producto**, y el orden lo decide el
+  catálogo, no una suposición: el código de barras si de hecho distingue las
+  tallas de ese modelo, si no el del ERP, y al final la talla. Para eso existe
+  `discrimina()`.
+- **`product_variants.sku` se queda con ese nombre** y pasa a significar lo que
+  es: el identificador único de la variante, derivado (`{modelo}-{talla}`).
+  Renombrarlo era más honesto y son 89 usos en 30 archivos — checkout, pedidos,
+  búsqueda, import CSV—; la concesión está anotada acá para que nadie lo lea como
+  «el SKU».
+
+### El hallazgo que salió de esto y valía plata
+
+Reescribir la clave de agregación destapó **7 variantes que el ERP trae dos
+veces** con códigos distintos: `CCOB001` contra `ccob001`, `lt'005` contra
+`lt-005`, dos EAN para la misma zapatilla. Las dos filas traen **el mismo número
+de unidades**: es la misma mercadería cargada dos veces, no dos lotes.
+
+Sumarlas —que es lo que hacía la agregación anterior— publicaría el doble del
+stock que existe. Así que ahora se distinguen los dos casos:
+
+- varias filas del **mismo artículo** (mismo código de barras) → lotes → **se suman**
+- varias filas de la **misma variante** con artículos distintos → duplicado de
+  carga → **no se suman**, gana la primera y el resto se reporta
+
+El arreglo de fondo va en el ERP del cliente, no acá; lo que corresponde es no
+tragárselo. Por eso `fetchInventory` devuelve el agregado entero y no sólo las
+filas: un contrato que descarte los duplicados obliga a cada llamador a
+redescubrirlos.
+
+---
+
+## ADR-090 — La foto entra entera en su caja
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+La card recortaba con `object-cover` dentro de una caja 3:4. Con fotografía
+propia y consistente eso es lo correcto —llena la caja y la grilla queda
+perfecta— y por eso nunca se notó: las imágenes del seed miden exactamente 0,75.
+
+Un catálogo que recibe packshots de sus proveedores trae de todo. Medido sobre
+uno real: las proporciones van de **0,32 a 2,89** y sólo el 26 % son cuadradas.
+Con `cover`, de una riñonera apaisada se veía la franja del medio.
+
+`--fit-product`, al lado del `--aspect-product` que ya existía, con `contain` por
+defecto. **`contain` es el default correcto para una plataforma** porque nunca
+destruye una foto: lo peor que hace es dejar aire. `cover` pasa a ser lo que se
+elige cuando se tiene la fotografía bajo control.
+
+Se aplica también a la galería del PDP, que tenía el mismo recorte. El hero y las
+fichas de categoría se quedan en `cover`: ahí la imagen es decorativa y llenar el
+espacio es lo que se quiere.

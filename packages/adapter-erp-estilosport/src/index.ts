@@ -1,5 +1,6 @@
 import {
   agregarPorVariante,
+  type Agregado,
   type ERPAdapter,
   type ERPCapabilities,
   type ERPItem,
@@ -133,9 +134,26 @@ function aItem(fila: FilaORDS): ERPItem {
     throw new TypeError(`El artículo ${fila.cod_barra} trae stock o precio ilegibles`);
   }
 
+  /*
+   * Los tres códigos, cada uno en su nivel:
+   *
+   *   cod_origen → sku          el del modelo. Verificado 1:1 con `codigo` sobre
+   *                             las 9032 filas, y como este ERP trata cada color
+   *                             como un producto aparte, ya lleva el color
+   *                             adentro. Es el que agrupa.
+   *   codigo     → internalCode el del ERP. Acá es del modelo; en otro ERP puede
+   *                             ser de cada variante.
+   *   cod_barra  → barcode      el de la caja, del proveedor.
+   *
+   * Si faltara `cod_origen` se cae al del ERP: sin código de modelo no habría
+   * con qué agrupar y cada talla quedaría como un producto suelto.
+   */
+  const modelo = String(fila.cod_origen ?? '').trim() || String(fila.codigo).trim();
+
   return {
+    sku: modelo,
     internalCode: String(fila.codigo).trim(),
-    barcode: String(fila.cod_barra).trim(),
+    barcode: String(fila.cod_barra ?? '').trim(),
     title: String(fila.articulo).trim(),
     size: normalizarTalla(String(fila.cod_talla)),
     erpSize: String(fila.cod_talla).trim(),
@@ -144,12 +162,17 @@ function aItem(fila: FilaORDS): ERPItem {
     price: { amount: Math.round(precio), currency: 'PYG' },
     family: String(fila.familia ?? '').trim() || undefined,
     brand: marcaReal(String(fila.marca ?? '')),
-    externalCode: String(fila.cod_origen ?? '').trim() || undefined,
   };
 }
 
-/** Convierte y agrega en un paso, que es como se consume siempre. */
-export function normalizarRespuesta(texto: string): readonly ERPItem[] {
+/**
+ * Convierte y agrega en un paso, que es como se consume siempre.
+ *
+ * Devuelve el agregado entero —no sólo los items— porque los duplicados que
+ * encuentra son un problema de carga del ERP y la corrida tiene que poder
+ * reportarlos.
+ */
+export function normalizarRespuesta(texto: string): Agregado {
   return agregarPorVariante(parseOracleJson(texto).map(aItem));
 }
 

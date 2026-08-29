@@ -988,6 +988,7 @@ export type Database = {
           erp_size: string | null
           field_sources: Json
           id: string
+          internal_code: string | null
           position: number
           price: number
           product_id: string
@@ -1006,6 +1007,7 @@ export type Database = {
           erp_size?: string | null
           field_sources?: Json
           id?: string
+          internal_code?: string | null
           position?: number
           price: number
           product_id: string
@@ -1024,6 +1026,7 @@ export type Database = {
           erp_size?: string | null
           field_sources?: Json
           id?: string
+          internal_code?: string | null
           position?: number
           price?: number
           product_id?: string
@@ -1059,9 +1062,9 @@ export type Database = {
           field_sources: Json
           handle: string
           id: string
-          internal_code: string | null
           last_sync_at: string | null
           product_group_id: string | null
+          sku: string | null
           status: Database["public"]["Enums"]["product_status"]
           store_id: string
           sync_error: string | null
@@ -1080,9 +1083,9 @@ export type Database = {
           field_sources?: Json
           handle: string
           id?: string
-          internal_code?: string | null
           last_sync_at?: string | null
           product_group_id?: string | null
+          sku?: string | null
           status?: Database["public"]["Enums"]["product_status"]
           store_id: string
           sync_error?: string | null
@@ -1101,9 +1104,9 @@ export type Database = {
           field_sources?: Json
           handle?: string
           id?: string
-          internal_code?: string | null
           last_sync_at?: string | null
           product_group_id?: string | null
+          sku?: string | null
           status?: Database["public"]["Enums"]["product_status"]
           store_id?: string
           sync_error?: string | null

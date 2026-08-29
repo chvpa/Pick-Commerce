@@ -43,9 +43,22 @@ export interface ERPCapabilities {
  * catálogo).
  */
 export interface ERPItem {
-  /** Identifica el producto: todas sus variantes lo comparten. */
+  /**
+   * Código del **modelo**. Todas las variantes del mismo producto lo comparten,
+   * y es lo que identifica al producto: `NK123-01`, donde `-01` suele ser el
+   * color. Es el único de los tres códigos que se puede dar por estable a nivel
+   * producto, así que es el que agrupa.
+   */
+  readonly sku: string;
+  /**
+   * Código del ERP del comercio. **No se puede asumir único por variante**:
+   * según el ERP se repite en todo el modelo o cambia en cada talla.
+   */
   readonly internalCode: string;
-  /** Identifica la variante. Es la llave del cruce contra el catálogo local. */
+  /**
+   * Código impreso en la caja, del proveedor. **Tampoco se puede asumir único
+   * por variante**: hay modelos con un solo código para todas las tallas.
+   */
   readonly barcode: string;
   readonly title: string;
   /** Talla, color o lo que distinga a esta variante, en el formato de Pick. */
@@ -61,54 +74,134 @@ export interface ERPItem {
   /** Pista de categoría, cuando el ERP la tenga. */
   readonly family?: string;
   readonly brand?: string;
-  /** Segundo código del ERP, cuando exista. No se usa para cruzar. */
-  readonly externalCode?: string;
 }
 
 /** Un producto del ERP con sus variantes, listo para cruzar contra el catálogo. */
 export interface ERPProduct {
-  readonly internalCode: string;
+  /** El código de modelo. Identifica al producto. */
+  readonly sku: string;
   readonly title: string;
   readonly family?: string;
   readonly brand?: string;
   readonly items: readonly ERPItem[];
 }
 
+/**
+ * Qué distingue a una variante dentro de su modelo.
+ *
+ * **No es el código de barras**, y esa fue la primera versión de esto. Un modelo
+ * puede traer el mismo código impreso en todas las tallas, y agregando por
+ * código de barras las cuatro tallas se fundirían en una sola con el stock
+ * sumado — el catálogo quedaría con una variante y cuatro veces las unidades.
+ * Lo que separa una variante de otra es la talla dentro del modelo.
+ */
+function claveDeVariante(item: ERPItem): string {
+  return JSON.stringify([item.sku, item.erpSize]);
+}
+
+export interface Agregado {
+  readonly items: readonly ERPItem[];
+  /**
+   * Lo que el ERP trae dos veces para la misma variante con códigos distintos.
+   * No se descarta en silencio: la corrida lo registra para que alguien lo
+   * corrija en el ERP, que es donde está el problema.
+   */
+  readonly duplicados: readonly ERPItem[];
+}
+
 export interface ERPAdapter {
   readonly id: string;
   readonly capabilities: ERPCapabilities;
-  /** El catálogo entero. Con `supportsDeltaSync` en false, no hay otra forma. */
-  fetchInventory(): Promise<readonly ERPItem[]>;
+  /**
+   * El catálogo entero. Con `supportsDeltaSync` en false, no hay otra forma.
+   *
+   * Devuelve el agregado y no sólo las filas: los duplicados que el ERP trae
+   * para una misma variante son un problema de carga que hay que reportar, y un
+   * contrato que los descarte obliga a cada llamador a redescubrirlos.
+   */
+  fetchInventory(): Promise<Agregado>;
   /** Un producto puntual, para validar stock sin traer todo. */
-  fetchItem(internalCode: string): Promise<readonly ERPItem[]>;
+  fetchItem(internalCode: string): Promise<Agregado>;
   healthCheck(): Promise<boolean>;
 }
 
 /**
- * Suma las unidades de las filas que hablan de la misma variante.
+ * Reduce las filas del ERP a una por variante vendible.
  *
- * Un ERP puede devolver una fila por lote o por depósito con el mismo código de
- * barras. Sin sumar, la última pisa a las anteriores y una variante con 1+2
- * queda con 1 — el bug que el sistema actual de Estilo Sport pagó en junio de
- * 2026.
+ * Son dos cosas distintas y se resuelven distinto, y confundirlas cuesta plata
+ * en las dos direcciones:
  *
- * Verificado el 29/08/2026 contra las 9032 filas del ERP de Estilo Sport: hoy
- * **no** vienen repetidas. Se agrega igual, porque la alternativa es que el
- * día que el ORDS cambie de consulta el error sea silencioso y cueste dinero.
+ *   varias filas del **mismo artículo** → lotes o depósitos → se **suman**
+ *   varias filas de la **misma variante** con artículos distintos → duplicado
+ *                                        de carga en el ERP → **no** se suman
  *
  * El resto de los campos gana la primera fila: son atributos de la variante, no
  * del lote.
  */
-export function agregarPorVariante(items: readonly ERPItem[]): readonly ERPItem[] {
-  const porBarcode = new Map<string, ERPItem>();
+export function agregarPorVariante(items: readonly ERPItem[]): Agregado {
+  // La variante siempre es (modelo, talla). Agrupar por código de barras fundía
+  // las tallas de un modelo que comparte uno solo.
+  const grupos = new Map<string, ERPItem[]>();
   for (const item of items) {
-    const previo = porBarcode.get(item.barcode);
-    porBarcode.set(
-      item.barcode,
-      previo ? { ...previo, available: previo.available + item.available } : item,
-    );
+    const clave = claveDeVariante(item);
+    const grupo = grupos.get(clave);
+    if (grupo) grupo.push(item);
+    else grupos.set(clave, [item]);
   }
-  return [...porBarcode.values()];
+
+  const salida: ERPItem[] = [];
+  const duplicados: ERPItem[] = [];
+
+  for (const grupo of grupos.values()) {
+    const primera = grupo[0]!;
+    if (grupo.length === 1) {
+      salida.push(primera);
+      continue;
+    }
+
+    if (grupo.every((i) => i.barcode === primera.barcode)) {
+      /*
+       * Mismo artículo, varias filas: son lotes o depósitos y se **suman**. Sin
+       * esto, la última pisa a las anteriores y una variante con 1+2 queda con 1
+       * — el bug que Estilo Sport pagó en junio de 2026.
+       */
+      salida.push({
+        ...primera,
+        available: grupo.reduce((total, i) => total + i.available, 0),
+      });
+    } else {
+      /*
+       * Artículos **distintos** que son la misma variante: el modelo y la talla
+       * cargados dos veces en el ERP con códigos diferentes. Acá **no se suma**.
+       *
+       * Medido sobre el catálogo real: 7 variantes vienen así, y las dos filas
+       * traen *el mismo* número de unidades. Sumarlas publicaría el doble del
+       * stock que existe, que es exactamente cómo se vende lo que no se tiene.
+       * Los casos son de carga —`CCOB001` contra `ccob001`, `lt'005` contra
+       * `lt-005`, dos EAN para la misma zapatilla— así que gana la primera y el
+       * resto se devuelve para que la corrida lo reporte: el arreglo va en el
+       * ERP, no acá.
+       */
+      salida.push(primera);
+      duplicados.push(...grupo.slice(1));
+    }
+  }
+
+  return { items: salida, duplicados };
+}
+
+/**
+ * Si un campo alcanza para distinguir las variantes de un modelo.
+ *
+ * El cruce contra el catálogo local prefiere el código de barras, después el del
+ * ERP y al final la talla — pero sólo puede usar los dos primeros cuando de
+ * hecho discriminan. Con un código repetido en todas las tallas, cruzar por él
+ * mandaría el stock de una talla a la variante de otra, y eso no se ve hasta que
+ * falta mercadería.
+ */
+export function discrimina(items: readonly ERPItem[], campo: 'barcode' | 'internalCode'): boolean {
+  const valores = items.map((i) => i[campo]).filter((v) => v !== '');
+  return valores.length === items.length && new Set(valores).size === items.length;
 }
 
 /**
@@ -121,15 +214,18 @@ export function agregarPorVariante(items: readonly ERPItem[]): readonly ERPItem[
 export function agruparEnProductos(items: readonly ERPItem[]): readonly ERPProduct[] {
   // Se guarda la primera aparte en vez de leer `grupo[0]`: el grupo nunca está
   // vacío, pero eso el compilador no lo sabe y la alternativa es afirmarlo.
-  const porCodigo = new Map<string, { primera: ERPItem; variantes: ERPItem[] }>();
+  //
+  // Agrupa por el código de **modelo** y no por el del ERP: el del ERP puede ser
+  // propio de cada variante, y entonces cada talla sería un producto distinto.
+  const porModelo = new Map<string, { primera: ERPItem; variantes: ERPItem[] }>();
   for (const item of items) {
-    const grupo = porCodigo.get(item.internalCode);
+    const grupo = porModelo.get(item.sku);
     if (grupo) grupo.variantes.push(item);
-    else porCodigo.set(item.internalCode, { primera: item, variantes: [item] });
+    else porModelo.set(item.sku, { primera: item, variantes: [item] });
   }
 
-  return [...porCodigo].map(([internalCode, { primera, variantes }]) => ({
-    internalCode,
+  return [...porModelo].map(([sku, { primera, variantes }]) => ({
+    sku,
     title: primera.title,
     family: primera.family,
     brand: primera.brand,

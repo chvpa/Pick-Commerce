@@ -11,9 +11,8 @@ import { dimensionesWebp } from './dimensiones.ts';
  * es una URL, así que las fotos salen del proyecto Supabase de la tienda actual
  * del cliente, que es donde se cargaron a mano.
  *
- * El cruce es por `internal_code`: el mismo `codigo` de Oracle que Pick guarda
- * en `products.internal_code` y el otro proyecto en
- * `product_variants.internal_code`.
+ * El cruce es por el código del ERP, que los dos proyectos guardan en la
+ * variante: `product_variants.internal_code`. Es el `codigo` de Oracle.
  *
  * Las imágenes se **copian** al bucket propio en vez de referenciarse. Apuntar
  * al bucket ajeno dejaría el catálogo colgando de un proyecto que no
@@ -90,10 +89,9 @@ async function main(): Promise<number> {
 
   const consulta = db
     .from('products')
-    .select('id, internal_code, title')
+    .select('id, title, product_variants(internal_code)')
     .eq('store_id', tienda.id)
-    .not('internal_code', 'is', null)
-    .order('internal_code');
+    .order('sku');
 
   const { data: productos, error } = await (limite > 0 ? consulta.limit(limite) : consulta);
   if (error || !productos) {
@@ -102,13 +100,20 @@ async function main(): Promise<number> {
   }
 
   console.log(`Tienda    ${tienda.name}`);
-  console.log(`Productos ${productos.length} con código del ERP\n`);
+  console.log(`Productos ${productos.length} en el catálogo\n`);
 
   // ---------------------------------------------------------------------------
   // Cruce contra el proyecto de origen
   // ---------------------------------------------------------------------------
 
-  const codigos = productos.map((p) => p.internal_code as string);
+  // El código del ERP vive en las variantes; todas las de un modelo lo
+  // comparten en este ERP, así que la primera alcanza.
+  const codigoDeProducto = new Map<string, string>();
+  for (const p of productos) {
+    const codigo = (p.product_variants ?? []).map((v) => v.internal_code).find(Boolean);
+    if (codigo) codigoDeProducto.set(p.id, codigo);
+  }
+  const codigos = [...new Set(codigoDeProducto.values())];
   const idAjenoPorCodigo = new Map<string, string>();
 
   for (let i = 0; i < codigos.length; i += 50) {
@@ -153,7 +158,7 @@ async function main(): Promise<number> {
   const fallos: string[] = [];
 
   for (const producto of productos) {
-    const idAjeno = idAjenoPorCodigo.get(producto.internal_code as string);
+    const idAjeno = idAjenoPorCodigo.get(codigoDeProducto.get(producto.id) ?? '');
     const fotos = idAjeno ? (imagenesPorIdAjeno.get(idAjeno) ?? []) : [];
     if (fotos.length === 0) {
       sinFoto++;
@@ -173,7 +178,7 @@ async function main(): Promise<number> {
 
         // Ruta derivada, no aleatoria: repetir la corrida sobrescribe en el
         // mismo lugar en vez de dejar copias huérfanas en el bucket.
-        const ruta = `${org.id}/erp/${producto.internal_code}-${i}.webp`;
+        const ruta = `${org.id}/erp/${producto.id}-${i}.webp`;
         const { error: errorSubida } = await db.storage
           .from(BUCKET)
           .upload(ruta, buf, { contentType: 'image/webp', upsert: true });
@@ -192,7 +197,7 @@ async function main(): Promise<number> {
         });
         copiadas++;
       } catch (e) {
-        fallos.push(`${producto.internal_code} #${i}: ${(e as Error).message}`);
+        fallos.push(`${producto.title} #${i}: ${(e as Error).message}`);
       }
     }
   }

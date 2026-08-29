@@ -46,11 +46,11 @@ test('el ORDS manda números donde la documentación dice strings', () => {
   // La doc describe `"cant_dispon": "3"`; el cable manda `1`. Las dos formas
   // tienen que entrar, porque el día que cambie no queremos enterarnos con un
   // catálogo en cero.
-  const conNumeros = normalizarRespuesta(BULK);
+  const { items: conNumeros } = normalizarRespuesta(BULK);
   assert.ok(conNumeros.every((i) => Number.isFinite(i.available)));
   assert.ok(conNumeros.every((i) => Number.isInteger(i.price.amount)));
 
-  const conStrings = normalizarRespuesta(
+  const { items: conStrings } = normalizarRespuesta(
     JSON.stringify([
       {
         codigo: '1',
@@ -149,14 +149,14 @@ test('ninguna talla real se normaliza a la misma que otra', () => {
 // ---------------------------------------------------------------------------
 
 test('marca GENERICA se descarta, la marca real se conserva', () => {
-  const items = normalizarRespuesta(BULK);
+  const { items } = normalizarRespuesta(BULK);
   const generica = items.find((i) => i.barcode === '7000000000001');
   assert.equal(generica?.brand, undefined, 'guardó GENERICA como si fuera una marca');
   assert.ok(items.some((i) => i.brand === undefined));
 });
 
 test('familia se conserva porque es la única pista de categoría que sirve', () => {
-  const items = normalizarRespuesta(BULK);
+  const { items } = normalizarRespuesta(BULK);
   assert.equal(items[0]!.family, 'ACCESORIOS DE PRUEBA');
   // `rubro` y `linea` valen 'GENERICO' en las 9032 filas: no se mapean, para que
   // nadie los tome después por una categoría.
@@ -165,7 +165,7 @@ test('familia se conserva porque es la única pista de categoría que sirve', ()
 });
 
 test('el precio del ERP entra como entero en guaraníes', () => {
-  const items = normalizarRespuesta(BULK);
+  const { items } = normalizarRespuesta(BULK);
   assert.deepEqual(items[0]!.price, { amount: 70000, currency: 'PYG' });
 });
 
@@ -198,7 +198,7 @@ test('agrega el stock de dos filas de la misma variante', () => {
       precio_vta: 1000,
     },
   ]);
-  const items = normalizarRespuesta(dosLotes);
+  const { items } = normalizarRespuesta(dosLotes);
   assert.equal(items.length, 1);
   assert.equal(items[0]!.available, 3);
   assert.equal(items[0]!.size, '10.5');
@@ -268,4 +268,47 @@ test('el adapter declara lo que el ERP no sabe hacer', async () => {
   assert.equal(adapter.capabilities.supportsWebhooks, false);
   assert.equal(adapter.capabilities.supportsLocationBreakdown, false);
   assert.equal(adapter.capabilities.supportsLiveStock, true);
+});
+
+// ---------------------------------------------------------------------------
+// Los tres códigos, cada uno en su nivel
+// ---------------------------------------------------------------------------
+
+test('el SKU sale de cod_origen, no del código de barras', () => {
+  // La primera versión usaba `cod_barra` como SKU, que es el código de la caja.
+  const { items } = normalizarRespuesta(BULK);
+  const primero = items[0]!;
+  assert.equal(primero.sku, 'ORG900', 'el SKU no es el código de modelo');
+  assert.equal(primero.internalCode, '900', 'perdió el código del ERP');
+  assert.equal(primero.barcode, '7000000000001', 'perdió el código de barras');
+});
+
+test('un modelo con varias tallas comparte SKU y se agrupa en un producto', () => {
+  const { items } = normalizarRespuesta(BULK);
+  const deLaRemera = items.filter((i) => i.sku === 'ORG901');
+  assert.equal(deLaRemera.length, 3, 'las tres tallas de la remera no comparten SKU');
+  assert.deepEqual(deLaRemera.map((i) => i.erpSize).sort(), ['M', 'S', 'XL']);
+});
+
+test('sin cod_origen se cae al código del ERP en vez de quedarse sin modelo', () => {
+  // Sin código de modelo no habría con qué agrupar y cada talla sería un
+  // producto suelto.
+  const { items: sinOrigen } = normalizarRespuesta(
+    JSON.stringify([
+      {
+        codigo: '777',
+        cod_origen: '',
+        cod_barra: 'b1',
+        articulo: 'A',
+        rubro: '',
+        familia: 'F',
+        linea: '',
+        marca: '',
+        cod_talla: 'M',
+        cant_dispon: 1,
+        precio_vta: 1000,
+      },
+    ]),
+  );
+  assert.equal(sinOrigen[0]!.sku, '777');
 });

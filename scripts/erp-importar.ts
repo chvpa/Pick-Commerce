@@ -1,8 +1,8 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { clienteDeServidor } from '@pick/adapter-supabase';
-import { agruparEnProductos, type ERPItem, type ERPProduct } from '@pick/commerce-core';
-import { proveedorEstiloSport } from '@pick/adapter-erp-estilosport';
+import { agruparEnProductos, discrimina, type ERPItem, type ERPProduct } from '@pick/commerce-core';
+import { normalizarRespuesta, proveedorEstiloSport } from '@pick/adapter-erp-estilosport';
 
 /**
  * Trae el catálogo de un ERP al catálogo de Pick.
@@ -21,8 +21,13 @@ import { proveedorEstiloSport } from '@pick/adapter-erp-estilosport';
  * sync completo, donde el silencio del ERP significa «ya no lo vendo»; acá, con
  * un recorte, significaría poner en cero todo lo demás de la tienda.
  *
- * Idempotente: cruza por código de barras y, si no, por código interno más
- * talla. Correrlo dos veces actualiza en su lugar y no crea nada.
+ * **Los tres códigos, cada uno en su nivel.** El producto se cruza por su código
+ * de modelo (SKU); la variante, dentro de ese producto, por el código de barras
+ * si de hecho distingue las tallas, si no por el del ERP, y al final por la
+ * talla. Ni el del ERP ni el de la caja se pueden dar por únicos: hay ERPs que
+ * los repiten en todo el modelo.
+ *
+ * Idempotente: correrlo dos veces actualiza en su lugar y no crea nada.
  */
 
 if (existsSync('.env')) process.loadEnvFile('.env');
@@ -42,7 +47,9 @@ const limite = Number(opcion('limite') ?? 100);
 const dryRun = args.includes('--dry-run');
 
 if (!slugTienda || !Number.isFinite(limite) || limite < 1) {
-  console.error('Uso: pnpm erp:importar --tienda <slug> [--limite 100] [--dry-run]');
+  console.error(
+    'Uso: pnpm erp:importar --tienda <slug> [--limite 100] [--dry-run] [--desde captura.json]',
+  );
   process.exit(1);
 }
 
@@ -151,18 +158,45 @@ async function main(): Promise<number> {
   console.log(`Adapter     ${erp.id}`);
   console.log(`Modo        ${dryRun ? 'DRY RUN — no escribe nada' : 'REAL'}`);
 
-  if (!(await erp.healthCheck())) {
+  if (!args.includes('--desde') && !(await erp.healthCheck())) {
     console.error('\nEl proxy del ERP no responde. Sin datos no se importa nada.');
     return 1;
   }
 
-  console.log('\nTrayendo el catálogo del ERP…');
-  const items = await erp.fetchInventory();
+  /*
+   * `--desde` reprocesa una captura del ERP en vez de volver a pedírsela.
+   *
+   * Existe por un incidente propio: reescribiendo el mapeo de códigos borré el
+   * catálogo para reimportarlo y el ORDS se cayó justo entonces, así que la
+   * tienda quedó vacía sin forma de restituirla. También sirve para lo de todos
+   * los días —iterar sobre el mapeo sin golpear un ERP de producción por cada
+   * prueba— pero **no es para operar**: los datos son de cuando se capturó.
+   */
+  const desde = opcion('desde');
+
+  if (desde) {
+    console.log(`\nReprocesando la captura ${desde} (los datos son de cuando se tomó)…`);
+  } else {
+    console.log('\nTrayendo el catálogo del ERP…');
+  }
+
+  const agregado = desde
+    ? normalizarRespuesta(readFileSync(desde, 'utf8'))
+    : await erp.fetchInventory();
+
+  const items = agregado.items;
+  // Lo que el ERP trae dos veces para la misma variante. Se reporta, no se suma.
+  const duplicadosDelERP = agregado.duplicados;
   const todos = agruparEnProductos(items);
   const productos = todos.slice(0, limite);
   const itemsImportados = productos.flatMap((p) => p.items);
 
   console.log(`  ${items.length} variantes en ${todos.length} productos`);
+  if (duplicadosDelERP.length > 0) {
+    console.log(
+      `  ${duplicadosDelERP.length} filas duplicadas en el ERP: misma variante, códigos distintos`,
+    );
+  }
   console.log(
     `  se importan los primeros ${productos.length}, con ${itemsImportados.length} variantes`,
   );
@@ -174,50 +208,62 @@ async function main(): Promise<number> {
   interface ProductoLocal {
     id: string;
     handle: string;
-    internal_code: string | null;
+    sku: string | null;
   }
   interface VarianteLocal {
     id: string;
     product_id: string;
     barcode: string | null;
+    internal_code: string | null;
     erp_size: string | null;
     price: number;
   }
 
+  /*
+   * El producto se busca por su código de **modelo**, que es lo único estable a
+   * ese nivel. Antes se buscaba por el código del ERP, que según el ERP puede
+   * ser propio de cada variante — y entonces cada talla habría sido un producto.
+   */
   const productosLocales = await enLotes(
-    productos.map((p) => p.internalCode),
+    productos.map((p) => p.sku),
     100,
     async (lote) => {
       const { data, error } = await db
         .from('products')
-        .select('id, handle, internal_code')
+        .select('id, handle, sku')
         .eq('store_id', STORE)
-        .in('internal_code', lote as string[]);
+        .in('sku', lote as string[]);
       if (error) throw new Error(`No se pudo leer el catálogo: ${error.message}`);
       return (data ?? []) as ProductoLocal[];
     },
   );
 
-  const porCodigo = new Map(productosLocales.map((p) => [p.internal_code ?? '', p]));
+  const porModelo = new Map(productosLocales.map((p) => [p.sku ?? '', p]));
 
-  // Las variantes se buscan por código de barras en **todo el tenant**: si un
-  // código ya está en uso bajo otro producto, robárselo movería stock de una
-  // variante a otra sin que nada lo avise.
-  const variantesLocales = await enLotes(
-    itemsImportados.map((i) => i.barcode),
-    100,
-    async (lote) => {
-      const { data, error } = await db
-        .from('product_variants')
-        .select('id, product_id, barcode, erp_size, price')
-        .eq('tenant_id', TENANT)
-        .in('barcode', lote as string[]);
-      if (error) throw new Error(`No se pudieron leer las variantes: ${error.message}`);
-      return (data ?? []) as VarianteLocal[];
-    },
-  );
+  /*
+   * Las variantes se traen **por producto**, no por código de barras suelto.
+   *
+   * La versión anterior buscaba el código de barras en todo el tenant y daba por
+   * hecho que identificaba una variante. No es así: hay modelos con un solo
+   * código impreso para todas las tallas, y con esa consulta el stock de la 40
+   * habría ido a parar a la variante de la 43.
+   */
+  const idsLocales = productosLocales.map((p) => p.id);
+  const variantesLocales = await enLotes(idsLocales, 50, async (lote) => {
+    const { data, error } = await db
+      .from('product_variants')
+      .select('id, product_id, barcode, internal_code, erp_size, price')
+      .in('product_id', lote as string[]);
+    if (error) throw new Error(`No se pudieron leer las variantes: ${error.message}`);
+    return (data ?? []) as VarianteLocal[];
+  });
 
-  const porBarcode = new Map(variantesLocales.map((v) => [v.barcode ?? '', v]));
+  const variantesDe = new Map<string, VarianteLocal[]>();
+  for (const v of variantesLocales) {
+    const grupo = variantesDe.get(v.product_id) ?? [];
+    grupo.push(v);
+    variantesDe.set(v.product_id, grupo);
+  }
 
   // ---------------------------------------------------------------------------
   // Categorías: las familias del ERP
@@ -280,50 +326,53 @@ async function main(): Promise<number> {
   let variantesActualizadas = 0;
   let variantesSinCambio = 0;
   let cruzadasPorBarcode = 0;
+  let cruzadasPorCodigoErp = 0;
   let cruzadasPorTalla = 0;
 
-  /** El handle lleva el código del ERP: dos modelos pueden llamarse igual. */
+  /** El handle lleva el código de modelo: dos modelos pueden llamarse igual. */
   function handleDe(p: ERPProduct): string {
-    return `${slug(p.title)}-${p.internalCode}`.slice(0, 120);
+    return `${slug(p.title)}-${p.sku}`.slice(0, 120);
   }
 
-  /** A qué variante local corresponde una del ERP, o por qué se descarta. */
-  function cruzar(item: ERPItem, productId: string): string | null {
-    const porCodigoDeBarras = porBarcode.get(item.barcode);
+  /**
+   * A qué variante local corresponde una del ERP, dentro de su producto.
+   *
+   * El orden de preferencia lo decide el **catálogo, no una suposición**: se usa
+   * el código de barras si de hecho distingue las variantes de ese modelo, si no
+   * el del ERP, y al final la talla, que es lo que define la variante. Dar por
+   * único un código que el ERP repite en todo el modelo mandaría el stock de una
+   * talla a la variante de otra, y eso no se ve hasta que falta mercadería.
+   */
+  function cruzar(item: ERPItem, hermanas: readonly ERPItem[], locales: VarianteLocal[]) {
+    const buscar = (
+      campo: 'barcode' | 'internal_code' | 'erp_size',
+      valor: string,
+    ): VarianteLocal | undefined => (valor ? locales.find((v) => v[campo] === valor) : undefined);
 
-    if (porCodigoDeBarras) {
-      if (porCodigoDeBarras.product_id !== productId) {
-        // El código de barras ya es de otro producto. Escribirlo igual movería el
-        // stock de una variante ajena, en silencio.
-        problemas.push({
-          codigo: item.barcode,
-          motivo: `el código de barras ya pertenece a otro producto (${porCodigoDeBarras.product_id})`,
-        });
-        return null;
+    if (discrimina(hermanas, 'barcode')) {
+      const v = buscar('barcode', item.barcode);
+      if (v) {
+        cruzadasPorBarcode++;
+        return v;
       }
-      cruzadasPorBarcode++;
-      if (porCodigoDeBarras.price === item.price.amount) variantesSinCambio++;
-      else variantesActualizadas++;
-      return porCodigoDeBarras.id;
     }
-
-    // Segundo intento: misma talla dentro del mismo producto. Cubre la variante a
-    // la que el ERP le cambió el código de barras.
-    const porTalla = variantesLocales.find(
-      (v) => v.product_id === productId && v.erp_size === item.erpSize,
-    );
-    if (porTalla) {
+    if (discrimina(hermanas, 'internalCode')) {
+      const v = buscar('internal_code', item.internalCode);
+      if (v) {
+        cruzadasPorCodigoErp++;
+        return v;
+      }
+    }
+    const v = buscar('erp_size', item.erpSize);
+    if (v) {
       cruzadasPorTalla++;
-      variantesActualizadas++;
-      return porTalla.id;
+      return v;
     }
-
-    variantesCreadas++;
-    return randomUUID();
+    return undefined;
   }
 
   for (const producto of productos) {
-    const local = porCodigo.get(producto.internalCode);
+    const local = porModelo.get(producto.sku);
     const productId = local?.id ?? randomUUID();
     if (local) productosExistentes++;
     else productosNuevos++;
@@ -339,23 +388,38 @@ async function main(): Promise<number> {
       brand: producto.brand ?? null,
       category_id: producto.family ? (idDeFamilia.get(producto.family) ?? null) : null,
       status: 'active',
-      internal_code: producto.internalCode,
+      sku: producto.sku,
       // Declarar el dueño es lo que bloquea la edición local (PROJECT.md §10).
       field_sources: { price: 'ERP', stock: 'ERP' },
     });
 
+    const localesDelProducto = variantesDe.get(productId) ?? [];
+
     for (const [i, item] of producto.items.entries()) {
-      const variantId = cruzar(item, productId);
-      if (!variantId) continue;
+      const encontrada = cruzar(item, producto.items, localesDelProducto);
+      const variantId = encontrada?.id ?? randomUUID();
+
+      if (encontrada) {
+        if (encontrada.price === item.price.amount) variantesSinCambio++;
+        else variantesActualizadas++;
+      } else {
+        variantesCreadas++;
+      }
 
       filasVariantes.push({
         id: variantId,
         tenant_id: TENANT,
         product_id: productId,
-        // El código de barras es único por variante, así que sirve de SKU. El
-        // `cod_origen` del ERP identifica al producto, no a la variante.
-        sku: item.barcode,
-        barcode: item.barcode,
+        /*
+         * El SKU de la variante se deriva del modelo más la talla. No es el
+         * código de barras —ése es el de la caja y puede repetirse en todo el
+         * modelo— ni el del ERP, que tampoco se puede dar por único. Acá hace
+         * falta un identificador propio porque `product_variants.sku` es único
+         * por tenant y lo usan el checkout, los pedidos y la búsqueda.
+         */
+        sku: `${producto.sku}-${item.erpSize || i}`,
+        barcode: item.barcode || null,
+        internal_code: item.internalCode || null,
         title: item.size,
         position: i,
         price: item.price.amount,
@@ -386,8 +450,16 @@ async function main(): Promise<number> {
   console.log(`  variantes actualizadas        ${variantesActualizadas}`);
   console.log(`  variantes sin cambio          ${variantesSinCambio}`);
   console.log(`  cruzadas por código de barras ${cruzadasPorBarcode}`);
+  console.log(`  cruzadas por código del ERP   ${cruzadasPorCodigoErp}`);
   console.log(`  cruzadas por talla            ${cruzadasPorTalla}`);
   console.log(`  categorías nuevas             ${categoriasNuevas.length} de ${familias.length}`);
+
+  for (const d of duplicadosDelERP) {
+    problemas.push({
+      codigo: d.barcode || d.internalCode,
+      motivo: `el ERP trae la variante ${d.sku} talla ${d.erpSize} dos veces con códigos distintos; se usó la primera`,
+    });
+  }
 
   if (problemas.length > 0) {
     console.log(`\n  ${problemas.length} variantes descartadas:`);

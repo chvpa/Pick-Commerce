@@ -101,22 +101,66 @@ after(async () => {
 // Identificadores del ERP
 // ---------------------------------------------------------------------------
 
-test('el producto guarda el código del ERP y la variante su talla nativa', async () => {
+test('cada código vive en su nivel', async () => {
   const id = await guardar(conStockYPrecio('erp-codigos', 4, 250000));
   await db.exec(`
-    update products set internal_code = '11042' where id = '${id}';
-    update product_variants set erp_size = '105' where product_id = '${id}';
+    update products set sku = 'MOD-01' where id = '${id}';
+    update product_variants set internal_code = '11042', erp_size = '105'
+      where product_id = '${id}';
   `);
 
-  const r = await db.query<{ internal_code: string; erp_size: string }>(
-    `select p.internal_code, v.erp_size
+  const r = await db.query<{ sku: string; internal_code: string; erp_size: string }>(
+    `select p.sku, v.internal_code, v.erp_size
      from products p join product_variants v on v.product_id = p.id
      where p.id = '${id}'`,
   );
-  assert.equal(r.rows[0]!.internal_code, '11042');
+  assert.equal(r.rows[0]!.sku, 'MOD-01', 'el código de modelo no quedó en el producto');
+  assert.equal(r.rows[0]!.internal_code, '11042', 'el código del ERP no quedó en la variante');
   // La talla nativa se guarda sin punto aunque la de Pick lo tenga: el campo del
   // ORDS tiene tres caracteres y reconstruirla después es adivinar.
   assert.equal(r.rows[0]!.erp_size, '105');
+});
+
+test('dos variantes pueden compartir el código del ERP y el de barras', async () => {
+  /*
+   * Hay ERPs que codifican por modelo y no por variante, y hay modelos con un
+   * solo código impreso para todas las tallas. Una restricción de unicidad acá
+   * parecería prolija y rechazaría un catálogo legítimo.
+   */
+  const id = await guardar({
+    handle: 'erp-codigos-repetidos',
+    title: 'Modelo con un solo código',
+    status: 'active',
+    variants: ['40', '41'].map((t) => ({
+      sku: `REP-${t}`,
+      barcode: 'UNO-PARA-TODAS',
+      title: t,
+      price: 1000,
+      currency: 'PYG',
+      attributes: { talla: t },
+      stock: 1,
+    })),
+  });
+  await db.exec(
+    `update product_variants set internal_code = 'MISMO-ERP' where product_id = '${id}'`,
+  );
+
+  const r = await db.query<{ n: string }>(
+    `select count(*) as n from product_variants where product_id = '${id}'`,
+  );
+  assert.equal(Number(r.rows[0]!.n), 2, 'la base rechazó dos variantes con el mismo código');
+});
+
+test('dos productos no pueden compartir el código de modelo', async () => {
+  // Ahí sí hace falta: dos productos con el mismo SKU son el mismo producto
+  // cargado dos veces, y el importador cruzaría contra cualquiera de los dos.
+  const a = await guardar(conStockYPrecio('erp-sku-a', 1, 1000));
+  const b = await guardar(conStockYPrecio('erp-sku-b', 1, 1000));
+  await db.exec(`update products set sku = 'DUPLICADO' where id = '${a}'`);
+  await assert.rejects(
+    db.exec(`update products set sku = 'DUPLICADO' where id = '${b}'`),
+    /products_sku_idx|duplicate key/,
+  );
 });
 
 // ---------------------------------------------------------------------------

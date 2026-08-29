@@ -47,7 +47,7 @@ const jsonLd = productJsonLd(product, seoContexto);
 >
   <JsonLd slot="head" data={jsonLd} />
   <Container class="py-6">
-    <Breadcrumb items={[{ label: 'Catálogo', href: '/' }, { label: product.title }]} />
+    <Breadcrumb items={[{ label: 'Catálogo', href: '/catalogo' }, { label: product.title }]} />
   </Container>
 
   <Container class="grid gap-10 pb-12 md:grid-cols-2 md:gap-16">

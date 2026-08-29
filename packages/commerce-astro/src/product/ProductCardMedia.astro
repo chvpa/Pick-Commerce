@@ -47,7 +47,7 @@ const {
         loading={priority ? 'eager' : 'lazy'}
         fetchpriority={priority ? 'high' : 'auto'}
         decoding="async"
-        class="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.02] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+        class="h-full w-full [object-fit:var(--fit-product)] transition-transform duration-300 ease-out group-hover:scale-[1.02] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
       />
     ) : (
       /* Sin imagen la card conserva su altura: el grid no salta. */

@@ -85,4 +85,15 @@
   /* Relación de aspecto de la imagen de producto. Cambia por vertical: moda
    * usa retrato, ferretería cuadrado. Un token, no un fork. */
   --aspect-product: 3 / 4;
+
+  /* Cómo entra la foto en esa caja.
+   *
+   * `contain` por defecto porque es el único que **nunca destruye una foto**.
+   * `cover` llena la caja y recorta lo que sobra, y eso sólo es aceptable con
+   * fotografía propia y consistente. Un catálogo que recibe packshots de sus
+   * proveedores trae de todo: medido sobre uno real, las proporciones van de
+   * 0,32 a 2,89 y con `cover` se ve la franja del medio de cada producto.
+   *
+   * La tienda que tenga su fotografía bajo control lo pisa con `cover`. */
+  --fit-product: contain;
 }

@@ -69,7 +69,7 @@ const { images, title, id, class: className } = Astro.props;
               loading={index === 0 ? 'eager' : 'lazy'}
               fetchpriority={index === 0 ? 'high' : 'auto'}
               decoding="async"
-              class="aspect-(--aspect-product) h-full w-full object-cover"
+              class="aspect-(--aspect-product) h-full w-full [object-fit:var(--fit-product)]"
             />
           </figure>
         ))}
@@ -95,7 +95,7 @@ const { images, title, id, class: className } = Astro.props;
                   sizes="64px"
                   loading="lazy"
                   decoding="async"
-                  class="aspect-(--aspect-product) h-full w-full object-cover"
+                  class="aspect-(--aspect-product) h-full w-full [object-fit:var(--fit-product)]"
                 />
               </a>
             </li>
