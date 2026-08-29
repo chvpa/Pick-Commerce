@@ -142,3 +142,34 @@ test('un producto sin categoría no rompe la faceta', () => {
     undefined,
   );
 });
+
+// --- Orden por novedad y por ventas ------------------------------------------
+
+const conDatos: Product[] = [
+  { ...product('viejo', 'Viejo', 'N', []), createdAt: '2026-01-01T00:00:00Z', unitsSold: 9 },
+  { ...product('nuevo', 'Nuevo', 'N', []), createdAt: '2026-08-01T00:00:00Z', unitsSold: 1 },
+  { ...product('medio', 'Medio', 'N', []), createdAt: '2026-05-01T00:00:00Z', unitsSold: 5 },
+];
+
+test('«novedades» ordena por fecha descendente', () => {
+  assert.deepEqual(
+    queryCatalog(conDatos, { sort: 'newest' }).items.map((p) => p.id),
+    ['nuevo', 'medio', 'viejo'],
+  );
+});
+
+test('«más vendidos» ordena por unidades descendente', () => {
+  assert.deepEqual(
+    queryCatalog(conDatos, { sort: 'best-selling' }).items.map((p) => p.id),
+    ['viejo', 'medio', 'nuevo'],
+  );
+});
+
+test('lo que no tiene fecha ni ventas cae al final, no al principio', () => {
+  // Con `Date.parse(undefined ?? '')` la resta daba NaN y el comparador decía
+  // "son iguales", así que el producto sin fecha se quedaba donde estaba.
+  const conHuecos: Product[] = [product('sin', 'Sin datos', 'N', []), ...conDatos];
+
+  assert.equal(queryCatalog(conHuecos, { sort: 'newest' }).items.at(-1)!.id, 'sin');
+  assert.equal(queryCatalog(conHuecos, { sort: 'best-selling' }).items.at(-1)!.id, 'sin');
+});

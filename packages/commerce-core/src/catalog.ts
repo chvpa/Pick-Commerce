@@ -3,7 +3,15 @@ import type { Money, Product } from '@pick/commerce-types';
 /** Atributo o campo → valores seleccionados. Una faceta con varios valores es un OR. */
 export type CatalogFilters = Readonly<Record<string, readonly string[]>>;
 
-export type CatalogSort = 'relevance' | 'price-asc' | 'price-desc' | 'title-asc';
+export type CatalogSort =
+  | 'relevance'
+  | 'price-asc'
+  | 'price-desc'
+  | 'title-asc'
+  /** Lo último que entró al catálogo. `relevance` es lo mismo al revés. */
+  | 'newest'
+  /** Por unidades vendidas, sin contar cancelados. */
+  | 'best-selling';
 
 export interface CatalogQuery {
   readonly filters?: CatalogFilters;
@@ -164,6 +172,20 @@ function compare(a: Product, b: Product, sort: CatalogSort): number {
     const pb = lowestPrice(b)?.amount ?? Number.MAX_SAFE_INTEGER;
     return sort === 'price-asc' ? pa - pb : pb - pa;
   }
+
+  /*
+   * Los dos descienden, y lo que falta vale cero, así que cae al final. No se
+   * usa `Date.parse(x ?? '')`: eso da `NaN`, la resta también, y el comparador
+   * devolvería 0 —«son iguales»— en vez de mandarlo al fondo. Entre los que
+   * empatan manda el orden de descubrimiento, porque `sort` es estable.
+   */
+  if (sort === 'newest') {
+    const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+    const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+    return tb - ta;
+  }
+
+  if (sort === 'best-selling') return (b.unitsSold ?? 0) - (a.unitsSold ?? 0);
 
   return 0;
 }

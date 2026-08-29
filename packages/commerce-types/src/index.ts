@@ -71,6 +71,15 @@ export interface Product extends TenantScoped {
   readonly variants: readonly ProductVariant[];
   /** Agrupa productos hermanos (p. ej. mismo modelo en otro color). Ver ADR-026. */
   readonly productGroupId?: string;
+  /** Cuándo entró al catálogo. Es lo que ordena «novedades». */
+  readonly createdAt?: string;
+  /**
+   * Unidades vendidas, sin contar pedidos cancelados. Ordena «más vendidos».
+   *
+   * No es una columna: se agrega en la consulta. Guardarlo sería un contador que
+   * alguien tiene que acordarse de actualizar, y ADR-056 ya dice a dónde lleva.
+   */
+  readonly unitsSold?: number;
 }
 
 /** Página de resultados. Toda query de dataset creciente debe paginar. Ver ADR-024. */

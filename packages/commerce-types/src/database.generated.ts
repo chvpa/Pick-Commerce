@@ -135,6 +135,66 @@ export type Database = {
           },
         ]
       }
+      banners: {
+        Row: {
+          created_at: string
+          href: string | null
+          id: string
+          image: Json
+          image_mobile: Json | null
+          position: number
+          published: boolean
+          store_id: string
+          subtitle: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          href?: string | null
+          id?: string
+          image: Json
+          image_mobile?: Json | null
+          position?: number
+          published?: boolean
+          store_id: string
+          subtitle?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          href?: string | null
+          id?: string
+          image?: Json
+          image_mobile?: Json | null
+          position?: number
+          published?: boolean
+          store_id?: string
+          subtitle?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "banners_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "banners_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
@@ -243,9 +303,13 @@ export type Database = {
         Row: {
           created_at: string
           handle: string
+          home_position: number | null
           id: string
+          published: boolean
           rules: Json | null
+          sort: string | null
           store_id: string
+          subtitle: string | null
           tenant_id: string
           title: string
           updated_at: string
@@ -253,9 +317,13 @@ export type Database = {
         Insert: {
           created_at?: string
           handle: string
+          home_position?: number | null
           id?: string
+          published?: boolean
           rules?: Json | null
+          sort?: string | null
           store_id: string
+          subtitle?: string | null
           tenant_id: string
           title: string
           updated_at?: string
@@ -263,9 +331,13 @@ export type Database = {
         Update: {
           created_at?: string
           handle?: string
+          home_position?: number | null
           id?: string
+          published?: boolean
           rules?: Json | null
+          sort?: string | null
           store_id?: string
+          subtitle?: string | null
           tenant_id?: string
           title?: string
           updated_at?: string

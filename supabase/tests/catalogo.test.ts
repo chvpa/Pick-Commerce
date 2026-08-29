@@ -167,7 +167,10 @@ const CATALOGO: Product[] = [
     variante('c', { color: 'Negro', size: '41' }, 100),
   ]),
   producto('p4', 'Mochila verde', 'Ruta', undefined, [variante('d', { color: 'Verde' }, 700)]),
-];
+  // La fecha replica exactamente la que `insertarProductos` le pone a cada fila.
+  // Sin ella el orden por novedad no probaría nada: el core dejaría el array
+  // como está y coincidiría con el SQL sólo por casualidad.
+].map((p, i) => ({ ...p, createdAt: `2026-01-${String(i + 1).padStart(2, '0')}T00:00:00Z` }));
 
 const BORRADOR = producto(
   'p5',
@@ -281,6 +284,8 @@ const CASOS: [string, CatalogQuery][] = [
   ['orden por precio ascendente', { sort: 'price-asc' }],
   ['orden por precio descendente', { sort: 'price-desc' }],
   ['orden por título', { sort: 'title-asc' }],
+  ['orden por novedad', { sort: 'newest' }],
+  ['orden por más vendidos', { sort: 'best-selling' }],
   ['paginado', { perPage: 2, page: 1 }],
   ['segunda página', { perPage: 2, page: 2 }],
   ['página fuera de rango', { perPage: 2, page: 99 }],
@@ -399,6 +404,83 @@ test('acotar por colección devuelve sólo sus productos, en el orden de la cons
 
   // Una colección inexistente devuelve vacío, no el catálogo entero.
   assert.equal((await porColeccion('no-existe')).total, 0);
+});
+
+test('una colección dinámica es una consulta guardada, no una lista', async () => {
+  // Lo que ADR-056 anticipó y quedó sin implementar hasta ahora: `rules` tiene
+  // la forma de `CatalogFilters` y la resuelve el mismo `catalog_search`.
+  await db.exec(
+    `insert into collections (id, tenant_id, store_id, title, handle, rules)
+     values ('${uuid('c9', 1)}', '${TENANT}', '${STORE}', 'Todo negro', 'negro',
+             '{"color": ["Negro"]}'::jsonb)`,
+  );
+
+  const r = await porColeccion('negro');
+  assert.deepEqual(
+    [...r.items.map((p) => p.handle)].sort(),
+    ['p1', 'p2', 'p3'],
+    'la colección dinámica no resolvió sus reglas',
+  );
+  // Sin `collection_products`: la pertenencia sale de la regla.
+  const filas = await db.query<{ n: number }>(
+    `select count(*)::int as n from collection_products where collection_id = $1`,
+    [uuid('c9', 1)],
+  );
+  assert.equal(filas.rows[0]!.n, 0);
+});
+
+test('la regla de la colección no se auto-excluye al filtrar', async () => {
+  /*
+   * El caso que decide dónde se aplican las reglas. Los filtros de faceta se
+   * auto-excluyen del conteo de su propia faceta —para que con «color: Negro»
+   * activo el color siga mostrando cuántos hay en Azul—, y una regla de
+   * colección no puede hacer eso: la colección dejaría de estar acotada en
+   * cuanto el visitante toca un filtro. Por eso van junto a la búsqueda y al
+   * precio, que tampoco se auto-excluyen.
+   */
+  const r = await db.query<{ j: CatalogResult }>(
+    `select catalog_search($1::uuid, $2::jsonb, '', 'relevance', 1, 24, null, null, null, $3) as j`,
+    [STORE, JSON.stringify({ brand: ['Norte'] }), 'negro'],
+  );
+  const datos = r.rows[0]!.j;
+
+  // Con la marca filtrada quedan los negros de Norte: p2. p1 es azul en su
+  // primera variante pero tiene una negra, así que también entra.
+  assert.deepEqual([...datos.items.map((p) => p.handle)].sort(), ['p1', 'p2']);
+
+  // Y la faceta de color, que sí se auto-excluye, **no** ofrece Verde: la
+  // mochila no está en la colección y no puede aparecer como opción.
+  const colores = datos.facets.find((f) => f.name === 'color')?.values.map((v) => v.value) ?? [];
+  assert.ok(!colores.includes('Verde'), `la regla se auto-excluyó: ${colores.join(', ')}`);
+});
+
+test('«más vendidos» ordena por unidades y descarta lo cancelado', async () => {
+  // La paridad sola no probaba nada acá: sin pedidos, las dos implementaciones
+  // devolvían ceros y coincidían por vacías.
+  const pedido = (n: number) => uuid('e5', n);
+  await db.exec(`
+    insert into order_counters (store_id, tenant_id, last_number) values ('${STORE}', '${TENANT}', 2000);
+    insert into orders (id, tenant_id, store_id, number, idempotency_key, status,
+                        payment_method, customer, address, total_amount, currency) values
+      ('${pedido(0)}', '${TENANT}', '${STORE}', 2001, gen_random_uuid(), 'received',
+       'bank_transfer', '{}'::jsonb, '{}'::jsonb, 0, 'PYG'),
+      ('${pedido(1)}', '${TENANT}', '${STORE}', 2002, gen_random_uuid(), 'cancelled',
+       'bank_transfer', '{}'::jsonb, '{}'::jsonb, 0, 'PYG');
+
+    insert into order_items (tenant_id, order_id, variant_id, title, sku, unit_price,
+                             currency, quantity, position) values
+      -- La mochila (p4, índice 3) vende 3 en un pedido vivo.
+      ('${TENANT}', '${pedido(0)}', '${uuid('e1', 300)}', 'Mochila verde', 'SKU-d', 700, 'PYG', 3, 0),
+      -- La zapatilla (p3, índice 2) vende 50 en uno cancelado: no cuenta.
+      ('${TENANT}', '${pedido(1)}', '${uuid('e1', 200)}', 'Zapatilla negra', 'SKU-c', 100, 'PYG', 50, 0)
+  `);
+
+  const r = await porRpc({ sort: 'best-selling' });
+  assert.equal(r.items[0]?.handle, 'p4', 'no ordenó por unidades vendidas');
+  assert.equal(r.items[0]?.unitsSold, 3);
+
+  const zapatilla = r.items.find((p) => p.handle === 'p3');
+  assert.equal(zapatilla?.unitsSold, 0, 'un pedido cancelado sumó ventas');
 });
 
 // --- Aislamiento entre tenants sobre las tablas nuevas -----------------------
