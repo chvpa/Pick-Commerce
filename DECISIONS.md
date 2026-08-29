@@ -3198,6 +3198,21 @@ para el precio, pero `admin_save_product` escribía `inventory_levels` sin mirar
 corta — el formulario manda el stock de todas las variantes en cada guardado, así
 que un error dejaría sin poder editar el título de un producto del ERP.
 
+**Actualización del 2026-08-29, al cerrar la fase:** la Etapa B no está diferida,
+está **descartada para este cliente**. Estilo Sport no da permiso de escritura
+sobre su Oracle ni contra un entorno de prueba, así que ni siquiera se puede
+validar el payload contra el ERP real. Al motivo original —dos emisores contra un
+ERP que no deduplica— se le suma que el acceso no existe, y eso convierte a la
+Etapa B en trabajo para el próximo ERP que sí lo dé.
+
+Esto no debilita la fase: lo que había que validar era **que la arquitectura de
+adapters aguanta un ERP real**, y eso se validó con el flujo de entrada, que es
+el que trae las rarezas. El de salida es el más fácil de los dos —armar un JSON
+con datos propios— y el difícil era interpretar los de otro. Lo que sí queda sin
+prueba es el ida y vuelta completo, y hay que decirlo al vender el piloto en vez
+de dar por hecho que un adapter bidireccional está validado en las dos
+direcciones.
+
 ---
 
 ## ADR-087 — Un rótulo de menú vive dentro de su grupo, y el Admin gana un smoke

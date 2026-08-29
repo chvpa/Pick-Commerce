@@ -326,7 +326,7 @@ Objetivo: cobro y comunicación transaccional.
 
 ## Fase 8 — ERP Adapter Architecture + Estilo Sport Shadow Pilot
 
-**Avance: 82%**
+**Avance: 100% — cerrada**
 
 Objetivo: validar adapters con un ERP real sin poner operación en riesgo.
 
@@ -335,15 +335,26 @@ estar accesible es bidireccional: es el bucle operativo, no un clon (ADR-084).
 Esta pasada es la **Etapa A**: el ERP entra y nada sale, porque la tienda actual
 del cliente sigue viva facturando contra el mismo Oracle (ADR-086).
 
+**Se cierra con la Etapa A completa y la B descartada para este cliente**, que no
+da escritura sobre su ERP ni contra un entorno de prueba. El objetivo de la fase
+—validar que la arquitectura de adapters aguanta un ERP real— está cumplido: el
+puerto vive en el core, el adapter es un paquete aparte, y las tres rarezas que
+costaron un ciclo cada una —el ancho fijo de tres caracteres del `cod_talla`, los
+lotes que se suman contra los duplicados que no, y los tres códigos en su nivel—
+salieron de datos reales y quedaron con test. Lo que sigue pendiente no bloquea
+las fases siguientes y está en el backlog: el `healthCheck` que mira la capa
+equivocada y la medición a escala, los dos a la espera de que el Oracle responda.
+
 - [x] Definir `ERPAdapter`.
 - [x] Definir capability matrix.
 - [x] Crear mapper/normalizer.
 - [x] Crear validator.
 - [x] Crear sync logs.
-- [ ] Crear healthCheck. Existe, pero **mide la capa equivocada**: pregunta por
+- [-] Crear healthCheck. Existe, pero **mide la capa equivocada**: pregunta por
       `/health`, que es la vida del proxy, no la de Oracle. Comprobado el
       2026-08-29 a las 16:08 — `/health` devolvió 200 mientras una consulta real
-      de stock daba 503 en el mismo minuto.
+      de stock daba 503 en el mismo minuto. El arreglo es chico pero verificarlo
+      exige el Oracle arriba: queda en el backlog.
 - [x] Implementar adapter Estilo Sport read-only.
 - [x] Mapear catálogo.
 - [x] Mapear stock.
@@ -352,17 +363,22 @@ del cliente sigue viva facturando contra el mismo Oracle (ADR-086).
   depósito aunque mande una fila por lote. Todo el stock va a una sucursal.
 - [x] Crear shadow catalog.
 - [x] Crear diff/reconciliation report.
-- [ ] Medir tiempos con catálogo grande. El bulk entero son 9032 filas en 5,4 s,
+- [-] Medir tiempos con catálogo grande. El bulk entero son 9032 filas en 5,4 s,
       pero sólo se escribieron 100 productos: falta medir la escritura completa.
       Se intentó el 2026-08-29 con un `--dry-run` sin límite y no se pudo: el
-      Oracle estaba caído detrás del proxy. Queda a la espera de que responda.
+      Oracle estaba caído detrás del proxy. Queda en el backlog, y la Fase 12 ya
+      tiene su propio «pruebas con catálogo grande» que lo vuelve a pedir.
 - [-] Probar delta sync. **No existe en este ERP**: no hay consulta por fecha de
   cambio, así que cada sync trae el catálogo entero.
 - [x] Documentar limitaciones del ERP.
 - [x] Evaluar si soporta reservations/webhooks. No tiene ninguna de las dos.
 - [x] Imágenes de los 100 productos. 129 fotos de 75 productos, copiadas al
       bucket propio y servidas por `/_image`. ADR-088.
-- [ ] Etapa B — envío de pedidos al ERP.
+- [-] Etapa B — envío de pedidos al ERP. **No se puede con este cliente**: no hay
+      permiso de escritura sobre el Oracle de Estilo Sport, ni siquiera contra un
+      entorno de prueba. Al motivo de ADR-086 —dos emisores contra un ERP que no
+      deduplica— se le suma que el acceso no existe. Lo que la etapa necesita
+      queda nombrado en ese ADR y se retoma con el próximo ERP que sí lo dé.
 
 **No bloquear**
 Esta fase puede comenzar antes de que v1 esté completa si el acceso al ERP está disponible.
@@ -715,6 +731,7 @@ caso que prueba de verdad si el contrato abstrae (ADR-084).
 | 2026-08-29 | Borré el catálogo para reimportarlo y el ERP se cayó justo entonces                            | Reescribiendo el mapeo de códigos hacía falta reimportar, así que borré los 100 productos antes de confirmar que el origen respondía. El ORDS dejó de responder en ese momento y la tienda quedó vacía sin forma de restituirla                                                                                                                                                                                  | Restituida desde una captura del payload. El importador ganó `--desde`, que reprocesa una captura sin golpear el ERP y además sirve para iterar sobre el mapeo. La lección es anterior: confirmar que el origen responde antes de borrar el destino                   | Fase 8       | Resuelto  |
 | 2026-08-29 | Los handles del catálogo del ERP salían con mayúsculas                                         | Al pasar el SKU al handle lo pegué crudo, y los códigos de modelo vienen en mayúsculas: 68 de 100 URLs quedaron sensibles a mayúsculas. `/productos/…-dv9315010` daba 404 mientras `…-DV9315010` funcionaba, y un buscador las trata como dos páginas distintas                                                                                                                                                  | El `slug` se aplica al conjunto, no sólo al título. Los 100 existentes se normalizaron: nada los enlazaba todavía                                                                                                                                                     | Fase 8       | Resuelto  |
 | 2026-08-29 | El storefront anuncia «Pick Demo» sirva la tienda que sirva                                    | `storeName` está fijo en `apps/demo/src/lib/store-config.ts` con un comentario que dice que en Fase 3 pasaría a leerse de la base; estamos en la 8. El storefront de Estilo Sport muestra «Pick Demo» en el encabezado y en el `<title>` de todas sus páginas, que además es lo que indexa un buscador. `ResolucionTenant` ya trae el `name` de la tienda, así que el dato está                                  | Leerlo de `tiendaActual()` en vez de la constante. Bloquea el piloto: un comercio no puede publicarse con el nombre de la demo                                                                                                                                        | Fase 12      | Pendiente |
+| 2026-08-29 | Falta medir la escritura del importador a escala real                          | Del bulk se sabe la lectura —9032 filas en 5,4 s— pero sólo se escribieron 100 productos. Cuánto tarda el catálogo entero, y si conviene subir el lote de 200, sigue sin medirse. Se intentó con un `--dry-run` sin límite el 2026-08-29 y el Oracle estaba caído | Repetir el `--dry-run` sin límite cuando el ERP responda, y una escritura completa contra una tienda descartable. La Fase 12 lo vuelve a pedir en «pruebas con catálogo grande» | Fase 8       | Pendiente |
 | 2026-08-29 | El `healthCheck` del adapter mira la vida del proxy, no la del ERP | `healthCheck()` pregunta por `/health`, la única ruta sin auth del proxy, que responde por sí misma y no toca Oracle. El 2026-08-29 devolvió 200 mientras una consulta real de stock daba 503 `ECONNABORTED` en el mismo minuto. Un sync programado lo consultaría, lo vería verde y saldría a sincronizar contra un ERP caído | Que la comprobación recorra el camino real —una consulta de stock por artículo, con timeout corto— y que el resultado distinga las dos capas en vez de colapsarlas en un booleano. Verificarlo exige el Oracle arriba: hoy sólo se puede comprobar la mitad negativa | Fase 8       | Pendiente |
 | 2026-08-29 | Un Worker de Cloudflare no puede alcanzar el proxy del ERP                                     | El `fetch()` de Workers descarta el puerto no estándar en producción y bloquea las IPs crudas, y el proxy vive en `http://<ip>:3001`. En local con Miniflare funciona, así que el fallo aparecería recién al desplegar. Bloquea el chequeo de stock en vivo al agregar al carrito y cualquier sync programado                                                                                                    | El importador corre en Node, donde la restricción no aplica. Para subirlo al Worker hay que publicar el proxy en un hostname con TLS sobre 443: Caddy con `sslip.io` sin comprar dominio, o Cloudflare Tunnel si aparece una zona. ADR-085                            | Fase 8       | Pendiente |
 | 2026-08-29 | El stock que administra el ERP se podía pisar desde el Admin                                   | `admin_save_product` respetaba `field_sources` para los campos del producto y para el precio, pero escribía `inventory_levels` sin mirar. El stock es lo único que un ERP posee de verdad y era el único campo sin proteger; el no-negociable del repo dice lo contrario desde Fase 0                                                                                                                            | Misma comprobación que el precio, salteando en silencio para no romper la edición del resto del producto. Cuatro tests que fallan si se quita. ADR-086                                                                                                                | Fase 8       | Resuelto  |
@@ -831,6 +848,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-29 | Los tres códigos de un producto separados —SKU del modelo, interno del ERP, de barra del proveedor—, con el hallazgo de 7 variantes que el ERP duplica y a las que se les sumaba el stock. Fotos sin recortar y breadcrumb corregido          | Fase 8 |          75% |            85% |
 | 2026-08-29 | Imágenes del catálogo de Estilo Sport migradas desde el proyecto del cliente al bucket propio: 129 fotos en 75 de los 100 productos, optimizadas por `/_image`, con RLS del origen verificada antes de usar su clave                          | Fase 8 |          75% |            85% |
 | 2026-08-29 | T2 de la Etapa A: lint, typecheck, 189 unitarios, build y 59 tests de Playwright en verde. Al intentar medir a escala apareció que el `healthCheck` da verde con el ERP caído, así que vuelve a abrirse                                     | Fase 8 |          85% |            82% |
+| 2026-08-29 | Fase 8 cerrada con la Etapa A completa. La B se descarta para este cliente, que no da escritura sobre su ERP ni contra un entorno de prueba; el `healthCheck` y la medición a escala pasan al backlog                                       | Fase 8 |          82% |           100% |
 
 ---
 

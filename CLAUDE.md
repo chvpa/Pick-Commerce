@@ -6,7 +6,7 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-**Fases 0 a 7 cerradas. Fase 8 (ERP Adapter) al 70%.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+**Fases 0 a 8 cerradas. Fase 9 (Promotions y CMS) por empezar.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
@@ -20,10 +20,11 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 - **Fase 7** — cobro y avisos: contrato `PaymentProvider` con una pasarela
   simulada, cola de correos por trigger enviada con Resend, medios propios en
   Supabase Storage y reset de contraseña.
-- **Fase 8** (en curso) — ERP: puerto `ERPAdapter` con matriz de capacidades,
-  adapter del Oracle ORDS de **Estilo Sport** —el piloto pasó de Camelot, que
-  sigue apagado— e importador acotado. Etapa A: el ERP entra y **nada sale**,
-  porque la tienda actual del cliente sigue facturando contra el mismo Oracle.
+- **Fase 8** — ERP: puerto `ERPAdapter` con matriz de capacidades, adapter del
+  Oracle ORDS de **Estilo Sport** —el piloto pasó de Camelot, que sigue apagado—
+  e importador acotado. Sólo la Etapa A: el ERP entra y **nada sale**. La B quedó
+  descartada para este cliente, que no da escritura ni contra un entorno de
+  prueba (ADR-086), así que el adapter está validado en una sola dirección.
 
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,
