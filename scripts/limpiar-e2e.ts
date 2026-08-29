@@ -53,8 +53,17 @@ if (url && secretKey) {
       .like('title', 'Rebaja del smoke %')
       .select('id');
 
+    // Ídem las colecciones: el smoke corre sobre la tienda activa, que suele ser
+    // la de la demo, así que no se van en cascada con la tienda de prueba.
+    const colecciones = await db
+      .from('collections')
+      .delete()
+      .like('title', 'Novedades del smoke %')
+      .select('id');
+
     console.log(`  pedidos de prueba borrados: ${pedidos.data?.length ?? 0}`);
     console.log(`  promociones de prueba borradas: ${promos.data?.length ?? 0}`);
+    console.log(`  colecciones de prueba borradas: ${colecciones.data?.length ?? 0}`);
 
     // La segunda tienda y el usuario que el smoke del Admin necesita para que el
     // selector sea un menú. La membresía se va en cascada con el usuario.

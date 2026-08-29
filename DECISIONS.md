@@ -3544,3 +3544,89 @@ que no alcanza a las funciones creadas después, y `service_role` nunca tuvo
 `usage` sobre ese schema. Las funciones nuevas de `app` llevan su grant
 explícito. El síntoma aparecía al **crear un pedido**, no al aplicar la
 migración, que es exactamente la clase de fallo que la migración sola no destapa.
+
+---
+
+## ADR-093 — Las secciones de la home son colecciones, no un modelo aparte
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+**Contexto**
+La Fase 9 pedía «featured/new/best sellers sections» y «manual/dynamic
+collections en CMS» como ítems distintos. La lectura obvia es un modelo de
+secciones con un tipo por cada una.
+
+**Decisión**
+No hay modelo de secciones. **Una sección de la home es una colección con
+`home_position`.** Destacados es una colección manual; Novedades y Más vendidos
+son dinámicas con su orden.
+
+Para que eso alcance, `CatalogSort` gana `newest` y `best-selling`, y
+`collections` gana `subtitle`, `published`, `home_position` y `sort`.
+
+**Por qué**
+Tres tipos de sección serían tres formas de decir lo mismo, y el comercio
+tendría que aprender cuál usar cuándo. Con una sola, la pregunta que se hace es
+la suya —«esta lista la armo yo» contra «esta se arma sola»— y no una taxonomía
+nuestra. Y una cuarta sección no pedida —«lo más barato», «una marca»— sale sin
+tocar código.
+
+Además evita el `COLECCION_DESTACADA = 'ofertas'` que vivía en el storefront: su
+propio comentario decía que era «una decisión del comercio, no del Core», y
+tenía razón en el diagnóstico y no en el remedio. Era una decisión del comercio
+guardada en el código: cambiarla exigía desplegar, y toda tienda tenía que
+llamar igual a su colección destacada.
+
+**Las dinámicas ya estaban decididas**
+ADR-056 dice «una colección dinámica es una consulta guardada»: `collections.rules`
+tiene la forma de `CatalogFilters` desde la Fase 4 y la resuelve el mismo
+`catalog_search`. Lo único que faltaba era implementarlo. Cero motor de reglas.
+
+**Dónde se aplican las reglas, que es lo que costaba acertar**
+Van junto a la búsqueda y al rango de precio, **no** junto a los filtros de
+faceta. Esos se auto-excluyen del conteo de su propia faceta —para que con
+«color: Negro» activo el color siga mostrando cuántos hay en Azul— y una regla
+de colección que hiciera eso dejaría la colección sin acotar en cuanto el
+visitante toca un filtro: una colección «Todo negro» empezaría a ofrecer verdes.
+Hay un test que lo fija y un sabotaje que lo confirma.
+
+**Las ventas se agregan, no se guardan**
+`best-selling` sale de un agregado sobre `order_items` en la propia consulta.
+Una columna `units_sold` sería un contador que alguien tiene que acordarse de
+actualizar, que es exactamente lo que ADR-056 describe con el stock. `Product`
+lleva `unitsSold` como campo opcional para que el gemelo del core pueda ordenar
+igual y la paridad de ADR-055 siga en pie.
+
+**Lo que esto no resuelve**
+Con la tienda sin ventas, todos los productos empatan en cero y «Más vendidos»
+queda con un orden arbitrario. No se filtra por `unitsSold > 0` porque un orden
+que además filtra es una función que hace dos cosas y sorprende. El formulario
+lo dice mientras se elige el orden; publicar esa sección antes de tener pedidos
+es una decisión del comercio, informada.
+
+**`Banner` era la announcement bar**
+El componente que se llamaba `Banner.astro` es la barra de anuncio —el «Envío
+gratis en compras superiores a…»—, no un banner. PROJECT.md §17 los lista como
+dos componentes distintos. Se renombró a `AnnouncementBar.astro` y el nombre
+quedó libre para lo que de verdad es un banner.
+
+En ese componente el texto va **fuera** de la imagen. Encima obligaría a un velo
+para que se lea, y el velo apaga la foto que el comercio eligió; peor, con dos
+imágenes de proporciones distintas —una por tamaño de pantalla— el punto donde
+el texto queda legible cambia con el viewport y no hay forma de acertarle a los
+dos.
+
+**Permisos**
+Todo el contenido detrás de `catalog.write`, sin permiso propio: ADR-056 dice no
+inventar uno cuando ningún rol distingue, y acá no distingue —quien cura el
+catálogo cura la vidriera—. Las promociones fueron la excepción porque son una
+decisión de precio (ADR-091).
+
+**Dos cosas que encontró la verificación y no la lectura**
+La pestaña de la sección de contenido vivía en estado local, así que guardar una
+colección devolvía a la pestaña de banners y la persona no veía lo que acababa
+de crear. Pasó a la URL. Y el primer formulario rellenaba sus campos con un
+efecto al llegar la consulta: el compilador de React lo rechaza, y con razón —
+además de encadenar renders, mostraba el formulario vacío sobre una colección
+que existía. Ahora los campos se montan con el dato ya puesto.

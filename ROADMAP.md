@@ -393,7 +393,7 @@ Esta fase puede comenzar antes de que v1 esté completa si el acceso al ERP est�
 
 ## Fase 9 — Promotions y CMS v1
 
-**Avance: 60% — Etapa A cerrada**
+**Avance: 100% — cerrada**
 
 Objetivo: merchandising real.
 
@@ -426,20 +426,31 @@ B no**. La A está cerrada; la B es el CMS.
 
 **Etapa B — CMS**
 
-- [ ] banners desktop/mobile.
-- [ ] banner links a colección/producto/ruta.
-- [ ] category image/icon. La columna `categories.image` ya existe y la home la
-      lee; falta la pantalla que la cargue.
-- [ ] featured/new/best sellers sections.
-- [ ] manual/dynamic collections en CMS. Las tablas existen desde la Fase 4 y
-      `catalog_search` ya resuelve las manuales; falta el Admin y que `rules`
-      resuelva las dinámicas.
+- [x] banners desktop/mobile. Imagen propia para teléfono, opcional: sin ella se
+      usa la de escritorio. El texto va **fuera** de la foto y no encima, para no
+      necesitar un velo que apague la imagen que el comercio eligió.
+- [x] banner links a colección/producto/ruta. `href` es una ruta y no una
+      referencia: un banner puede apuntar a una página que no es ninguna de las
+      tres.
+- [x] category image/icon. La columna existía desde la Fase 4 y la home ya la
+      leía; lo que faltaba era la pantalla, y con ella el alta y edición de
+      categorías, que hasta ahora sólo se podían elegir.
+- [x] featured/new/best sellers sections. **No son tres mecanismos**: son una
+      colección cada una —manual la primera, dinámicas las otras dos con su
+      orden—. `newest` y `best-selling` sumados a `CatalogSort` en las dos
+      implementaciones, así que la paridad de ADR-055 sigue en pie. ADR-093.
+- [x] manual/dynamic collections en CMS. Las dinámicas eran lo que ADR-056 dejó
+      anticipado y sin implementar: `rules` tiene la forma de `CatalogFilters` y
+      la resuelve el mismo `catalog_search`.
 
 **Definition of Done**
 
 - Admin puede crear una campaña de descuento sin código ✅
 - storefront refleja promoción correctamente ✅ — precio tachado en PLP y PDP,
   desglose y cupón en el checkout, y el pedido cobra lo que mostraba la grilla
+
+Los dos con su smoke de Playwright, que crea la campaña y la sección desde la
+interfaz en vez de afirmar que los botones existen.
 
 ---
 
@@ -880,6 +891,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-29 | Fase 9 Etapa A: motor de promociones en el core como especificación ejecutable, tabla con su RLS y el permiso `promotion.write`, y `create_order` calculando el descuento dentro de su transacción. ADR-091 y ADR-092                       | Fase 9 |           0% |            35% |
 | 2026-08-29 | El catálogo muestra el precio efectivo —incluido `lowest`, que gobierna el filtro y el orden por precio— y el carrito y el checkout toman el dinero de la misma función que el pedido, con desglose y campo de cupón                          | Fase 9 |          35% |            50% |
 | 2026-08-29 | Etapa A cerrada: el Admin crea campañas sin código, con preview de alcance y gating por `promotion.write`. Verificado de punta a punta contra la tienda de Estilo Sport                                                                      | Fase 9 |          50% |            60% |
+| 2026-08-29 | Fase 9 cerrada. Etapa B: las secciones de la home son colecciones —manual o dinámica, que es una consulta guardada—, más banners y la pantalla de categorías. `newest` y `best-selling` en las dos implementaciones. ADR-093                | Fase 9 |          60% |           100% |
 
 ---
 

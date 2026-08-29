@@ -1,7 +1,7 @@
 ---
 import Header from '@pick/commerce-astro/layout/Header.astro';
 import Footer from '@pick/commerce-astro/layout/Footer.astro';
-import Banner from '@pick/commerce-astro/content/Banner.astro';
+import AnnouncementBar from '@pick/commerce-astro/content/AnnouncementBar.astro';
 import SearchInput from '@pick/commerce-astro/catalog/SearchInput.astro';
 import SeoHead from '@pick/commerce-astro/seo/SeoHead.astro';
 /* Las islands entran por subpath, no por el barrel: si entran por
@@ -48,7 +48,7 @@ const STORE_NAME = seoContexto.storeName;
     <slot name="head" />
   </head>
   <body class="flex min-h-dvh flex-col bg-surface text-fg antialiased">
-    {ANUNCIO && <Banner href={ANUNCIO.href}>{ANUNCIO.texto}</Banner>}
+    {ANUNCIO && <AnnouncementBar href={ANUNCIO.href}>{ANUNCIO.texto}</AnnouncementBar>}
 
     <Header storeName={STORE_NAME}>
       <a slot="nav" href="/catalogo" class="cursor-pointer hover:underline">Catálogo</a>

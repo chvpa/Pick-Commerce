@@ -1,11 +1,14 @@
 import type {
+  Banner,
   CatalogQuery,
+  CatalogSort,
   CategoriaCatalogo,
   DefinicionFaceta,
   RepositorioCatalogo,
   ResultadoCatalogo,
+  SeccionDeHome,
 } from '@pick/commerce-core';
-import type { Product } from '@pick/commerce-types';
+import type { Product, ProductImage } from '@pick/commerce-types';
 import type { PickSupabaseClient } from './client.ts';
 
 /**
@@ -70,12 +73,12 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
       return mapearResultadoCatalogo(data).items[0] ?? null;
     },
 
-    async porColeccion(storeId, handle, limite) {
+    async porColeccion(storeId, handle, limite, sort) {
       const { data, error } = await db.rpc('catalog_search', {
         p_store_id: storeId,
         p_filters: {},
         p_search: '',
-        p_sort: 'relevance',
+        p_sort: sort ?? 'relevance',
         p_page: 1,
         p_per_page: limite,
         p_collection: handle,
@@ -83,6 +86,47 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
 
       if (error) throw new Error(`No se pudo leer la colección ${handle}: ${error.message}`);
       return mapearResultadoCatalogo(data).items;
+    },
+
+    async seccionesDeHome(storeId): Promise<readonly SeccionDeHome[]> {
+      const { data, error } = await db
+        .from('collections')
+        .select('title, subtitle, handle, sort')
+        .eq('store_id', storeId)
+        .eq('published', true)
+        .not('home_position', 'is', null)
+        .order('home_position');
+
+      if (error) throw new Error(`No se pudieron leer las secciones: ${error.message}`);
+
+      return (data ?? []).map((c) => ({
+        title: c.title,
+        handle: c.handle,
+        ...(c.subtitle ? { subtitle: c.subtitle } : {}),
+        ...(c.sort ? { sort: c.sort as CatalogSort } : {}),
+      }));
+    },
+
+    async bannersPublicados(storeId): Promise<readonly Banner[]> {
+      const { data, error } = await db
+        .from('banners')
+        .select('id, title, subtitle, image, image_mobile, href, position')
+        .eq('store_id', storeId)
+        .eq('published', true)
+        .order('position');
+
+      if (error) throw new Error(`No se pudieron leer los banners: ${error.message}`);
+
+      return (data ?? []).map((b) => ({
+        id: b.id,
+        title: b.title,
+        ...(b.subtitle ? { subtitle: b.subtitle } : {}),
+        image: b.image as unknown as ProductImage,
+        ...(b.image_mobile ? { imageMobile: b.image_mobile as unknown as ProductImage } : {}),
+        ...(b.href ? { href: b.href } : {}),
+        position: b.position,
+        published: true,
+      }));
     },
 
     async categorias(storeId): Promise<readonly CategoriaCatalogo[]> {

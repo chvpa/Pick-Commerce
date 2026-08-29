@@ -27,5 +27,6 @@ export { repositorioEquipo } from './equipo.ts';
 export { repositorioConfiguracion } from './configuracion.ts';
 export { repositorioPagos } from './pagos.ts';
 export { repositorioPromociones } from './promociones.ts';
+export { repositorioContenido } from './contenido.ts';
 export { repositorioNotificaciones } from './notificaciones.ts';
 export { subirImagenDeProducto } from './media.ts';

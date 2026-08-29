@@ -2,6 +2,7 @@ import { Link, useRouterState } from '@tanstack/react-router';
 import {
   ChevronsUpDownIcon,
   LayoutDashboardIcon,
+  LayoutTemplateIcon,
   LogOutIcon,
   PackageIcon,
   PercentIcon,
@@ -66,6 +67,9 @@ const SECCIONES: readonly Seccion[] = [
   // saber qué campañas están corriendo es información operativa. Crear y editar
   // sí exigen `promotion.write`, y eso lo decide la ruta.
   { to: '/promociones', label: 'Promociones', icono: PercentIcon },
+  // Banners, colecciones y categorías en una sola entrada con pestañas: son lo
+  // mismo —lo que se cura para la vidriera— y con tres el sidebar pasaba a diez.
+  { to: '/contenido', label: 'Contenido', icono: LayoutTemplateIcon },
   { to: '/clientes', label: 'Clientes', icono: UsersIcon },
   { to: '/equipo', label: 'Equipo', icono: UsersRoundIcon, permiso: 'member.manage' },
   { to: '/configuracion', label: 'Configuración', icono: SettingsIcon, permiso: 'settings.write' },

@@ -1,4 +1,5 @@
 import type { Money, Product } from '@pick/commerce-types';
+import type { Banner, SeccionDeHome } from './content.ts';
 
 /** Atributo o campo → valores seleccionados. Una faceta con varios valores es un OR. */
 export type CatalogFilters = Readonly<Record<string, readonly string[]>>;
@@ -286,7 +287,25 @@ export interface RepositorioCatalogo {
    * acá: sus `rules` tienen la forma de `CatalogFilters` y se resuelven con
    * `buscar`. Ver ADR-056.
    */
-  porColeccion(storeId: string, handle: string, limite: number): Promise<readonly Product[]>;
+  /**
+   * Los productos de una colección, manual o dinámica.
+   *
+   * `sort` va explícito y no lo deduce el SQL de la colección: que una consulta
+   * cambie de orden según un dato que el llamador no ve es lo que hace difícil
+   * de seguir una función. La colección declara su orden y el storefront lo pasa.
+   */
+  porColeccion(
+    storeId: string,
+    handle: string,
+    limite: number,
+    sort?: CatalogSort,
+  ): Promise<readonly Product[]>;
+
+  /** Las secciones que el comercio puso en la home, en orden. */
+  seccionesDeHome(storeId: string): Promise<readonly SeccionDeHome[]>;
+
+  /** Los banners publicados de la tienda, en orden. */
+  bannersPublicados(storeId: string): Promise<readonly Banner[]>;
   categorias(storeId: string): Promise<readonly CategoriaCatalogo[]>;
   /** Sólo las declaradas `filterable`: es lo que decide qué facetas ve la PLP. */
   facetasFiltrables(storeId: string): Promise<readonly DefinicionFaceta[]>;

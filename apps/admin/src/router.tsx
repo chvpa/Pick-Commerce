@@ -56,6 +56,11 @@ const FormularioPromocion = pantalla<{ id?: string }>(
   () => import('@/features/promociones/FormularioPromocion'),
   'FormularioPromocion',
 );
+const Contenido = pantalla(() => import('@/features/contenido/Contenido'), 'Contenido');
+const FormularioColeccion = pantalla<{ id?: string }>(
+  () => import('@/features/contenido/FormularioColeccion'),
+  'FormularioColeccion',
+);
 const ListaClientes = pantalla(() => import('@/features/clientes/ListaClientes'), 'ListaClientes');
 const DetalleCliente = pantalla<{ id: string }>(
   () => import('@/features/clientes/DetalleCliente'),
@@ -265,6 +270,51 @@ const promocionRoute = createRoute({
   },
 });
 
+/*
+ * El contenido se ve con sólo pertenecer a la organización; editarlo exige
+ * `catalog.write`, igual que los productos. No lleva permiso propio: quien cura
+ * el catálogo cura la vidriera, y ADR-056 dice no inventar permisos cuando
+ * ningún rol distingue.
+ */
+const contenidoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/contenido',
+  /*
+   * La pestaña va en la URL y no en estado local. Sin esto, guardar una
+   * colección devolvía a `/contenido`, que abre en Banners: la persona no veía
+   * lo que acababa de crear. De paso la pestaña se puede compartir y sobrevive a
+   * un refresh.
+   */
+  validateSearch: (busqueda: Record<string, unknown>): { tab?: string } => {
+    const tab = busqueda.tab;
+    return typeof tab === 'string' ? { tab } : {};
+  },
+  component: Contenido,
+});
+
+const coleccionNuevaRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/contenido/colecciones/nueva',
+  component: () => (
+    <Gate permiso="catalog.write">
+      <FormularioColeccion />
+    </Gate>
+  ),
+});
+
+const coleccionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/contenido/colecciones/$id',
+  component: function Coleccion() {
+    const { id } = coleccionRoute.useParams();
+    return (
+      <Gate permiso="catalog.write">
+        <FormularioColeccion id={id} />
+      </Gate>
+    );
+  },
+});
+
 const clientesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/clientes',
@@ -311,6 +361,9 @@ const arbol = rootRoute.addChildren([
   promocionesRoute,
   promocionNuevaRoute,
   promocionRoute,
+  contenidoRoute,
+  coleccionNuevaRoute,
+  coleccionRoute,
   clientesRoute,
   clienteRoute,
   equipoRoute,

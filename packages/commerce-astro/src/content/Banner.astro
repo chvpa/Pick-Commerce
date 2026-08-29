@@ -1,26 +1,91 @@
 ---
+import { Image } from 'astro:assets';
+import type { ProductImage } from '@pick/commerce-types';
 import { cn } from '@pick/commerce-ui';
 
 interface Props {
+  image: ProductImage;
+  /**
+   * Propia para teléfono. Sin ella se usa la de escritorio, y un banner
+   * apaisado en una pantalla angosta suele perder justo lo que decía.
+   */
+  imageMobile?: ProductImage;
+  title: string;
+  subtitle?: string;
   href?: string;
-  tone?: 'neutral' | 'accent';
-  /** Permite cerrarlo. Requiere JS mínimo, así que es opt-in. */
+  /** `true` sólo para el primero de la home: es el LCP y no debe diferirse. */
+  priority?: boolean;
   class?: string;
 }
 
-const { href, tone = 'neutral', class: className } = Astro.props;
+const {
+  image,
+  imageMobile,
+  title,
+  subtitle,
+  href,
+  priority = false,
+  class: className,
+} = Astro.props;
+
 const Tag = href ? 'a' : 'div';
+
+/*
+ * El texto va **fuera** de la imagen y no encima.
+ *
+ * Superponerlo obliga a un velo para que se lea, y el velo apaga la foto que el
+ * comercio eligió. Encima, con dos imágenes de proporciones distintas —una por
+ * tamaño de pantalla— el punto donde el texto queda legible cambia con el
+ * viewport, y no hay forma de acertarle a los dos. Así la foto se ve entera y el
+ * texto siempre contrasta.
+ */
 ---
 
 <Tag
   href={href}
   class={cn(
-    'block px-4 py-2 text-center text-sm',
-    tone === 'accent' ? 'bg-accent text-accent-fg' : 'bg-surface-sunken text-fg-muted',
+    'group block overflow-hidden rounded-lg bg-surface-sunken',
     href &&
-      'cursor-pointer hover:underline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent',
+      'cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
     className,
   )}
 >
-  <slot />
+  {
+    imageMobile ? (
+      <picture>
+        {/* El `source` primero: el browser toma el primero que coincide. */}
+        <source media="(min-width: 640px)" srcset={image.url} />
+        <Image
+          src={imageMobile.url}
+          alt={imageMobile.alt}
+          width={imageMobile.width}
+          height={imageMobile.height}
+          layout="full-width"
+          sizes="100vw"
+          loading={priority ? 'eager' : 'lazy'}
+          fetchpriority={priority ? 'high' : 'auto'}
+          decoding="async"
+          class="w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.01] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+        />
+      </picture>
+    ) : (
+      <Image
+        src={image.url}
+        alt={image.alt}
+        width={image.width}
+        height={image.height}
+        layout="full-width"
+        sizes="100vw"
+        loading={priority ? 'eager' : 'lazy'}
+        fetchpriority={priority ? 'high' : 'auto'}
+        decoding="async"
+        class="w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.01] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+      />
+    )
+  }
+
+  <div class="flex flex-col gap-1 px-5 py-4">
+    <p class={cn('font-display text-lg font-semibold', href && 'group-hover:underline')}>{title}</p>
+    {subtitle && <p class="text-sm text-fg-muted">{subtitle}</p>}
+  </div>
 </Tag>

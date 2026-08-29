@@ -1,5 +1,6 @@
 ---
 import Hero from '@pick/commerce-astro/content/Hero.astro';
+import Banner from '@pick/commerce-astro/content/Banner.astro';
 import CategorySection from '@pick/commerce-astro/content/CategorySection.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import JsonLd from '@pick/commerce-astro/seo/JsonLd.astro';
@@ -10,25 +11,41 @@ import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astr
 import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
 import ProductCarousel from '@pick/commerce-astro/product/ProductCarousel.astro';
 import { buttonVariants } from '@pick/commerce-ui';
-import { organizationJsonLd } from '@pick/commerce-core';
-import { COLECCION_DESTACADA, seoContexto } from '../lib/store-config.ts';
+import { organizationJsonLd, PRODUCTOS_POR_SECCION } from '@pick/commerce-core';
+import { seoContexto } from '../lib/store-config.ts';
 import { catalogo, categorias, tiendaActual } from '../lib/db.ts';
 import Base from '../layouts/Base.astro';
 
 /*
- * On-demand: muestra categorías y una colección, y las dos cambian desde el
- * Admin. Prerenderizada, un producto nuevo no aparecería hasta el próximo
- * deploy. Ver ADR-057.
+ * On-demand: las categorías, los banners y las secciones se administran, y las
+ * tres cambian sin desplegar. Prerenderizada, un banner nuevo no aparecería
+ * hasta el próximo deploy. Ver ADR-057.
  */
 export const prerender = false;
 
 const tienda = await tiendaActual();
-const [cats, destacados] = await Promise.all([
+const repo = catalogo();
+
+/*
+ * Qué se destaca es una decisión del comercio, **guardada**. Antes era
+ * `COLECCION_DESTACADA`, una constante del storefront: un literal que sólo se
+ * podía cambiar tocando código y desplegando, y que además obligaba a que toda
+ * tienda llamara igual a su colección destacada.
+ */
+const [cats, banners, secciones] = await Promise.all([
   categorias(),
-  // La colección la elige el storefront, no el Core: qué se destaca en la home
-  // es una decisión del comercio.
-  catalogo().porColeccion(tienda.storeId, COLECCION_DESTACADA, 8),
+  repo.bannersPublicados(tienda.storeId),
+  repo.seccionesDeHome(tienda.storeId),
 ]);
+
+// Cada sección resuelve sus productos con el orden que la colección declara.
+// En paralelo: son pocas y encadenarlas sumaría latencia sin motivo.
+const carruseles = await Promise.all(
+  secciones.map(async (s) => ({
+    ...s,
+    productos: await repo.porColeccion(tienda.storeId, s.handle, PRODUCTOS_POR_SECCION, s.sort),
+  })),
+);
 
 const entradas = cats.map((c) => ({
   label: c.name,
@@ -55,6 +72,25 @@ const entradas = cats.map((c) => ({
   </Container>
 
   {
+    banners.length > 0 && (
+      <Container class="py-8">
+        <div class="grid gap-6 sm:grid-cols-2">
+          {banners.map((b, i) => (
+            <Banner
+              image={b.image}
+              imageMobile={b.imageMobile}
+              title={b.title}
+              subtitle={b.subtitle}
+              href={b.href}
+              priority={i === 0}
+            />
+          ))}
+        </div>
+      </Container>
+    )
+  }
+
+  {
     entradas.length > 0 && (
       <Container class="flex flex-col gap-4 py-8">
         <h2 class="font-display text-xl font-semibold">Categorías</h2>
@@ -64,31 +100,37 @@ const entradas = cats.map((c) => ({
   }
 
   {
-    /* Sin colección no hay sección: un carrusel vacío bajo un título es peor
-      que no mostrar nada. */
+    /* Una sección sin productos no se dibuja: un carrusel vacío bajo un título
+      es peor que no mostrar nada, y una colección dinámica puede quedarse sin
+      resultados sin que nadie la haya tocado. */
   }
   {
-    destacados.length > 0 && (
-      <Container class="flex flex-col gap-4 py-8">
-        <h2 class="font-display text-xl font-semibold">En oferta</h2>
-        <ProductCarousel label="En oferta">
-          {destacados.map((product) => {
-            const variant = product.variants[0];
-            if (!variant) return null;
-            return (
-              <ProductCard>
-                <ProductCardMedia image={product.images[0]} />
-                <ProductCardBody>
-                  <ProductCardTitle href={`/productos/${product.handle}`}>
-                    {product.title}
-                  </ProductCardTitle>
-                  <Price value={variant.price} compareAt={variant.compareAtPrice} />
-                </ProductCardBody>
-              </ProductCard>
-            );
-          })}
-        </ProductCarousel>
-      </Container>
-    )
+    carruseles
+      .filter((c) => c.productos.length > 0)
+      .map((seccion) => (
+        <Container class="flex flex-col gap-4 py-8">
+          <div class="flex flex-col gap-1">
+            <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>
+            {seccion.subtitle && <p class="text-sm text-fg-muted">{seccion.subtitle}</p>}
+          </div>
+          <ProductCarousel label={seccion.title}>
+            {seccion.productos.map((product) => {
+              const variant = product.variants[0];
+              if (!variant) return null;
+              return (
+                <ProductCard>
+                  <ProductCardMedia image={product.images[0]} />
+                  <ProductCardBody>
+                    <ProductCardTitle href={`/productos/${product.handle}`}>
+                      {product.title}
+                    </ProductCardTitle>
+                    <Price value={variant.price} compareAt={variant.compareAtPrice} />
+                  </ProductCardBody>
+                </ProductCard>
+              );
+            })}
+          </ProductCarousel>
+        </Container>
+      ))
   }
 </Base>

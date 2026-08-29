@@ -119,7 +119,7 @@ test.describe('Admin', () => {
     await entrar(page);
     await abrirSidebar(page);
 
-    for (const seccion of ['Productos', 'Pedidos', 'Promociones', 'Clientes']) {
+    for (const seccion of ['Productos', 'Pedidos', 'Promociones', 'Contenido', 'Clientes']) {
       await page.getByRole('link', { name: seccion }).click();
       await expect(page.getByRole('heading', { name: seccion, level: 1 })).toBeVisible({
         timeout: 15_000,
@@ -160,6 +160,43 @@ test.describe('Admin', () => {
     await expect(fila).toContainText('Borrador');
     // Sin cupón ni mínimos, se ve en la vidriera además del carrito.
     await expect(fila).toContainText('Catálogo y carrito');
+
+    expect(problemas, problemas.join('\n')).toEqual([]);
+  });
+
+  test('una sección de la home se arma sin escribir código', async ({ page }) => {
+    /*
+     * La otra mitad del Definition of Done. Se crea una colección **dinámica**
+     * a propósito: es la que no tiene lista de productos y se resuelve como
+     * consulta guardada, así que si `rules` no llegara a la base la colección
+     * quedaría manual y vacía sin que nada avisara.
+     */
+    const problemas = vigilar(page);
+    await entrar(page);
+    await abrirSidebar(page);
+
+    await page.getByRole('link', { name: 'Contenido' }).click();
+    await page.getByRole('tab', { name: 'Colecciones' }).click();
+    await page.getByRole('link', { name: 'Nueva colección' }).click();
+
+    const titulo = `Novedades del smoke ${Date.now()}`;
+    await page.locator('#title').fill(titulo);
+    await page
+      .getByLabel('Cómo se arma la colección')
+      .selectOption('dinamica');
+    await page.locator('#sort').selectOption('newest');
+
+    // Publicada y en la home: los dos interruptores del final.
+    await page.getByRole('switch', { name: /Publicada/ }).click();
+    await page.getByRole('switch', { name: /sección de la home/ }).click();
+    await expect(page.locator('#homePosition')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Crear colección' }).click();
+
+    const fila = page.getByRole('listitem').filter({ hasText: titulo });
+    await expect(fila).toBeVisible({ timeout: 15_000 });
+    await expect(fila).toContainText('dinámica, por newest');
+    await expect(fila).toContainText('Publicada');
 
     expect(problemas, problemas.join('\n')).toEqual([]);
   });

@@ -33,11 +33,15 @@ export const ANUNCIO: { texto: string; href?: string } | null = {
   href: '/catalogo',
 };
 
-/**
- * Colección que la home destaca. Es una decisión del comercio, no del Core: otro
- * storefront puede destacar "novedades" o una campaña.
+/*
+ * Acá vivía `COLECCION_DESTACADA = 'ofertas'`.
+ *
+ * El comentario decía que era «una decisión del comercio, no del Core», y tenía
+ * razón en el diagnóstico y no en el remedio: era una decisión del comercio
+ * guardada en el código, así que cambiarla exigía desplegar y toda tienda tenía
+ * que llamar igual a su colección destacada. Ahora las secciones de la home son
+ * colecciones con `home_position`, y se administran.
  */
-export const COLECCION_DESTACADA = 'ofertas';
 
 /**
  * Rutas que no aportan a la indexación y sí dispersan autoridad.
