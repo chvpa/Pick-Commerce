@@ -1398,6 +1398,10 @@ export type Database = {
         Returns: Json
       }
       admin_team: { Args: { p_tenant: string }; Returns: Json }
+      cart_promotions: {
+        Args: { p_code?: string; p_lines: Json; p_store_id: string }
+        Returns: Json
+      }
       catalog_search: {
         Args: {
           p_collection?: string
