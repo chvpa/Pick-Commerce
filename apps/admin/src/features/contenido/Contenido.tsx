@@ -8,9 +8,9 @@ import {
   tipoDe,
   type CategoriaAdmin,
   type Coleccion,
+  type SeccionDeHome,
 } from '@pick/commerce-core';
 import type { ProductImage } from '@pick/commerce-types';
-import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,7 +18,7 @@ import { usePuede } from '@/features/auth/usePuede';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { PencilIcon } from 'lucide-react';
+import { LayoutTemplateIcon, PencilIcon } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import {
   BorrarConConfirmacion,
@@ -26,6 +26,7 @@ import {
   ControlDeOrden,
   EnlaceDeEdicion,
 } from '@/components/acciones';
+import { Esqueleto, EstadoDeError, EstadoVacio, PaginaAdmin, Tarjeta } from '@/components/pagina';
 import { SelectorDeImagen } from './SelectorDeImagen';
 import { ETIQUETA_ORDEN, ETIQUETA_TIPO } from './etiquetas';
 
@@ -36,7 +37,6 @@ const PESTANAS: readonly { id: Pestana; label: string }[] = [
   { id: 'colecciones', label: 'Colecciones' },
   { id: 'categorias', label: 'Categorías' },
 ];
-
 
 /**
  * El contenido de la tienda: secciones de la home, colecciones y categorías.
@@ -66,44 +66,67 @@ export function Contenido() {
     void navegar({ to: '/contenido', search: { tab } });
   };
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div role="tablist" aria-label="Tipo de contenido" className="border-border flex gap-1 border-b">
-        {PESTANAS.map((p) => (
-          <button
-            key={p.id}
-            role="tab"
-            aria-selected={pestana === p.id}
-            onClick={() => setPestana(p.id)}
-            className={cn(
-              'cursor-pointer border-b-2 px-4 py-2 text-sm transition-colors',
-              pestana === p.id
-                ? 'border-foreground font-medium'
-                : 'text-muted-foreground hover:text-foreground border-transparent',
-            )}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+  const puede = usePuede();
+  const DESCRIPCION: Record<Pestana, string> = {
+    secciones: 'Los bloques de la portada, de arriba hacia abajo. Sólo se ven los publicados.',
+    colecciones: 'Listas de productos. Para mostrar una en la portada, creá una sección.',
+    categorias: 'Cómo se agrupa el catálogo. La portada las muestra con su imagen.',
+  };
 
-      {pestana === 'secciones' && <PanelSecciones />}
-      {pestana === 'colecciones' && <PanelColecciones />}
-      {pestana === 'categorias' && <PanelCategorias />}
-    </div>
-  );
-}
-
-/** Lo que se muestra cuando una consulta falla, en vez de una lista vacía mentirosa. */
-function ErrorDeCarga({ error, reintentar }: { error: Error; reintentar: () => void }) {
   return (
-    <div className="border-destructive/40 flex flex-col items-start gap-3 rounded-lg border p-6">
-      <p className="text-sm">No se pudo cargar.</p>
-      <p className="text-muted-foreground text-xs">{error.message}</p>
-      <Button variant="outline" size="sm" onClick={reintentar}>
-        Reintentar
-      </Button>
-    </div>
+    <PaginaAdmin
+      titulo="Contenido"
+      icono={LayoutTemplateIcon}
+      descripcion={DESCRIPCION[pestana]}
+      acciones={
+        puede('catalog.write') &&
+        (pestana === 'secciones' ? (
+          <Link to="/contenido/secciones/nueva" className={buttonVariants({ size: 'lg' })}>
+            Nueva sección
+          </Link>
+        ) : pestana === 'colecciones' ? (
+          <Link to="/contenido/colecciones/nueva" className={buttonVariants({ size: 'lg' })}>
+            Nueva colección
+          </Link>
+        ) : null)
+      }
+    >
+      {/*
+        Las pestañas viven **dentro** de la tarjeta, no encima.
+
+        Es lo que hace el Admin de Shopify y resuelve una ambigüedad: una pestaña
+        suelta arriba parece navegación de la aplicación, y la misma pestaña
+        pegada a la lista se lee como lo que es —un filtro de lo que hay abajo—.
+      */}
+      <Tarjeta sinRelleno>
+        <div
+          role="tablist"
+          aria-label="Tipo de contenido"
+          className="border-border flex gap-1 border-b px-2"
+        >
+          {PESTANAS.map((p) => (
+            <button
+              key={p.id}
+              role="tab"
+              aria-selected={pestana === p.id}
+              onClick={() => setPestana(p.id)}
+              className={cn(
+                'cursor-pointer border-b-2 px-3 py-2.5 text-sm transition-colors',
+                pestana === p.id
+                  ? 'border-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground border-transparent',
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {pestana === 'secciones' && <PanelSecciones />}
+        {pestana === 'colecciones' && <PanelColecciones />}
+        {pestana === 'categorias' && <PanelCategorias />}
+      </Tarjeta>
+    </PaginaAdmin>
   );
 }
 
@@ -144,9 +167,21 @@ function PanelSecciones() {
     onSettled: refrescar,
   });
 
+  const publicar = useMutation({
+    mutationFn: ({ seccion, published }: { seccion: SeccionDeHome; published: boolean }) =>
+      // La sección entera, no sólo el campo: el repositorio guarda el registro
+      // completo, y mandar de menos borraría el layout o la colección apuntada.
+      repositorioContenido(db).guardarSeccion(tienda.id, { ...seccion, published }, seccion.id),
+    onSuccess: refrescar,
+  });
+
   if (consulta.isError) {
     return (
-      <ErrorDeCarga error={consulta.error as Error} reintentar={() => void consulta.refetch()} />
+      <EstadoDeError
+        titulo="No se pudieron cargar las secciones"
+        error={consulta.error as Error}
+        onReintentar={() => void consulta.refetch()}
+      />
     );
   }
 
@@ -154,36 +189,37 @@ function PanelSecciones() {
     colecciones.data?.find((c) => c.id === id)?.title ?? '—';
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-muted-foreground text-sm">
-          Los bloques de la home, de arriba hacia abajo. Sólo se ven los publicados.
-        </p>
-        {puede('catalog.write') && (
-          <Link to="/contenido/secciones/nueva" className={buttonVariants({ size: 'sm' })}>
-            Nueva sección
-          </Link>
-        )}
-      </div>
-
-      {/* Un fallo al mover o al borrar no puede quedar en silencio: la lista se
-          refresca sola y parecería que no pasó nada. */}
-      {(mover.error ?? borrar.error) && (
-        <p className="text-destructive text-sm" role="alert">
-          {((mover.error ?? borrar.error) as Error).message}
+    <>
+      {/* Un fallo al mover, publicar o borrar no puede quedar en silencio: la
+          lista se refresca sola y parecería que no pasó nada. */}
+      {(mover.error ?? publicar.error ?? borrar.error) && (
+        <p className="text-destructive border-b px-4 py-3 text-sm" role="alert">
+          {((mover.error ?? publicar.error ?? borrar.error) as Error).message}
         </p>
       )}
 
       {consulta.isPending ? (
-        <div className="bg-muted h-20 animate-pulse rounded-lg" />
+        <Esqueleto />
       ) : consulta.data!.length === 0 ? (
-        <p className="text-muted-foreground py-10 text-center text-sm">
-          La home no tiene ninguna sección. Empezá por un banner principal.
-        </p>
+        <EstadoVacio
+          titulo="La portada no tiene ninguna sección"
+          accion={
+            puede('catalog.write') && (
+              <Link to="/contenido/secciones/nueva" className={buttonVariants({ size: 'lg' })}>
+                Nueva sección
+              </Link>
+            )
+          }
+        >
+          Una sección es un bloque de la portada: el banner principal, un carrusel de productos, la
+          tira de categorías. Empezá por el banner.
+        </EstadoVacio>
       ) : (
-        <ul aria-label="Secciones de la portada" className="flex flex-col gap-2">
+        // Filas divididas por una línea y no tarjetas sueltas: adentro de una
+        // tarjeta, cada fila con su propio borde eran cajas dentro de una caja.
+        <ul aria-label="Secciones de la portada" className="divide-border divide-y">
           {consulta.data!.map((s, i) => (
-            <li key={s.id} className="border-border flex items-center gap-3 rounded-lg border p-3">
+            <li key={s.id} className="flex items-center gap-3 px-4 py-3">
               {/*
                 El orden **es** la lista, no un número que hay que traducir. Antes
                 acá se mostraba `position` y había que abrir el formulario para
@@ -216,9 +252,16 @@ function PanelSecciones() {
                     ` · ${s.layout === 'slider' ? 'carrusel' : 'estático'}`}
                 </span>
               </div>
-              <Badge variant={s.published ? 'default' : 'secondary'}>
-                {s.published ? 'Publicada' : 'Borrador'}
-              </Badge>
+              {/*
+                El interruptor **es** el estado: prende y apaga la sección sin
+                abrir su formulario, que es lo que se hace al armar una portada.
+              */}
+              <Switch
+                checked={s.published}
+                disabled={publicar.isPending || !puede('catalog.write')}
+                onCheckedChange={(published) => publicar.mutate({ seccion: s, published })}
+                aria-label={`${s.published ? 'Despublicar' : 'Publicar'} ${s.title ?? ETIQUETA_TIPO[s.type]}`}
+              />
               {puede('catalog.write') && (
                 <>
                   <EnlaceDeEdicion
@@ -243,7 +286,7 @@ function PanelSecciones() {
           ))}
         </ul>
       )}
-    </div>
+    </>
   );
 }
 
@@ -287,32 +330,43 @@ function PanelColecciones() {
   });
 
   if (consulta.isError) {
-    return <ErrorDeCarga error={consulta.error as Error} reintentar={() => void consulta.refetch()} />;
+    return (
+      <EstadoDeError
+        titulo="No se pudieron cargar las colecciones"
+        error={consulta.error as Error}
+        onReintentar={() => void consulta.refetch()}
+      />
+    );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-muted-foreground text-sm">
-          Listas de productos. Para mostrar una en la portada, creá una sección de carrusel.
+    <>
+      {(publicar.error ?? borrar.error) && (
+        <p className="text-destructive border-b px-4 py-3 text-sm" role="alert">
+          {((publicar.error ?? borrar.error) as Error).message}
         </p>
-        {puede('catalog.write') && (
-          <Link to="/contenido/colecciones/nueva" className={buttonVariants({ size: 'sm' })}>
-            Nueva colección
-          </Link>
-        )}
-      </div>
+      )}
 
       {consulta.isPending ? (
-        <div className="bg-muted h-20 animate-pulse rounded-lg" />
+        <Esqueleto />
       ) : consulta.data!.length === 0 ? (
-        <p className="text-muted-foreground py-10 text-center text-sm">
-          Todavía no hay colecciones. Son las que arman los carruseles de la home.
-        </p>
+        <EstadoVacio
+          titulo="Todavía no hay colecciones"
+          accion={
+            puede('catalog.write') && (
+              <Link to="/contenido/colecciones/nueva" className={buttonVariants({ size: 'lg' })}>
+                Nueva colección
+              </Link>
+            )
+          }
+        >
+          Una colección es una lista de productos: se arma a mano o sola, con una regla. Después se
+          muestra en la portada con una sección de carrusel.
+        </EstadoVacio>
       ) : (
-        <ul aria-label="Colecciones" className="flex flex-col gap-2">
+        <ul aria-label="Colecciones" className="divide-border divide-y">
           {consulta.data!.map((c) => (
-            <li key={c.id} className="border-border flex items-center gap-3 rounded-lg border p-3">
+            <li key={c.id} className="flex items-center gap-3 px-4 py-3">
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-medium">{c.title}</span>
                 <span className="text-muted-foreground truncate text-xs">
@@ -322,23 +376,13 @@ function PanelColecciones() {
                 </span>
               </div>
 
-              {puede('catalog.write') ? (
-                <label className="flex cursor-pointer items-center gap-2">
-                  <Switch
-                    checked={c.published}
-                    disabled={publicar.isPending}
-                    onCheckedChange={(published) => publicar.mutate({ coleccion: c, published })}
-                    aria-label={`${c.published ? 'Despublicar' : 'Publicar'} ${c.title}`}
-                  />
-                  <Badge variant={c.published ? 'default' : 'secondary'}>
-                    {c.published ? 'Publicada' : 'Borrador'}
-                  </Badge>
-                </label>
-              ) : (
-                <Badge variant={c.published ? 'default' : 'secondary'}>
-                  {c.published ? 'Publicada' : 'Borrador'}
-                </Badge>
-              )}
+              {/* Mismo criterio que en secciones: el interruptor es el estado. */}
+              <Switch
+                checked={c.published}
+                disabled={publicar.isPending || !puede('catalog.write')}
+                onCheckedChange={(published) => publicar.mutate({ coleccion: c, published })}
+                aria-label={`${c.published ? 'Despublicar' : 'Publicar'} ${c.title}`}
+              />
 
               {puede('catalog.write') && (
                 <>
@@ -360,7 +404,7 @@ function PanelColecciones() {
           ))}
         </ul>
       )}
-    </div>
+    </>
   );
 }
 
@@ -421,24 +465,32 @@ function PanelCategorias() {
   }
 
   if (consulta.isError) {
-    return <ErrorDeCarga error={consulta.error as Error} reintentar={() => void consulta.refetch()} />;
+    return (
+      <EstadoDeError
+        titulo="No se pudieron cargar las categorías"
+        error={consulta.error as Error}
+        onReintentar={() => void consulta.refetch()}
+      />
+    );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-muted-foreground text-sm">
-          La home las muestra con su imagen. Sin imagen se ven igual, sólo con el nombre.
-        </p>
-        {puede('catalog.write') && !editando && (
+    <>
+      {/*
+        La acción de este panel no puede vivir arriba en el encabezado como la de
+        los otros dos: no navega a ninguna ruta, abre un formulario acá mismo. Va
+        en una franja pegada a la lista, que es a lo que pertenece.
+      */}
+      {puede('catalog.write') && !editando && (
+        <div className="border-border flex justify-end border-b px-4 py-3">
           <Button size="sm" onClick={() => abrir()}>
             Nueva categoría
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {editando && (
-        <div className="border-border flex flex-col gap-4 rounded-lg border p-5">
+        <div className="border-border flex flex-col gap-4 border-b p-4">
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="c-name">Nombre</Label>
@@ -498,27 +550,35 @@ function PanelCategorias() {
       )}
 
       {consulta.isPending ? (
-        <div className="bg-muted h-20 animate-pulse rounded-lg" />
+        <Esqueleto />
       ) : consulta.data!.length === 0 ? (
-        <p className="text-muted-foreground py-10 text-center text-sm">
-          Todavía no hay categorías.
-        </p>
+        <EstadoVacio
+          titulo="Todavía no hay categorías"
+          accion={
+            puede('catalog.write') &&
+            !editando && (
+              <Button size="lg" onClick={() => abrir()}>
+                Nueva categoría
+              </Button>
+            )
+          }
+        >
+          Son los grupos con los que se navega el catálogo. La portada las muestra con su imagen.
+        </EstadoVacio>
       ) : (
-        <ul aria-label="Categorías" className="flex flex-col gap-2">
+        <ul aria-label="Categorías" className="divide-border divide-y">
           {consulta.data!.map((c) => (
-            <li key={c.id} className="border-border flex items-center gap-4 rounded-lg border p-3">
+            <li key={c.id} className="flex items-center gap-3 px-4 py-3">
               {c.image ? (
-                <img src={c.image.url} alt="" className="h-12 w-12 rounded object-cover" />
+                <img src={c.image.url} alt="" className="size-10 rounded-md object-cover" />
               ) : (
-                <div className="bg-muted text-muted-foreground flex h-12 w-12 items-center justify-center rounded text-[10px]">
+                <div className="bg-muted text-muted-foreground flex size-10 items-center justify-center rounded-md text-[10px]">
                   sin foto
                 </div>
               )}
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-medium">{c.name}</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  /{c.slug} · posición {c.position}
-                </span>
+                <span className="text-muted-foreground truncate text-xs">/{c.slug}</span>
               </div>
               {puede('catalog.write') && (
                 <BotonDeIcono
@@ -531,6 +591,6 @@ function PanelCategorias() {
           ))}
         </ul>
       )}
-    </div>
+    </>
   );
 }

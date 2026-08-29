@@ -11,7 +11,7 @@ import type { Permission } from '@pick/commerce-types';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { AppSidebar, useTituloDeSeccion } from '@/features/navegacion/AppSidebar';
+import { AppSidebar } from '@/features/navegacion/AppSidebar';
 import { Migas, migasDe } from '@/features/navegacion/Migas';
 import { useSesion } from '@/features/auth/SesionContext';
 import { usePuede } from '@/features/auth/usePuede';
@@ -121,7 +121,6 @@ function Aviso({ titulo, children }: { titulo: string; children?: ReactNode }) {
 function Cascara() {
   const { salir } = useSesion();
   const { tienda, cargando, error } = useTienda();
-  const titulo = useTituloDeSeccion();
   const rutaActual = useRouterState({ select: (s) => s.location.pathname });
   const migas = migasDe(rutaActual);
 
@@ -163,23 +162,23 @@ function Cascara() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          {/*
-            En una pantalla de primer nivel, el título; en una de detalle, las
-            migas.
+        {/*
+          La barra de arriba quedó mínima: el botón del panel y, si la pantalla
+          es de detalle, las migas.
 
-            Antes esto era sólo el título, con el argumento de que la navegación
-            del Admin era plana. Dejó de serlo: editar una colección, una sección
-            o una promoción son pantallas hijas, y desde ellas **no había forma
-            de volver a la lista** salvo el botón del navegador, que en mobile ni
-            siquiera está a la vista.
-          */}
-          {migas.length > 0 ? (
-            <Migas />
-          ) : (
-            <h1 className="text-sm font-medium">{titulo}</h1>
+          El **título dejó de vivir acá** y pasó al contenido, junto a su ícono y
+          sus acciones. Con el título arriba, esta barra crecía con migas y
+          botones mientras el contenido empezaba sin ningún contexto; y cada
+          pantalla ponía su acción principal donde le quedaba. Es la distribución
+          del Admin de Shopify, que resuelve las dos cosas de una.
+        */}
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          {migas.length > 0 && (
+            <>
+              <Separator orientation="vertical" className="mr-1 h-4" />
+              <Migas />
+            </>
           )}
         </header>
 

@@ -157,7 +157,10 @@ test.describe('Admin', () => {
     const fila = page.getByRole('row', { name: new RegExp(titulo) });
     await expect(fila).toBeVisible({ timeout: 15_000 });
     await expect(fila).toContainText('20 %');
-    await expect(fila).toContainText('Borrador');
+    // El estado se lee del interruptor y no de una etiqueta: la promoción nace
+    // en borrador, así que tiene que estar apagado. La etiqueta de al lado se
+    // sacó porque decía lo mismo dos veces.
+    await expect(fila.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
     // Sin cupón ni mínimos, se ve en la vidriera además del carrito.
     await expect(fila).toContainText('Catálogo y carrito');
 
@@ -190,7 +193,8 @@ test.describe('Admin', () => {
     const fila = page.getByRole('listitem').filter({ hasText: titulo });
     await expect(fila).toBeVisible({ timeout: 15_000 });
     await expect(fila).toContainText('Se arma sola, por novedades');
-    await expect(fila).toContainText('Publicada');
+    // Mismo criterio que en promociones: el interruptor **es** el estado.
+    await expect(fila.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
 
     expect(problemas, problemas.join('\n')).toEqual([]);
   });

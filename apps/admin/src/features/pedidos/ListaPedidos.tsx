@@ -11,8 +11,18 @@ import {
 } from '@pick/commerce-core';
 import type { PedidoDeLista } from '@pick/commerce-core';
 import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
+import { ReceiptTextIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import {
+  BarraDeFiltros,
+  Esqueleto,
+  EstadoDeError,
+  EstadoVacio,
+  Paginacion,
+  PaginaAdmin,
+  SELECT,
+  Tarjeta,
+} from '@/components/pagina';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -31,6 +41,18 @@ import { DialogoDeConfirmacion } from '@/components/acciones';
 import { cn } from '@/lib/utils';
 
 const POR_PAGINA = 20;
+
+/**
+ * El desplegable de estado que va **dentro** de una celda.
+ *
+ * Más chico que el `SELECT` de los filtros y sin fondo propio: lo pinta el tono
+ * del estado, que es lo que lo hace legible de un vistazo en una tabla larga. La
+ * clase estaba escrita dos veces, una por columna.
+ */
+const SELECT_DE_ESTADO =
+  'h-7 cursor-pointer rounded-lg border px-2 text-xs outline-none ' +
+  'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3 ' +
+  'disabled:cursor-wait disabled:opacity-60';
 
 /**
  * Tono por estado.
@@ -122,231 +144,216 @@ export function ListaPedidos() {
   const datos = consulta.data;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="buscar">Buscar</Label>
-          <Input
-            id="buscar"
-            value={texto}
-            onChange={(e) => setTexto(e.currentTarget.value)}
-            placeholder="Número, nombre, correo o teléfono"
-            className="w-72"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="estado">Estado</Label>
-          <select
-            id="estado"
-            value={status}
-            onChange={(e) => {
-              setStatus(e.currentTarget.value as OrderStatus | '');
-              setPage(1);
-            }}
-            className="border-border bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 cursor-pointer rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3"
-          >
-            <option value="">Todos</option>
-            {ESTADOS_DE_PEDIDO.map((e) => (
-              <option key={e} value={e}>
-                {ETIQUETA_ESTADO_PEDIDO[e]}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {consulta.isError ? (
-        <div className="border-destructive/40 flex flex-col items-start gap-3 rounded-lg border p-6">
-          <p className="text-sm">No se pudieron cargar los pedidos.</p>
-          <p className="text-muted-foreground text-xs">{(consulta.error as Error).message}</p>
-          <Button variant="outline" size="sm" onClick={() => void consulta.refetch()}>
-            Reintentar
-          </Button>
-        </div>
-      ) : (
-        <div className="border-border overflow-x-auto rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Pedido</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead className="text-right">Ítems</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Pago</TableHead>
-                <TableHead>Estado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {consulta.isPending ? (
-                Array.from({ length: 5 }, (_, i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={6}>
-                      <div className="bg-muted h-5 w-full animate-pulse rounded" />
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : datos && datos.items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center">
-                    <p className="text-muted-foreground text-sm">
-                      {query || status
-                        ? 'Ningún pedido coincide con la búsqueda.'
-                        : 'Todavía no hay pedidos.'}
-                    </p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                datos?.items.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <Link
-                        to="/pedidos/$id"
-                        params={{ id: p.id }}
-                        className="flex flex-col gap-0.5 hover:underline"
-                      >
-                        <span className="font-medium tabular-nums">#{p.number}</span>
-                        <span className="text-muted-foreground text-xs">
-                          {fecha(p.createdAt, tienda.locale)}
-                        </span>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="max-w-[16rem] truncate">{p.customerName}</TableCell>
-                    <TableCell className="text-right tabular-nums">{p.itemCount}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatMoney(
-                        { amount: p.total.amount, currency: p.total.currency },
-                        tienda.locale,
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {/*
-                        Con transferencia bancaria, cobrar es una persona mirando
-                        un comprobante, así que marcar pagado es una acción de
-                        todos los días y tiene que estar en la lista. Un pedido
-                        cancelado no la ofrece: devolver plata es un refund, y los
-                        refunds están fuera del core (ADR-008).
-                      */}
-                      {!escribe || p.status === 'cancelled' ? (
-                        <Badge className={cn(TONO_PAGO[p.paymentStatus])}>
-                          {ETIQUETA_ESTADO_PAGO[p.paymentStatus]}
-                        </Badge>
-                      ) : (
-                        <select
-                          aria-label={`Estado de pago del pedido #${p.number}`}
-                          value={p.paymentStatus}
-                          disabled={cambiarPago.isPending}
-                          onChange={(e) =>
-                            cambiarPago.mutate({
-                              id: p.id,
-                              pago: e.currentTarget.value as PaymentStatus,
-                            })
-                          }
-                          className={cn(
-                            'h-7 cursor-pointer rounded-lg border px-2 text-xs outline-none',
-                            'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3',
-                            'disabled:cursor-wait disabled:opacity-60',
-                            TONO_PAGO[p.paymentStatus],
-                          )}
-                        >
-                          {ESTADOS_DE_PAGO.map((e) => (
-                            <option key={e} value={e}>
-                              {ETIQUETA_ESTADO_PAGO[e]}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {/*
-                        Quick status: cambiar el estado sin abrir el pedido es lo
-                        que hace un operador veinte veces por día. Un `<select>`
-                        y no un menú propio, por lo mismo que en la otra tabla.
-
-                        Cancelado es terminal, así que ahí se muestra la etiqueta
-                        y no un control: ofrecer una acción que la base va a
-                        rechazar es peor que no ofrecerla. Por eso mismo un
-                        viewer ve la etiqueta y no el selector.
-                      */}
-                      {p.status === 'cancelled' || !escribe ? (
-                        <Badge className={TONO[p.status]}>{ETIQUETA_ESTADO_PEDIDO[p.status]}</Badge>
-                      ) : (
-                        <select
-                          aria-label={`Estado del pedido #${p.number}`}
-                          value={p.status}
-                          disabled={cambiarEstado.isPending}
-                          onChange={(e) => {
-                            const estado = e.currentTarget.value as OrderStatus;
-                            if (estado === 'cancelled') {
-                              /*
-                               * El `<select>` ya se movió cuando esto corre, así
-                               * que hay que devolverlo **antes** de preguntar: si
-                               * se lo dejara en «Cancelado» mientras el diálogo
-                               * está abierto, cancelar el diálogo dejaría la fila
-                               * mostrando un estado que el pedido no tiene.
-                               * Confirmar lo vuelve a poner con el dato de la
-                               * mutación.
-                               */
-                              e.currentTarget.value = p.status;
-                              setPorCancelar(p);
-                              return;
-                            }
-                            cambiarEstado.mutate({ id: p.id, estado });
-                          }}
-                          className={cn(
-                            'h-7 cursor-pointer rounded-lg border px-2 text-xs outline-none',
-                            'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3',
-                            'disabled:cursor-wait disabled:opacity-60',
-                            TONO[p.status],
-                          )}
-                        >
-                          {ESTADOS_DE_PEDIDO.map((e) => (
-                            <option key={e} value={e}>
-                              {ETIQUETA_ESTADO_PEDIDO[e]}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
+    <PaginaAdmin
+      titulo="Pedidos"
+      icono={ReceiptTextIcon}
+      descripcion="Lo que se vendió. El pago y el estado se cambian sin abrir el pedido."
+    >
       {(cambiarEstado.isError || cambiarPago.isError) && (
         <p className="text-destructive text-sm" role="alert">
           {((cambiarEstado.error ?? cambiarPago.error) as Error).message}
         </p>
       )}
 
-      {datos && datos.pageCount > 1 && (
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-muted-foreground text-sm" aria-live="polite">
-            {datos.total} pedidos · página {datos.page} de {datos.pageCount}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={datos.page <= 1 || consulta.isFetching}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={datos.page >= datos.pageCount || consulta.isFetching}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Siguiente
-            </Button>
+      <Tarjeta sinRelleno>
+        <BarraDeFiltros>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="buscar" className="text-muted-foreground text-xs">
+              Buscar
+            </Label>
+            <Input
+              id="buscar"
+              value={texto}
+              onChange={(e) => setTexto(e.currentTarget.value)}
+              placeholder="Número, nombre, correo o teléfono"
+              className="h-8 w-72"
+            />
           </div>
-        </div>
-      )}
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="estado" className="text-muted-foreground text-xs">
+              Estado
+            </Label>
+            <select
+              id="estado"
+              value={status}
+              onChange={(e) => {
+                setStatus(e.currentTarget.value as OrderStatus | '');
+                setPage(1);
+              }}
+              className={SELECT}
+            >
+              <option value="">Todos</option>
+              {ESTADOS_DE_PEDIDO.map((e) => (
+                <option key={e} value={e}>
+                  {ETIQUETA_ESTADO_PEDIDO[e]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </BarraDeFiltros>
+
+        {consulta.isError ? (
+          <EstadoDeError
+            titulo="No se pudieron cargar los pedidos"
+            error={consulta.error as Error}
+            onReintentar={() => void consulta.refetch()}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Pedido</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead className="text-right">Ítems</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Pago</TableHead>
+                  <TableHead>Estado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {consulta.isPending ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="p-0">
+                      <Esqueleto />
+                    </TableCell>
+                  </TableRow>
+                ) : datos && datos.items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="p-0">
+                      <EstadoVacio
+                        titulo={
+                          query || status ? 'Ningún pedido coincide' : 'Todavía no hay pedidos'
+                        }
+                      >
+                        {query || status
+                          ? 'Probá con otro número, otro nombre, o sacá el filtro de estado.'
+                          : 'Los pedidos aparecen acá apenas alguien termina de comprar en la tienda.'}
+                      </EstadoVacio>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  datos?.items.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell>
+                        <Link
+                          to="/pedidos/$id"
+                          params={{ id: p.id }}
+                          className="flex flex-col gap-0.5 hover:underline"
+                        >
+                          <span className="font-medium tabular-nums">#{p.number}</span>
+                          <span className="text-muted-foreground text-xs">
+                            {fecha(p.createdAt, tienda.locale)}
+                          </span>
+                        </Link>
+                      </TableCell>
+                      <TableCell className="max-w-[16rem] truncate">{p.customerName}</TableCell>
+                      <TableCell className="text-right tabular-nums">{p.itemCount}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatMoney(
+                          { amount: p.total.amount, currency: p.total.currency },
+                          tienda.locale,
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {/*
+                          Con transferencia bancaria, cobrar es una persona mirando
+                          un comprobante, así que marcar pagado es una acción de
+                          todos los días y tiene que estar en la lista. Un pedido
+                          cancelado no la ofrece: devolver plata es un refund, y los
+                          refunds están fuera del core (ADR-008).
+                        */}
+                        {!escribe || p.status === 'cancelled' ? (
+                          <Badge className={cn(TONO_PAGO[p.paymentStatus])}>
+                            {ETIQUETA_ESTADO_PAGO[p.paymentStatus]}
+                          </Badge>
+                        ) : (
+                          <select
+                            aria-label={`Estado de pago del pedido #${p.number}`}
+                            value={p.paymentStatus}
+                            disabled={cambiarPago.isPending}
+                            onChange={(e) =>
+                              cambiarPago.mutate({
+                                id: p.id,
+                                pago: e.currentTarget.value as PaymentStatus,
+                              })
+                            }
+                            className={cn(SELECT_DE_ESTADO, TONO_PAGO[p.paymentStatus])}
+                          >
+                            {ESTADOS_DE_PAGO.map((e) => (
+                              <option key={e} value={e}>
+                                {ETIQUETA_ESTADO_PAGO[e]}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {/*
+                          Quick status: cambiar el estado sin abrir el pedido es lo
+                          que hace un operador veinte veces por día. Un `<select>`
+                          y no un menú propio, por lo mismo que en la otra tabla.
+
+                          Cancelado es terminal, así que ahí se muestra la etiqueta
+                          y no un control: ofrecer una acción que la base va a
+                          rechazar es peor que no ofrecerla. Por eso mismo un
+                          viewer ve la etiqueta y no el selector.
+                        */}
+                        {p.status === 'cancelled' || !escribe ? (
+                          <Badge className={TONO[p.status]}>
+                            {ETIQUETA_ESTADO_PEDIDO[p.status]}
+                          </Badge>
+                        ) : (
+                          <select
+                            aria-label={`Estado del pedido #${p.number}`}
+                            value={p.status}
+                            disabled={cambiarEstado.isPending}
+                            onChange={(e) => {
+                              const estado = e.currentTarget.value as OrderStatus;
+                              if (estado === 'cancelled') {
+                                /*
+                                 * El `<select>` ya se movió cuando esto corre, así
+                                 * que hay que devolverlo **antes** de preguntar: si
+                                 * se lo dejara en «Cancelado» mientras el diálogo
+                                 * está abierto, cancelar el diálogo dejaría la fila
+                                 * mostrando un estado que el pedido no tiene.
+                                 * Confirmar lo vuelve a poner con el dato de la
+                                 * mutación.
+                                 */
+                                e.currentTarget.value = p.status;
+                                setPorCancelar(p);
+                                return;
+                              }
+                              cambiarEstado.mutate({ id: p.id, estado });
+                            }}
+                            className={cn(SELECT_DE_ESTADO, TONO[p.status])}
+                          >
+                            {ESTADOS_DE_PEDIDO.map((e) => (
+                              <option key={e} value={e}>
+                                {ETIQUETA_ESTADO_PEDIDO[e]}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {datos && (
+          <Paginacion
+            datos={datos}
+            sustantivo="pedidos"
+            cargando={consulta.isFetching}
+            onPagina={setPage}
+          />
+        )}
+      </Tarjeta>
 
       <DialogoDeConfirmacion
         abierto={porCancelar !== null}
@@ -360,6 +367,6 @@ export function ListaPedidos() {
           setPorCancelar(null);
         }}
       />
-    </div>
+    </PaginaAdmin>
   );
 }

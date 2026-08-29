@@ -3,10 +3,18 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { Link } from '@tanstack/react-router';
 import { repositorioPromociones } from '@pick/adapter-supabase';
 import { esDeCatalogo, formatMoney, type Promotion } from '@pick/commerce-core';
-import { Badge } from '@/components/ui/badge';
+import { PercentIcon } from 'lucide-react';
+import {
+  Esqueleto,
+  EstadoDeError,
+  EstadoVacio,
+  Paginacion,
+  PaginaAdmin,
+  Tarjeta,
+} from '@/components/pagina';
 import { Switch } from '@/components/ui/switch';
 import { BorrarConConfirmacion, EnlaceDeEdicion } from '@/components/acciones';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -20,18 +28,6 @@ import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 
 const POR_PAGINA = 20;
-
-const ETIQUETA_ESTADO: Record<Promotion['status'], string> = {
-  draft: 'Borrador',
-  active: 'Activa',
-  archived: 'Archivada',
-};
-
-const TONO_ESTADO: Record<Promotion['status'], 'default' | 'secondary' | 'outline'> = {
-  active: 'default',
-  draft: 'secondary',
-  archived: 'outline',
-};
 
 function descuento(p: Promotion, locale: string): string {
   return p.discountType === 'percentage'
@@ -83,8 +79,7 @@ export function ListaPromociones() {
     placeholderData: keepPreviousData,
   });
 
-  const refrescar = () =>
-    queryClient.invalidateQueries({ queryKey: ['promociones', tienda.id] });
+  const refrescar = () => queryClient.invalidateQueries({ queryKey: ['promociones', tienda.id] });
 
   const estado = useMutation({
     mutationFn: ({ id, status }: { id: string; status: Promotion['status'] }) =>
@@ -100,173 +95,182 @@ export function ListaPromociones() {
   const datos = consulta.data;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-muted-foreground text-sm">
-          Bajan el precio sin tocar el catálogo. El descuento se calcula en el servidor.
-        </p>
-        {puede('promotion.write') && (
-          <Link to="/promociones/nueva" className={buttonVariants({ size: 'sm' })}>
+    <PaginaAdmin
+      titulo="Promociones"
+      icono={PercentIcon}
+      descripcion="Bajan el precio sin tocar el catálogo. El descuento se calcula en el servidor."
+      acciones={
+        puede('promotion.write') && (
+          <Link to="/promociones/nueva" className={buttonVariants({ size: 'lg' })}>
             Nueva promoción
           </Link>
-        )}
-      </div>
+        )
+      }
+    >
+      {/*
+        Un fallo del interruptor o del tacho no puede quedar en silencio: la
+        lista se refresca sola y parecería que no pasó nada.
+      */}
+      {(estado.error ?? borrar.error) && (
+        <p className="text-destructive text-sm" role="alert">
+          {((estado.error ?? borrar.error) as Error).message}
+        </p>
+      )}
 
-      {consulta.isError ? (
-        <div className="border-destructive/40 flex flex-col items-start gap-3 rounded-lg border p-6">
-          <p className="text-sm">No se pudieron cargar las promociones.</p>
-          <p className="text-muted-foreground text-xs">{(consulta.error as Error).message}</p>
-          <Button variant="outline" size="sm" onClick={() => void consulta.refetch()}>
-            Reintentar
-          </Button>
-        </div>
-      ) : (
-        <div className="border-border overflow-x-auto rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Promoción</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Descuento</TableHead>
-                <TableHead>Alcance</TableHead>
-                <TableHead>Dónde se ve</TableHead>
-                <TableHead>Vigencia</TableHead>
-                <TableHead className="text-right">Usos</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {consulta.isPending ? (
-                Array.from({ length: 5 }, (_, i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={8}>
-                      <div className="bg-muted h-5 w-full animate-pulse rounded" />
+      <Tarjeta sinRelleno>
+        {consulta.isError ? (
+          <EstadoDeError
+            titulo="No se pudieron cargar las promociones"
+            error={consulta.error as Error}
+            onReintentar={() => void consulta.refetch()}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Promoción</TableHead>
+                  <TableHead className="text-right">Descuento</TableHead>
+                  <TableHead>Alcance</TableHead>
+                  <TableHead>Dónde se ve</TableHead>
+                  <TableHead>Vigencia</TableHead>
+                  <TableHead className="text-right">Usos</TableHead>
+                  {/*
+                  El interruptor y las acciones al final, juntos: es donde el ojo
+                  termina de leer la fila y donde se actúa sobre ella. El estado
+                  ya no lleva además una etiqueta — el interruptor **es** el
+                  estado, y repetirlo al lado era decir dos veces lo mismo
+                  ocupando la columna más ancha de la tabla.
+                */}
+                  <TableHead className="text-right">Activa</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {consulta.isPending ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="p-0">
+                      <Esqueleto />
                     </TableCell>
                   </TableRow>
-                ))
-              ) : datos && datos.items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center">
-                    <p className="text-muted-foreground text-sm">
-                      Todavía no hay promociones.{' '}
-                      {puede('promotion.write')
-                        ? 'Creá la primera para bajar precios sin editar el catálogo.'
-                        : 'Tu rol no incluye crearlas.'}
-                    </p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                datos?.items.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <Link
-                        to="/promociones/$id"
-                        params={{ id: p.id }}
-                        className="flex flex-col gap-0.5 hover:underline"
+                ) : datos && datos.items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="p-0">
+                      <EstadoVacio
+                        titulo="Todavía no hay promociones"
+                        accion={
+                          puede('promotion.write') && (
+                            <Link
+                              to="/promociones/nueva"
+                              className={buttonVariants({ size: 'lg' })}
+                            >
+                              Nueva promoción
+                            </Link>
+                          )
+                        }
                       >
-                        <span className="font-medium">{p.title}</span>
-                        {p.code ? (
-                          <span className="text-muted-foreground font-mono text-xs">{p.code}</span>
-                        ) : null}
-                      </Link>
+                        {puede('promotion.write')
+                          ? 'Una campaña baja el precio de lo que elijas sin tocar el catálogo, y se puede apagar cuando quieras.'
+                          : 'Tu rol no incluye crearlas.'}
+                      </EstadoVacio>
                     </TableCell>
-                    <TableCell>
-                      {puede('promotion.write') ? (
-                        /*
-                         * El interruptor prende y apaga sin abrir el formulario,
-                         * que es lo que se hace todo el tiempo con una campaña.
-                         * Apagar la deja en borrador y no archivada: archivar es
-                         * «esto ya no va más» y se elige a propósito desde el
-                         * formulario, no de un clic al pasar.
-                         */
-                        <label className="flex cursor-pointer items-center gap-2">
+                  </TableRow>
+                ) : (
+                  datos?.items.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell>
+                        <Link
+                          to="/promociones/$id"
+                          params={{ id: p.id }}
+                          className="flex flex-col gap-0.5 hover:underline"
+                        >
+                          <span className="font-medium">{p.title}</span>
+                          {p.code ? (
+                            <span className="text-muted-foreground font-mono text-xs">
+                              {p.code}
+                            </span>
+                          ) : null}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {descuento(p, tienda.locale)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{alcance(p)}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {esDeCatalogo(p) ? 'Catálogo y carrito' : 'Sólo en el carrito'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {vigencia(p, tienda.locale)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {p.usageCount}
+                        {p.usageLimit !== undefined ? ` / ${p.usageLimit}` : ''}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end">
+                          {/*
+                          Prende y apaga sin abrir el formulario, que es lo que se
+                          hace todo el tiempo con una campaña. Apagar la deja en
+                          borrador y no archivada: archivar es «esto ya no va más»
+                          y se elige a propósito, no de un clic al pasar.
+
+                          Una archivada se ve apagada, y prenderla la activa. Que
+                          el interruptor no distinga borrador de archivada es a
+                          propósito: para el comercio las dos son «no está
+                          corriendo», y la diferencia se lee en el formulario.
+                        */}
                           <Switch
                             checked={p.status === 'active'}
-                            disabled={estado.isPending}
+                            disabled={estado.isPending || !puede('promotion.write')}
                             onCheckedChange={(activa) =>
                               estado.mutate({ id: p.id, status: activa ? 'active' : 'draft' })
                             }
                             aria-label={`${p.status === 'active' ? 'Desactivar' : 'Activar'} ${p.title}`}
                           />
-                          <Badge variant={TONO_ESTADO[p.status]}>
-                            {ETIQUETA_ESTADO[p.status]}
-                          </Badge>
-                        </label>
-                      ) : (
-                        <Badge variant={TONO_ESTADO[p.status]}>{ETIQUETA_ESTADO[p.status]}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {descuento(p, tienda.locale)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{alcance(p)}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {esDeCatalogo(p) ? 'Catálogo y carrito' : 'Sólo en el carrito'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {vigencia(p, tienda.locale)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {p.usageCount}
-                      {p.usageLimit !== undefined ? ` / ${p.usageLimit}` : ''}
-                    </TableCell>
-                    <TableCell>
-                      {puede('promotion.write') && (
-                        <div className="flex justify-end">
-                          <EnlaceDeEdicion
-                            etiqueta={`Editar ${p.title}`}
-                            to="/promociones/$id"
-                            params={{ id: p.id }}
-                          />
-                          <BorrarConConfirmacion
-                            nombre={p.title}
-                            etiqueta={`Borrar ${p.title}`}
-                            pendiente={borrar.isPending}
-                            que={
-                              <>
-                                Se borra para siempre. Los pedidos que ya la usaron{' '}
-                                <strong>conservan su descuento</strong>: guardan una copia de lo
-                                que se les aplicó, no una referencia a esta campaña.
-                              </>
-                            }
-                            onConfirmar={() => borrar.mutate(p.id)}
-                          />
                         </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      {datos && datos.pageCount > 1 && (
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-muted-foreground text-sm" aria-live="polite">
-            {datos.total} promociones · página {datos.page} de {datos.pageCount}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={datos.page <= 1 || consulta.isFetching}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={datos.page >= datos.pageCount || consulta.isFetching}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Siguiente
-            </Button>
+                      </TableCell>
+                      <TableCell>
+                        {puede('promotion.write') && (
+                          <div className="flex justify-end">
+                            <EnlaceDeEdicion
+                              etiqueta={`Editar ${p.title}`}
+                              to="/promociones/$id"
+                              params={{ id: p.id }}
+                            />
+                            <BorrarConConfirmacion
+                              nombre={p.title}
+                              etiqueta={`Borrar ${p.title}`}
+                              pendiente={borrar.isPending}
+                              que={
+                                <>
+                                  Se borra para siempre. Los pedidos que ya la usaron{' '}
+                                  <strong>conservan su descuento</strong>: guardan una copia de lo
+                                  que se les aplicó, no una referencia a esta campaña.
+                                </>
+                              }
+                              onConfirmar={() => borrar.mutate(p.id)}
+                            />
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+        {/* La paginación va **dentro** de la tarjeta, pegada a lo que pagina. */}
+        {datos && (
+          <Paginacion
+            datos={datos}
+            sustantivo="promociones"
+            cargando={consulta.isFetching}
+            onPagina={setPage}
+          />
+        )}
+      </Tarjeta>
+    </PaginaAdmin>
   );
 }

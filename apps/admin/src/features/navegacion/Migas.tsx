@@ -37,11 +37,23 @@ export function migasDe(ruta: string): readonly Miga[] {
     readonly patron: RegExp;
     readonly migas: readonly Miga[];
   }[] = [
-    { patron: /^\/productos\/nuevo$/, migas: [ruta1('Productos', '/productos'), { label: 'Nuevo producto' }] },
-    { patron: /^\/productos\/importar$/, migas: [ruta1('Productos', '/productos'), { label: 'Importar' }] },
-    { patron: /^\/productos\/[^/]+$/, migas: [ruta1('Productos', '/productos'), { label: 'Editar producto' }] },
+    {
+      patron: /^\/productos\/nuevo$/,
+      migas: [ruta1('Productos', '/productos'), { label: 'Nuevo producto' }],
+    },
+    {
+      patron: /^\/productos\/importar$/,
+      migas: [ruta1('Productos', '/productos'), { label: 'Importar' }],
+    },
+    {
+      patron: /^\/productos\/[^/]+$/,
+      migas: [ruta1('Productos', '/productos'), { label: 'Editar producto' }],
+    },
     { patron: /^\/pedidos\/[^/]+$/, migas: [ruta1('Pedidos', '/pedidos'), { label: 'Pedido' }] },
-    { patron: /^\/clientes\/[^/]+$/, migas: [ruta1('Clientes', '/clientes'), { label: 'Cliente' }] },
+    {
+      patron: /^\/clientes\/[^/]+$/,
+      migas: [ruta1('Clientes', '/clientes'), { label: 'Cliente' }],
+    },
     {
       patron: /^\/promociones\/nueva$/,
       migas: [ruta1('Promociones', '/promociones'), { label: 'Nueva promoción' }],

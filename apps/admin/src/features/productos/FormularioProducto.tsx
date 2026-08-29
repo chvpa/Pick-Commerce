@@ -17,11 +17,19 @@ import {
   type FieldSources,
 } from '@pick/commerce-core';
 import type { ProductStatus } from '@pick/commerce-types';
+import { PackageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Esqueleto,
+  EstadoVacio,
+  PaginaAdmin,
+  SELECT,
+  Tarjeta,
+  TituloDeTarjeta,
+} from '@/components/pagina';
 import { Input } from '@/components/ui/input';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
-import { cn } from '@/lib/utils';
 import {
   formatearAtributos,
   parsearAtributos,
@@ -257,219 +265,263 @@ export function FormularioProducto({ id }: { id?: string }) {
 
   if (id !== undefined && cargado.isPending) {
     return (
-      <p className="text-muted-foreground text-sm" role="status">
-        Cargando producto…
-      </p>
+      <PaginaAdmin titulo="Editar producto" icono={PackageIcon}>
+        <Tarjeta sinRelleno>
+          <Esqueleto />
+        </Tarjeta>
+      </PaginaAdmin>
     );
   }
 
   if (id !== undefined && cargado.data === null) {
     return (
-      <div className="flex flex-col items-start gap-3">
-        <p className="text-sm">Este producto no existe en la tienda seleccionada.</p>
-        <Button variant="outline" onClick={() => void navegar({ to: '/productos' })}>
-          Volver
-        </Button>
-      </div>
+      <PaginaAdmin titulo="Editar producto" icono={PackageIcon}>
+        <Tarjeta sinRelleno>
+          <EstadoVacio
+            titulo="Este producto no existe en la tienda seleccionada"
+            accion={
+              <Button size="lg" variant="outline" onClick={() => void navegar({ to: '/productos' })}>
+                Volver a productos
+              </Button>
+            }
+          >
+            Puede haberse archivado, o pertenecer a otra tienda de la organización.
+          </EstadoVacio>
+        </Tarjeta>
+      </PaginaAdmin>
     );
   }
 
+  const pendiente = isSubmitting || guardar.isPending;
+
   return (
+    /*
+      El `<form>` envuelve a la página y no al revés: así el botón de guardar
+      puede vivir arriba a la derecha —donde está la acción principal en todas
+      las demás pantallas— y seguir siendo el submit de este formulario.
+    */
     <form
-      className="flex max-w-3xl flex-col gap-8"
       onSubmit={(e) => {
         e.preventDefault();
         void handleSubmit((valores) => guardar.mutateAsync(valores))(e);
       }}
       noValidate
     >
-      <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-medium">Datos del producto</h2>
-
-        <Campo
-          label="Título"
-          error={errors.title?.message}
-          ayuda={esEditable(fuentes, 'title') ? undefined : 'Lo administra el ERP'}
-        >
-          <Input {...register('title')} disabled={!esEditable(fuentes, 'title')} />
-        </Campo>
-
-        <Campo label="Handle" error={errors.handle?.message} ayuda="Es la URL pública del producto">
-          <Input {...register('handle')} />
-        </Campo>
-
-        <Campo
-          label="Marca"
-          error={errors.brand?.message}
-          ayuda={esEditable(fuentes, 'brand') ? undefined : 'La administra el ERP'}
-        >
-          <Input {...register('brand')} disabled={!esEditable(fuentes, 'brand')} />
-        </Campo>
-
-        <Campo label="Descripción" error={errors.description?.message}>
-          <textarea
-            {...register('description')}
-            disabled={!esEditable(fuentes, 'description')}
-            className={claseTextarea}
-          />
-        </Campo>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Campo label="Estado" error={errors.status?.message}>
-            <select {...register('status')} className={cn(claseTextarea, 'min-h-0 h-8 py-0')}>
-              {ESTADOS.map((e) => (
-                <option key={e} value={e}>
-                  {ETIQUETA_ESTADO[e]}
-                </option>
-              ))}
-            </select>
-          </Campo>
-
-          <Campo label="Categoría" error={errors.categoryId?.message}>
-            <select {...register('categoryId')} className={cn(claseTextarea, 'min-h-0 h-8 py-0')}>
-              <option value="">Sin categoría</option>
-              {(categorias.data ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </Campo>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Variantes</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => variantes.append(VARIANTE_VACIA as never)}
-          >
-            Agregar variante
-          </Button>
-        </div>
-
-        {errors.variantes?.root?.message && (
-          <p className="text-destructive text-xs" role="alert">
-            {errors.variantes.root.message}
-          </p>
-        )}
-
-        {variantes.fields.map((campo, i) => (
-          <FilaVariante
-            key={campo.id}
-            i={i}
-            register={register}
-            errores={errors.variantes?.[i] as ErroresVariante | undefined}
-            precioBloqueado={!esEditable(fuentes, 'price')}
-            moneda={tienda.currency}
-            // La primera variante es la que muestra la PLP: no se puede quedar
-            // sin ninguna, y por eso con una sola no se ofrece quitarla.
-            onQuitar={variantes.fields.length > 1 ? () => variantes.remove(i) : undefined}
-          />
-        ))}
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Imágenes</h2>
-          <div className="flex gap-2">
-            {/*
-              Subir es lo primero porque es lo que conviene: una imagen en el
-              almacenamiento propio se sirve desde un host que el storefront
-              autoriza, y por eso se optimiza. Una URL pegada nunca va a estar en
-              esa lista, así que se sirve tal cual (ADR-079, ADR-082).
-            */}
-            <Button
-              type="button"
-              size="sm"
-              disabled={subiendo}
-              onClick={() => archivoRef.current?.click()}
-            >
-              {subiendo ? 'Subiendo…' : 'Subir imagen'}
-            </Button>
+      <PaginaAdmin
+        titulo={id === undefined ? 'Nuevo producto' : 'Editar producto'}
+        icono={PackageIcon}
+        acciones={
+          <>
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              onClick={() => medios.append({ url: '', alt: '', width: '', height: '' } as never)}
+              size="lg"
+              disabled={guardar.isPending}
+              onClick={() => void navegar({ to: '/productos' })}
             >
-              Pegar URL
+              Cancelar
             </Button>
-          </div>
-        </div>
-
-        <input
-          ref={archivoRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
-          className="hidden"
-          onChange={(e) => {
-            const archivo = e.currentTarget.files?.[0];
-            e.currentTarget.value = '';
-            if (archivo) void subir(archivo);
-          }}
-        />
-
-        <p className="text-muted-foreground text-xs">
-          Las subidas se guardan en la tienda y se optimizan solas. Una URL de otro sitio funciona,
-          pero se sirve tal cual y depende de que ese sitio siga en pie.
-        </p>
-
-        {errorImagen && (
+            {/* `disabled` mientras envía: sin eso, dos clicks son dos productos. */}
+            <Button type="submit" size="lg" disabled={pendiente}>
+              {pendiente ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </>
+        }
+      >
+        {guardar.isError && (
           <p className="text-destructive text-sm" role="alert">
-            {errorImagen}
+            No se pudo guardar: {(guardar.error as Error).message}
           </p>
         )}
 
-        {medios.fields.map((campo, i) => (
-          <div
-            key={campo.id}
-            className="border-border grid gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_5rem_5rem_auto]"
-          >
-            <Campo label="URL" error={errors.media?.[i]?.url?.message}>
-              <Input {...register(`media.${i}.url`)} placeholder="/products/foto.jpg" />
-            </Campo>
-            <Campo label="Texto alternativo" error={errors.media?.[i]?.alt?.message}>
-              <Input {...register(`media.${i}.alt`)} />
-            </Campo>
-            <Campo label="Ancho" error={errors.media?.[i]?.width?.message}>
-              <Input {...register(`media.${i}.width`)} inputMode="numeric" />
-            </Campo>
-            <Campo label="Alto" error={errors.media?.[i]?.height?.message}>
-              <Input {...register(`media.${i}.height`)} inputMode="numeric" />
-            </Campo>
-            <div className="flex items-end">
-              <Button type="button" variant="ghost" size="sm" onClick={() => medios.remove(i)}>
-                Quitar
-              </Button>
+        <div className="flex max-w-3xl flex-col gap-5">
+          <Tarjeta sinRelleno>
+            <TituloDeTarjeta>Datos del producto</TituloDeTarjeta>
+            <div className="flex flex-col gap-4 p-4">
+              <Campo
+                label="Título"
+                error={errors.title?.message}
+                ayuda={esEditable(fuentes, 'title') ? undefined : 'Lo administra el ERP'}
+              >
+                <Input {...register('title')} disabled={!esEditable(fuentes, 'title')} />
+              </Campo>
+
+              <Campo
+                label="Handle"
+                error={errors.handle?.message}
+                ayuda="Es la URL pública del producto"
+              >
+                <Input {...register('handle')} />
+              </Campo>
+
+              <Campo
+                label="Marca"
+                error={errors.brand?.message}
+                ayuda={esEditable(fuentes, 'brand') ? undefined : 'La administra el ERP'}
+              >
+                <Input {...register('brand')} disabled={!esEditable(fuentes, 'brand')} />
+              </Campo>
+
+              <Campo label="Descripción" error={errors.description?.message}>
+                <textarea
+                  {...register('description')}
+                  disabled={!esEditable(fuentes, 'description')}
+                  className={claseTextarea}
+                />
+              </Campo>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Campo label="Estado" error={errors.status?.message}>
+                  <select {...register('status')} className={SELECT}>
+                    {ESTADOS.map((e) => (
+                      <option key={e} value={e}>
+                        {ETIQUETA_ESTADO[e]}
+                      </option>
+                    ))}
+                  </select>
+                </Campo>
+
+                <Campo label="Categoría" error={errors.categoryId?.message}>
+                  <select {...register('categoryId')} className={SELECT}>
+                    <option value="">Sin categoría</option>
+                    {(categorias.data ?? []).map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </Campo>
+              </div>
             </div>
-          </div>
-        ))}
-      </section>
+          </Tarjeta>
 
-      {guardar.isError && (
-        <p className="text-destructive text-sm" role="alert">
-          No se pudo guardar: {(guardar.error as Error).message}
-        </p>
-      )}
+          <Tarjeta sinRelleno>
+            <TituloDeTarjeta
+              accion={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => variantes.append(VARIANTE_VACIA as never)}
+                >
+                  Agregar variante
+                </Button>
+              }
+            >
+              Variantes
+            </TituloDeTarjeta>
 
-      <div className="flex items-center gap-3">
-        {/* `disabled` mientras envía: sin eso, dos clicks son dos productos. */}
-        <Button type="submit" disabled={isSubmitting || guardar.isPending}>
-          {isSubmitting || guardar.isPending ? 'Guardando…' : 'Guardar'}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={guardar.isPending}
-          onClick={() => void navegar({ to: '/productos' })}
-        >
-          Cancelar
-        </Button>
-      </div>
+            <div className="flex flex-col gap-4 p-4">
+              {errors.variantes?.root?.message && (
+                <p className="text-destructive text-xs" role="alert">
+                  {errors.variantes.root.message}
+                </p>
+              )}
+
+              {variantes.fields.map((campo, i) => (
+                <FilaVariante
+                  key={campo.id}
+                  i={i}
+                  register={register}
+                  errores={errors.variantes?.[i] as ErroresVariante | undefined}
+                  precioBloqueado={!esEditable(fuentes, 'price')}
+                  moneda={tienda.currency}
+                  // La primera variante es la que muestra la PLP: no se puede
+                  // quedar sin ninguna, y por eso con una sola no se ofrece
+                  // quitarla.
+                  onQuitar={variantes.fields.length > 1 ? () => variantes.remove(i) : undefined}
+                />
+              ))}
+            </div>
+          </Tarjeta>
+
+          <Tarjeta sinRelleno>
+            <TituloDeTarjeta
+              accion={
+                <div className="flex gap-2">
+                  {/*
+                    Subir es lo primero porque es lo que conviene: una imagen en
+                    el almacenamiento propio se sirve desde un host que el
+                    storefront autoriza, y por eso se optimiza. Una URL pegada
+                    nunca va a estar en esa lista, así que se sirve tal cual
+                    (ADR-079, ADR-082).
+                  */}
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={subiendo}
+                    onClick={() => archivoRef.current?.click()}
+                  >
+                    {subiendo ? 'Subiendo…' : 'Subir imagen'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      medios.append({ url: '', alt: '', width: '', height: '' } as never)
+                    }
+                  >
+                    Pegar URL
+                  </Button>
+                </div>
+              }
+            >
+              Imágenes
+            </TituloDeTarjeta>
+
+            <div className="flex flex-col gap-4 p-4">
+              <input
+                ref={archivoRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  const archivo = e.currentTarget.files?.[0];
+                  e.currentTarget.value = '';
+                  if (archivo) void subir(archivo);
+                }}
+              />
+
+              <p className="text-muted-foreground text-xs">
+                Las subidas se guardan en la tienda y se optimizan solas. Una URL de otro sitio
+                funciona, pero se sirve tal cual y depende de que ese sitio siga en pie.
+              </p>
+
+              {errorImagen && (
+                <p className="text-destructive text-sm" role="alert">
+                  {errorImagen}
+                </p>
+              )}
+
+              {medios.fields.map((campo, i) => (
+                <div
+                  key={campo.id}
+                  className="border-border grid gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_5rem_5rem_auto]"
+                >
+                  <Campo label="URL" error={errors.media?.[i]?.url?.message}>
+                    <Input {...register(`media.${i}.url`)} placeholder="/products/foto.jpg" />
+                  </Campo>
+                  <Campo label="Texto alternativo" error={errors.media?.[i]?.alt?.message}>
+                    <Input {...register(`media.${i}.alt`)} />
+                  </Campo>
+                  <Campo label="Ancho" error={errors.media?.[i]?.width?.message}>
+                    <Input {...register(`media.${i}.width`)} inputMode="numeric" />
+                  </Campo>
+                  <Campo label="Alto" error={errors.media?.[i]?.height?.message}>
+                    <Input {...register(`media.${i}.height`)} inputMode="numeric" />
+                  </Campo>
+                  <div className="flex items-end">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => medios.remove(i)}>
+                      Quitar
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Tarjeta>
+        </div>
+      </PaginaAdmin>
     </form>
   );
 }

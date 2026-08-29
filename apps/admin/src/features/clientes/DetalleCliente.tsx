@@ -4,8 +4,17 @@ import { Link } from '@tanstack/react-router';
 import { repositorioAdminClientes, repositorioAdminPedidos } from '@pick/adapter-supabase';
 import { ETIQUETA_ESTADO_PEDIDO, formatMoney } from '@pick/commerce-core';
 import { Badge } from '@/components/ui/badge';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { buttonVariants } from '@/components/ui/button';
+import { UsersIcon } from 'lucide-react';
+import {
+  Esqueleto,
+  EstadoDeError,
+  EstadoVacio,
+  Paginacion,
+  PaginaAdmin,
+  Tarjeta,
+  TituloDeTarjeta,
+} from '@/components/pagina';
 import {
   Table,
   TableBody,
@@ -69,104 +78,91 @@ export function DetalleCliente({ id }: { id: string }) {
 
   if (cliente.isPending) {
     return (
-      <div className="flex flex-col gap-4">
-        <div className="bg-muted h-8 w-56 animate-pulse rounded" />
-        <div className="bg-muted h-32 animate-pulse rounded-xl" />
-      </div>
+      <PaginaAdmin titulo="Cliente" icono={UsersIcon}>
+        <Tarjeta sinRelleno>
+          <Esqueleto filas={3} />
+        </Tarjeta>
+      </PaginaAdmin>
     );
   }
 
   if (cliente.isError) {
     return (
-      <div className="border-destructive/40 flex flex-col items-start gap-3 rounded-lg border p-6">
-        <p className="text-sm">No se pudo cargar el cliente.</p>
-        <p className="text-muted-foreground text-xs">{(cliente.error as Error).message}</p>
-        <Button variant="outline" size="sm" onClick={() => void cliente.refetch()}>
-          Reintentar
-        </Button>
-      </div>
+      <PaginaAdmin titulo="Cliente" icono={UsersIcon}>
+        <Tarjeta sinRelleno>
+          <EstadoDeError
+            titulo="No se pudo cargar el cliente"
+            error={cliente.error as Error}
+            onReintentar={() => void cliente.refetch()}
+          />
+        </Tarjeta>
+      </PaginaAdmin>
     );
   }
 
   if (!cliente.data) {
     return (
-      <div className="flex flex-col items-start gap-3">
-        <p className="text-sm">Este cliente no existe en esta tienda.</p>
-        <Link to="/clientes" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-          Volver a clientes
-        </Link>
-      </div>
+      <PaginaAdmin titulo="Cliente" icono={UsersIcon}>
+        <Tarjeta sinRelleno>
+          <EstadoVacio
+            titulo="Este cliente no existe en esta tienda"
+            accion={
+              <Link to="/clientes" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
+                Volver a clientes
+              </Link>
+            }
+          >
+            Puede pertenecer a otra tienda de la organización.
+          </EstadoVacio>
+        </Tarjeta>
+      </PaginaAdmin>
     );
   }
 
   const c = cliente.data;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">{c.name}</h2>
-          <p className="text-muted-foreground text-sm">
-            Cliente desde {fecha(c.createdAt, tienda.locale)}
+    <PaginaAdmin
+      titulo={c.name}
+      icono={UsersIcon}
+      descripcion={`Cliente desde ${fecha(c.createdAt, tienda.locale)}`}
+    >
+      <div className="grid items-start gap-5 lg:grid-cols-3">
+        <Tarjeta sinRelleno>
+          <TituloDeTarjeta>Contacto</TituloDeTarjeta>
+          <dl className="flex flex-col gap-3 p-4">
+            <Dato etiqueta="Correo" valor={c.email} />
+            <Dato etiqueta="Teléfono" valor={c.phone} />
+            {c.taxId && <Dato etiqueta="RUC" valor={c.taxId} />}
+            {c.taxName && <Dato etiqueta="Razón social" valor={c.taxName} />}
+          </dl>
+        </Tarjeta>
+
+        <Tarjeta>
+          <p className="text-muted-foreground text-sm">Pedidos</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{c.orderCount}</p>
+          <p className="text-muted-foreground mt-1 text-xs">Sin contar los cancelados</p>
+        </Tarjeta>
+
+        <Tarjeta>
+          <p className="text-muted-foreground text-sm">Total comprado</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">
+            {formatMoney(c.totalSpent, tienda.locale)}
           </p>
-        </div>
-        <Link to="/clientes" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-          Volver
-        </Link>
+        </Tarjeta>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Contacto</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="flex flex-col gap-3">
-              <Dato etiqueta="Correo" valor={c.email} />
-              <Dato etiqueta="Teléfono" valor={c.phone} />
-              {c.taxId && <Dato etiqueta="RUC" valor={c.taxId} />}
-              {c.taxName && <Dato etiqueta="Razón social" valor={c.taxName} />}
-            </dl>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-muted-foreground text-sm font-medium">Pedidos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold tabular-nums">{c.orderCount}</p>
-            <p className="text-muted-foreground mt-1 text-xs">Sin contar los cancelados</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-muted-foreground text-sm font-medium">
-              Total comprado
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold tabular-nums">
-              {formatMoney(c.totalSpent, tienda.locale)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium">Sus pedidos</h2>
+      <Tarjeta sinRelleno>
+        <TituloDeTarjeta>Sus pedidos</TituloDeTarjeta>
 
         {pedidos.isError ? (
-          <div className="border-destructive/40 flex flex-col items-start gap-3 rounded-lg border p-6">
-            <p className="text-sm">No se pudieron cargar los pedidos.</p>
-            <p className="text-muted-foreground text-xs">{(pedidos.error as Error).message}</p>
-            <Button variant="outline" size="sm" onClick={() => void pedidos.refetch()}>
-              Reintentar
-            </Button>
-          </div>
+          <EstadoDeError
+            titulo="No se pudieron cargar los pedidos"
+            error={pedidos.error as Error}
+            onReintentar={() => void pedidos.refetch()}
+          />
         ) : (
-          <div className="border-border overflow-x-auto rounded-lg border">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -178,19 +174,18 @@ export function DetalleCliente({ id }: { id: string }) {
               </TableHeader>
               <TableBody>
                 {pedidos.isPending ? (
-                  Array.from({ length: 3 }, (_, i) => (
-                    <TableRow key={i}>
-                      <TableCell colSpan={4}>
-                        <div className="bg-muted h-5 w-full animate-pulse rounded" />
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  <TableRow>
+                    <TableCell colSpan={4} className="p-0">
+                      <Esqueleto filas={3} />
+                    </TableCell>
+                  </TableRow>
                 ) : pedidos.data && pedidos.data.items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-10 text-center">
-                      <p className="text-muted-foreground text-sm">
-                        Este cliente todavía no tiene pedidos.
-                      </p>
+                    <TableCell colSpan={4} className="p-0">
+                      <EstadoVacio titulo="Todavía no tiene pedidos">
+                        Su ficha existe porque empezó una compra, o porque un pedido suyo se
+                        canceló.
+                      </EstadoVacio>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -213,7 +208,7 @@ export function DetalleCliente({ id }: { id: string }) {
                         {formatMoney(p.total, tienda.locale)}
                       </TableCell>
                       <TableCell>
-                        <Badge className="border-transparent bg-muted text-muted-foreground">
+                        <Badge className="bg-muted text-muted-foreground border-transparent">
                           {ETIQUETA_ESTADO_PEDIDO[p.status] ?? p.status}
                         </Badge>
                       </TableCell>
@@ -225,32 +220,15 @@ export function DetalleCliente({ id }: { id: string }) {
           </div>
         )}
 
-        {pedidos.data && pedidos.data.pageCount > 1 && (
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-muted-foreground text-sm" aria-live="polite">
-              página {pedidos.data.page} de {pedidos.data.pageCount}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pedidos.data.page <= 1 || pedidos.isFetching}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                Anterior
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pedidos.data.page >= pedidos.data.pageCount || pedidos.isFetching}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Siguiente
-              </Button>
-            </div>
-          </div>
+        {pedidos.data && (
+          <Paginacion
+            datos={pedidos.data}
+            sustantivo="pedidos"
+            cargando={pedidos.isFetching}
+            onPagina={setPage}
+          />
         )}
-      </section>
-    </div>
+      </Tarjeta>
+    </PaginaAdmin>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { repositorioConfiguracion } from '@pick/adapter-supabase';
 import {
@@ -10,7 +11,8 @@ import {
 } from '@pick/commerce-core';
 import type { TiendaResumen } from '@pick/commerce-core';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SettingsIcon } from 'lucide-react';
+import { EstadoDeError, PaginaAdmin, Tarjeta } from '@/components/pagina';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,22 +65,23 @@ export function Configuracion() {
 
   if (consulta.isPending) {
     return (
-      <div className="grid gap-6 lg:grid-cols-2">
+      <Envoltura tienda={tienda}>
         <div className="bg-muted h-64 animate-pulse rounded-xl" />
-        <div className="bg-muted h-64 animate-pulse rounded-xl" />
-      </div>
+      </Envoltura>
     );
   }
 
   if (consulta.isError) {
     return (
-      <div className="border-destructive/40 flex flex-col items-start gap-3 rounded-lg border p-6">
-        <p className="text-sm">No se pudo cargar la configuración.</p>
-        <p className="text-muted-foreground text-xs">{(consulta.error as Error).message}</p>
-        <Button variant="outline" size="sm" onClick={() => void consulta.refetch()}>
-          Reintentar
-        </Button>
-      </div>
+      <Envoltura tienda={tienda}>
+        <Tarjeta sinRelleno>
+          <EstadoDeError
+            titulo="No se pudo cargar la configuración"
+            error={consulta.error as Error}
+            onReintentar={() => void consulta.refetch()}
+          />
+        </Tarjeta>
+      </Envoltura>
     );
   }
 
@@ -89,24 +92,68 @@ export function Configuracion() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="text-muted-foreground text-sm">
-          Cómo cobra y en qué moneda opera {tienda.name}.
-        </p>
-      </div>
-
-      <div className="grid items-start gap-6 lg:grid-cols-2">
-        <Pagos settings={consulta.data} guardado={guardado} />
-        <Moneda settings={consulta.data} tienda={tienda} guardado={guardado} />
-      </div>
-
+    <Envoltura tienda={tienda}>
       {mutacion.isError && (
         <p className="text-destructive text-sm" role="alert">
           {(mutacion.error as Error).message}
         </p>
       )}
-    </div>
+
+      <Seccion
+        titulo="Medios de pago"
+        descripcion="Con qué puede pagar quien compra, y qué le decís para que lo haga."
+      >
+        <Pagos settings={consulta.data} guardado={guardado} />
+      </Seccion>
+
+      <Seccion
+        titulo="Moneda"
+        descripcion="En qué se cobra y con qué tipo de cambio se muestran los precios."
+      >
+        <Moneda settings={consulta.data} tienda={tienda} guardado={guardado} />
+      </Seccion>
+    </Envoltura>
+  );
+}
+
+/** El encabezado de la pantalla, que también se dibuja mientras carga y al fallar. */
+function Envoltura({ tienda, children }: { tienda: TiendaResumen; children: ReactNode }) {
+  return (
+    <PaginaAdmin
+      titulo="Configuración"
+      icono={SettingsIcon}
+      descripcion={`Cómo cobra y en qué moneda opera ${tienda.name}.`}
+    >
+      {children}
+    </PaginaAdmin>
+  );
+}
+
+/**
+ * Un ajuste: a la izquierda de qué se trata, a la derecha los controles.
+ *
+ * Es la sección anotada de los ajustes de Shopify. Con las tarjetas sueltas hay
+ * que leer los campos para saber qué hace cada una; con el rótulo al costado se
+ * encuentra la que se vino a tocar sin abrirlas todas. En pantalla angosta el
+ * rótulo se apila arriba, que es lo mismo pero sin columna.
+ */
+function Seccion({
+  titulo,
+  descripcion,
+  children,
+}: {
+  titulo: string;
+  descripcion: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="grid items-start gap-3 lg:grid-cols-[15rem_1fr] lg:gap-6">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-sm font-medium">{titulo}</h2>
+        <p className="text-muted-foreground text-sm">{descripcion}</p>
+      </div>
+      <Tarjeta>{children}</Tarjeta>
+    </section>
   );
 }
 
@@ -118,102 +165,95 @@ function Pagos({ settings, guardado }: { settings: Settings; guardado: Guardado 
   const [listo, setListo] = useState(false);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Medios de pago</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setListo(false);
-            const enabled = [
-              ...(habilitada ? ['bank_transfer'] : []),
-              ...(simulada ? ['simulated_card'] : []),
-            ];
-            guardado.guardar({
-              payments: {
-                enabled,
-                // El primero habilitado, o transferencia: un default que no está
-                // en la lista no es un default, y el core lo corregiría igual.
-                default: enabled[0] ?? 'bank_transfer',
-                ...(instrucciones.trim()
-                  ? { bankTransfer: { instructions: instrucciones.trim() } }
-                  : {}),
-              },
-            });
-            setListo(true);
-          }}
-        >
-          <div className="flex items-start gap-3">
-            <Checkbox
-              id="transferencia"
-              checked={habilitada}
-              onCheckedChange={(v) => setHabilitada(v === true)}
-            />
-            <div className="flex flex-col gap-0.5">
-              <Label htmlFor="transferencia" className="cursor-pointer">
-                Transferencia bancaria
-              </Label>
-              <p className="text-muted-foreground text-xs">
-                El pedido queda pendiente de pago hasta que confirmes el comprobante.
-              </p>
-            </div>
-          </div>
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setListo(false);
+        const enabled = [
+          ...(habilitada ? ['bank_transfer'] : []),
+          ...(simulada ? ['simulated_card'] : []),
+        ];
+        guardado.guardar({
+          payments: {
+            enabled,
+            // El primero habilitado, o transferencia: un default que no está
+            // en la lista no es un default, y el core lo corregiría igual.
+            default: enabled[0] ?? 'bank_transfer',
+            ...(instrucciones.trim()
+              ? { bankTransfer: { instructions: instrucciones.trim() } }
+              : {}),
+          },
+        });
+        setListo(true);
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <Checkbox
+          id="transferencia"
+          checked={habilitada}
+          onCheckedChange={(v) => setHabilitada(v === true)}
+        />
+        <div className="flex flex-col gap-0.5">
+          <Label htmlFor="transferencia" className="cursor-pointer">
+            Transferencia bancaria
+          </Label>
+          <p className="text-muted-foreground text-xs">
+            El pedido queda pendiente de pago hasta que confirmes el comprobante.
+          </p>
+        </div>
+      </div>
 
-          <div className="flex items-start gap-3">
-            <Checkbox
-              id="simulada"
-              checked={simulada}
-              onCheckedChange={(v) => setSimulada(v === true)}
-            />
-            <div className="flex flex-col gap-0.5">
-              <Label htmlFor="simulada" className="cursor-pointer">
-                Tarjeta (pago de prueba)
-              </Label>
-              <p className="text-muted-foreground text-xs">
-                Pasarela simulada para probar el flujo completo: no cobra nada y no es un proveedor
-                real. Sirve para ver cómo queda el checkout con tarjeta antes de contratar uno.
-              </p>
-            </div>
-          </div>
+      <div className="flex items-start gap-3">
+        <Checkbox
+          id="simulada"
+          checked={simulada}
+          onCheckedChange={(v) => setSimulada(v === true)}
+        />
+        <div className="flex flex-col gap-0.5">
+          <Label htmlFor="simulada" className="cursor-pointer">
+            Tarjeta (pago de prueba)
+          </Label>
+          <p className="text-muted-foreground text-xs">
+            Pasarela simulada para probar el flujo completo: no cobra nada y no es un proveedor
+            real. Sirve para ver cómo queda el checkout con tarjeta antes de contratar uno.
+          </p>
+        </div>
+      </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="instrucciones">Instrucciones para el cliente</Label>
-            <Textarea
-              id="instrucciones"
-              rows={4}
-              value={instrucciones}
-              disabled={!habilitada}
-              onChange={(e) => setInstrucciones(e.currentTarget.value)}
-              placeholder="Número de cuenta, banco, titular y a dónde enviar el comprobante."
-            />
-            <p className="text-muted-foreground text-xs">
-              Se muestran en el checkout y en la confirmación del pedido.
-            </p>
-          </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="instrucciones">Instrucciones para el cliente</Label>
+        <Textarea
+          id="instrucciones"
+          rows={4}
+          value={instrucciones}
+          disabled={!habilitada}
+          onChange={(e) => setInstrucciones(e.currentTarget.value)}
+          placeholder="Número de cuenta, banco, titular y a dónde enviar el comprobante."
+        />
+        <p className="text-muted-foreground text-xs">
+          Se muestran en el checkout y en la confirmación del pedido.
+        </p>
+      </div>
 
-          <div className="flex items-center gap-3">
-            <Button type="submit" size="sm" disabled={guardado.guardando}>
-              {guardado.guardando ? 'Guardando…' : 'Guardar'}
-            </Button>
-            {listo && !guardado.guardando && (
-              <span className="text-muted-foreground text-sm" role="status">
-                Guardado.
-              </span>
-            )}
-          </div>
+      <div className="flex items-center gap-3">
+        <Button type="submit" size="sm" disabled={guardado.guardando}>
+          {guardado.guardando ? 'Guardando…' : 'Guardar'}
+        </Button>
+        {listo && !guardado.guardando && (
+          <span className="text-muted-foreground text-sm" role="status">
+            Guardado.
+          </span>
+        )}
+      </div>
 
-          {!habilitada && !simulada && (
-            <p className="text-muted-foreground text-xs">
-              Sin ningún medio habilitado el checkout vuelve a transferencia bancaria: una tienda
-              que no puede cobrar no puede vender.
-            </p>
-          )}
-        </form>
-      </CardContent>
-    </Card>
+      {!habilitada && !simulada && (
+        <p className="text-muted-foreground text-xs">
+          Sin ningún medio habilitado el checkout vuelve a transferencia bancaria: una tienda que no
+          puede cobrar no puede vender.
+        </p>
+      )}
+    </form>
   );
 }
 
@@ -235,90 +275,83 @@ function Moneda({
   const actual = config.exchangeRate;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Moneda</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setListo(false);
-            setError(null);
-            try {
-              // `actualizarTasa` devuelve la configuración y su auditoría juntas:
-              // con esta firma no se puede guardar la tasa sin registrar quién la
-              // cambió, que es lo que pide PROJECT.md §33. Validar acá con un
-              // esquema propio daría dos reglas capaces de divergir.
-              const r = actualizarTasa(
-                config,
-                Number(tasa.replace(',', '.')),
-                sesion?.userId ?? '',
-                new Date().toISOString(),
-              );
-              guardado.guardar({ currency: r.config }, r.auditoria);
-              setListo(true);
-            } catch (fallo) {
-              setError((fallo as Error).message);
-            }
-          }}
-        >
-          <dl className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-0.5">
-              <dt className="text-muted-foreground text-xs">Moneda base</dt>
-              <dd className="text-sm">{config.base}</dd>
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <dt className="text-muted-foreground text-xs">Se cobra en</dt>
-              <dd className="text-sm">{config.checkoutCurrency}</dd>
-            </div>
-          </dl>
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setListo(false);
+        setError(null);
+        try {
+          // `actualizarTasa` devuelve la configuración y su auditoría juntas:
+          // con esta firma no se puede guardar la tasa sin registrar quién la
+          // cambió, que es lo que pide PROJECT.md §33. Validar acá con un
+          // esquema propio daría dos reglas capaces de divergir.
+          const r = actualizarTasa(
+            config,
+            Number(tasa.replace(',', '.')),
+            sesion?.userId ?? '',
+            new Date().toISOString(),
+          );
+          guardado.guardar({ currency: r.config }, r.auditoria);
+          setListo(true);
+        } catch (fallo) {
+          setError((fallo as Error).message);
+        }
+      }}
+    >
+      <dl className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-muted-foreground text-xs">Moneda base</dt>
+          <dd className="text-sm">{config.base}</dd>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-muted-foreground text-xs">Se cobra en</dt>
+          <dd className="text-sm">{config.checkoutCurrency}</dd>
+        </div>
+      </dl>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="tasa">Tipo de cambio manual</Label>
-            <Input
-              id="tasa"
-              inputMode="decimal"
-              value={tasa}
-              onChange={(e) => setTasa(e.currentTarget.value)}
-              placeholder="7300"
-              aria-describedby="tasa-nota"
-              aria-invalid={error ? true : undefined}
-            />
-            <p id="tasa-nota" className="text-muted-foreground text-xs">
-              Cuántos {config.base} equivalen a una unidad de la moneda mostrada. Mostrar otra
-              moneda no cambia en cuál se cobra.
-            </p>
-          </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="tasa">Tipo de cambio manual</Label>
+        <Input
+          id="tasa"
+          inputMode="decimal"
+          value={tasa}
+          onChange={(e) => setTasa(e.currentTarget.value)}
+          placeholder="7300"
+          aria-describedby="tasa-nota"
+          aria-invalid={error ? true : undefined}
+        />
+        <p id="tasa-nota" className="text-muted-foreground text-xs">
+          Cuántos {config.base} equivalen a una unidad de la moneda mostrada. Mostrar otra moneda no
+          cambia en cuál se cobra.
+        </p>
+      </div>
 
-          {actual ? (
-            <p className="text-muted-foreground text-xs">
-              Última actualización: {new Date(actual.updatedAt).toLocaleString(tienda.locale)}
-              {actual.updatedBy === sesion?.userId ? ' · por vos' : ''}
-            </p>
-          ) : (
-            <p className="text-muted-foreground text-xs">Todavía no se cargó ningún cambio.</p>
-          )}
+      {actual ? (
+        <p className="text-muted-foreground text-xs">
+          Última actualización: {new Date(actual.updatedAt).toLocaleString(tienda.locale)}
+          {actual.updatedBy === sesion?.userId ? ' · por vos' : ''}
+        </p>
+      ) : (
+        <p className="text-muted-foreground text-xs">Todavía no se cargó ningún cambio.</p>
+      )}
 
-          <div className="flex items-center gap-3">
-            <Button type="submit" size="sm" disabled={guardado.guardando}>
-              {guardado.guardando ? 'Guardando…' : 'Guardar'}
-            </Button>
-            {listo && !guardado.guardando && (
-              <span className="text-muted-foreground text-sm" role="status">
-                Guardado y auditado.
-              </span>
-            )}
-          </div>
+      <div className="flex items-center gap-3">
+        <Button type="submit" size="sm" disabled={guardado.guardando}>
+          {guardado.guardando ? 'Guardando…' : 'Guardar'}
+        </Button>
+        {listo && !guardado.guardando && (
+          <span className="text-muted-foreground text-sm" role="status">
+            Guardado y auditado.
+          </span>
+        )}
+      </div>
 
-          {error && (
-            <p className="text-destructive text-sm" role="alert">
-              {error}
-            </p>
-          )}
-        </form>
-      </CardContent>
-    </Card>
+      {error && (
+        <p className="text-destructive text-sm" role="alert">
+          {error}
+        </p>
+      )}
+    </form>
   );
 }

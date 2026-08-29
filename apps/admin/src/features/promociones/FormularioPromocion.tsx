@@ -9,7 +9,15 @@ import {
   repositorioPromociones,
 } from '@pick/adapter-supabase';
 import { formatMoney, percentageOf, subtractMoney } from '@pick/commerce-core';
+import { PercentIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Esqueleto,
+  PaginaAdmin,
+  SELECT,
+  Tarjeta,
+  TituloDeTarjeta,
+} from '@/components/pagina';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,9 +33,6 @@ import {
   type PromocionValidada,
 } from './esquema';
 
-const SELECT =
-  'border-border bg-background focus-visible:border-ring focus-visible:ring-ring/50 ' +
-  'h-9 cursor-pointer rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3';
 
 /**
  * Alta y edición de una promoción.
@@ -132,7 +137,8 @@ export function FormularioPromocion({ id }: { id?: string }) {
   });
 
   const guardar = useMutation({
-    mutationFn: (v: PromocionValidada) => repositorioPromociones(db).guardar(tienda.id, aDatos(v), id),
+    mutationFn: (v: PromocionValidada) =>
+      repositorioPromociones(db).guardar(tienda.id, aDatos(v), id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['promociones', tienda.id] });
       await navegar({ to: '/promociones' });
@@ -163,234 +169,276 @@ export function FormularioPromocion({ id }: { id?: string }) {
 
   if (id && existente.isPending) {
     return (
-      <p className="text-muted-foreground text-sm" role="status">
-        Cargando la promoción…
-      </p>
+      <PaginaAdmin titulo="Editar promoción" icono={PercentIcon}>
+        <Tarjeta sinRelleno>
+          <Esqueleto />
+        </Tarjeta>
+      </PaginaAdmin>
     );
   }
 
   return (
+    // El `<form>` envuelve a la página para que guardar viva arriba a la derecha,
+    // que es donde está la acción principal en todas las demás pantallas.
     <form
       onSubmit={handleSubmit((v) => {
         setErrorGeneral(null);
         guardar.mutate(v);
       })}
-      className="flex max-w-2xl flex-col gap-6"
     >
-      <Campo
-        id="title"
-        label="Nombre"
-        error={formState.errors.title?.message}
-        ayuda="Lo ve el comprador en el resumen de su pedido."
+      <PaginaAdmin
+        titulo={id ? 'Editar promoción' : 'Nueva promoción'}
+        icono={PercentIcon}
+        acciones={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={() => void navegar({ to: '/promociones' })}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" size="lg" disabled={guardar.isPending}>
+              {guardar.isPending ? 'Guardando…' : id ? 'Guardar cambios' : 'Crear promoción'}
+            </Button>
+          </>
+        }
       >
-        <Input id="title" {...register('title')} {...atributosDeError('title', formState.errors.title?.message)} />
-      </Campo>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Campo id="discountType" label="Tipo">
-          <select id="discountType" {...register('discountType')} className={SELECT}>
-            <option value="percentage">Porcentaje</option>
-            <option value="fixed">Monto fijo</option>
-          </select>
-        </Campo>
-
-        <Campo
-          id="discountValue"
-          label={tipo === 'percentage' ? 'Porcentaje' : 'Monto'}
-          error={formState.errors.discountValue?.message}
-        >
-          <Input
-            id="discountValue"
-            inputMode="decimal"
-            placeholder={tipo === 'percentage' ? '15' : '50000'}
-            {...register('discountValue')}
-            {...atributosDeError('discountValue', formState.errors.discountValue?.message)}
-          />
-        </Campo>
-      </div>
-
-      <fieldset className="flex flex-col gap-3">
-        <legend className="text-sm font-medium">A qué productos alcanza</legend>
-        <select
-          {...register('targetKind')}
-          className={SELECT}
-          onChange={(e) => {
-            setValue('targetKind', e.currentTarget.value as Valores['targetKind']);
-            // Cambiar de tipo con ids de otro tipo dejaría una selección que no
-            // corresponde a nada.
-            setValue('targetIds', []);
-          }}
-        >
-          <option value="all">Todo el catálogo</option>
-          <option value="category">Categorías</option>
-          <option value="product">Productos</option>
-        </select>
-
-        {alcance === 'category' && (
-          <SelectorDeCategorias
-            categorias={categorias.data ?? []}
-            cargando={categorias.isPending}
-            ids={ids ?? []}
-            alternar={alternar}
-          />
-        )}
-
-        {alcance === 'product' && <SelectorDeProductos ids={ids ?? []} alternar={alternar} />}
-
-        {formState.errors.targetIds && (
-          <span className="text-destructive text-xs">{formState.errors.targetIds.message}</span>
-        )}
-      </fieldset>
-
-      {/* Preview: PROJECT.md §15 pide poder simular antes de publicar. */}
-      <div className="bg-muted/40 border-border flex flex-col gap-1 rounded-lg border p-4">
-        <p className="text-sm font-medium">
-          {preview.isPending && preview.fetchStatus !== 'idle'
-            ? 'Calculando el alcance…'
-            : preview.data
-              ? `Alcanza ${preview.data.count} producto${preview.data.count === 1 ? '' : 's'}.`
-              : 'Elegí a qué alcanza para ver el impacto.'}
-        </p>
-        {ejemplo && despues && (
-          <p className="text-muted-foreground text-sm">
-            Por ejemplo, «{ejemplo.title}» pasa de {formatMoney(ejemplo.price, tienda.locale)} a{' '}
-            <strong className="text-foreground">{formatMoney(despues, tienda.locale)}</strong>.
+        {errorGeneral && (
+          <p className="text-destructive text-sm" role="alert">
+            {errorGeneral}
           </p>
         )}
-        {soloEnElCarrito && (
-          <p className="text-muted-foreground text-xs">
-            Con cupón o con un mínimo, el descuento <strong>no se muestra en el catálogo</strong>:
-            recién se aplica en el carrito, que es donde se puede evaluar la condición.
-          </p>
-        )}
-      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Campo id="code" label="Código de cupón" error={formState.errors.code?.message}>
-          <Input
-            id="code"
-            placeholder="Sin código: se aplica sola"
-            {...register('code')}
-            {...atributosDeError('code', formState.errors.code?.message)}
-          />
-        </Campo>
+        <div className="flex max-w-2xl flex-col gap-5">
+          <Tarjeta sinRelleno>
+            <TituloDeTarjeta>El descuento</TituloDeTarjeta>
+            <div className="flex flex-col gap-4 p-4">
+              <Campo
+                id="title"
+                label="Nombre"
+                error={formState.errors.title?.message}
+                ayuda="Lo ve el comprador en el resumen de su pedido."
+              >
+                <Input
+                  id="title"
+                  {...register('title')}
+                  {...atributosDeError('title', formState.errors.title?.message)}
+                />
+              </Campo>
 
-        <Campo
-          id="usageLimit"
-          label="Tope de usos"
-          error={formState.errors.usageLimit?.message}
-          ayuda="Cuántos pedidos pueden aprovecharla. Vacío: sin tope."
-        >
-          <Input
-            id="usageLimit"
-            inputMode="numeric"
-            placeholder="Sin tope"
-            {...register('usageLimit')}
-            {...atributosDeError('usageLimit', formState.errors.usageLimit?.message)}
-          />
-        </Campo>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Campo id="discountType" label="Tipo">
+                  <select id="discountType" {...register('discountType')} className={SELECT}>
+                    <option value="percentage">Porcentaje</option>
+                    <option value="fixed">Monto fijo</option>
+                  </select>
+                </Campo>
 
-        <Campo id="startsAt" label="Empieza" error={formState.errors.startsAt?.message}>
-          <Input
-            id="startsAt"
-            type="datetime-local"
-            {...register('startsAt')}
-            {...atributosDeError('startsAt', formState.errors.startsAt?.message)}
-          />
-        </Campo>
+                <Campo
+                  id="discountValue"
+                  label={tipo === 'percentage' ? 'Porcentaje' : 'Monto'}
+                  error={formState.errors.discountValue?.message}
+                >
+                  <Input
+                    id="discountValue"
+                    inputMode="decimal"
+                    placeholder={tipo === 'percentage' ? '15' : '50000'}
+                    {...register('discountValue')}
+                    {...atributosDeError('discountValue', formState.errors.discountValue?.message)}
+                  />
+                </Campo>
+              </div>
 
-        <Campo id="endsAt" label="Termina" error={formState.errors.endsAt?.message}>
-          <Input
-            id="endsAt"
-            type="datetime-local"
-            {...register('endsAt')}
-            {...atributosDeError('endsAt', formState.errors.endsAt?.message)}
-          />
-        </Campo>
+              <fieldset className="flex flex-col gap-3">
+                <legend className="mb-1.5 text-sm font-medium">A qué productos alcanza</legend>
+                <select
+                  {...register('targetKind')}
+                  className={SELECT}
+                  onChange={(e) => {
+                    setValue('targetKind', e.currentTarget.value as Valores['targetKind']);
+                    // Cambiar de tipo con ids de otro tipo dejaría una selección
+                    // que no corresponde a nada.
+                    setValue('targetIds', []);
+                  }}
+                >
+                  <option value="all">Todo el catálogo</option>
+                  <option value="category">Categorías</option>
+                  <option value="product">Productos</option>
+                </select>
 
-        <Campo
-          id="minSubtotal"
-          label="Compra mínima"
-          error={formState.errors.minSubtotal?.message}
-          ayuda={`Desde cuánto aplica, en ${tienda.currency}. Vacío: sin mínimo.`}
-        >
-          <Input
-            id="minSubtotal"
-            inputMode="numeric"
-            placeholder="Sin mínimo"
-            {...register('minSubtotal')}
-            {...atributosDeError('minSubtotal', formState.errors.minSubtotal?.message)}
-          />
-        </Campo>
+                {alcance === 'category' && (
+                  <SelectorDeCategorias
+                    categorias={categorias.data ?? []}
+                    cargando={categorias.isPending}
+                    ids={ids ?? []}
+                    alternar={alternar}
+                  />
+                )}
 
-        <Campo
-          id="minQuantity"
-          label="Cantidad mínima"
-          error={formState.errors.minQuantity?.message}
-          ayuda="Cuántas unidades tiene que llevar. Vacío: sin mínimo."
-        >
-          <Input
-            id="minQuantity"
-            inputMode="numeric"
-            placeholder="Sin mínimo"
-            {...register('minQuantity')}
-            {...atributosDeError('minQuantity', formState.errors.minQuantity?.message)}
-          />
-        </Campo>
-      </div>
+                {alcance === 'product' && (
+                  <SelectorDeProductos ids={ids ?? []} alternar={alternar} />
+                )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="status">Estado</Label>
-          <select id="status" {...register('status')} className={SELECT}>
-            <option value="draft">Borrador</option>
-            <option value="active">Activa</option>
-            <option value="archived">Archivada</option>
-          </select>
-          <span className="text-muted-foreground text-xs">
-            Sólo las activas descuentan. Se archiva en vez de borrar, para que los pedidos viejos
-            sigan explicando su descuento.
-          </span>
+                {formState.errors.targetIds && (
+                  <span className="text-destructive text-xs">
+                    {formState.errors.targetIds.message}
+                  </span>
+                )}
+              </fieldset>
+
+              {/* Preview: PROJECT.md §15 pide poder simular antes de publicar. */}
+              <div className="bg-muted/40 border-border flex flex-col gap-1 rounded-lg border p-4">
+                <p className="text-sm font-medium">
+                  {preview.isPending && preview.fetchStatus !== 'idle'
+                    ? 'Calculando el alcance…'
+                    : preview.data
+                      ? `Alcanza ${preview.data.count} producto${preview.data.count === 1 ? '' : 's'}.`
+                      : 'Elegí a qué alcanza para ver el impacto.'}
+                </p>
+                {ejemplo && despues && (
+                  <p className="text-muted-foreground text-sm">
+                    Por ejemplo, «{ejemplo.title}» pasa de{' '}
+                    {formatMoney(ejemplo.price, tienda.locale)} a{' '}
+                    <strong className="text-foreground">
+                      {formatMoney(despues, tienda.locale)}
+                    </strong>
+                    .
+                  </p>
+                )}
+                {soloEnElCarrito && (
+                  <p className="text-muted-foreground text-xs">
+                    Con cupón o con un mínimo, el descuento{' '}
+                    <strong>no se muestra en el catálogo</strong>: recién se aplica en el carrito,
+                    que es donde se puede evaluar la condición.
+                  </p>
+                )}
+              </div>
+            </div>
+          </Tarjeta>
+
+          <Tarjeta sinRelleno>
+            <TituloDeTarjeta>Condiciones</TituloDeTarjeta>
+            <div className="grid gap-4 p-4 sm:grid-cols-2">
+              <Campo id="code" label="Código de cupón" error={formState.errors.code?.message}>
+                <Input
+                  id="code"
+                  placeholder="Sin código: se aplica sola"
+                  {...register('code')}
+                  {...atributosDeError('code', formState.errors.code?.message)}
+                />
+              </Campo>
+
+              <Campo
+                id="usageLimit"
+                label="Tope de usos"
+                error={formState.errors.usageLimit?.message}
+                ayuda="Cuántos pedidos pueden aprovecharla. Vacío: sin tope."
+              >
+                <Input
+                  id="usageLimit"
+                  inputMode="numeric"
+                  placeholder="Sin tope"
+                  {...register('usageLimit')}
+                  {...atributosDeError('usageLimit', formState.errors.usageLimit?.message)}
+                />
+              </Campo>
+
+              <Campo id="startsAt" label="Empieza" error={formState.errors.startsAt?.message}>
+                <Input
+                  id="startsAt"
+                  type="datetime-local"
+                  {...register('startsAt')}
+                  {...atributosDeError('startsAt', formState.errors.startsAt?.message)}
+                />
+              </Campo>
+
+              <Campo id="endsAt" label="Termina" error={formState.errors.endsAt?.message}>
+                <Input
+                  id="endsAt"
+                  type="datetime-local"
+                  {...register('endsAt')}
+                  {...atributosDeError('endsAt', formState.errors.endsAt?.message)}
+                />
+              </Campo>
+
+              <Campo
+                id="minSubtotal"
+                label="Compra mínima"
+                error={formState.errors.minSubtotal?.message}
+                ayuda={`Desde cuánto aplica, en ${tienda.currency}. Vacío: sin mínimo.`}
+              >
+                <Input
+                  id="minSubtotal"
+                  inputMode="numeric"
+                  placeholder="Sin mínimo"
+                  {...register('minSubtotal')}
+                  {...atributosDeError('minSubtotal', formState.errors.minSubtotal?.message)}
+                />
+              </Campo>
+
+              <Campo
+                id="minQuantity"
+                label="Cantidad mínima"
+                error={formState.errors.minQuantity?.message}
+                ayuda="Cuántas unidades tiene que llevar. Vacío: sin mínimo."
+              >
+                <Input
+                  id="minQuantity"
+                  inputMode="numeric"
+                  placeholder="Sin mínimo"
+                  {...register('minQuantity')}
+                  {...atributosDeError('minQuantity', formState.errors.minQuantity?.message)}
+                />
+              </Campo>
+            </div>
+          </Tarjeta>
+
+          <Tarjeta sinRelleno>
+            <TituloDeTarjeta>Publicación</TituloDeTarjeta>
+            <div className="flex flex-col gap-4 p-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="status">Estado</Label>
+                  <select id="status" {...register('status')} className={SELECT}>
+                    <option value="draft">Borrador</option>
+                    <option value="active">Activa</option>
+                    <option value="archived">Archivada</option>
+                  </select>
+                  <span className="text-muted-foreground text-xs">
+                    Sólo las activas descuentan. Se archiva en vez de borrar, para que los pedidos
+                    viejos sigan explicando su descuento.
+                  </span>
+                </div>
+                <Campo
+                  id="priority"
+                  label="Prioridad"
+                  error={formState.errors.priority?.message}
+                  ayuda="Mayor primero, cuando hay dos que alcanzan al mismo producto."
+                >
+                  <Input
+                    id="priority"
+                    inputMode="numeric"
+                    {...register('priority')}
+                    {...atributosDeError('priority', formState.errors.priority?.message)}
+                  />
+                </Campo>
+              </div>
+
+              <label className="flex items-start gap-3">
+                <Switch checked={combina} onCheckedChange={(v) => setValue('stackable', v)} />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">Se combina con otras</span>
+                  <span className="text-muted-foreground text-xs">
+                    Si no, se aplica sola: la de mayor prioridad gana y las demás no entran.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </Tarjeta>
         </div>
-        <Campo
-          id="priority"
-          label="Prioridad"
-          error={formState.errors.priority?.message}
-          ayuda="Mayor primero, cuando hay dos que alcanzan al mismo producto."
-        >
-          <Input
-            id="priority"
-            inputMode="numeric"
-            {...register('priority')}
-            {...atributosDeError('priority', formState.errors.priority?.message)}
-          />
-        </Campo>
-      </div>
-
-      <label className="flex items-start gap-3">
-        <Switch checked={combina} onCheckedChange={(v) => setValue('stackable', v)} />
-        <span className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium">Se combina con otras</span>
-          <span className="text-muted-foreground text-xs">
-            Si no, se aplica sola: la de mayor prioridad gana y las demás no entran.
-          </span>
-        </span>
-      </label>
-
-      {errorGeneral && (
-        <p className="text-destructive text-sm" role="alert">
-          {errorGeneral}
-        </p>
-      )}
-
-      <div className="flex gap-3">
-        <Button type="submit" disabled={guardar.isPending}>
-          {guardar.isPending ? 'Guardando…' : id ? 'Guardar cambios' : 'Crear promoción'}
-        </Button>
-        <Button type="button" variant="outline" onClick={() => void navegar({ to: '/promociones' })}>
-          Cancelar
-        </Button>
-      </div>
+      </PaginaAdmin>
     </form>
   );
 }
@@ -432,7 +480,9 @@ function SelectorDeCategorias({
   }
 
   if (categorias.length === 0) {
-    return <p className="text-muted-foreground text-sm">Esta tienda todavía no tiene categorías.</p>;
+    return (
+      <p className="text-muted-foreground text-sm">Esta tienda todavía no tiene categorías.</p>
+    );
   }
 
   if (!abierto) {
@@ -507,8 +557,7 @@ function SelectorDeProductos({
 
   const consulta = useQuery({
     queryKey: ['productos-para-promo', tienda.id, query],
-    queryFn: () =>
-      repositorioAdminCatalogo(db).listar(tienda.id, { query, page: 1, perPage: 20 }),
+    queryFn: () => repositorioAdminCatalogo(db).listar(tienda.id, { query, page: 1, perPage: 20 }),
   });
 
   return (

@@ -19,7 +19,18 @@ interface Props {
 }
 
 const { piezas, layout, id, class: className } = Astro.props;
-const esSlider = layout === 'slider' && piezas.length > 1;
+
+/*
+ * Con **una sola pieza** las dos opciones dan lo mismo, y esa pieza va a ancho
+ * completo.
+ *
+ * Antes el caso de una pieza caía en la rama estática, que es una grilla de dos
+ * columnas: el banner único se dibujaba a media pantalla con la otra mitad
+ * vacía. Desde el Admin eso se veía como «elegí slides y no pasó nada, quedó de
+ * a dos», que fue exactamente el reporte.
+ */
+const unaSola = piezas.length <= 1;
+const esSlider = layout === 'slider' && !unaSola;
 ---
 
 {
@@ -52,9 +63,10 @@ const esSlider = layout === 'slider' && piezas.length > 1;
             'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
             '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           ]
-        // De a dos en pantalla ancha y uno por fila en teléfono, donde dos heros
-        // lado a lado no dejan leer ninguno.
-        : 'grid gap-4 sm:grid-cols-2',
+        : // De a dos en pantalla ancha y uno por fila en teléfono, donde dos
+          // heros lado a lado no dejan leer ninguno. Con una sola pieza, ancho
+          // completo: media pantalla vacía al lado no es un layout, es un error.
+          ['grid gap-4', !unaSola && 'sm:grid-cols-2'],
       'rounded-lg',
     )}
   >

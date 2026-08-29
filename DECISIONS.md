@@ -3838,3 +3838,82 @@ El banner principal dejó de ofrecer «uno debajo del otro»: un hero ocupa el a
 de la pantalla, y tres apilados empujan el catálogo tan abajo que nadie llega.
 Sus dos opciones son slides o de a dos. Las categorías ganaron la de carrusel,
 que con muchas deja de ser un adorno.
+
+---
+
+## ADR-097 — La distribución del Admin se toma de Shopify, y las piezas repetidas se unifican
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+**Contexto**
+Cada pantalla del Admin se había armado por su cuenta. El resultado no eran
+errores sino un conjunto sin idioma común: el título vivía en la barra de arriba
+mientras el contenido empezaba sin contexto; la acción principal aparecía a veces
+al lado de un párrafo, a veces debajo de un filtro; la paginación estaba escrita
+cuatro veces —una de las copias ya con otro espaciado—; el mismo `<select>`
+existía con **tres alturas distintas** según qué pantalla lo hubiera pegado; y la
+caja de error estaba copiada en diez lugares, cada una con su redacción y su
+botón. El pedido fue explícito: **reubicar lo que ya hay** siguiendo la
+distribución y la tipografía del Admin de Shopify, sin traer nada que Shopify
+tenga y nosotros no.
+
+**Lo que se adopta**
+
+- **El título vive en el contenido, no en la barra.** `PaginaAdmin` pone ícono,
+  nombre, una línea de descripción y las acciones en una sola fila. La barra de
+  arriba queda con el botón del panel y las migas, y nada más.
+- **La acción principal siempre en el mismo lugar**: arriba a la derecha, y es la
+  única oscura. En las pantallas de lista es el enlace de alta; en las de
+  formulario, Guardar.
+- **El contenido va en tarjetas** sobre un fondo apagado —`--background` pasó de
+  blanco puro a un gris muy claro—. Es lo que separa «esto es una lista» de «esto
+  es la página» sin líneas divisorias sueltas.
+- **Filtros, barra de selección y paginación viven dentro de la tarjeta que
+  gobiernan.** Sueltos arriba o abajo se leían como bloques independientes de la
+  página, y no lo son.
+- **Los ajustes usan la sección anotada**: a la izquierda de qué se trata, a la
+  derecha los controles. Con las tarjetas sueltas había que leer los campos para
+  saber qué hacía cada una.
+- **Las métricas ponen el rótulo antes y chico, el número después y grande**, que
+  es el orden en que se lee una métrica.
+
+Lo que **no** se copia, porque no lo tenemos: buscador global, pestañas de vista
+guardadas, barra de progreso de configuración, ni la barra de guardado
+contextual.
+
+**El botón de guardar fuera del `<form>`**
+Para que Guardar esté arriba a la derecha, el `<form>` envuelve a la página en
+tres de los cuatro formularios. En el de secciones no se puede: abajo cuelga el
+editor de slides, con sus propios botones, que dentro de un formulario lo
+enviarían sin querer. Ahí se usa el atributo `form` de HTML —`<button
+type="submit" form="form-seccion">`—, que asocia el botón a un formulario que no
+lo contiene. Es plataforma, no JavaScript, y evita tanto el formulario anidado
+como levantar el estado del editor a la pantalla.
+
+**Lo que se unificó, y por qué importa más que el aspecto**
+`Paginacion`, `SELECT`, `EstadoVacio`, `EstadoDeError`, `Esqueleto`,
+`TituloDeTarjeta` y `BarraDeFiltros` pasaron a `components/pagina.tsx`. No es
+prolijidad: cada copia era un lugar donde el siguiente arreglo podía no llegar, y
+ya había divergencia visible —tres alturas de desplegable y dos espaciados de
+paginación—. `EstadoDeError` además **trae su propio botón de reintentar**, para
+que un error sin salida deje de ser algo que uno pueda olvidarse de ofrecer.
+
+Lo que **no** se unificó: hay dos componentes `Campo`. El compartido pide `id` y
+usa `htmlFor`; el del formulario de producto mete el control dentro del `<label>`
+porque sus campos vienen de `register()` sin id. Tipográficamente ya son
+idénticos, así que unificarlos significaría inventar veinte ids para no cambiar
+nada de lo que se ve. Queda anotado, no hecho.
+
+**El interruptor es el estado**
+En promociones, colecciones y secciones convivían un interruptor y una etiqueta
+diciendo lo mismo, y la etiqueta ocupaba la columna más ancha de la tabla. Queda
+el interruptor, que además **es** la acción. Los tests que afirmaban sobre la
+etiqueta pasaron a afirmar sobre `aria-checked`, que es el estado real y no su
+descripción.
+
+**Consecuencia en los tests**
+Dos afirmaciones del smoke del Admin buscaban el texto «Borrador» y «Publicada».
+No se relajaron: se movieron al atributo del interruptor, que es más estricto
+—un texto puede aparecer en cualquier parte de la fila; `aria-checked` sólo puede
+estar bien o mal—.

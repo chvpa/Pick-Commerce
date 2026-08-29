@@ -254,9 +254,3 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
-
-/** El título de la sección activa, para la cabecera. */
-export function useTituloDeSeccion(): string {
-  const ruta = useRouterState({ select: (s) => s.location.pathname });
-  return SECCIONES.find((s) => estaActiva(ruta, s.to))?.label ?? 'Pick Admin';
-}

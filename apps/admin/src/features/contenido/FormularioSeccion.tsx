@@ -12,7 +12,17 @@ import {
   type TipoDeSeccion,
 } from '@pick/commerce-core';
 import type { ProductImage } from '@pick/commerce-types';
+import { LayoutTemplateIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import {
+  Esqueleto,
+  EstadoDeError,
+  EstadoVacio,
+  PaginaAdmin,
+  SELECT,
+  Tarjeta,
+  TituloDeTarjeta,
+} from '@/components/pagina';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,10 +34,6 @@ import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { SelectorDeImagen } from './SelectorDeImagen';
 import { AYUDA_TIPO, ETIQUETA_TIPO } from './etiquetas';
-
-const SELECT =
-  'border-border bg-background focus-visible:border-ring focus-visible:ring-ring/50 ' +
-  'h-9 cursor-pointer rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3';
 
 const TIPOS: readonly TipoDeSeccion[] = ['hero', 'tiles', 'products', 'categories'];
 
@@ -67,17 +73,25 @@ export function FormularioSeccion({ id }: { id?: string }) {
 
   if (existentes.isPending) {
     return (
-      <p className="text-muted-foreground text-sm" role="status">
-        Cargando…
-      </p>
+      <PaginaAdmin titulo="Sección" icono={LayoutTemplateIcon}>
+        <Tarjeta sinRelleno>
+          <Esqueleto />
+        </Tarjeta>
+      </PaginaAdmin>
     );
   }
 
   if (existentes.isError) {
     return (
-      <p className="text-destructive text-sm" role="alert">
-        No se pudieron cargar las secciones: {(existentes.error as Error).message}
-      </p>
+      <PaginaAdmin titulo="Sección" icono={LayoutTemplateIcon}>
+        <Tarjeta sinRelleno>
+          <EstadoDeError
+            titulo="No se pudieron cargar las secciones"
+            error={existentes.error as Error}
+            onReintentar={() => void existentes.refetch()}
+          />
+        </Tarjeta>
+      </PaginaAdmin>
     );
   }
 
@@ -85,9 +99,13 @@ export function FormularioSeccion({ id }: { id?: string }) {
 
   if (id && !seccion) {
     return (
-      <p className="text-muted-foreground text-sm">
-        Esa sección ya no existe. Puede que la hayan borrado desde otra pestaña.
-      </p>
+      <PaginaAdmin titulo="Sección" icono={LayoutTemplateIcon}>
+        <Tarjeta sinRelleno>
+          <EstadoVacio titulo="Esa sección ya no existe">
+            Puede que la hayan borrado desde otra pestaña.
+          </EstadoVacio>
+        </Tarjeta>
+      </PaginaAdmin>
     );
   }
 
@@ -165,16 +183,45 @@ function Campos({
   });
 
   return (
-    <div className="flex max-w-2xl flex-col gap-8">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setError(null);
-          guardar.mutate();
-        }}
-        className="flex flex-col gap-6"
-      >
-        {/*
+    <PaginaAdmin
+      titulo={id ? 'Editar sección' : 'Nueva sección'}
+      icono={LayoutTemplateIcon}
+      descripcion={id ? ETIQUETA_TIPO[type] : 'Un bloque de la portada.'}
+      acciones={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={() => void navegar({ to: '/contenido', search: { tab: 'secciones' } })}
+          >
+            Cancelar
+          </Button>
+          {/*
+            El botón vive fuera del `<form>` y lo envía por su id: es el atributo
+            `form` de HTML. Sin él habría que meter el formulario alrededor de
+            toda la página, y las piezas —que traen sus propios botones— quedarían
+            adentro enviándolo sin querer.
+          */}
+          <Button type="submit" form="form-seccion" size="lg" disabled={guardar.isPending}>
+            {guardar.isPending ? 'Guardando…' : id ? 'Guardar cambios' : 'Crear sección'}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex max-w-2xl flex-col gap-5">
+        <Tarjeta sinRelleno>
+          <TituloDeTarjeta>La sección</TituloDeTarjeta>
+          <form
+            id="form-seccion"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setError(null);
+              guardar.mutate();
+            }}
+            className="flex flex-col gap-6 p-4"
+          >
+            {/*
           Al crear se elige el tipo; al editar sólo se informa cuál es.
 
           El tipo no se puede cambiar —las piezas de un hero no significan nada
@@ -182,112 +229,122 @@ function Campos({
           pareciendo un control: invita a hacer clic y no pasa nada. Decirlo como
           dato es más honesto que ofrecer algo que no funciona.
         */}
-        {id ? (
-          <div className="bg-muted/40 border-border flex flex-col gap-0.5 rounded-lg border p-4">
-            <p className="text-sm font-medium">{ETIQUETA_TIPO[type]}</p>
-            <p className="text-muted-foreground text-xs">
-              {AYUDA_TIPO[type]}. El tipo se elige al crear la sección y no se cambia después.
-            </p>
-          </div>
-        ) : (
-          <Campo id="type" label="Tipo de sección" ayuda={AYUDA_TIPO[type]}>
-            <select
-              id="type"
-              value={type}
-              onChange={(e) => setType(e.currentTarget.value as TipoDeSeccion)}
-              className={SELECT}
-            >
-              {TIPOS.map((t) => (
-                <option key={t} value={t}>
-                  {ETIQUETA_TIPO[t]}
-                </option>
-              ))}
-            </select>
-          </Campo>
-        )}
-
-        {type === 'products' && (
-          <Campo id="collection" label="Colección">
-            <select
-              id="collection"
-              value={collectionId}
-              onChange={(e) => setCollectionId(e.currentTarget.value)}
-              className={SELECT}
-            >
-              <option value="">Elegí una colección</option>
-              {(colecciones.data ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title}
-                </option>
-              ))}
-            </select>
-          </Campo>
-        )}
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Campo
-            id="title"
-            label="Encabezado"
-            ayuda={
-              type === 'hero'
-                ? 'Normalmente vacío: el banner principal lleva su texto en cada pieza.'
-                : 'El título que se ve arriba del bloque. Vacío: sin encabezado.'
-            }
-          >
-            <Input id="title" value={title} onChange={(e) => setTitle(e.currentTarget.value)} />
-          </Campo>
-
-          <Campo id="subtitle" label="Subtítulo" ayuda="Opcional. Va abajo del encabezado.">
-            <Input
-              id="subtitle"
-              value={subtitle}
-              onChange={(e) => setSubtitle(e.currentTarget.value)}
-            />
-          </Campo>
-        </div>
-
-        {/*
-          El carrusel de productos no ofrece esta elección: siempre pasa de a uno,
-          que es lo que hace un carrusel. Las otras tres sí.
-        */}
-        {type !== 'products' && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Campo
-              id="layout"
-              label="Cómo se muestran"
-              ayuda="Con una sola pieza da lo mismo. Los slides se pasan deslizando o con los puntos; no rotan solos, para no moverse encima de quien está leyendo."
-            >
-              <select
-                id="layout"
-                value={layout}
-                onChange={(e) => setLayout(e.currentTarget.value as LayoutDeSeccion)}
-                className={SELECT}
-              >
-                <option value="static">{ESTATICO[type]}</option>
-                <option value="slider">Pasando de a una (slides)</option>
-              </select>
-            </Campo>
-
-            {type === 'tiles' && layout === 'static' && (
-              <Campo id="columns" label="Columnas" ayuda="En teléfono siempre va una por fila.">
+            {id ? (
+              <div className="bg-muted/40 border-border flex flex-col gap-0.5 rounded-lg border p-4">
+                <p className="text-sm font-medium">{ETIQUETA_TIPO[type]}</p>
+                <p className="text-muted-foreground text-xs">
+                  {AYUDA_TIPO[type]}. El tipo se elige al crear la sección y no se cambia después.
+                </p>
+              </div>
+            ) : (
+              <Campo id="type" label="Tipo de sección" ayuda={AYUDA_TIPO[type]}>
                 <select
-                  id="columns"
-                  value={columns}
-                  onChange={(e) => setColumns(e.currentTarget.value)}
+                  id="type"
+                  value={type}
+                  onChange={(e) => setType(e.currentTarget.value as TipoDeSeccion)}
                   className={SELECT}
                 >
-                  {[1, 2, 3, 4].map((n) => (
-                    <option key={n} value={String(n)}>
-                      {n}
+                  {TIPOS.map((t) => (
+                    <option key={t} value={t}>
+                      {ETIQUETA_TIPO[t]}
                     </option>
                   ))}
                 </select>
               </Campo>
             )}
-          </div>
-        )}
 
-        {/*
+            {type === 'products' && (
+              <Campo id="collection" label="Colección">
+                <select
+                  id="collection"
+                  value={collectionId}
+                  onChange={(e) => setCollectionId(e.currentTarget.value)}
+                  className={SELECT}
+                >
+                  <option value="">Elegí una colección</option>
+                  {(colecciones.data ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
+              </Campo>
+            )}
+
+            {/*
+          El banner principal no lleva encabezado propio.
+
+          Su texto va **en cada slide**, encima de la foto: un título de sección
+          arriba del hero sería un segundo título compitiendo con el de la pieza,
+          y el storefront ni siquiera lo dibuja. Ofrecer un campo que no se ve en
+          ningún lado es peor que no ofrecerlo.
+        */}
+            {type !== 'hero' && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Campo
+                  id="title"
+                  label="Encabezado"
+                  ayuda="El título que se ve arriba del bloque. Vacío: sin encabezado."
+                >
+                  <Input
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.currentTarget.value)}
+                  />
+                </Campo>
+
+                <Campo id="subtitle" label="Subtítulo" ayuda="Opcional. Va abajo del encabezado.">
+                  <Input
+                    id="subtitle"
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.currentTarget.value)}
+                  />
+                </Campo>
+              </div>
+            )}
+
+            {/*
+          El carrusel de productos no ofrece esta elección: siempre pasa de a uno,
+          que es lo que hace un carrusel. Las otras tres sí.
+        */}
+            {type !== 'products' && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Campo
+                  id="layout"
+                  label="Cómo se muestran"
+                  ayuda="Con una sola pieza da lo mismo. Los slides se pasan deslizando o con los puntos; no rotan solos, para no moverse encima de quien está leyendo."
+                >
+                  <select
+                    id="layout"
+                    value={layout}
+                    onChange={(e) => setLayout(e.currentTarget.value as LayoutDeSeccion)}
+                    className={SELECT}
+                  >
+                    <option value="static">{ESTATICO[type]}</option>
+                    <option value="slider">Pasando de a una (slides)</option>
+                  </select>
+                </Campo>
+
+                {type === 'tiles' && layout === 'static' && (
+                  <Campo id="columns" label="Columnas" ayuda="En teléfono siempre va una por fila.">
+                    <select
+                      id="columns"
+                      value={columns}
+                      onChange={(e) => setColumns(e.currentTarget.value)}
+                      className={SELECT}
+                    >
+                      {[1, 2, 3, 4].map((n) => (
+                        <option key={n} value={String(n)}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </Campo>
+                )}
+              </div>
+            )}
+
+            {/*
           Acá estaba «posición en la home» como un número.
 
           Se sacó porque pedía traducir a mano una idea que es espacial: para
@@ -295,39 +352,28 @@ function Campos({
           números y elegir uno intermedio. Ahora el orden se cambia en la lista
           con las flechas, que es donde se ve el resultado.
         */}
-        <label className="flex items-center gap-3">
-          <Switch checked={published} onCheckedChange={setPublished} />
-          <span className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium">Publicada</span>
-            <span className="text-muted-foreground text-xs">
-              Sin publicar no aparece en la tienda, aunque tenga contenido.
-            </span>
-          </span>
-        </label>
+            <label className="flex items-center gap-3">
+              <Switch checked={published} onCheckedChange={setPublished} />
+              <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium">Publicada</span>
+                <span className="text-muted-foreground text-xs">
+                  Sin publicar no aparece en la tienda, aunque tenga contenido.
+                </span>
+              </span>
+            </label>
 
-        {error && (
-          <p className="text-destructive text-sm" role="alert">
-            {error}
-          </p>
-        )}
+            {error && (
+              <p className="text-destructive text-sm" role="alert">
+                {error}
+              </p>
+            )}
+          </form>
+        </Tarjeta>
 
-        <div className="flex gap-3">
-          <Button type="submit" disabled={guardar.isPending}>
-            {guardar.isPending ? 'Guardando…' : id ? 'Guardar cambios' : 'Crear sección'}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void navegar({ to: '/contenido', search: { tab: 'secciones' } })}
-          >
-            Cancelar
-          </Button>
-        </div>
-      </form>
-
-      {/* Las piezas se cargan con la sección ya creada: cuelgan de ella. */}
-      {id && llevaPiezas(type) && <Piezas sectionId={id} tipo={type} />}
-    </div>
+        {/* Las piezas se cargan con la sección ya creada: cuelgan de ella. */}
+        {id && llevaPiezas(type) && <Piezas sectionId={id} tipo={type} />}
+      </div>
+    </PaginaAdmin>
   );
 }
 
@@ -421,162 +467,169 @@ function Piezas({ sectionId, tipo }: { sectionId: string; tipo: TipoDeSeccion })
   const singular = tipo === 'hero' ? 'slide' : 'aviso';
 
   return (
-    <section className="flex flex-col gap-4 border-t pt-8">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h2 className="text-sm font-medium">{tipo === 'hero' ? 'Slides' : 'Avisos'}</h2>
-          <p className="text-muted-foreground text-xs">
-            {tipo === 'hero'
-              ? 'Con más de uno se pasan; con uno solo es un banner fijo.'
-              : 'Cada aviso es una imagen con su título y su enlace.'}
-          </p>
-        </div>
-        {!editando && (
-          <Button size="sm" onClick={() => abrir()}>
-            Agregar {singular}
-          </Button>
-        )}
-      </div>
+    <Tarjeta sinRelleno>
+      <TituloDeTarjeta
+        accion={
+          !editando && (
+            <Button type="button" size="sm" onClick={() => abrir()}>
+              Agregar {singular}
+            </Button>
+          )
+        }
+      >
+        {tipo === 'hero' ? 'Slides' : 'Avisos'}
+      </TituloDeTarjeta>
 
-      {editando && (
-        <div className="border-border flex flex-col gap-4 rounded-lg border p-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="p-title">Título</Label>
-              <Input
-                id="p-title"
-                value={borrador.title}
-                onChange={(e) => setBorrador({ ...borrador, title: e.currentTarget.value })}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="p-subtitle">Subtítulo</Label>
-              <Input
-                id="p-subtitle"
-                value={borrador.subtitle}
-                onChange={(e) => setBorrador({ ...borrador, subtitle: e.currentTarget.value })}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="p-href">A dónde lleva</Label>
-              <Input
-                id="p-href"
-                value={borrador.href}
-                placeholder="/catalogo?categoria=calzado"
-                onChange={(e) => setBorrador({ ...borrador, href: e.currentTarget.value })}
-              />
-              <span className="text-muted-foreground text-xs">
-                Una ruta de la tienda. Vacío: no enlaza.
-              </span>
-            </div>
-            {tipo === 'hero' && (
+      <div className="flex flex-col gap-4 p-4">
+        <p className="text-muted-foreground text-xs">
+          {tipo === 'hero'
+            ? 'Con más de uno se pasan; con uno solo es un banner fijo. El título y el subtítulo van acá, en cada slide, no en la sección.'
+            : 'Cada aviso es una imagen con su título y su enlace.'}
+        </p>
+
+        {editando && (
+          <div className="border-border flex flex-col gap-4 rounded-lg border p-5">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="p-cta">Texto del botón</Label>
+                <Label htmlFor="p-title">Título</Label>
                 <Input
-                  id="p-cta"
-                  value={borrador.ctaLabel}
-                  placeholder="Ver catálogo"
-                  onChange={(e) => setBorrador({ ...borrador, ctaLabel: e.currentTarget.value })}
+                  id="p-title"
+                  value={borrador.title}
+                  onChange={(e) => setBorrador({ ...borrador, title: e.currentTarget.value })}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="p-subtitle">Subtítulo</Label>
+                <Input
+                  id="p-subtitle"
+                  value={borrador.subtitle}
+                  onChange={(e) => setBorrador({ ...borrador, subtitle: e.currentTarget.value })}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="p-href">A dónde lleva</Label>
+                <Input
+                  id="p-href"
+                  value={borrador.href}
+                  placeholder="/catalogo?categoria=calzado"
+                  onChange={(e) => setBorrador({ ...borrador, href: e.currentTarget.value })}
                 />
                 <span className="text-muted-foreground text-xs">
-                  Vacío: el enlace se ve como texto en vez de botón.
+                  Una ruta de la tienda. Vacío: no enlaza.
                 </span>
               </div>
-            )}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="p-position">Posición</Label>
-              <Input
-                id="p-position"
-                inputMode="numeric"
-                value={String(borrador.position)}
-                onChange={(e) =>
-                  setBorrador({ ...borrador, position: Number(e.currentTarget.value) || 0 })
-                }
+              {tipo === 'hero' && (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="p-cta">Texto del botón</Label>
+                  <Input
+                    id="p-cta"
+                    value={borrador.ctaLabel}
+                    placeholder="Ver catálogo"
+                    onChange={(e) => setBorrador({ ...borrador, ctaLabel: e.currentTarget.value })}
+                  />
+                  <span className="text-muted-foreground text-xs">
+                    Vacío: el enlace se ve como texto en vez de botón.
+                  </span>
+                </div>
+              )}
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="p-position">Posición</Label>
+                <Input
+                  id="p-position"
+                  inputMode="numeric"
+                  value={String(borrador.position)}
+                  onChange={(e) =>
+                    setBorrador({ ...borrador, position: Number(e.currentTarget.value) || 0 })
+                  }
+                />
+              </div>
+            </div>
+
+            <SelectorDeImagen
+              label="Imagen"
+              valor={borrador.image}
+              onChange={(image) => setBorrador({ ...borrador, image })}
+            />
+            <SelectorDeImagen
+              label="Imagen para teléfono"
+              opcional
+              ayuda="Sin ella se usa la de escritorio. Una foto apaisada en una pantalla angosta suele perder justo lo que decía."
+              valor={borrador.imageMobile}
+              onChange={(imageMobile) => setBorrador({ ...borrador, imageMobile })}
+            />
+
+            <label className="flex items-center gap-3">
+              <Switch
+                checked={borrador.published}
+                onCheckedChange={(v) => setBorrador({ ...borrador, published: v })}
               />
+              <span className="text-sm">Visible</span>
+            </label>
+
+            {error && (
+              <p className="text-destructive text-sm" role="alert">
+                {error}
+              </p>
+            )}
+
+            <div className="flex gap-3">
+              <Button onClick={() => guardar.mutate()} disabled={guardar.isPending}>
+                {guardar.isPending ? 'Guardando…' : 'Guardar'}
+              </Button>
+              <Button variant="outline" onClick={() => setEditando(null)}>
+                Cancelar
+              </Button>
             </div>
           </div>
+        )}
 
-          <SelectorDeImagen
-            label="Imagen"
-            valor={borrador.image}
-            onChange={(image) => setBorrador({ ...borrador, image })}
-          />
-          <SelectorDeImagen
-            label="Imagen para teléfono"
-            opcional
-            ayuda="Sin ella se usa la de escritorio. Una foto apaisada en una pantalla angosta suele perder justo lo que decía."
-            valor={borrador.imageMobile}
-            onChange={(imageMobile) => setBorrador({ ...borrador, imageMobile })}
-          />
-
-          <label className="flex items-center gap-3">
-            <Switch
-              checked={borrador.published}
-              onCheckedChange={(v) => setBorrador({ ...borrador, published: v })}
-            />
-            <span className="text-sm">Visible</span>
-          </label>
-
-          {error && (
-            <p className="text-destructive text-sm" role="alert">
-              {error}
-            </p>
-          )}
-
-          <div className="flex gap-3">
-            <Button onClick={() => guardar.mutate()} disabled={guardar.isPending}>
-              {guardar.isPending ? 'Guardando…' : 'Guardar'}
-            </Button>
-            <Button variant="outline" onClick={() => setEditando(null)}>
-              Cancelar
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {consulta.isPending ? (
-        <div className="bg-muted h-16 animate-pulse rounded-lg" />
-      ) : consulta.data!.length === 0 ? (
-        <p className="text-muted-foreground py-6 text-center text-sm">
-          Esta sección todavía no tiene {tipo === 'hero' ? 'slides' : 'avisos'}. Sin al menos
-          uno no se dibuja en la home.
-        </p>
-      ) : (
-        <ul aria-label={tipo === 'hero' ? 'Slides' : 'Avisos'} className="flex flex-col gap-2">
-          {consulta.data!.map((p, i) => (
-            <li key={p.id} className="border-border flex items-center gap-3 rounded-lg border p-3">
-              <ControlDeOrden
-                nombre={p.title}
-                primero={i === 0}
-                ultimo={i === consulta.data!.length - 1}
-                pendiente={mover.isPending}
-                onSubir={() => mover.mutate({ desde: i, hacia: i - 1 })}
-                onBajar={() => mover.mutate({ desde: i, hacia: i + 1 })}
-              />
-              <img src={p.image.url} alt="" className="h-14 w-24 rounded object-cover" />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-medium">{p.title}</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {p.href ?? 'Sin enlace'}
-                </span>
-              </div>
-              {!p.published && <Badge variant="secondary">Oculto</Badge>}
-              <BotonDeIcono
-                etiqueta={`Editar ${p.title}`}
-                icono={PencilIcon}
-                onClick={() => abrir(p)}
-              />
-              <BorrarConConfirmacion
-                nombre={p.title}
-                etiqueta={`Borrar ${p.title}`}
-                pendiente={borrar.isPending}
-                que={`Se quita ${tipo === 'hero' ? 'este slide' : 'este aviso'} de la sección. La imagen queda subida.`}
-                onConfirmar={() => borrar.mutate(p.id)}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+        {consulta.isPending ? (
+          <div className="bg-muted h-16 animate-pulse rounded-lg" />
+        ) : consulta.data!.length === 0 ? (
+          <p className="text-muted-foreground py-6 text-center text-sm">
+            Esta sección todavía no tiene {tipo === 'hero' ? 'slides' : 'avisos'}. Sin al menos uno
+            no se dibuja en la home.
+          </p>
+        ) : (
+          <ul aria-label={tipo === 'hero' ? 'Slides' : 'Avisos'} className="flex flex-col gap-2">
+            {consulta.data!.map((p, i) => (
+              <li
+                key={p.id}
+                className="border-border flex items-center gap-3 rounded-lg border p-3"
+              >
+                <ControlDeOrden
+                  nombre={p.title}
+                  primero={i === 0}
+                  ultimo={i === consulta.data!.length - 1}
+                  pendiente={mover.isPending}
+                  onSubir={() => mover.mutate({ desde: i, hacia: i - 1 })}
+                  onBajar={() => mover.mutate({ desde: i, hacia: i + 1 })}
+                />
+                <img src={p.image.url} alt="" className="h-14 w-24 rounded object-cover" />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate font-medium">{p.title}</span>
+                  <span className="text-muted-foreground truncate text-xs">
+                    {p.href ?? 'Sin enlace'}
+                  </span>
+                </div>
+                {!p.published && <Badge variant="secondary">Oculto</Badge>}
+                <BotonDeIcono
+                  etiqueta={`Editar ${p.title}`}
+                  icono={PencilIcon}
+                  onClick={() => abrir(p)}
+                />
+                <BorrarConConfirmacion
+                  nombre={p.title}
+                  etiqueta={`Borrar ${p.title}`}
+                  pendiente={borrar.isPending}
+                  que={`Se quita ${tipo === 'hero' ? 'este slide' : 'este aviso'} de la sección. La imagen queda subida.`}
+                  onConfirmar={() => borrar.mutate(p.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Tarjeta>
   );
 }

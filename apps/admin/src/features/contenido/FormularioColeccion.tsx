@@ -8,7 +8,16 @@ import {
   type CatalogSort,
   type Coleccion,
 } from '@pick/commerce-core';
+import { LayoutTemplateIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Esqueleto,
+  EstadoDeError,
+  PaginaAdmin,
+  SELECT,
+  Tarjeta,
+  TituloDeTarjeta,
+} from '@/components/pagina';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,10 +26,6 @@ import { Switch } from '@/components/ui/switch';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-
-const SELECT =
-  'border-border bg-background focus-visible:border-ring focus-visible:ring-ring/50 ' +
-  'h-9 cursor-pointer rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3';
 
 const ORDENES: readonly { valor: CatalogSort; label: string }[] = [
   { valor: 'relevance', label: 'Como están en el catálogo' },
@@ -50,17 +55,25 @@ export function FormularioColeccion({ id }: { id?: string }) {
 
   if (id && existente.isPending) {
     return (
-      <p className="text-muted-foreground text-sm" role="status">
-        Cargando la colección…
-      </p>
+      <PaginaAdmin titulo="Editar colección" icono={LayoutTemplateIcon}>
+        <Tarjeta sinRelleno>
+          <Esqueleto />
+        </Tarjeta>
+      </PaginaAdmin>
     );
   }
 
   if (existente.isError) {
     return (
-      <p className="text-destructive text-sm" role="alert">
-        No se pudo cargar la colección: {(existente.error as Error).message}
-      </p>
+      <PaginaAdmin titulo="Editar colección" icono={LayoutTemplateIcon}>
+        <Tarjeta sinRelleno>
+          <EstadoDeError
+            titulo="No se pudo cargar la colección"
+            error={existente.error as Error}
+            onReintentar={() => void existente.refetch()}
+          />
+        </Tarjeta>
+      </PaginaAdmin>
     );
   }
 
@@ -120,14 +133,47 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
         setError(null);
         guardar.mutate();
       }}
-      className="flex max-w-2xl flex-col gap-6"
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Campo id="title" label="Nombre" ayuda="Es el encabezado del carrusel en la home.">
-          <Input id="title" value={title} onChange={(e) => setTitle(e.currentTarget.value)} />
-        </Campo>
+      <PaginaAdmin
+        titulo={id ? 'Editar colección' : 'Nueva colección'}
+        icono={LayoutTemplateIcon}
+        descripcion="Una lista de productos. Para mostrarla en la portada, creá una sección de carrusel."
+        acciones={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={() => void navegar({ to: '/contenido', search: { tab: 'colecciones' } })}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" size="lg" disabled={guardar.isPending || !title}>
+              {guardar.isPending ? 'Guardando…' : id ? 'Guardar cambios' : 'Crear colección'}
+            </Button>
+          </>
+        }
+      >
+        {error && (
+          <p className="text-destructive text-sm" role="alert">
+            {error}
+          </p>
+        )}
 
-        {/*
+        <div className="flex max-w-2xl flex-col gap-5">
+          <Tarjeta sinRelleno>
+            <TituloDeTarjeta>La colección</TituloDeTarjeta>
+            <div className="flex flex-col gap-6 p-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Campo id="title" label="Nombre" ayuda="Es el encabezado del carrusel en la home.">
+                  <Input
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.currentTarget.value)}
+                  />
+                </Campo>
+
+                {/*
           El handle no se muestra.
 
           Es la dirección con la que el storefront pide la colección, sale del
@@ -138,40 +184,44 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
           silencio rompería lo que la apunte.
         */}
 
-        <Campo id="subtitle" label="Subtítulo" ayuda="Opcional. Va abajo del nombre, más chico.">
-          <Input
-            id="subtitle"
-            value={subtitle}
-            onChange={(e) => setSubtitle(e.currentTarget.value)}
-          />
-        </Campo>
-      </div>
+                <Campo
+                  id="subtitle"
+                  label="Subtítulo"
+                  ayuda="Opcional. Va abajo del nombre, más chico."
+                >
+                  <Input
+                    id="subtitle"
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.currentTarget.value)}
+                  />
+                </Campo>
+              </div>
 
-      <fieldset className="flex flex-col gap-3">
-        <legend className="text-sm font-medium">Cómo se arma</legend>
-        <select
-          value={dinamica ? 'dinamica' : 'manual'}
-          onChange={(e) => setDinamica(e.currentTarget.value === 'dinamica')}
-          className={SELECT}
-          aria-label="Cómo se arma la colección"
-        >
-          <option value="manual">La armo yo, eligiendo productos</option>
-          <option value="dinamica">Se arma sola, con una regla</option>
-        </select>
+              <fieldset className="flex flex-col gap-3">
+                <legend className="text-sm font-medium">Cómo se arma</legend>
+                <select
+                  value={dinamica ? 'dinamica' : 'manual'}
+                  onChange={(e) => setDinamica(e.currentTarget.value === 'dinamica')}
+                  className={SELECT}
+                  aria-label="Cómo se arma la colección"
+                >
+                  <option value="manual">La armo yo, eligiendo productos</option>
+                  <option value="dinamica">Se arma sola, con una regla</option>
+                </select>
 
-        {dinamica ? (
-          <ReglasDinamicas
-            sort={sort}
-            onSort={setSort}
-            reglas={reglas}
-            onReglas={setReglas}
-          />
-        ) : (
-          <SelectorDeProductos ids={productIds} onChange={setProductIds} />
-        )}
-      </fieldset>
+                {dinamica ? (
+                  <ReglasDinamicas
+                    sort={sort}
+                    onSort={setSort}
+                    reglas={reglas}
+                    onReglas={setReglas}
+                  />
+                ) : (
+                  <SelectorDeProductos ids={productIds} onChange={setProductIds} />
+                )}
+              </fieldset>
 
-      {/*
+              {/*
         Acá estaba «mostrar como sección de la home» con su posición.
 
         Se sacó porque decía lo mismo desde dos lados. Una colección **se pone**
@@ -180,30 +230,19 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
         una colección en Contenido → Secciones no coincidía con lo que decía este
         formulario, y no había forma de saber cuál mandaba.
       */}
-      <label className="flex items-center gap-3">
-        <Switch checked={published} onCheckedChange={setPublished} />
-        <span className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium">Publicada</span>
-          <span className="text-muted-foreground text-xs">
-            Despublicada, las secciones que la usan dejan de dibujarse.
-          </span>
-        </span>
-      </label>
-
-      {error && (
-        <p className="text-destructive text-sm" role="alert">
-          {error}
-        </p>
-      )}
-
-      <div className="flex gap-3">
-        <Button type="submit" disabled={guardar.isPending || !title}>
-          {guardar.isPending ? 'Guardando…' : id ? 'Guardar cambios' : 'Crear colección'}
-        </Button>
-        <Button type="button" variant="outline" onClick={() => void navegar({ to: '/contenido', search: { tab: 'colecciones' } })}>
-          Cancelar
-        </Button>
-      </div>
+              <label className="flex items-center gap-3">
+                <Switch checked={published} onCheckedChange={setPublished} />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">Publicada</span>
+                  <span className="text-muted-foreground text-xs">
+                    Despublicada, las secciones que la usan dejan de dibujarse.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </Tarjeta>
+        </div>
+      </PaginaAdmin>
     </form>
   );
 }
@@ -270,8 +309,8 @@ function ReglasDinamicas({
         </select>
         {sort === 'best-selling' && (
           <span className="text-muted-foreground text-xs">
-            Con la tienda todavía sin ventas, todos los productos empatan en cero y el orden
-            queda arbitrario. Conviene publicarla cuando haya pedidos.
+            Con la tienda todavía sin ventas, todos los productos empatan en cero y el orden queda
+            arbitrario. Conviene publicarla cuando haya pedidos.
           </span>
         )}
       </div>
@@ -352,9 +391,7 @@ function SelectorDeProductos({
               <Checkbox
                 checked={ids.includes(p.id)}
                 onCheckedChange={() =>
-                  onChange(
-                    ids.includes(p.id) ? ids.filter((x) => x !== p.id) : [...ids, p.id],
-                  )
+                  onChange(ids.includes(p.id) ? ids.filter((x) => x !== p.id) : [...ids, p.id])
                 }
               />
               <span className="truncate">{p.title}</span>

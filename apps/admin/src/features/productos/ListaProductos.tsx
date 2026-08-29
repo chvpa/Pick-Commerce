@@ -16,7 +16,18 @@ import {
   type ResumenProducto,
 } from '@pick/commerce-core';
 import type { ProductStatus } from '@pick/commerce-types';
+import { PackageIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import {
+  BarraDeFiltros,
+  Esqueleto,
+  EstadoDeError,
+  EstadoVacio,
+  Paginacion,
+  PaginaAdmin,
+  SELECT,
+  Tarjeta,
+} from '@/components/pagina';
 import { DialogoDeConfirmacion } from '@/components/acciones';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -297,22 +308,57 @@ export function ListaProductos() {
   const columnasVisibles = tabla.getVisibleFlatColumns().length;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-wrap items-end gap-3">
+    <PaginaAdmin
+      titulo="Productos"
+      icono={PackageIcon}
+      descripcion="Lo que la tienda vende. El interruptor publica y archiva sin abrir el producto."
+      acciones={
+        /*
+          Un enlace con pinta de botón, no un `Button` que renderiza un enlace:
+          envolverlo en `Button` le pone `role="button"` y un lector de pantalla
+          lo anuncia como botón cuando en realidad navega. Las clases dan el
+          aspecto; la semántica la da el <a>.
+        */
+        escribe && (
+          <>
+            <Link
+              to="/productos/importar"
+              className={buttonVariants({ variant: 'outline', size: 'lg' })}
+            >
+              Importar / exportar
+            </Link>
+            <Link to="/productos/nuevo" className={buttonVariants({ size: 'lg' })}>
+              Nuevo producto
+            </Link>
+          </>
+        )
+      }
+    >
+      {(cambiarEstado.isError || enLote.isError) && (
+        <p className="text-destructive text-sm" role="alert">
+          {((cambiarEstado.error ?? enLote.error) as Error).message}
+        </p>
+      )}
+
+      <Tarjeta sinRelleno>
+        <BarraDeFiltros>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="buscar">Buscar</Label>
+            <Label htmlFor="buscar" className="text-muted-foreground text-xs">
+              Buscar
+            </Label>
             <Input
               id="buscar"
               value={texto}
               onChange={(e) => setTexto(e.currentTarget.value)}
               placeholder="Título, marca o SKU"
-              className="w-64"
+              className="h-8 w-64"
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="estado">Estado</Label>
+            <Label htmlFor="estado" className="text-muted-foreground text-xs">
+              Estado
+            </Label>
             {/*
               `<select>` nativo: teclado, lectores de pantalla y el selector del
               sistema en mobile ya vienen resueltos, y no cuesta JavaScript.
@@ -324,7 +370,7 @@ export function ListaProductos() {
                 setStatus(e.currentTarget.value as ProductStatus | '');
                 setPage(1);
               }}
-              className="border-border bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 cursor-pointer rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3"
+              className={SELECT}
             >
               <option value="">Todos</option>
               {ESTADOS.map((e) => (
@@ -334,159 +380,132 @@ export function ListaProductos() {
               ))}
             </select>
           </div>
-        </div>
+        </BarraDeFiltros>
 
         {/*
-          Un enlace con pinta de botón, no un `Button` que renderiza un enlace:
-          envolverlo en `Button` le pone `role="button"` y un lector de pantalla
-          lo anuncia como botón cuando en realidad navega. Las clases dan el
-          aspecto; la semántica la da el <a>.
+          La barra de lote va pegada a la tabla y adentro de la tarjeta: es lo
+          que actúa sobre las filas marcadas, y suelta arriba se leía como un
+          bloque más de la página.
         */}
-        {escribe && (
-          <div className="flex gap-2">
-            <Link to="/productos/importar" className={buttonVariants({ variant: 'outline' })}>
-              Importar / exportar
-            </Link>
-            <Link to="/productos/nuevo" className={buttonVariants()}>
-              Nuevo producto
-            </Link>
+        {marcados.length > 0 && (
+          <div
+            className="border-border bg-muted/40 flex flex-wrap items-center gap-3 border-b px-4 py-2.5"
+            role="group"
+            aria-label="Acciones sobre lo seleccionado"
+          >
+            <p className="text-sm" aria-live="polite">
+              {marcados.length} {marcados.length === 1 ? 'seleccionado' : 'seleccionados'}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={enLote.isPending}
+                onClick={() => setLotePorConfirmar('archived')}
+              >
+                Archivar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={enLote.isPending}
+                onClick={() => setLotePorConfirmar('active')}
+              >
+                Publicar
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={enLote.isPending}
+                onClick={() => setSeleccion({})}
+              >
+                Limpiar
+              </Button>
+            </div>
           </div>
         )}
-      </div>
 
-      {marcados.length > 0 && (
-        <div
-          className="border-border bg-muted/40 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-2.5"
-          role="group"
-          aria-label="Acciones sobre lo seleccionado"
-        >
-          <p className="text-sm" aria-live="polite">
-            {marcados.length} {marcados.length === 1 ? 'seleccionado' : 'seleccionados'}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={enLote.isPending}
-              onClick={() => setLotePorConfirmar('archived')}
-            >
-              Archivar
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={enLote.isPending}
-              onClick={() => setLotePorConfirmar('active')}
-            >
-              Publicar
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={enLote.isPending}
-              onClick={() => setSeleccion({})}
-            >
-              Limpiar
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {consulta.isError ? (
-        <div className="border-destructive/40 flex flex-col items-start gap-3 rounded-lg border p-6">
-          <p className="text-sm">No se pudieron cargar los productos.</p>
-          <p className="text-muted-foreground text-xs">{(consulta.error as Error).message}</p>
-          <Button variant="outline" size="sm" onClick={() => void consulta.refetch()}>
-            Reintentar
-          </Button>
-        </div>
-      ) : (
-        <div className="border-border overflow-x-auto rounded-lg border">
-          <Table>
-            <TableHeader>
-              {tabla.getHeaderGroups().map((grupo) => (
-                <TableRow key={grupo.id}>
-                  {grupo.headers.map((h) => (
-                    <TableHead key={h.id}>
-                      {h.isPlaceholder
-                        ? null
-                        : flexRender(h.column.columnDef.header, h.getContext())}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {consulta.isPending ? (
-                // Skeleton y no un spinner: conserva el alto de la tabla, así la
-                // página no salta cuando llegan los datos.
-                Array.from({ length: 5 }, (_, i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={columnasVisibles}>
-                      <div className="bg-muted h-5 w-full animate-pulse rounded" />
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : filas.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={columnasVisibles} className="py-10 text-center">
-                    <p className="text-muted-foreground text-sm">
-                      {query || status
-                        ? 'Ningún producto coincide con la búsqueda.'
-                        : 'Todavía no hay productos.'}
-                    </p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                tabla.getRowModel().rows.map((fila) => (
-                  <TableRow
-                    key={fila.id}
-                    data-state={fila.getIsSelected() ? 'selected' : undefined}
-                  >
-                    {fila.getVisibleCells().map((celda) => (
-                      <TableCell key={celda.id}>
-                        {flexRender(celda.column.columnDef.cell, celda.getContext())}
-                      </TableCell>
+        {consulta.isError ? (
+          <EstadoDeError
+            titulo="No se pudieron cargar los productos"
+            error={consulta.error as Error}
+            onReintentar={() => void consulta.refetch()}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                {tabla.getHeaderGroups().map((grupo) => (
+                  <TableRow key={grupo.id}>
+                    {grupo.headers.map((h) => (
+                      <TableHead key={h.id}>
+                        {h.isPlaceholder
+                          ? null
+                          : flexRender(h.column.columnDef.header, h.getContext())}
+                      </TableHead>
                     ))}
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      {(cambiarEstado.isError || enLote.isError) && (
-        <p className="text-destructive text-sm" role="alert">
-          {((cambiarEstado.error ?? enLote.error) as Error).message}
-        </p>
-      )}
-
-      {datos && datos.pageCount > 1 && (
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-muted-foreground text-sm" aria-live="polite">
-            {datos.total} productos · página {datos.page} de {datos.pageCount}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={datos.page <= 1 || consulta.isFetching}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={datos.page >= datos.pageCount || consulta.isFetching}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Siguiente
-            </Button>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {consulta.isPending ? (
+                  // Skeleton y no un spinner: conserva el alto de la tabla, así la
+                  // página no salta cuando llegan los datos.
+                  <TableRow>
+                    <TableCell colSpan={columnasVisibles} className="p-0">
+                      <Esqueleto />
+                    </TableCell>
+                  </TableRow>
+                ) : filas.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={columnasVisibles} className="p-0">
+                      <EstadoVacio
+                        titulo={
+                          query || status ? 'Ningún producto coincide' : 'Todavía no hay productos'
+                        }
+                        accion={
+                          !query && !status && escribe ? (
+                            <Link to="/productos/nuevo" className={buttonVariants({ size: 'lg' })}>
+                              Nuevo producto
+                            </Link>
+                          ) : undefined
+                        }
+                      >
+                        {query || status
+                          ? 'Probá con otras palabras o sacá el filtro de estado.'
+                          : 'Cargá el primero a mano, o traé el catálogo entero desde un CSV.'}
+                      </EstadoVacio>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  tabla.getRowModel().rows.map((fila) => (
+                    <TableRow
+                      key={fila.id}
+                      data-state={fila.getIsSelected() ? 'selected' : undefined}
+                    >
+                      {fila.getVisibleCells().map((celda) => (
+                        <TableCell key={celda.id}>
+                          {flexRender(celda.column.columnDef.cell, celda.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* La paginación va dentro de la tarjeta, pegada a lo que pagina. */}
+        {datos && (
+          <Paginacion
+            datos={datos}
+            sustantivo="productos"
+            cargando={consulta.isFetching}
+            onPagina={setPage}
+          />
+        )}
+      </Tarjeta>
 
       <DialogoDeConfirmacion
         abierto={porArchivar !== null}
@@ -528,6 +547,6 @@ export function ListaProductos() {
           setLotePorConfirmar(null);
         }}
       />
-    </div>
+    </PaginaAdmin>
   );
 }

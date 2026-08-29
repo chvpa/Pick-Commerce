@@ -2,7 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { repositorioEquipo } from '@pick/adapter-supabase';
 import { DESCRIPCION_ROL, ETIQUETA_ROL, ROLES, esUltimoOwner } from '@pick/commerce-core';
 import type { MemberRole } from '@pick/commerce-types';
-import { Button } from '@/components/ui/button';
+import { UsersRoundIcon } from 'lucide-react';
+import {
+  Esqueleto,
+  EstadoDeError,
+  EstadoVacio,
+  PaginaAdmin,
+  SELECT,
+  Tarjeta,
+} from '@/components/pagina';
 import { BorrarConConfirmacion } from '@/components/acciones';
 import {
   Table,
@@ -63,135 +71,138 @@ export function Equipo() {
   const fallo = (cambiarRol.error ?? quitar.error) as Error | null;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="text-muted-foreground text-sm">
-          Quién puede entrar al Admin de esta organización. Para dar de alta a alguien nuevo, se usa{' '}
-          <code className="bg-muted rounded px-1 py-0.5 text-xs">pnpm admin:crear</code> desde el
-          repositorio.
-        </p>
-      </div>
-
-      {consulta.isError ? (
-        <div className="border-destructive/40 flex flex-col items-start gap-3 rounded-lg border p-6">
-          <p className="text-sm">No se pudo cargar el equipo.</p>
-          <p className="text-muted-foreground text-xs">{(consulta.error as Error).message}</p>
-          <Button variant="outline" size="sm" onClick={() => void consulta.refetch()}>
-            Reintentar
-          </Button>
-        </div>
-      ) : (
-        <div className="border-border overflow-x-auto rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Persona</TableHead>
-                <TableHead>Desde</TableHead>
-                <TableHead>Rol</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {consulta.isPending ? (
-                Array.from({ length: 3 }, (_, i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={4}>
-                      <div className="bg-muted h-5 w-full animate-pulse rounded" />
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : miembros.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="py-10 text-center">
-                    <p className="text-muted-foreground text-sm">Todavía no hay nadie.</p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                miembros.map((m) => {
-                  const ultimo = esUltimoOwner(miembros, m.userId);
-                  const motivo = ultimo
-                    ? 'La organización necesita al menos un propietario.'
-                    : undefined;
-
-                  return (
-                    <TableRow key={m.userId}>
-                      <TableCell>
-                        <span className="flex flex-col gap-0.5">
-                          <span className="font-medium">{m.email}</span>
-                          {m.userId === sesion?.userId && (
-                            <span className="text-muted-foreground text-xs">Sos vos</span>
-                          )}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {fecha(m.createdAt, tienda.locale)}
-                      </TableCell>
-                      <TableCell>
-                        <select
-                          aria-label={`Rol de ${m.email}`}
-                          value={m.role}
-                          disabled={ocupado || ultimo}
-                          title={motivo}
-                          onChange={(e) =>
-                            cambiarRol.mutate({
-                              userId: m.userId,
-                              rol: e.currentTarget.value as MemberRole,
-                            })
-                          }
-                          className="border-border bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-7 cursor-pointer rounded-lg border px-2 text-xs outline-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {ROLES.map((r) => (
-                            <option key={r} value={r} title={DESCRIPCION_ROL[r]}>
-                              {ETIQUETA_ROL[r]}
-                            </option>
-                          ))}
-                        </select>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {/*
-                          `title={motivo}` explica por qué está deshabilitado —al
-                          último owner no se lo puede quitar—; el diálogo sólo
-                          aparece cuando la acción es posible.
-                        */}
-                        <span title={motivo}>
-                          <BorrarConConfirmacion
-                            nombre={m.email}
-                            etiqueta={`Quitar a ${m.email}`}
-                            // `ultimo` no es «está ocupado» sino «no se puede»:
-                            // al último owner no se lo quita, y el motivo lo
-                            // explica el `title` de arriba. Deshabilitar es lo
-                            // mismo en los dos casos, pero perder esa condición
-                            // dejaría a la organización sin dueño.
-                            pendiente={ocupado || ultimo}
-                            que="Pierde el acceso a esta organización. Sus pedidos y cambios quedan como están."
-                            onConfirmar={() => quitar.mutate(m.userId)}
-                          />
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
+    <PaginaAdmin
+      titulo="Equipo"
+      icono={UsersRoundIcon}
+      descripcion={
+        <>
+          Quién puede entrar al Admin de esta organización. Para dar de alta a alguien nuevo se usa{' '}
+          <code className="bg-muted rounded px-1 py-0.5 text-xs">pnpm admin:crear</code>.
+        </>
+      }
+    >
       {fallo && (
         <p className="text-destructive text-sm" role="alert">
           {fallo.message}
         </p>
       )}
 
-      <section className="text-muted-foreground flex flex-col gap-1 text-xs">
-        <h2 className="text-foreground text-sm font-medium">Qué puede cada rol</h2>
-        {ROLES.map((r) => (
-          <p key={r}>
-            <span className="text-foreground font-medium">{ETIQUETA_ROL[r]}</span> —{' '}
-            {DESCRIPCION_ROL[r]}
-          </p>
-        ))}
-      </section>
-    </div>
+      <Tarjeta sinRelleno>
+        {consulta.isError ? (
+          <EstadoDeError
+            titulo="No se pudo cargar el equipo"
+            error={consulta.error as Error}
+            onReintentar={() => void consulta.refetch()}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Persona</TableHead>
+                  <TableHead>Desde</TableHead>
+                  <TableHead>Rol</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {consulta.isPending ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="p-0">
+                      <Esqueleto filas={3} />
+                    </TableCell>
+                  </TableRow>
+                ) : miembros.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="p-0">
+                      <EstadoVacio titulo="Todavía no hay nadie">
+                        Se dan de alta desde el repositorio, con `pnpm admin:crear`.
+                      </EstadoVacio>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  miembros.map((m) => {
+                    const ultimo = esUltimoOwner(miembros, m.userId);
+                    const motivo = ultimo
+                      ? 'La organización necesita al menos un propietario.'
+                      : undefined;
+
+                    return (
+                      <TableRow key={m.userId}>
+                        <TableCell>
+                          <span className="flex flex-col gap-0.5">
+                            <span className="font-medium">{m.email}</span>
+                            {m.userId === sesion?.userId && (
+                              <span className="text-muted-foreground text-xs">Sos vos</span>
+                            )}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {fecha(m.createdAt, tienda.locale)}
+                        </TableCell>
+                        <TableCell>
+                          <select
+                            aria-label={`Rol de ${m.email}`}
+                            value={m.role}
+                            disabled={ocupado || ultimo}
+                            title={motivo}
+                            onChange={(e) =>
+                              cambiarRol.mutate({
+                                userId: m.userId,
+                                rol: e.currentTarget.value as MemberRole,
+                              })
+                            }
+                            className={SELECT}
+                          >
+                            {ROLES.map((r) => (
+                              <option key={r} value={r} title={DESCRIPCION_ROL[r]}>
+                                {ETIQUETA_ROL[r]}
+                              </option>
+                            ))}
+                          </select>
+                        </TableCell>
+                        <TableCell>
+                          {/*
+                            `title={motivo}` explica por qué está deshabilitado —al
+                            último owner no se lo puede quitar—; el diálogo sólo
+                            aparece cuando la acción es posible.
+                          */}
+                          <span className="flex justify-end" title={motivo}>
+                            <BorrarConConfirmacion
+                              nombre={m.email}
+                              etiqueta={`Quitar a ${m.email}`}
+                              // `ultimo` no es «está ocupado» sino «no se puede»:
+                              // al último owner no se lo quita, y el motivo lo
+                              // explica el `title` de arriba. Deshabilitar es lo
+                              // mismo en los dos casos, pero perder esa condición
+                              // dejaría a la organización sin dueño.
+                              pendiente={ocupado || ultimo}
+                              que="Pierde el acceso a esta organización. Sus pedidos y cambios quedan como están."
+                              onConfirmar={() => quitar.mutate(m.userId)}
+                            />
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Tarjeta>
+
+      <Tarjeta>
+        <h2 className="text-sm font-medium">Qué puede cada rol</h2>
+        <dl className="mt-3 flex flex-col gap-2">
+          {ROLES.map((r) => (
+            <div key={r} className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
+              <dt className="w-32 shrink-0 text-sm font-medium">{ETIQUETA_ROL[r]}</dt>
+              <dd className="text-muted-foreground text-sm">{DESCRIPCION_ROL[r]}</dd>
+            </div>
+          ))}
+        </dl>
+      </Tarjeta>
+    </PaginaAdmin>
   );
 }
