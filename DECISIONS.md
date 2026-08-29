@@ -3243,3 +3243,46 @@ borra la corrida.
 `VITE_SUPABASE_URL` ni `VITE_SUPABASE_PUBLISHABLE_KEY`, así que el bundle salía
 mostrando la pantalla de «falta configuración». No lo notaba nadie porque nada
 probaba el Admin. El workflow ahora las exporta.
+
+---
+
+## ADR-088 — Las fotos se copian del proyecto del cliente, no se referencian
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+El ORDS no tiene imágenes: son once campos y ninguno es una URL. Las fotos de
+Estilo Sport están cargadas a mano en el Supabase de su tienda actual, así que
+el origen es ese proyecto y no el ERP.
+
+**Se copian al bucket propio en vez de apuntar al ajeno**, por dos razones que
+apuntan al mismo lado. La primera es de control: referenciar dejaría el catálogo
+colgando de un proyecto que no administramos, y el día que roten una clave o
+limpien un bucket el storefront se queda sin fotos. La segunda es medible:
+`image.remotePatterns` autoriza `product-media`, no `product-images`, así que una
+URL ajena **no se optimiza** — exactamente el problema que ADR-079 midió y que
+ADR-082 resolvió.
+
+Comprobado: el catálogo emite `/_image?…&w=1056&f=webp` y devuelve 42,5 KB donde
+el original pesa 49 KB.
+
+**El cruce es por `internal_code`**, que es el `codigo` de Oracle que los dos
+proyectos guardan: Pick en `products`, el otro en `product_variants`. Cruzan 100
+de 100; 75 tienen foto y 25 no la tienen tampoco en el origen.
+
+**La ruta de destino se deriva del código y la posición** —`{tenant}/erp/{codigo}-{n}.webp`—
+y no de un uuid. Con un nombre aleatorio, repetir la migración acumularía copias
+huérfanas en el bucket; derivándola, la segunda corrida sobrescribe en el mismo
+lugar. Verificado: dos corridas seguidas dejan 129 archivos y 129 filas.
+
+**Sobre la credencial.** Se lee con la `anon` del proyecto de origen, que no es un
+secreto —viaja en el browser de su tienda— pero cuya seguridad depende
+enteramente de RLS. Antes de usarla se comprobó desde afuera, que es el paso 1
+que el propio documento del cliente exige: el catálogo se lee y **ninguna** de
+las diez tablas sensibles devuelve una sola fila. No se probaron escrituras: una
+que saliera bien sería un cambio real en la base de un comercio vivo.
+
+Un detalle que costó un susto: con esa clave, las tablas sensibles responden
+**200 con un array vacío**, no un 403. Leer eso como «expuesta» es un falso
+positivo — es RLS filtrando, que es el comportamiento correcto. La exposición
+sería un 200 **con filas**.
