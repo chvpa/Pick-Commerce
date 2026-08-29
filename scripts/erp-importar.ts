@@ -329,9 +329,16 @@ async function main(): Promise<number> {
   let cruzadasPorCodigoErp = 0;
   let cruzadasPorTalla = 0;
 
-  /** El handle lleva el código de modelo: dos modelos pueden llamarse igual. */
+  /**
+   * El handle lleva el código de modelo: dos modelos pueden llamarse igual.
+   *
+   * El `slug` se aplica al conjunto, no sólo al título. Los códigos de modelo
+   * vienen en mayúsculas —`EVWG7K9P01`— y pegarlos crudos dejaba una URL
+   * sensible a mayúsculas: `…-dv9315010` daría 404 mientras `…-DV9315010`
+   * funciona. Pasó en 68 de los primeros 100 productos.
+   */
   function handleDe(p: ERPProduct): string {
-    return `${slug(p.title)}-${p.sku}`.slice(0, 120);
+    return slug(`${p.title} ${p.sku}`).slice(0, 120);
   }
 
   /**
