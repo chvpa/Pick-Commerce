@@ -1,12 +1,15 @@
-import type {
-  Banner,
-  CatalogQuery,
-  CatalogSort,
-  CategoriaCatalogo,
-  DefinicionFaceta,
-  RepositorioCatalogo,
-  ResultadoCatalogo,
-  SeccionDeHome,
+import {
+  columnasDe,
+  PRODUCTOS_POR_SECCION,
+  type Banner,
+  type CatalogQuery,
+  type CatalogSort,
+  type CategoriaCatalogo,
+  type DefinicionFaceta,
+  type LayoutDeSeccion,
+  type RepositorioCatalogo,
+  type ResultadoCatalogo,
+  type SeccionResuelta,
 } from '@pick/commerce-core';
 import type { Product, ProductImage } from '@pick/commerce-types';
 import type { PickSupabaseClient } from './client.ts';
@@ -88,45 +91,109 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
       return mapearResultadoCatalogo(data).items;
     },
 
-    async seccionesDeHome(storeId): Promise<readonly SeccionDeHome[]> {
-      const { data, error } = await db
-        .from('collections')
-        .select('title, subtitle, handle, sort')
-        .eq('store_id', storeId)
-        .eq('published', true)
-        .not('home_position', 'is', null)
-        .order('home_position');
+    async home(storeId): Promise<readonly SeccionResuelta[]> {
+      /*
+       * Dos consultas para todas las secciones y sus piezas, y después una por
+       * cada carrusel de productos.
+       *
+       * Las piezas no se piden sección por sección: son pocas y una tienda con
+       * cuatro bloques haría cinco viajes para traer diez filas. Los carruseles
+       * sí necesitan uno cada uno —cada colección es una consulta distinta— pero
+       * van en paralelo.
+       */
+      const [{ data: filas, error }, { data: piezas, error: errorPiezas }] = await Promise.all([
+        db
+          .from('home_sections')
+          .select('id, type, title, subtitle, layout, settings, collection_id')
+          .eq('store_id', storeId)
+          .eq('published', true)
+          .order('position'),
+        db
+          .from('banners')
+          .select('id, title, subtitle, image, image_mobile, href, cta_label, position, section_id')
+          .eq('store_id', storeId)
+          .eq('published', true)
+          .order('position'),
+      ]);
 
       if (error) throw new Error(`No se pudieron leer las secciones: ${error.message}`);
+      if (errorPiezas) throw new Error(`No se pudieron leer las piezas: ${errorPiezas.message}`);
 
-      return (data ?? []).map((c) => ({
-        title: c.title,
-        handle: c.handle,
-        ...(c.subtitle ? { subtitle: c.subtitle } : {}),
-        ...(c.sort ? { sort: c.sort as CatalogSort } : {}),
-      }));
-    },
+      const porSeccion = new Map<string, Banner[]>();
+      for (const b of piezas ?? []) {
+        if (!b.section_id) continue;
+        const lista = porSeccion.get(b.section_id) ?? [];
+        lista.push({
+          id: b.id,
+          title: b.title,
+          ...(b.subtitle ? { subtitle: b.subtitle } : {}),
+          image: b.image as unknown as ProductImage,
+          ...(b.image_mobile ? { imageMobile: b.image_mobile as unknown as ProductImage } : {}),
+          ...(b.href ? { href: b.href } : {}),
+          ...(b.cta_label ? { ctaLabel: b.cta_label } : {}),
+          position: b.position,
+          published: true,
+        });
+        porSeccion.set(b.section_id, lista);
+      }
 
-    async bannersPublicados(storeId): Promise<readonly Banner[]> {
-      const { data, error } = await db
-        .from('banners')
-        .select('id, title, subtitle, image, image_mobile, href, position')
-        .eq('store_id', storeId)
-        .eq('published', true)
-        .order('position');
+      // Las colecciones de los carruseles, para resolver cada una por su handle.
+      const idsDeColeccion = (filas ?? [])
+        .map((f) => f.collection_id)
+        .filter((id): id is string => Boolean(id));
 
-      if (error) throw new Error(`No se pudieron leer los banners: ${error.message}`);
+      const { data: colecciones } = idsDeColeccion.length
+        ? await db.from('collections').select('id, handle, sort').in('id', idsDeColeccion)
+        : { data: [] };
 
-      return (data ?? []).map((b) => ({
-        id: b.id,
-        title: b.title,
-        ...(b.subtitle ? { subtitle: b.subtitle } : {}),
-        image: b.image as unknown as ProductImage,
-        ...(b.image_mobile ? { imageMobile: b.image_mobile as unknown as ProductImage } : {}),
-        ...(b.href ? { href: b.href } : {}),
-        position: b.position,
-        published: true,
-      }));
+      const porColeccion = new Map((colecciones ?? []).map((c) => [c.id, c]));
+
+      return (
+        await Promise.all(
+          (filas ?? []).map(async (f): Promise<SeccionResuelta | null> => {
+            const settings = (f.settings ?? {}) as Record<string, string | number | boolean>;
+            const layout = f.layout as LayoutDeSeccion;
+
+            if (f.type === 'hero') {
+              return { kind: 'hero', id: f.id, layout, piezas: porSeccion.get(f.id) ?? [] };
+            }
+
+            if (f.type === 'tiles') {
+              return {
+                kind: 'tiles',
+                id: f.id,
+                ...(f.title ? { title: f.title } : {}),
+                ...(f.subtitle ? { subtitle: f.subtitle } : {}),
+                layout,
+                columns: columnasDe(settings),
+                piezas: porSeccion.get(f.id) ?? [],
+              };
+            }
+
+            if (f.type === 'categories') {
+              return { kind: 'categories', id: f.id, ...(f.title ? { title: f.title } : {}) };
+            }
+
+            const coleccion = f.collection_id ? porColeccion.get(f.collection_id) : undefined;
+            // Una sección de productos cuya colección se despublicó o se borró no
+            // se dibuja, en vez de dejar un encabezado sobre nada.
+            if (!coleccion) return null;
+
+            return {
+              kind: 'products',
+              id: f.id,
+              ...(f.title ? { title: f.title } : {}),
+              ...(f.subtitle ? { subtitle: f.subtitle } : {}),
+              productos: await this.porColeccion(
+                storeId,
+                coleccion.handle,
+                PRODUCTOS_POR_SECCION,
+                (coleccion.sort as CatalogSort | null) ?? undefined,
+              ),
+            };
+          }),
+        )
+      ).filter((s): s is SeccionResuelta => s !== null);
     },
 
     async categorias(storeId): Promise<readonly CategoriaCatalogo[]> {

@@ -1,5 +1,5 @@
 import type { Money, Product } from '@pick/commerce-types';
-import type { Banner, SeccionDeHome } from './content.ts';
+import type { SeccionResuelta } from './content.ts';
 
 /** Atributo o campo → valores seleccionados. Una faceta con varios valores es un OR. */
 export type CatalogFilters = Readonly<Record<string, readonly string[]>>;
@@ -301,11 +301,15 @@ export interface RepositorioCatalogo {
     sort?: CatalogSort,
   ): Promise<readonly Product[]>;
 
-  /** Las secciones que el comercio puso en la home, en orden. */
-  seccionesDeHome(storeId: string): Promise<readonly SeccionDeHome[]>;
-
-  /** Los banners publicados de la tienda, en orden. */
-  bannersPublicados(storeId: string): Promise<readonly Banner[]>;
+  /**
+   * La home entera, ya resuelta y en orden.
+   *
+   * Devuelve las secciones con su contenido dentro —piezas del hero, mosaicos,
+   * productos de cada carrusel— en vez de una lista que el storefront tenga que
+   * completar. Así la página dibuja y no decide, y cualquier storefront que use
+   * el Core obtiene la misma home sin repetir la orquestación.
+   */
+  home(storeId: string): Promise<readonly SeccionResuelta[]>;
   categorias(storeId: string): Promise<readonly CategoriaCatalogo[]>;
   /** Sólo las declaradas `filterable`: es lo que decide qué facetas ve la PLP. */
   facetasFiltrables(storeId: string): Promise<readonly DefinicionFaceta[]>;

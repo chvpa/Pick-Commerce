@@ -138,12 +138,14 @@ export type Database = {
       banners: {
         Row: {
           created_at: string
+          cta_label: string | null
           href: string | null
           id: string
           image: Json
           image_mobile: Json | null
           position: number
           published: boolean
+          section_id: string | null
           store_id: string
           subtitle: string | null
           tenant_id: string
@@ -152,12 +154,14 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          cta_label?: string | null
           href?: string | null
           id?: string
           image: Json
           image_mobile?: Json | null
           position?: number
           published?: boolean
+          section_id?: string | null
           store_id: string
           subtitle?: string | null
           tenant_id: string
@@ -166,12 +170,14 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          cta_label?: string | null
           href?: string | null
           id?: string
           image?: Json
           image_mobile?: Json | null
           position?: number
           published?: boolean
+          section_id?: string | null
           store_id?: string
           subtitle?: string | null
           tenant_id?: string
@@ -179,6 +185,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "banners_section_id_fkey"
+            columns: ["section_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "home_sections"
+            referencedColumns: ["id", "tenant_id"]
+          },
           {
             foreignKeyName: "banners_store_id_fkey"
             columns: ["store_id", "tenant_id"]
@@ -511,6 +524,76 @@ export type Database = {
           },
           {
             foreignKeyName: "feature_flags_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      home_sections: {
+        Row: {
+          collection_id: string | null
+          created_at: string
+          id: string
+          layout: string
+          position: number
+          published: boolean
+          settings: Json
+          store_id: string
+          subtitle: string | null
+          tenant_id: string
+          title: string | null
+          type: Database["public"]["Enums"]["home_section_type"]
+          updated_at: string
+        }
+        Insert: {
+          collection_id?: string | null
+          created_at?: string
+          id?: string
+          layout?: string
+          position?: number
+          published?: boolean
+          settings?: Json
+          store_id: string
+          subtitle?: string | null
+          tenant_id: string
+          title?: string | null
+          type: Database["public"]["Enums"]["home_section_type"]
+          updated_at?: string
+        }
+        Update: {
+          collection_id?: string | null
+          created_at?: string
+          id?: string
+          layout?: string
+          position?: number
+          published?: boolean
+          settings?: Json
+          store_id?: string
+          subtitle?: string | null
+          tenant_id?: string
+          title?: string | null
+          type?: Database["public"]["Enums"]["home_section_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "home_sections_collection_id_fkey"
+            columns: ["collection_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "home_sections_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "home_sections_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1535,6 +1618,7 @@ export type Database = {
       }
     }
     Enums: {
+      home_section_type: "hero" | "tiles" | "products" | "categories"
       member_role: "owner" | "admin" | "staff" | "viewer"
       order_status:
         | "received"
@@ -1675,6 +1759,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      home_section_type: ["hero", "tiles", "products", "categories"],
       member_role: ["owner", "admin", "staff", "viewer"],
       order_status: [
         "received",

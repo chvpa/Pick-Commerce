@@ -20,6 +20,7 @@
     "./content/Hero.astro": "./src/content/Hero.astro",
     "./content/Banner.astro": "./src/content/Banner.astro",
     "./content/AnnouncementBar.astro": "./src/content/AnnouncementBar.astro",
+    "./content/HeroSlider.astro": "./src/content/HeroSlider.astro",
     "./content/CategorySection.astro": "./src/content/CategorySection.astro",
     "./product/ProductCarousel.astro": "./src/product/ProductCarousel.astro",
     "./catalog/FacetAccordion.astro": "./src/catalog/FacetAccordion.astro",

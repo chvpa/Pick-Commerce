@@ -63,6 +63,15 @@ async function hidratada(page: import('@playwright/test').Page) {
 
 test('Home → PLP → PDP y vuelta, sin errores', async ({ page }) => {
   await page.goto('/');
+  /*
+   * La home tiene **exactamente un** `h1`, y no se afirma sobre su texto: la
+   * portada la compone el comercio con sus secciones, así que el copy cambia sin
+   * que eso sea una regresión. Lo que sí lo sería es quedarse sin encabezado,
+   * que fue lo que pasó al sacar el hero fijo de `index.astro`: una página sin
+   * `h1` es una página sin título para un lector de pantalla y para un buscador.
+   */
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+  // Y el hero que siembra la demo se ve.
   await expect(page.getByRole('heading', { name: /ropa técnica/i })).toBeVisible();
 
   await page.getByRole('link', { name: 'Catálogo', exact: true }).first().click();

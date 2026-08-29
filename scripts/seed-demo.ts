@@ -5,6 +5,8 @@ import {
   ATRIBUTOS,
   CATEGORIAS,
   COLECCIONES,
+  SECCIONES,
+  PIEZAS,
   COLECCION_PRODUCTOS,
   CONFIGURACION,
   IDS,
@@ -135,5 +137,8 @@ await upsert('product_media', MEDIA_CON_URL);
 await upsert('inventory_levels', INVENTARIO);
 await upsert('collections', COLECCIONES);
 await upsert('collection_products', COLECCION_PRODUCTOS, 'collection_id,product_id');
+// La portada: las secciones antes que sus piezas, que cuelgan de ellas.
+await upsert('home_sections', SECCIONES);
+await upsert('banners', PIEZAS);
 
 console.log('Seed ok.');

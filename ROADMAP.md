@@ -427,11 +427,13 @@ B no**. La A está cerrada; la B es el CMS.
 **Etapa B — CMS**
 
 - [x] banners desktop/mobile. Imagen propia para teléfono, opcional: sin ella se
-      usa la de escritorio. El texto va **fuera** de la foto y no encima, para no
-      necesitar un velo que apague la imagen que el comercio eligió.
+      usa la de escritorio. Dos formas, y el vocabulario quedó fijo en ADR-094:
+      el **hero** es la pieza grande de arriba —con varias, un slideshow por
+      scroll-snap sin JavaScript— y los **tiles** son los avisos secundarios de
+      más abajo, en grilla o carrusel.
 - [x] banner links a colección/producto/ruta. `href` es una ruta y no una
       referencia: un banner puede apuntar a una página que no es ninguna de las
-      tres.
+      tres. Con `cta_label` la pieza dibuja un botón; sin él, enlaza entera.
 - [x] category image/icon. La columna existía desde la Fase 4 y la home ya la
       leía; lo que faltaba era la pantalla, y con ella el alta y edición de
       categorías, que hasta ahora sólo se podían elegir.
@@ -439,6 +441,10 @@ B no**. La A está cerrada; la B es el CMS.
       colección cada una —manual la primera, dinámicas las otras dos con su
       orden—. `newest` y `best-selling` sumados a `CatalogSort` en las dos
       implementaciones, así que la paridad de ADR-055 sigue en pie. ADR-093.
+- [x] La portada se compone por **secciones** ordenadas, cada una con su tipo y
+      su layout. No estaba en la lista original: apareció al usar lo anterior, y
+      corrige el modelo de ADR-093, que servía para los carruseles de productos y
+      no para el hero ni los avisos. ADR-094.
 - [x] manual/dynamic collections en CMS. Las dinámicas eran lo que ADR-056 dejó
       anticipado y sin implementar: `rules` tiene la forma de `CatalogFilters` y
       la resuelve el mismo `catalog_search`.
@@ -767,6 +773,9 @@ caso que prueba de verdad si el contrato abstrae (ADR-084).
 | 2026-08-29 | El carrito mostraba el precio de lista mientras el catálogo mostraba el rebajado | Lo introduje yo al conectar las promociones al catálogo: la PLP decía 120.000 con un 20 % activo, el carrito 150.000 porque leía `product_variants.price` a secas, y `create_order` cobraba 120.000. Tres números para lo mismo, y el del medio es el que el comprador mira antes de decidir | El endpoint del carrito dejó de sumar por su cuenta y toma el dinero de `cart_promotions`, la misma función que usa el pedido. Un solo cálculo no puede divergir de sí mismo. ADR-092 | Fase 9 | Resuelto |
 | 2026-08-29 | El comentario que justificaba `numeric` en vez de float estaba equivocado | Decía que era por pérdida de precisión. El sabotaje lo desmintió: con float pasaba igual. El motivo real es que `round(float8)` de Postgres redondea al par y `round(numeric)` se aleja del cero, como `Math.round` del core. Además destapó que el escenario de paridad no tenía ningún caso que cayera justo en la mitad, así que no probaba nada | Comprobado con las dos formas sobre los mismos valores antes de reescribirlo, y el escenario cambiado por un precio cuyo descuento cae en 13.498,5. ADR-091 | Fase 9 | Resuelto |
 | 2026-08-29 | Di la sección de promociones por terminada sin desplegar el Admin              | El storefront sale a producción con cada push, pero el Admin no tiene Workers Builds y se despliega a mano. Build, typecheck y Playwright estaban en verde —los tres corren contra el local—, así que nada avisó: la pantalla existía en el repo y no para quien la iba a usar. Lo encontró el usuario, no la verificación | Desplegado y comprobado sobre el bundle en línea. La regla quedó en `CLAUDE.md`, junto a las otras de verificación. El arreglo de fondo es darle Workers Builds al Admin, que INFRAESTRUCTURA §10 ya lista como pendiente | Fase 9 | Resuelto |
+| 2026-08-29 | Cambiar de tienda no cerraba el formulario abierto                              | Con un editor de contenido abierto, cambiar de tienda dejaba el formulario mostrando el registro de la anterior sobre una lista ya actualizada —las consultas sí llevan el id de la tienda en su clave— y guardarlo lo habría escrito en la tienda nueva. Lo reportó el usuario; leyendo el código parecía imposible, y se encontró reproduciéndolo con Playwright | `key={tienda.id}` en el `Outlet` del Admin: la pantalla se remonta y su estado local se va con ella. Va en la cáscara y no pantalla por pantalla porque el riesgo es de todas. ADR-095 | Fase 9 | Resuelto |
+| 2026-08-29 | La home se quedó sin `h1` al sacar el hero fijo                                 | Los títulos de las secciones son `h2` y deben seguir siéndolo, así que la portada quedó sin encabezado: sin título para un lector de pantalla y para un buscador. Lo agarró el smoke de navegación, que afirmaba sobre el texto del hero viejo | `h1` oculto con el nombre de la tienda, y el smoke pasa a exigir **exactamente uno** sin mirar su texto: el copy de la portada lo decide el comercio y cambiarlo no puede ser una regresión | Fase 9 | Resuelto |
+| 2026-08-29 | «Banner» nombraba dos cosas distintas                                          | La barra de anuncio, el hero y los mosaicos se llamaban todos «banner», así que no había forma de pedir uno sin el otro: se entregó el bloque de avisos creyendo que era el banner principal | Vocabulario fijado en ADR-094 —hero, slide, tiles, sections— con los términos de la industria, y el componente de la barra renombrado a `AnnouncementBar` | Fase 9 | Resuelto |
 | 2026-08-29 | El test de la firma adulterada pasaba por suerte un 6 % de las veces          | Adulteraba el **último** carácter de la firma, y ahí sobran dos bits: `A`, `B`, `C` y `D` decodifican a los mismos 32 bytes. Cuando el token terminaba en uno de esos, el «adulterado» era el mismo token y el webhook lo aceptaba con razón. Apareció como un fallo intermitente en una corrida de la Fase 9, sin relación con lo que se estaba tocando | Se adultera el primer carácter de la firma, que siempre cambia los bytes, y se afirma que el token cambió antes de mandarlo. La proporción está medida, no estimada. El verificador no se toca: acepta base64 no canónico, pero eso no permite forjar una firma que no se conozca | Fase 7 | Resuelto |
 | 2026-08-29 | Las funciones nuevas del schema `app` no tenían grant                          | El `grant execute on all functions in schema app` de la Fase 3 es una foto del momento y no alcanza a las creadas después; `service_role` además nunca tuvo `usage` sobre ese schema. El síntoma aparecía al crear un pedido, no al aplicar la migración | Grant explícito por función. Queda como precedente: en este repo, una función nueva de `app` lleva su grant al lado | Fase 9 | Resuelto |
 | 2026-08-29 | No existe ningún costo de envío en el sistema                                  | `orders` guarda `total_amount` y nada de envío, así que el `free shipping` de la Fase 9 no tiene qué descontar. PROJECT.md §13 sí lo pide entre lo que el pedido debe conservar | Fuera de scope de la Fase 9, registrado. Necesita una feature de envíos —zonas, tarifas, métodos— que hoy no está en ninguna fase y habría que ubicar antes del piloto | Fase 12 | Pendiente |
@@ -892,6 +901,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-29 | El catálogo muestra el precio efectivo —incluido `lowest`, que gobierna el filtro y el orden por precio— y el carrito y el checkout toman el dinero de la misma función que el pedido, con desglose y campo de cupón                          | Fase 9 |          35% |            50% |
 | 2026-08-29 | Etapa A cerrada: el Admin crea campañas sin código, con preview de alcance y gating por `promotion.write`. Verificado de punta a punta contra la tienda de Estilo Sport                                                                      | Fase 9 |          50% |            60% |
 | 2026-08-29 | Fase 9 cerrada. Etapa B: las secciones de la home son colecciones —manual o dinámica, que es una consulta guardada—, más banners y la pantalla de categorías. `newest` y `best-selling` en las dos implementaciones. ADR-093                | Fase 9 |          60% |           100% |
+| 2026-08-29 | La portada pasa a componerse por **secciones** con tipo y layout: banner principal con slides, avisos, carruseles y categorías, todo ordenable. Corrige el modelo de ADR-093, que sólo servía para los carruseles. ADR-094                  | Fase 9 |         100% |           100% |
 
 ---
 

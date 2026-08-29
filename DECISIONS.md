@@ -3549,6 +3549,10 @@ migración, que es exactamente la clase de fallo que la migración sola no desta
 
 ## ADR-093 — Las secciones de la home son colecciones, no un modelo aparte
 
+> **Superseded en parte por ADR-094.** El acierto —no inventar tres tipos de
+> sección para tres carruseles de productos— se conserva. El error fue creer que
+> *toda* sección es una colección: un hero no lo es, y los mosaicos tampoco.
+
 **Fecha:** 2026-08-29
 **Estado:** Accepted
 
@@ -3630,3 +3634,111 @@ de crear. Pasó a la URL. Y el primer formulario rellenaba sus campos con un
 efecto al llegar la consulta: el compilador de React lo rechaza, y con razón —
 además de encadenar renders, mostraba el formulario vacío sobre una colección
 que existía. Ahora los campos se montan con el dato ya puesto.
+
+---
+
+## ADR-094 — La home se compone por secciones, y el vocabulario queda fijo
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted. **Corrige ADR-093.**
+
+**Contexto**
+ADR-093 decidió que «una sección de la home es una colección». Al usarlo apareció
+que eso alcanza para los carruseles de productos y **no** para el resto: el
+usuario pidió poder administrar «el banner principal, el que se ve al entrar,
+con título, subtítulo y botón; y si son varios, que pasen como slides». Un hero
+no es una colección, y el bloque de avisos que se había construido tampoco.
+
+Además el pedido destapó que **el vocabulario estaba mezclado**. «Banner» se
+estaba usando para dos cosas distintas, así que no había forma de pedir una sin
+la otra.
+
+**El vocabulario, que es media decisión**
+
+| Nombre | Qué es |
+|---|---|
+| **hero** | La pieza grande de arriba, con título, bajada y botón |
+| **slide** | Cada pieza de un hero con varias. El conjunto es un *slideshow* |
+| **tiles** | Mosaicos promocionales: los avisos secundarios de más abajo |
+| **sections** | Los bloques ordenados que componen la portada, cada uno con su tipo |
+
+Son los términos de la industria —Shopify los llama «slideshow» y «sections»— y
+no una invención local: alguien que viene de otra plataforma los reconoce.
+
+**Decisión**
+`home_sections` es el contenedor ordenado. Cada fila tiene un `type` —`hero`,
+`tiles`, `products`, `categories`—, un `layout` —`static` o `slider`— y sus
+`settings`. Las piezas gráficas viven en `banners` con `section_id`.
+
+Lo que ADR-093 acertó se conserva: `products` es **un** tipo que apunta a una
+colección, manual o dinámica. No hay un tipo por cada carrusel.
+
+**Un slide y un mosaico son la misma fila**
+Los dos llevan imagen, título, bajada y enlace; lo que cambia es el tipo de la
+sección que los contiene. Dos tablas habrían duplicado el formulario, la subida
+de imagen y la política de Storage para no ganar nada. `cta_label` es lo único
+que los distingue en el dato: con él la pieza dibuja un botón, sin él el bloque
+entero es el enlace.
+
+**El slideshow no rota solo, y es deliberado**
+Va por scroll-snap con puntos de navegación que son anclas, sin una línea de
+JavaScript, igual que el carrusel de productos y la galería del PDP (ADR-038).
+Auto-avanzar exigiría una island en la home, que es la página más liviana del
+sitio y tiene presupuesto medido; y un hero que se mueve encima de quien está
+leyendo es un problema de accesibilidad conocido antes que una preferencia. Si
+un cliente lo pide, se agrega como island opt-in respetando
+`prefers-reduced-motion`, que es lo que el repo exige para todo lo que se mueve.
+
+**Lo que esto sacó del código**
+El hero de la demo estaba escrito en `index.astro` con su imagen y su texto, y
+`COLECCION_DESTACADA` fijaba qué colección se destacaba. Media portada era una
+constante: cambiarla exigía desplegar, y toda tienda tenía la vidriera que ese
+archivo dijera. Ahora `index.astro` **dibuja y no decide**, y el contenido de la
+demo se siembra como datos.
+
+**El `h1` que se perdió al hacerlo**
+Sacar el hero fijo dejó la home **sin ningún `h1`**: los títulos de las secciones
+son `h2` y deben seguir siéndolo. Una página sin encabezado es una página sin
+título para un lector de pantalla y para un buscador. La home lleva ahora un
+`h1` oculto con el nombre de la tienda, y el smoke afirma que hay exactamente
+uno **sin mirar su texto**: el copy de la portada lo decide el comercio y
+cambiarlo no puede ser una regresión.
+
+**La migración conserva lo cargado**
+Los banners que ya existían se dibujaban en grilla debajo del hero, así que eso
+eran: mosaicos. Se les crea su sección en vez de dejarlos huérfanos —un banner
+sin sección no lo mostraría nadie—. Las colecciones con `home_position` pasan a
+secciones `products` con su orden. Borrar el trabajo de alguien por un cambio de
+modelo no es una migración.
+
+---
+
+## ADR-095 — La pantalla se remonta al cambiar de tienda
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+**Contexto**
+El usuario reportó que al cambiar de tienda en la sección de Contenido seguía
+viendo el contenido de la anterior. Las consultas llevan el id de la tienda en su
+clave, así que las listas **sí** se rehacían; el reporte parecía imposible
+leyendo el código.
+
+Reproducido con Playwright: con un formulario de edición abierto, cambiar de
+tienda dejaba el formulario intacto, mostrando el registro de la tienda anterior
+sobre una lista ya actualizada. Y guardarlo lo habría escrito en la tienda nueva.
+
+**Decisión**
+El `<Outlet>` del Admin lleva `key={tienda.id}`: la pantalla se **remonta** al
+cambiar de tienda y todo su estado local se va con ella.
+
+**Por qué ahí y no en cada pantalla**
+El riesgo es de todas: cualquier borrador, filtro o selección abierta pertenece a
+una tienda. Resetearlo pantalla por pantalla exige acordarse en cada pantalla
+nueva, y es exactamente la clase de cosa que se olvida. Una línea en la cáscara
+cubre las que hay y las que vengan.
+
+**La lección de método**
+No se encontró leyendo: se encontró reproduciéndolo. El código «se veía
+correcto» porque la parte que fallaba —estado local que sobrevive a un cambio de
+contexto— no está escrita en ningún lado; es lo que React hace por defecto.

@@ -4,7 +4,10 @@ import type {
   CatalogSort,
   CategoriaAdmin,
   Coleccion,
+  LayoutDeSeccion,
   RepositorioContenido,
+  SeccionDeHome,
+  TipoDeSeccion,
 } from '@pick/commerce-core';
 import type { ProductImage } from '@pick/commerce-types';
 import type { PickSupabaseClient } from './client.ts';
@@ -50,7 +53,8 @@ function aColeccion(f: FilaColeccion, productIds?: readonly string[]): Coleccion
 }
 
 const COLUMNAS_COLECCION = 'id, title, handle, subtitle, published, home_position, sort, rules';
-const COLUMNAS_BANNER = 'id, title, subtitle, image, image_mobile, href, position, published';
+const COLUMNAS_BANNER =
+  'id, title, subtitle, image, image_mobile, href, cta_label, position, published, section_id';
 
 export function repositorioContenido(db: PickSupabaseClient): RepositorioContenido {
   return {
@@ -158,16 +162,81 @@ export function repositorioContenido(db: PickSupabaseClient): RepositorioConteni
       if (error) throw new Error(`No se pudo borrar la colección: ${error.message}`);
     },
 
-    // --- Banners -------------------------------------------------------------
+    // --- Secciones -----------------------------------------------------------
 
-    async banners(storeId): Promise<readonly Banner[]> {
+    async secciones(storeId): Promise<readonly SeccionDeHome[]> {
+      const { data, error } = await db
+        .from('home_sections')
+        .select('id, type, title, subtitle, layout, settings, collection_id, position, published')
+        .eq('store_id', storeId)
+        .order('position');
+
+      if (error) throw new Error(`No se pudieron leer las secciones: ${error.message}`);
+
+      return (data ?? []).map((s) => ({
+        id: s.id,
+        type: s.type as TipoDeSeccion,
+        ...(s.title ? { title: s.title } : {}),
+        ...(s.subtitle ? { subtitle: s.subtitle } : {}),
+        layout: s.layout as LayoutDeSeccion,
+        settings: (s.settings ?? {}) as Record<string, string | number | boolean>,
+        ...(s.collection_id ? { collectionId: s.collection_id } : {}),
+        position: s.position,
+        published: s.published,
+      }));
+    },
+
+    async guardarSeccion(storeId, datos, id): Promise<string> {
+      const fila = {
+        tenant_id: await tenantDe(db, storeId),
+        store_id: storeId,
+        type: datos.type,
+        title: datos.title ?? null,
+        subtitle: datos.subtitle ?? null,
+        layout: datos.layout,
+        settings: { ...datos.settings },
+        // El check de la base exige colección si y sólo si el tipo es `products`.
+        collection_id: datos.type === 'products' ? (datos.collectionId ?? null) : null,
+        position: datos.position,
+        published: datos.published,
+        updated_at: new Date().toISOString(),
+      };
+
+      const consulta = id
+        ? db.from('home_sections').update(fila).eq('id', id).eq('store_id', storeId).select('id')
+        : db.from('home_sections').insert(fila).select('id');
+
+      const { data, error } = await consulta.single();
+      if (error) {
+        if (error.message.includes('home_sections_coleccion_coherente')) {
+          throw new Error('Un carrusel de productos necesita una colección.');
+        }
+        throw new Error(`No se pudo guardar la sección: ${error.message}`);
+      }
+      return data.id;
+    },
+
+    async borrarSeccion(storeId, id): Promise<void> {
+      // Las piezas se van en cascada: pertenecen a la sección, no a la tienda.
+      const { error } = await db
+        .from('home_sections')
+        .delete()
+        .eq('id', id)
+        .eq('store_id', storeId);
+      if (error) throw new Error(`No se pudo borrar la sección: ${error.message}`);
+    },
+
+    // --- Piezas (slides del hero y mosaicos) ---------------------------------
+
+    async piezas(storeId, sectionId): Promise<readonly Banner[]> {
       const { data, error } = await db
         .from('banners')
         .select(COLUMNAS_BANNER)
         .eq('store_id', storeId)
+        .eq('section_id', sectionId)
         .order('position');
 
-      if (error) throw new Error(`No se pudieron leer los banners: ${error.message}`);
+      if (error) throw new Error(`No se pudieron leer las piezas: ${error.message}`);
 
       return (data ?? []).map((b) => ({
         id: b.id,
@@ -176,25 +245,24 @@ export function repositorioContenido(db: PickSupabaseClient): RepositorioConteni
         image: b.image as unknown as ProductImage,
         ...(b.image_mobile ? { imageMobile: b.image_mobile as unknown as ProductImage } : {}),
         ...(b.href ? { href: b.href } : {}),
+        ...(b.cta_label ? { ctaLabel: b.cta_label } : {}),
         position: b.position,
         published: b.published,
+        ...(b.section_id ? { sectionId: b.section_id } : {}),
       }));
-    },
-
-    async banner(storeId, id): Promise<Banner | null> {
-      const todos = await this.banners(storeId);
-      return todos.find((b) => b.id === id) ?? null;
     },
 
     async guardarBanner(storeId, datos, id): Promise<string> {
       const fila = {
         tenant_id: await tenantDe(db, storeId),
         store_id: storeId,
+        section_id: datos.sectionId ?? null,
         title: datos.title,
         subtitle: datos.subtitle ?? null,
         image: { ...datos.image },
         image_mobile: datos.imageMobile ? { ...datos.imageMobile } : null,
         href: datos.href ?? null,
+        cta_label: datos.ctaLabel ?? null,
         position: datos.position,
         published: datos.published,
         updated_at: new Date().toISOString(),

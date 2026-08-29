@@ -57,6 +57,10 @@ const FormularioPromocion = pantalla<{ id?: string }>(
   'FormularioPromocion',
 );
 const Contenido = pantalla(() => import('@/features/contenido/Contenido'), 'Contenido');
+const FormularioSeccion = pantalla<{ id?: string }>(
+  () => import('@/features/contenido/FormularioSeccion'),
+  'FormularioSeccion',
+);
 const FormularioColeccion = pantalla<{ id?: string }>(
   () => import('@/features/contenido/FormularioColeccion'),
   'FormularioColeccion',
@@ -173,7 +177,22 @@ function Cascara() {
               </p>
             }
           >
-            <Outlet />
+            {/*
+              La pantalla se **remonta** al cambiar de tienda.
+
+              Sin la `key`, todo lo que una pantalla guarda en estado local
+              sobrevive al cambio: un formulario de banner abierto seguía
+              mostrando el registro de la tienda anterior, y guardarlo lo habría
+              escrito en la nueva. Las consultas sí se rehacían —llevan el id de
+              la tienda en su clave— así que la lista de abajo decía una cosa y
+              el formulario de arriba otra.
+
+              Va acá y no en cada pantalla porque el riesgo es de todas: cualquier
+              borrador, filtro o selección abierta pertenece a una tienda, y
+              acordarse de resetearlo pantalla por pantalla es la clase de cosa
+              que se olvida en la próxima.
+            */}
+            <Outlet key={tienda.id} />
           </Suspense>
         </div>
       </SidebarInset>
@@ -292,6 +311,29 @@ const contenidoRoute = createRoute({
   component: Contenido,
 });
 
+const seccionNuevaRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/contenido/secciones/nueva',
+  component: () => (
+    <Gate permiso="catalog.write">
+      <FormularioSeccion />
+    </Gate>
+  ),
+});
+
+const seccionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/contenido/secciones/$id',
+  component: function Seccion() {
+    const { id } = seccionRoute.useParams();
+    return (
+      <Gate permiso="catalog.write">
+        <FormularioSeccion id={id} />
+      </Gate>
+    );
+  },
+});
+
 const coleccionNuevaRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/contenido/colecciones/nueva',
@@ -362,6 +404,8 @@ const arbol = rootRoute.addChildren([
   promocionNuevaRoute,
   promocionRoute,
   contenidoRoute,
+  seccionNuevaRoute,
+  seccionRoute,
   coleccionNuevaRoute,
   coleccionRoute,
   clientesRoute,

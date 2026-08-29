@@ -1,0 +1,127 @@
+---
+import { Image } from 'astro:assets';
+import type { Banner } from '@pick/commerce-core';
+import { buttonVariants, cn } from '@pick/commerce-ui';
+
+interface Props {
+  piezas: readonly Banner[];
+  /** `slider` deja pasar los slides de a uno; `static` los apila. */
+  layout: 'static' | 'slider';
+  /** Para que los `id` de los slides no choquen si hay dos heros. */
+  id: string;
+  class?: string;
+}
+
+const { piezas, layout, id, class: className } = Astro.props;
+const esSlider = layout === 'slider' && piezas.length > 1;
+---
+
+{
+  /*
+  Slideshow por scroll-snap, sin JavaScript, igual que el carrusel de productos
+  y la galería del PDP (ADR-038). El scroll horizontal es nativo en touch y
+  trackpad, el contenedor es focusable para el teclado, y los puntos de abajo son
+  anclas: `#slide-2` lleva al slide 2 sin una línea de script.
+
+  **No hay auto-avance, y es deliberado.** Exigiría una island en la home, que
+  hoy es la página más liviana del sitio y tiene su presupuesto medido; y un hero
+  que se mueve solo se lleva puesto a quien está leyendo, que es un problema de
+  accesibilidad conocido antes que una preferencia. Si un cliente lo pide, se
+  agrega como island opt-in respetando `prefers-reduced-motion`, que es lo que
+  manda el repo para todo lo que se mueve.
+*/
+}
+<section
+  class={cn('flex flex-col gap-3', className)}
+  aria-roledescription={esSlider ? 'carrusel' : undefined}
+  aria-label={esSlider ? 'Destacados de la tienda' : undefined}
+>
+  <div
+    id={id}
+    {...esSlider ? { role: 'group', tabindex: '0' } : {}}
+    class={cn(
+      esSlider
+        ? [
+            'flex snap-x snap-mandatory overflow-x-auto scroll-smooth motion-reduce:scroll-auto',
+            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+            '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+          ]
+        : 'flex flex-col gap-4',
+      'rounded-lg',
+    )}
+  >
+    {
+      piezas.map((pieza, i) => (
+        <article
+          id={`${id}-${i}`}
+          class={cn(
+            'relative isolate overflow-hidden rounded-lg bg-surface-sunken',
+            esSlider && 'w-full shrink-0 snap-center',
+          )}
+          aria-label={esSlider ? `${i + 1} de ${piezas.length}` : undefined}
+        >
+          <picture>
+            {pieza.imageMobile && (
+              <source media="(min-width: 640px)" srcset={pieza.image.url} />
+            )}
+            <Image
+              src={(pieza.imageMobile ?? pieza.image).url}
+              alt={(pieza.imageMobile ?? pieza.image).alt}
+              width={(pieza.imageMobile ?? pieza.image).width}
+              height={(pieza.imageMobile ?? pieza.image).height}
+              layout="full-width"
+              sizes="100vw"
+              loading={i === 0 ? 'eager' : 'lazy'}
+              fetchpriority={i === 0 ? 'high' : 'auto'}
+              decoding="async"
+              class="absolute inset-0 -z-10 h-full w-full object-cover"
+            />
+          </picture>
+
+          {/* Velo sólo acá, donde el texto va encima de la foto: es un hero y
+              esa es su forma. En los mosaicos el texto va debajo justamente
+              para no necesitarlo. Sin gradient decorativo — ADR-027. */}
+          <div class="absolute inset-0 -z-10 bg-black/40" aria-hidden="true"></div>
+
+          <div class="flex flex-col items-start gap-4 px-6 py-20 text-white sm:px-10 sm:py-28">
+            <h2 class="font-display max-w-lg text-3xl font-semibold sm:text-4xl">{pieza.title}</h2>
+            {pieza.subtitle && <p class="max-w-lg text-sm sm:text-base">{pieza.subtitle}</p>}
+            {
+              /* Con texto de botón se dibuja un botón; sin él, y con enlace, el
+                 título entero lleva. Un hero sin `href` es sólo una imagen con
+                 texto, que también es un uso válido. */
+            }
+            {pieza.href && pieza.ctaLabel && (
+              <a href={pieza.href} class={buttonVariants({ size: 'lg' })}>
+                {pieza.ctaLabel}
+              </a>
+            )}
+            {pieza.href && !pieza.ctaLabel && (
+              <a
+                href={pieza.href}
+                class="text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                Ver más
+              </a>
+            )}
+          </div>
+        </article>
+      ))
+    }
+  </div>
+
+  {
+    esSlider && (
+      <nav aria-label="Ir a un destacado" class="flex justify-center gap-2">
+        {piezas.map((pieza, i) => (
+          <a
+            href={`#${id}-${i}`}
+            class="cursor-pointer rounded-full border border-border-strong p-1.5 transition-colors hover:bg-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            <span class="sr-only">{`Ir a ${pieza.title}`}</span>
+          </a>
+        ))}
+      </nav>
+    )
+  }
+</section>

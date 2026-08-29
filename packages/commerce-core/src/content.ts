@@ -2,13 +2,16 @@ import type { ProductImage } from '@pick/commerce-types';
 import type { CatalogFilters, CatalogSort } from './catalog.ts';
 
 /**
- * Lo que el comercio cura: colecciones, banners y categorías.
+ * Lo que el comercio cura: la home y lo que la llena.
  *
- * Las tres secciones que el ROADMAP pide para la home —destacados, novedades,
- * más vendidos— **no son tres cosas distintas**: son una colección cada una.
- * Destacados es manual, las otras dos son dinámicas con su orden. Un modelo de
- * «secciones» aparte habría dado tres formas de decir lo mismo y el comercio
- * tendría que aprender cuál usar cuándo.
+ * La home se compone por **secciones** ordenadas, cada una con su tipo: el hero
+ * de arriba, los mosaicos promocionales, los carruseles de productos y la tira
+ * de categorías. Ver `TipoDeSeccion` más abajo, que es donde queda fijado el
+ * vocabulario.
+ *
+ * Dentro de eso, los carruseles siguen siendo **colecciones**: destacados es una
+ * manual, novedades y más vendidos son dinámicas con su orden. Eso no cambió y
+ * es lo que evita tres tipos de sección para tres carruseles.
  */
 
 /** Manual: lista explícita. Dinámica: consulta guardada (ADR-056). */
@@ -34,6 +37,14 @@ export function tipoDe(c: Pick<Coleccion, 'rules'>): TipoDeColeccion {
   return c.rules ? 'dinamica' : 'manual';
 }
 
+/**
+ * Una pieza gráfica: un slide del hero o un mosaico promocional.
+ *
+ * Es la **misma fila** en los dos casos; lo que cambia es el tipo de la sección
+ * que la contiene. Un slide y un mosaico llevan lo mismo —imagen, título,
+ * bajada, enlace— y separarlos en dos tablas habría duplicado el formulario, la
+ * subida de imagen y la política de Storage para ganar nada.
+ */
 export interface Banner {
   readonly id: string;
   readonly title: string;
@@ -41,10 +52,17 @@ export interface Banner {
   readonly image: ProductImage;
   /** Propia para teléfono. Ausente = se usa la de escritorio. */
   readonly imageMobile?: ProductImage;
-  /** Ruta del storefront. Ausente = el banner no enlaza a ninguna parte. */
+  /** Ruta del storefront. Ausente = la pieza no enlaza a ninguna parte. */
   readonly href?: string;
+  /**
+   * Texto del botón. Con él la pieza dibuja un botón —lo típico de un hero—;
+   * sin él, el bloque entero es el enlace, que es lo típico de un mosaico.
+   */
+  readonly ctaLabel?: string;
   readonly position: number;
   readonly published: boolean;
+  /** La sección que la contiene. */
+  readonly sectionId?: string;
 }
 
 export interface CategoriaAdmin {
@@ -75,8 +93,12 @@ export interface RepositorioContenido {
   guardarColeccion(storeId: string, datos: DatosDeColeccion, id?: string): Promise<string>;
   borrarColeccion(storeId: string, id: string): Promise<void>;
 
-  banners(storeId: string): Promise<readonly Banner[]>;
-  banner(storeId: string, id: string): Promise<Banner | null>;
+  secciones(storeId: string): Promise<readonly SeccionDeHome[]>;
+  guardarSeccion(storeId: string, datos: DatosDeSeccion, id?: string): Promise<string>;
+  borrarSeccion(storeId: string, id: string): Promise<void>;
+
+  /** Las piezas de una sección, en orden. */
+  piezas(storeId: string, sectionId: string): Promise<readonly Banner[]>;
   guardarBanner(storeId: string, datos: DatosDeBanner, id?: string): Promise<string>;
   borrarBanner(storeId: string, id: string): Promise<void>;
 
@@ -84,19 +106,98 @@ export interface RepositorioContenido {
   guardarCategoria(storeId: string, datos: DatosDeCategoria, id?: string): Promise<string>;
 }
 
+// ---------------------------------------------------------------------------
+// Las secciones de la home
+// ---------------------------------------------------------------------------
+
 /**
- * Una sección de la home ya resuelta: la colección y sus productos.
+ * Los bloques que componen la home.
  *
- * El storefront pide esto y no arma la consulta: qué se destaca es una decisión
- * del comercio, guardada, no una constante del código. Antes vivía en
- * `COLECCION_DESTACADA`, un literal en el storefront de la demo.
+ * `hero` es la pieza grande de arriba; con varias es un slideshow y cada una es
+ * un slide. `tiles` son los mosaicos promocionales de más abajo. `products` es
+ * un carrusel, o sea una colección. `categories` es la tira de categorías.
+ *
+ * Ese vocabulario no es decoración: «banner» se usaba para las dos primeras y
+ * eso hacía imposible pedir una sin la otra.
  */
+export type TipoDeSeccion = 'hero' | 'tiles' | 'products' | 'categories';
+
+/**
+ * Estático o carrusel.
+ *
+ * Con una sola pieza dan lo mismo; la elección importa cuando hay varias, que es
+ * justo cuando el comercio quiere decidirlo.
+ */
+export type LayoutDeSeccion = 'static' | 'slider';
+
 export interface SeccionDeHome {
-  readonly title: string;
+  readonly id: string;
+  readonly type: TipoDeSeccion;
+  readonly title?: string;
   readonly subtitle?: string;
-  readonly handle: string;
-  readonly sort?: CatalogSort;
+  readonly layout: LayoutDeSeccion;
+  /**
+   * Ajustes de presentación por tipo. Hoy sólo `columns` en `tiles`.
+   *
+   * Valores escalares y no `unknown`: son ajustes que se guardan en un jsonb y
+   * se leen en una plantilla, y un `unknown` obliga a castear en cada uso además
+   * de admitir formas que la base no acepta.
+   */
+  readonly settings: Readonly<Record<string, string | number | boolean>>;
+  /** Sólo en `products`, y obligatorio ahí: la base lo comprueba. */
+  readonly collectionId?: string;
+  readonly position: number;
+  readonly published: boolean;
 }
+
+/**
+ * Una sección con su contenido ya resuelto, lista para dibujar.
+ *
+ * El storefront recibe esto y no arma consultas: qué se muestra en la home es
+ * una decisión del comercio, guardada. Antes media home vivía en constantes del
+ * código —`COLECCION_DESTACADA`, un hero fijo— y cambiarla exigía desplegar.
+ */
+export type SeccionResuelta =
+  | {
+      readonly kind: 'hero';
+      readonly id: string;
+      readonly layout: LayoutDeSeccion;
+      readonly piezas: readonly Banner[];
+    }
+  | {
+      readonly kind: 'tiles';
+      readonly id: string;
+      readonly title?: string;
+      readonly subtitle?: string;
+      readonly layout: LayoutDeSeccion;
+      readonly columns: number;
+      readonly piezas: readonly Banner[];
+    }
+  | {
+      readonly kind: 'products';
+      readonly id: string;
+      readonly title?: string;
+      readonly subtitle?: string;
+      readonly productos: readonly ProductoDeSeccion[];
+    }
+  | { readonly kind: 'categories'; readonly id: string; readonly title?: string };
+
+/** Lo que un carrusel de la home necesita de un producto. Es `Product`. */
+export type ProductoDeSeccion = import('@pick/commerce-types').Product;
 
 /** Cuántos productos entran en un carrusel de la home. */
 export const PRODUCTOS_POR_SECCION = 8;
+
+/** Columnas por defecto de un bloque de mosaicos. */
+export const COLUMNAS_POR_DEFECTO = 2;
+
+/** Las columnas declaradas en `settings`, acotadas a lo que la grilla admite. */
+export function columnasDe(settings: Readonly<Record<string, string | number | boolean>>): number {
+  const crudo = settings.columns;
+  const n = typeof crudo === 'number' ? crudo : Number(crudo);
+  // Fuera de rango o ausente cae al defecto: el dato viene de un jsonb, y un
+  // `columns: 97` dibujaría mosaicos de dos píxeles sin avisar.
+  return Number.isInteger(n) && n >= 1 && n <= 4 ? n : COLUMNAS_POR_DEFECTO;
+}
+
+export type DatosDeSeccion = Omit<SeccionDeHome, 'id'>;

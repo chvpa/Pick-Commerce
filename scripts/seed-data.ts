@@ -19,6 +19,10 @@ export const IDS = {
   location: '5eed0000-0000-4000-8000-000000000003',
   coleccionManual: '5eed0000-0000-4000-8000-000000000004',
   coleccionDinamica: '5eed0000-0000-4000-8000-000000000005',
+  seccionHero: '5eed0000-0000-4000-8000-000000000006',
+  seccionCategorias: '5eed0000-0000-4000-8000-000000000007',
+  seccionOfertas: '5eed0000-0000-4000-8000-000000000008',
+  piezaHero: '5eed0000-0000-4000-8000-000000000009',
 } as const;
 
 function uuid(prefijo: string, n: number): string {
@@ -335,9 +339,9 @@ export const COLECCIONES = [
     tenant_id: IDS.tenant,
     store_id: IDS.store,
     title: 'Ofertas',
-    // La destaca la home. Ver `COLECCION_DESTACADA` en el storefront.
     handle: 'ofertas',
     rules: null,
+    published: true,
   },
   {
     id: IDS.coleccionDinamica,
@@ -348,6 +352,71 @@ export const COLECCIONES = [
     // La forma es exactamente `CatalogFilters`: la resuelve el mismo
     // `catalog_search` que la PLP.
     rules: { brand: ['Norte'] },
+    published: true,
+  },
+];
+
+/**
+ * La portada de la demo.
+ *
+ * Vive acá y no en el storefront: la home se compone por secciones y eso es un
+ * dato del comercio. Antes el hero y la colección destacada estaban escritos en
+ * `index.astro`, así que la vidriera de cualquier tienda era la que ese archivo
+ * dijera y cambiarla exigía desplegar.
+ */
+// Todas las filas llevan **todas** las claves, incluso las que tienen default en
+// la base: al insertar un array, PostgREST rellena con null las que faltan en
+// algún objeto en vez de dejar actuar al default, y `layout` es `not null`.
+export const SECCIONES = [
+  {
+    id: IDS.seccionHero,
+    tenant_id: IDS.tenant,
+    store_id: IDS.store,
+    type: 'hero',
+    title: null,
+    collection_id: null,
+    layout: 'static',
+    position: 0,
+    published: true,
+  },
+  {
+    id: IDS.seccionCategorias,
+    tenant_id: IDS.tenant,
+    store_id: IDS.store,
+    type: 'categories',
+    title: 'Categorías',
+    collection_id: null,
+    layout: 'static',
+    position: 10,
+    published: true,
+  },
+  {
+    id: IDS.seccionOfertas,
+    tenant_id: IDS.tenant,
+    store_id: IDS.store,
+    type: 'products',
+    title: 'En oferta',
+    collection_id: IDS.coleccionManual,
+    layout: 'slider',
+    position: 20,
+    published: true,
+  },
+];
+
+/** El slide del hero. Una sola pieza: con una, estático y slider dan lo mismo. */
+export const PIEZAS = [
+  {
+    id: IDS.piezaHero,
+    tenant_id: IDS.tenant,
+    store_id: IDS.store,
+    section_id: IDS.seccionHero,
+    title: 'Ropa técnica para todos los días',
+    subtitle: 'Camperas, calzado y accesorios técnicos. Envío a todo el país.',
+    image: { url: '/products/campera-2.jpg', alt: '', width: 900, height: 1200 },
+    href: '/catalogo',
+    cta_label: 'Ver catálogo',
+    position: 0,
+    published: true,
   },
 ];
 

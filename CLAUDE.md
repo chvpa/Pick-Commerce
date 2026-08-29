@@ -28,8 +28,9 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 - **Fase 9** — merchandising. Promociones con el descuento calculado **siempre**
   en el servidor —`cart_promotions`, que usan por igual el carrito y
   `create_order`—, visible en el catálogo y con cupones en el checkout. Y el
-  CMS: banners, categorías y colecciones, donde **una sección de la home es una
-  colección** con `home_position`, manual o dinámica (ADR-093).
+  CMS: la portada se compone por **secciones** ordenadas con su tipo —banner
+  principal con slides, avisos, carruseles de productos, categorías— y cada
+  carrusel es una colección, manual o dinámica (ADR-094, que corrige ADR-093).
 
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,

@@ -200,4 +200,66 @@ test.describe('Admin', () => {
 
     expect(problemas, problemas.join('\n')).toEqual([]);
   });
+
+  test('cambiar de tienda cambia el contenido que se lista', async ({ page }) => {
+    // Se usa una colección y no un banner porque el banner exige subir una
+    // imagen, y lo que se prueba acá es el alcance por tienda, no la subida.
+    const problemas = vigilar(page);
+    await entrar(page);
+    await abrirSidebar(page);
+
+    await page.getByRole('link', { name: 'Contenido' }).click();
+    await page.getByRole('tab', { name: 'Colecciones' }).click();
+    await page.getByRole('link', { name: 'Nueva colección' }).click();
+
+    const titulo = `Novedades del smoke ${Date.now()}`;
+    await page.locator('#title').fill(titulo);
+    await page.getByRole('button', { name: 'Crear colección' }).click();
+
+    const fila = page.getByRole('listitem').filter({ hasText: titulo });
+    await expect(fila).toBeVisible({ timeout: 15_000 });
+
+    // A la otra tienda de la organización.
+    await abrirSidebar(page);
+    await page.locator('[data-slot="sidebar-header"] button').first().click();
+    await page.getByRole('menu').getByRole('menuitem', { name: TIENDA_E2E.name }).click();
+    await expect(page.locator('[data-slot="sidebar-header"]')).toContainText(TIENDA_E2E.name);
+
+    // La colección es de la otra tienda: acá no puede estar.
+    await expect(fila).toHaveCount(0, { timeout: 15_000 });
+
+    expect(problemas, problemas.join('\n')).toEqual([]);
+  });
+
+  test('cambiar de tienda cierra el formulario abierto', async ({ page }) => {
+    /*
+     * El editor de banners y el de categorías viven en estado local del panel, y
+     * ese estado no sabe nada de la tienda. Con un formulario abierto y un cambio
+     * de tienda, seguía mostrando el registro de la anterior —que es lo que se ve
+     * como «me cambié de tienda y sigo viendo lo de la otra»— y, peor, guardarlo
+     * lo habría escrito en la tienda nueva.
+     */
+    const problemas = vigilar(page);
+    await entrar(page);
+    await abrirSidebar(page);
+
+    await page.getByRole('link', { name: 'Contenido' }).click();
+    await page.getByRole('tab', { name: 'Categorías' }).click();
+
+    await page.getByRole('button', { name: 'Nueva categoría' }).click();
+    const nombre = `Categoría del smoke ${Date.now()}`;
+    await page.locator('#c-name').fill(nombre);
+    await expect(page.locator('#c-name')).toHaveValue(nombre);
+
+    await abrirSidebar(page);
+    await page.locator('[data-slot="sidebar-header"] button').first().click();
+    await page.getByRole('menu').getByRole('menuitem', { name: TIENDA_E2E.name }).click();
+    await expect(page.locator('[data-slot="sidebar-header"]')).toContainText(TIENDA_E2E.name);
+
+    await expect(page.locator('#c-name')).toHaveCount(0, {
+      timeout: 15_000,
+    });
+
+    expect(problemas, problemas.join('\n')).toEqual([]);
+  });
 });

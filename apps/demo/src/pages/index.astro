@@ -1,5 +1,5 @@
 ---
-import Hero from '@pick/commerce-astro/content/Hero.astro';
+import HeroSlider from '@pick/commerce-astro/content/HeroSlider.astro';
 import Banner from '@pick/commerce-astro/content/Banner.astro';
 import CategorySection from '@pick/commerce-astro/content/CategorySection.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
@@ -10,48 +10,41 @@ import ProductCardBody from '@pick/commerce-astro/product/ProductCardBody.astro'
 import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astro';
 import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
 import ProductCarousel from '@pick/commerce-astro/product/ProductCarousel.astro';
-import { buttonVariants } from '@pick/commerce-ui';
-import { organizationJsonLd, PRODUCTOS_POR_SECCION } from '@pick/commerce-core';
+import { organizationJsonLd } from '@pick/commerce-core';
 import { seoContexto } from '../lib/store-config.ts';
 import { catalogo, categorias, tiendaActual } from '../lib/db.ts';
 import Base from '../layouts/Base.astro';
 
 /*
- * On-demand: las categorías, los banners y las secciones se administran, y las
- * tres cambian sin desplegar. Prerenderizada, un banner nuevo no aparecería
- * hasta el próximo deploy. Ver ADR-057.
+ * On-demand: la home entera se administra —qué secciones hay, en qué orden, con
+ * qué contenido— y las tres cosas cambian sin desplegar. Prerenderizada, un
+ * slide nuevo no aparecería hasta el próximo deploy. Ver ADR-057.
  */
 export const prerender = false;
 
 const tienda = await tiendaActual();
-const repo = catalogo();
 
 /*
- * Qué se destaca es una decisión del comercio, **guardada**. Antes era
- * `COLECCION_DESTACADA`, una constante del storefront: un literal que sólo se
- * podía cambiar tocando código y desplegando, y que además obligaba a que toda
- * tienda llamara igual a su colección destacada.
+ * Esta página **dibuja y no decide**. El orden, el tipo y el contenido de cada
+ * bloque salen de `home()`. Antes acá vivían un hero fijo y una constante con el
+ * handle de la colección destacada, así que la vidriera de cualquier tienda era
+ * la que este archivo dijera.
  */
-const [cats, banners, secciones] = await Promise.all([
-  categorias(),
-  repo.bannersPublicados(tienda.storeId),
-  repo.seccionesDeHome(tienda.storeId),
-]);
-
-// Cada sección resuelve sus productos con el orden que la colección declara.
-// En paralelo: son pocas y encadenarlas sumaría latencia sin motivo.
-const carruseles = await Promise.all(
-  secciones.map(async (s) => ({
-    ...s,
-    productos: await repo.porColeccion(tienda.storeId, s.handle, PRODUCTOS_POR_SECCION, s.sort),
-  })),
-);
+const [secciones, cats] = await Promise.all([catalogo().home(tienda.storeId), categorias()]);
 
 const entradas = cats.map((c) => ({
   label: c.name,
   href: `/catalogo?categoria=${encodeURIComponent(c.slug)}`,
   ...(c.image ? { image: c.image } : {}),
 }));
+
+/** Columnas de un bloque de mosaicos, en clases que Tailwind pueda ver. */
+const GRILLA: Readonly<Record<number, string>> = {
+  1: 'grid-cols-1',
+  2: 'sm:grid-cols-2',
+  3: 'sm:grid-cols-2 lg:grid-cols-3',
+  4: 'sm:grid-cols-2 lg:grid-cols-4',
+};
 ---
 
 <Base
@@ -61,59 +54,108 @@ const entradas = cats.map((c) => ({
   imageAlt="Campera cortaviento"
 >
   <JsonLd slot="head" data={organizationJsonLd(seoContexto)} />
-  <Container class="py-8">
-    <Hero image={{ url: '/products/campera-2.jpg', alt: '', width: 900, height: 1200 }}>
-      <p class="text-sm">Temporada</p>
-      <h1 class="font-display max-w-lg text-3xl font-semibold sm:text-4xl">
-        Ropa técnica para todos los días
-      </h1>
-      <a href="/catalogo" class={buttonVariants({ size: 'lg' })}>Ver catálogo</a>
-    </Hero>
-  </Container>
 
   {
-    banners.length > 0 && (
-      <Container class="py-8">
-        <div class="grid gap-6 sm:grid-cols-2">
-          {banners.map((b, i) => (
-            <Banner
-              image={b.image}
-              imageMobile={b.imageMobile}
-              title={b.title}
-              subtitle={b.subtitle}
-              href={b.href}
-              priority={i === 0}
-            />
-          ))}
-        </div>
-      </Container>
-    )
+    /*
+     * El `h1` de la home, oculto a la vista.
+     *
+     * Antes lo aportaba el hero fijo que vivía en este archivo. Al pasar la
+     * portada a secciones, una tienda sin banner principal —o con el suyo
+     * despublicado— se quedaba **sin ningún `h1`**, que es una página sin
+     * encabezado para un lector de pantalla y para un buscador. Los títulos de
+     * las secciones son `h2` y deben seguir siéndolo: son subsecciones de la
+     * portada, no su título.
+     *
+     * Oculto y no visible porque el hero ya dice a qué tienda entraste con su
+     * propio texto, y repetirlo arriba sería ruido para quien ve la pantalla.
+     */
   }
+  <h1 class="sr-only">{tienda.name}</h1>
 
   {
-    entradas.length > 0 && (
-      <Container class="flex flex-col gap-4 py-8">
-        <h2 class="font-display text-xl font-semibold">Categorías</h2>
-        <CategorySection categories={entradas} />
-      </Container>
-    )
-  }
+    secciones.map((seccion, indice) => {
+      if (seccion.kind === 'hero') {
+        // Un hero sin piezas publicadas no deja un hueco negro arriba.
+        if (seccion.piezas.length === 0) return null;
+        return (
+          <Container class="py-8">
+            <HeroSlider piezas={seccion.piezas} layout={seccion.layout} id={`hero-${seccion.id}`} />
+          </Container>
+        );
+      }
 
-  {
-    /* Una sección sin productos no se dibuja: un carrusel vacío bajo un título
-      es peor que no mostrar nada, y una colección dinámica puede quedarse sin
-      resultados sin que nadie la haya tocado. */
-  }
-  {
-    carruseles
-      .filter((c) => c.productos.length > 0)
-      .map((seccion) => (
+      if (seccion.kind === 'tiles') {
+        if (seccion.piezas.length === 0) return null;
+        return (
+          <Container class="flex flex-col gap-4 py-8">
+            {seccion.title && (
+              <div class="flex flex-col gap-1">
+                <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>
+                {seccion.subtitle && <p class="text-sm text-fg-muted">{seccion.subtitle}</p>}
+              </div>
+            )}
+            {seccion.layout === 'slider' ? (
+              <div
+                role="group"
+                aria-label={seccion.title ? `Carrusel de ${seccion.title}` : 'Carrusel de avisos'}
+                tabindex="0"
+                class="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 scroll-smooth motion-reduce:scroll-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&>*]:w-[85%] [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-[45%]"
+              >
+                {seccion.piezas.map((pieza, i) => (
+                  <Banner
+                    image={pieza.image}
+                    imageMobile={pieza.imageMobile}
+                    title={pieza.title}
+                    subtitle={pieza.subtitle}
+                    href={pieza.href}
+                    priority={indice === 0 && i === 0}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div class:list={['grid gap-6', GRILLA[seccion.columns]]}>
+                {seccion.piezas.map((pieza, i) => (
+                  <Banner
+                    image={pieza.image}
+                    imageMobile={pieza.imageMobile}
+                    title={pieza.title}
+                    subtitle={pieza.subtitle}
+                    href={pieza.href}
+                    priority={indice === 0 && i === 0}
+                  />
+                ))}
+              </div>
+            )}
+          </Container>
+        );
+      }
+
+      if (seccion.kind === 'categories') {
+        if (entradas.length === 0) return null;
+        return (
+          <Container class="flex flex-col gap-4 py-8">
+            {seccion.title && (
+              <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>
+            )}
+            <CategorySection categories={entradas} />
+          </Container>
+        );
+      }
+
+      /* Un carrusel vacío bajo un título es peor que no mostrar nada, y una
+         colección dinámica puede quedarse sin resultados sin que nadie la haya
+         tocado. */
+      if (seccion.productos.length === 0) return null;
+
+      return (
         <Container class="flex flex-col gap-4 py-8">
           <div class="flex flex-col gap-1">
-            <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>
+            {seccion.title && (
+              <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>
+            )}
             {seccion.subtitle && <p class="text-sm text-fg-muted">{seccion.subtitle}</p>}
           </div>
-          <ProductCarousel label={seccion.title}>
+          <ProductCarousel label={seccion.title ?? 'Productos'}>
             {seccion.productos.map((product) => {
               const variant = product.variants[0];
               if (!variant) return null;
@@ -131,6 +173,7 @@ const entradas = cats.map((c) => ({
             })}
           </ProductCarousel>
         </Container>
-      ))
+      );
+    })
   }
 </Base>
