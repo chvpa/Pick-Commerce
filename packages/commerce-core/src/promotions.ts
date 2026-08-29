@@ -218,6 +218,56 @@ export function precioDeCatalogo(
 }
 
 // ---------------------------------------------------------------------------
+// El Admin
+// ---------------------------------------------------------------------------
+
+/** Lo que el formulario manda. Sin `id`: al crear todavía no hay. */
+export interface DatosDePromocion {
+  readonly title: string;
+  readonly status: PromotionStatus;
+  readonly priority: number;
+  readonly stackable: boolean;
+  readonly code?: string;
+  readonly startsAt?: string;
+  readonly endsAt?: string;
+  readonly usageLimit?: number;
+  readonly discountType: DiscountType;
+  readonly discountValue: number;
+  readonly target: PromotionTarget;
+  readonly minSubtotal?: number;
+  readonly minQuantity?: number;
+}
+
+export interface PaginaPromociones {
+  readonly items: readonly Promotion[];
+  readonly total: number;
+  readonly page: number;
+  readonly pageCount: number;
+}
+
+/**
+ * A cuántos productos llega una promoción, con un ejemplo.
+ *
+ * Es lo que PROJECT.md §15 pide antes de publicar: «modo simulación/preview
+ * cuando sea razonable». No es un simulador —es una consulta— y alcanza para lo
+ * que el comercio necesita saber, que es si apuntó a lo que creía.
+ */
+export interface AlcanceDePromocion {
+  readonly count: number;
+  readonly ejemplo?: { readonly title: string; readonly price: Money };
+}
+
+export interface RepositorioPromociones {
+  listar(
+    storeId: string,
+    consulta: { readonly page?: number; readonly perPage?: number },
+  ): Promise<PaginaPromociones>;
+  porId(storeId: string, id: string): Promise<Promotion | null>;
+  guardar(storeId: string, datos: DatosDePromocion, id?: string): Promise<string>;
+  alcance(storeId: string, target: PromotionTarget): Promise<AlcanceDePromocion>;
+}
+
+// ---------------------------------------------------------------------------
 // Carrito
 // ---------------------------------------------------------------------------
 

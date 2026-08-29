@@ -6,7 +6,7 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-**Fases 0 a 8 cerradas. Fase 9 (Promotions y CMS) por empezar.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+**Fases 0 a 8 cerradas. Fase 9 al 60%: la Etapa A (promociones) cerrada, la B (CMS) pendiente.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
@@ -25,6 +25,11 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
   e importador acotado. Sólo la Etapa A: el ERP entra y **nada sale**. La B quedó
   descartada para este cliente, que no da escritura ni contra un entorno de
   prueba (ADR-086), así que el adapter está validado en una sola dirección.
+- **Fase 9** (en curso) — merchandising. Etapa A: motor de promociones plano en
+  el core como especificación ejecutable, con el descuento calculado **siempre**
+  en el servidor —`cart_promotions`, que usan por igual el carrito y
+  `create_order`—, visible en el catálogo y con cupones en el checkout. Etapa B,
+  pendiente: banners, colecciones y secciones del home.
 
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,

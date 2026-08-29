@@ -26,5 +26,6 @@ export { repositorioAdminClientes } from './admin-clientes.ts';
 export { repositorioEquipo } from './equipo.ts';
 export { repositorioConfiguracion } from './configuracion.ts';
 export { repositorioPagos } from './pagos.ts';
+export { repositorioPromociones } from './promociones.ts';
 export { repositorioNotificaciones } from './notificaciones.ts';
 export { subirImagenDeProducto } from './media.ts';

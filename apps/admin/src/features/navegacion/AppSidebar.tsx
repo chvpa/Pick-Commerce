@@ -4,6 +4,7 @@ import {
   LayoutDashboardIcon,
   LogOutIcon,
   PackageIcon,
+  PercentIcon,
   ReceiptTextIcon,
   SettingsIcon,
   StoreIcon,
@@ -61,6 +62,10 @@ const SECCIONES: readonly Seccion[] = [
   { to: '/', label: 'Resumen', icono: LayoutDashboardIcon },
   { to: '/productos', label: 'Productos', icono: PackageIcon },
   { to: '/pedidos', label: 'Pedidos', icono: ReceiptTextIcon },
+  // Sin `permiso`: la lista se ve con sólo pertenecer a la organización, porque
+  // saber qué campañas están corriendo es información operativa. Crear y editar
+  // sí exigen `promotion.write`, y eso lo decide la ruta.
+  { to: '/promociones', label: 'Promociones', icono: PercentIcon },
   { to: '/clientes', label: 'Clientes', icono: UsersIcon },
   { to: '/equipo', label: 'Equipo', icono: UsersRoundIcon, permiso: 'member.manage' },
   { to: '/configuracion', label: 'Configuración', icono: SettingsIcon, permiso: 'settings.write' },

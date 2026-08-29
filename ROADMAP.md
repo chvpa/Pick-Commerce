@@ -393,31 +393,53 @@ Esta fase puede comenzar antes de que v1 esté completa si el acceso al ERP est�
 
 ## Fase 9 — Promotions y CMS v1
 
-**Avance: 0%**
+**Avance: 60% — Etapa A cerrada**
 
 Objetivo: merchandising real.
 
-- [ ] Promotion model.
-- [ ] percentage discount.
-- [ ] fixed amount.
-- [ ] minimum cart.
-- [ ] minimum quantity.
-- [ ] free shipping.
-- [ ] coupon.
-- [ ] start/end date.
-- [ ] product/category/collection targeting.
-- [ ] prioridad/stackability mínima.
-- [ ] preview/simulation básica.
+Se parte en dos etapas, porque son dos motores distintos: **la A toca dinero y la
+B no**. La A está cerrada; la B es el CMS.
+
+**Etapa A — promociones**
+
+- [x] Promotion model. Plano, sin motor de reglas: los casos de esta fase entran
+      en columnas. ADR-091.
+- [x] percentage discount. En puntos básicos, para que «12,5 %» sea un entero.
+- [x] fixed amount.
+- [x] minimum cart.
+- [x] minimum quantity.
+- [-] free shipping. **No hay qué descontar**: verificado contra el schema, no
+      existe ningún costo de envío en el sistema —`orders` sólo tiene
+      `total_amount`—. Presupone una feature de envíos —zonas, tarifas,
+      métodos— que no está en ninguna fase. Se retoma cuando exista.
+- [x] coupon. Con tope de uso consumido dentro de la transacción del pedido, que
+      es lo que impide que dos compras simultáneas usen el último.
+- [x] start/end date. Inicio inclusivo, fin exclusivo, con test en los dos bordes.
+- [x] product/category/collection targeting. Los tres en el modelo, el SQL y el
+      core. El formulario ofrece catálogo entero, categorías y productos: las
+      colecciones no tienen todavía pantalla donde crearse, y apuntar a algo que
+      no se puede crear sería una opción muerta. Aparece con el CMS.
+- [x] prioridad/stackability mínima. Se recorren por prioridad; la que no combina
+      se aplica sólo si no se aplicó ninguna y corta la cadena.
+- [x] preview/simulation básica. El formulario dice a cuántos productos alcanza y
+      muestra uno de ejemplo con su precio antes y después.
+
+**Etapa B — CMS**
+
 - [ ] banners desktop/mobile.
 - [ ] banner links a colección/producto/ruta.
-- [ ] category image/icon.
+- [ ] category image/icon. La columna `categories.image` ya existe y la home la
+      lee; falta la pantalla que la cargue.
 - [ ] featured/new/best sellers sections.
-- [ ] manual/dynamic collections en CMS.
+- [ ] manual/dynamic collections en CMS. Las tablas existen desde la Fase 4 y
+      `catalog_search` ya resuelve las manuales; falta el Admin y que `rules`
+      resuelva las dinámicas.
 
 **Definition of Done**
 
-- Admin puede crear una campaña de descuento sin código
-- storefront refleja promoción correctamente
+- Admin puede crear una campaña de descuento sin código ✅
+- storefront refleja promoción correctamente ✅ — precio tachado en PLP y PDP,
+  desglose y cupón en el checkout, y el pedido cobra lo que mostraba la grilla
 
 ---
 
@@ -731,6 +753,10 @@ caso que prueba de verdad si el contrato abstrae (ADR-084).
 | 2026-08-29 | Borré el catálogo para reimportarlo y el ERP se cayó justo entonces                            | Reescribiendo el mapeo de códigos hacía falta reimportar, así que borré los 100 productos antes de confirmar que el origen respondía. El ORDS dejó de responder en ese momento y la tienda quedó vacía sin forma de restituirla                                                                                                                                                                                  | Restituida desde una captura del payload. El importador ganó `--desde`, que reprocesa una captura sin golpear el ERP y además sirve para iterar sobre el mapeo. La lección es anterior: confirmar que el origen responde antes de borrar el destino                   | Fase 8       | Resuelto  |
 | 2026-08-29 | Los handles del catálogo del ERP salían con mayúsculas                                         | Al pasar el SKU al handle lo pegué crudo, y los códigos de modelo vienen en mayúsculas: 68 de 100 URLs quedaron sensibles a mayúsculas. `/productos/…-dv9315010` daba 404 mientras `…-DV9315010` funcionaba, y un buscador las trata como dos páginas distintas                                                                                                                                                  | El `slug` se aplica al conjunto, no sólo al título. Los 100 existentes se normalizaron: nada los enlazaba todavía                                                                                                                                                     | Fase 8       | Resuelto  |
 | 2026-08-29 | El storefront anuncia «Pick Demo» sirva la tienda que sirva                                    | `storeName` está fijo en `apps/demo/src/lib/store-config.ts` con un comentario que dice que en Fase 3 pasaría a leerse de la base; estamos en la 8. El storefront de Estilo Sport muestra «Pick Demo» en el encabezado y en el `<title>` de todas sus páginas, que además es lo que indexa un buscador. `ResolucionTenant` ya trae el `name` de la tienda, así que el dato está                                  | Leerlo de `tiendaActual()` en vez de la constante. Bloquea el piloto: un comercio no puede publicarse con el nombre de la demo                                                                                                                                        | Fase 12      | Pendiente |
+| 2026-08-29 | El carrito mostraba el precio de lista mientras el catálogo mostraba el rebajado | Lo introduje yo al conectar las promociones al catálogo: la PLP decía 120.000 con un 20 % activo, el carrito 150.000 porque leía `product_variants.price` a secas, y `create_order` cobraba 120.000. Tres números para lo mismo, y el del medio es el que el comprador mira antes de decidir | El endpoint del carrito dejó de sumar por su cuenta y toma el dinero de `cart_promotions`, la misma función que usa el pedido. Un solo cálculo no puede divergir de sí mismo. ADR-092 | Fase 9 | Resuelto |
+| 2026-08-29 | El comentario que justificaba `numeric` en vez de float estaba equivocado | Decía que era por pérdida de precisión. El sabotaje lo desmintió: con float pasaba igual. El motivo real es que `round(float8)` de Postgres redondea al par y `round(numeric)` se aleja del cero, como `Math.round` del core. Además destapó que el escenario de paridad no tenía ningún caso que cayera justo en la mitad, así que no probaba nada | Comprobado con las dos formas sobre los mismos valores antes de reescribirlo, y el escenario cambiado por un precio cuyo descuento cae en 13.498,5. ADR-091 | Fase 9 | Resuelto |
+| 2026-08-29 | Las funciones nuevas del schema `app` no tenían grant                          | El `grant execute on all functions in schema app` de la Fase 3 es una foto del momento y no alcanza a las creadas después; `service_role` además nunca tuvo `usage` sobre ese schema. El síntoma aparecía al crear un pedido, no al aplicar la migración | Grant explícito por función. Queda como precedente: en este repo, una función nueva de `app` lleva su grant al lado | Fase 9 | Resuelto |
+| 2026-08-29 | No existe ningún costo de envío en el sistema                                  | `orders` guarda `total_amount` y nada de envío, así que el `free shipping` de la Fase 9 no tiene qué descontar. PROJECT.md §13 sí lo pide entre lo que el pedido debe conservar | Fuera de scope de la Fase 9, registrado. Necesita una feature de envíos —zonas, tarifas, métodos— que hoy no está en ninguna fase y habría que ubicar antes del piloto | Fase 12 | Pendiente |
 | 2026-08-29 | Falta medir la escritura del importador a escala real                          | Del bulk se sabe la lectura —9032 filas en 5,4 s— pero sólo se escribieron 100 productos. Cuánto tarda el catálogo entero, y si conviene subir el lote de 200, sigue sin medirse. Se intentó con un `--dry-run` sin límite el 2026-08-29 y el Oracle estaba caído | Repetir el `--dry-run` sin límite cuando el ERP responda, y una escritura completa contra una tienda descartable. La Fase 12 lo vuelve a pedir en «pruebas con catálogo grande» | Fase 8       | Pendiente |
 | 2026-08-29 | El `healthCheck` del adapter mira la vida del proxy, no la del ERP | `healthCheck()` pregunta por `/health`, la única ruta sin auth del proxy, que responde por sí misma y no toca Oracle. El 2026-08-29 devolvió 200 mientras una consulta real de stock daba 503 `ECONNABORTED` en el mismo minuto. Un sync programado lo consultaría, lo vería verde y saldría a sincronizar contra un ERP caído | Que la comprobación recorra el camino real —una consulta de stock por artículo, con timeout corto— y que el resultado distinga las dos capas en vez de colapsarlas en un booleano. Verificarlo exige el Oracle arriba: hoy sólo se puede comprobar la mitad negativa | Fase 8       | Pendiente |
 | 2026-08-29 | Un Worker de Cloudflare no puede alcanzar el proxy del ERP                                     | El `fetch()` de Workers descarta el puerto no estándar en producción y bloquea las IPs crudas, y el proxy vive en `http://<ip>:3001`. En local con Miniflare funciona, así que el fallo aparecería recién al desplegar. Bloquea el chequeo de stock en vivo al agregar al carrito y cualquier sync programado                                                                                                    | El importador corre en Node, donde la restricción no aplica. Para subirlo al Worker hay que publicar el proxy en un hostname con TLS sobre 443: Caddy con `sslip.io` sin comprar dominio, o Cloudflare Tunnel si aparece una zona. ADR-085                            | Fase 8       | Pendiente |
@@ -849,6 +875,9 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-29 | Imágenes del catálogo de Estilo Sport migradas desde el proyecto del cliente al bucket propio: 129 fotos en 75 de los 100 productos, optimizadas por `/_image`, con RLS del origen verificada antes de usar su clave                          | Fase 8 |          75% |            85% |
 | 2026-08-29 | T2 de la Etapa A: lint, typecheck, 189 unitarios, build y 59 tests de Playwright en verde. Al intentar medir a escala apareció que el `healthCheck` da verde con el ERP caído, así que vuelve a abrirse                                     | Fase 8 |          85% |            82% |
 | 2026-08-29 | Fase 8 cerrada con la Etapa A completa. La B se descarta para este cliente, que no da escritura sobre su ERP ni contra un entorno de prueba; el `healthCheck` y la medición a escala pasan al backlog                                       | Fase 8 |          82% |           100% |
+| 2026-08-29 | Fase 9 Etapa A: motor de promociones en el core como especificación ejecutable, tabla con su RLS y el permiso `promotion.write`, y `create_order` calculando el descuento dentro de su transacción. ADR-091 y ADR-092                       | Fase 9 |           0% |            35% |
+| 2026-08-29 | El catálogo muestra el precio efectivo —incluido `lowest`, que gobierna el filtro y el orden por precio— y el carrito y el checkout toman el dinero de la misma función que el pedido, con desglose y campo de cupón                          | Fase 9 |          35% |            50% |
+| 2026-08-29 | Etapa A cerrada: el Admin crea campañas sin código, con preview de alcance y gating por `promotion.write`. Verificado de punta a punta contra la tienda de Estilo Sport                                                                      | Fase 9 |          50% |            60% |
 
 ---
 

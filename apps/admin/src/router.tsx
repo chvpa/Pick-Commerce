@@ -48,6 +48,14 @@ const DetallePedido = pantalla<{ id: string }>(
   () => import('@/features/pedidos/DetallePedido'),
   'DetallePedido',
 );
+const ListaPromociones = pantalla(
+  () => import('@/features/promociones/ListaPromociones'),
+  'ListaPromociones',
+);
+const FormularioPromocion = pantalla<{ id?: string }>(
+  () => import('@/features/promociones/FormularioPromocion'),
+  'FormularioPromocion',
+);
 const ListaClientes = pantalla(() => import('@/features/clientes/ListaClientes'), 'ListaClientes');
 const DetalleCliente = pantalla<{ id: string }>(
   () => import('@/features/clientes/DetalleCliente'),
@@ -224,6 +232,39 @@ const pedidoRoute = createRoute({
   },
 });
 
+/*
+ * La lista se ve con sólo pertenecer a la organización —saber qué campañas hay
+ * corriendo es información operativa—; crear y editar exigen `promotion.write`.
+ */
+const promocionesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/promociones',
+  component: ListaPromociones,
+});
+
+const promocionNuevaRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/promociones/nueva',
+  component: () => (
+    <Gate permiso="promotion.write">
+      <FormularioPromocion />
+    </Gate>
+  ),
+});
+
+const promocionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/promociones/$id',
+  component: function Promocion() {
+    const { id } = promocionRoute.useParams();
+    return (
+      <Gate permiso="promotion.write">
+        <FormularioPromocion id={id} />
+      </Gate>
+    );
+  },
+});
+
 const clientesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/clientes',
@@ -267,6 +308,9 @@ const arbol = rootRoute.addChildren([
   editarRoute,
   pedidosRoute,
   pedidoRoute,
+  promocionesRoute,
+  promocionNuevaRoute,
+  promocionRoute,
   clientesRoute,
   clienteRoute,
   equipoRoute,

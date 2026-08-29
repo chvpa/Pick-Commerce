@@ -3381,3 +3381,166 @@ elige cuando se tiene la fotografía bajo control.
 Se aplica también a la galería del PDP, que tenía el mismo recorte. El hero y las
 fichas de categoría se quedan en `cover`: ahí la imagen es decorativa y llenar el
 espacio es lo que se quiere.
+
+---
+
+## ADR-091 — El motor de promociones es plano, y el core es su especificación
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+**Contexto**
+PROJECT.md §15 dibuja una `Promotion` con `conditions[]` y `actions[]`, y una
+lista de casos que incluye Buy X Get Y, 2x1 y bundles. Los checkboxes de la Fase
+9 piden bastante menos: porcentaje, monto fijo, mínimo de compra, mínimo de
+cantidad, cupón, vigencia, alcance y una stackability mínima.
+
+**Decisión**
+El modelo es **plano**: columnas, no arrays de reglas. `discount_type` con
+`discount_value`, un `target` jsonb con la forma `{kind, ids}`, y las condiciones
+de carrito como dos columnas nulables.
+
+La semántica vive en `packages/commerce-core/src/promotions.ts` y **es la
+especificación ejecutable**; `cart_promotions` y `catalog_search` la reflejan.
+
+**Por qué**
+Un motor de reglas para estos casos sería un intérprete que hay que depurar sin
+ganar nada: `conditions[]` con un solo tipo de condición posible es una lista de
+un elemento con ceremonia. Cuando aparezca el primer Buy X Get Y real habrá que
+revisarlo, y ese es el segundo caso que ADR-019 pide esperar.
+
+Lo del core como especificación es el mismo razonamiento de ADR-055 aplicado a
+otro modo de fallo silencioso: un descuento mal calculado **no lanza ninguna
+excepción**, sólo cobra mal. Ahí la única defensa es una implementación de
+referencia con tests y una comparación automática, que es lo que hace
+`supabase/tests/promociones.test.ts` con catorce escenarios corridos contra las
+dos implementaciones.
+
+**La división catálogo/carrito no es una elección**
+Una promoción con `min_subtotal`, `min_quantity` o `code` **no se puede mostrar
+en la PLP**: no hay carrito todavía contra el que evaluar la condición. De ahí
+salen dos clases —de catálogo, que se ve en la grilla y aplica igual al comprar;
+de carrito, que aplica recién al agregar— y la regla `esDeCatalogo`. El Admin lo
+dice en la lista y en el formulario, para que el comercio no se pregunte por qué
+su promoción con mínimo no aparece en la vidriera.
+
+**El descuento se aplica por unidad, no sobre el subtotal de la línea**
+Con un producto de 10 guaraníes al 15 %, por unidad da 8 y tres unidades 24;
+sobre el subtotal da 15 % de 30 = 5, o sea 25. **La PLP diría 8 cada uno y el
+carrito cobraría 25 por tres.** Aplicando por unidad, catálogo, carrito y pedido
+coinciden por construcción y no por casualidad.
+
+**El redondeo, y una hipótesis que resultó falsa**
+`percentageOf` redondea al medio **alejándose del cero**, como `Math.round`. En
+SQL eso obliga a `numeric`: el primer comentario que se escribió decía que era
+por pérdida de precisión del float, y al sabotear el test se descubrió que
+pasaba igual. El motivo real es otro: `round(double precision)` de Postgres
+redondea **al par** —15 % de 30 son 4,5 y da 4— mientras que `round(numeric)` da
+5. Se comprobó con las dos formas sobre los mismos valores antes de dejarlo
+escrito, y el escenario de paridad se cambió por uno cuyo descuento cae justo en
+la mitad, porque el anterior no distinguía nada.
+
+**Stackability, en una frase**
+Se recorren por prioridad; una promoción que no combina se aplica sólo si
+todavía no se aplicó ninguna, y corta la cadena. El desempate por id no es
+cosmético: sin orden total, dos promociones de igual prioridad podrían
+encadenarse en distinto orden en el catálogo y en el carrito, y con descuentos
+encadenados eso da precios distintos.
+
+**Consecuencias**
+`promotion.write` es un permiso nuevo, para owner y admin. El precedente de
+ADR-056 dice no inventar permisos cuando ningún rol distingue —por eso el stock
+escribe con `catalog.write`—, pero acá sí hay distinción: una campaña es una
+decisión de precio, y las de precio ya viven detrás de `settings.write`, que el
+staff no tiene. Un repositor que carga productos no debería poder publicar un
+40 %.
+
+El alcance por colección existe en el modelo, en el SQL y en el core, pero el
+formulario del Admin ofrece sólo catálogo entero, categorías y productos: las
+colecciones todavía no tienen pantalla donde crearse, y ofrecer apuntar a algo
+que no se puede crear sería una opción muerta. Aparece con el CMS de la Etapa B.
+
+---
+
+## ADR-092 — El descuento lo calcula el servidor, y el carrito no suma por su cuenta
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+**Contexto**
+`create_order` ya tenía escrita la regla: «el payload dice qué y cuánto, jamás a
+qué precio». Con promociones aparece la misma pregunta para el descuento, y una
+segunda: quién calcula el total que el comprador ve antes de confirmar.
+
+**Decisión**
+El monto del descuento sale siempre de `cart_promotions`, una función de la base.
+El browser puede mandar el **código** del cupón y nada más. El endpoint del
+carrito llama a esa misma función; no suma por su cuenta.
+
+**Por qué el endpoint tampoco suma**
+Al conectar el catálogo apareció una incoherencia introducida en el mismo
+trabajo: la PLP mostraba 120.000 con un 20 % activo, el carrito 150.000 porque
+leía `product_variants.price` a secas, y `create_order` cobraba 120.000. **Tres
+números para lo mismo**, y el del medio es el que el comprador mira antes de
+decidir.
+
+El arreglo no fue enseñarle al carrito a descontar —eso deja dos
+implementaciones que hay que mantener de acuerdo— sino que use la misma función
+que el pedido. Un solo cálculo no puede divergir de sí mismo.
+
+**El tope de uso, con la condición adentro del update**
+`update promotions set usage_count = usage_count + 1 where id = ... and
+(usage_limit is null or usage_count < usage_limit)`, comprobando las filas
+afectadas. Un `select` del contador seguido de un `update` deja pasar dos pedidos
+simultáneos con el último cupón, y el segundo descuenta sin derecho: es la misma
+carrera que ADR-065 evita con el `unique` de la clave de idempotencia.
+
+Se consume **después** de la revalidación del carrito, para que un carrito
+inválido no gaste el cupón, y si falla se corta la transacción entera: preferible
+a cobrar un descuento que ya no existe.
+
+**El pedido guarda el snapshot, no la referencia**
+`orders.applied_promotions` copia id, título, código, tipo, valor y monto. Mismo
+motivo por el que `order_items` copia título y precio: la promoción se edita, se
+archiva o cambia de porcentaje, y el pedido tiene que seguir contando su
+historia.
+
+**El subtotal se deriva y no se guarda**
+El primer intento fue una columna `not null` con un check de que las tres
+cuadraran, y rompió todos los `insert` de `orders` que ya existen —`create_order`
+inserta el pedido y recién después le pone el total, y las fixtures insertan sin
+pasar por ahí—. Exigirlo habría obligado a tocar cada sitio de inserción para
+repetir un dato implícito. Como `total = subtotal - descuento`, el subtotal es
+`total + descuento`: generada y almacenada, la mantiene Postgres, la invariante
+no se puede violar porque no hay dos números que puedan discrepar, y ningún
+llamador cambia. No contradice la advertencia de ADR-056 sobre columnas
+materializadas: aquella es sobre un espejo que alguien tiene que acordarse de
+actualizar, y acá no hay a quién se le pueda olvidar.
+
+**`lowest` gobierna más de lo que parece**
+En `catalog_search`, `lowest` no es sólo lo que se muestra: de él salen el filtro
+de precio, el orden por precio y los extremos de la barra de rango. Dejarlo en el
+precio de lista habría dado una grilla que **se ve bien y ordena mal** —el peor
+tipo de bug, porque parece que funciona—, así que pasa a ser el mínimo efectivo.
+
+**Coste**
+Medido contra el catálogo de Estilo Sport, 100 productos y 194 variantes: 110 ms
+sin promociones contra 109 ms con una sobre todo el catálogo, dentro del ruido.
+El `case` que saltea `apply_chain` cuando el producto no tiene promociones es lo
+que hace que una tienda sin campañas —el estado normal— no pague nada. **No está
+medido a 9000 variantes**; si degradara, la salida sería materializar el precio
+efectivo, y eso sí sería el drift que ADR-056 describe.
+
+**Sobre los motivos de rechazo del cupón**
+Se distingue «no existe» de «venció», «se agotó» y «no llega al mínimo». Quien
+tiene un cupón legítimamente vencido merece saber que su código era real, y
+descubrir códigos *vencidos* no sirve de nada. Lo que no se hace es buscar por
+prefijo ni por coincidencia parcial: eso sí sería una forma de encontrar códigos
+probando.
+
+**Un grant que era una foto**
+La Fase 3 hizo `grant execute on all functions in schema app to authenticated`,
+que no alcanza a las funciones creadas después, y `service_role` nunca tuvo
+`usage` sobre ese schema. Las funciones nuevas de `app` llevan su grant
+explícito. El síntoma aparecía al **crear un pedido**, no al aplicar la
+migración, que es exactamente la clase de fallo que la migración sola no destapa.
