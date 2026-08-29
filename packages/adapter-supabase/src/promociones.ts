@@ -154,6 +154,21 @@ export function repositorioPromociones(db: PickSupabaseClient): RepositorioPromo
       return data.id;
     },
 
+    async cambiarEstado(storeId, id, status): Promise<void> {
+      const { error } = await db
+        .from('promotions')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('store_id', storeId);
+
+      if (error) throw new Error(`No se pudo cambiar el estado: ${error.message}`);
+    },
+
+    async borrar(storeId, id): Promise<void> {
+      const { error } = await db.from('promotions').delete().eq('id', id).eq('store_id', storeId);
+      if (error) throw new Error(`No se pudo borrar la promoción: ${error.message}`);
+    },
+
     async alcance(storeId, target): Promise<AlcanceDePromocion> {
       let consulta = db
         .from('products')

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Campo } from '@/components/campo';
 import { Switch } from '@/components/ui/switch';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
@@ -81,11 +82,11 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState(inicial?.title ?? '');
-  const [handle, setHandle] = useState(inicial?.handle ?? '');
+  // Se conserva el handle de una colección que ya existe y se deriva del nombre
+  // al crearla. No se ofrece: ver el comentario del formulario más abajo.
+  const handle = inicial?.handle ?? '';
   const [subtitle, setSubtitle] = useState(inicial?.subtitle ?? '');
   const [published, setPublished] = useState(inicial?.published ?? false);
-  const [enHome, setEnHome] = useState(inicial?.homePosition !== undefined);
-  const [homePosition, setHomePosition] = useState(String(inicial?.homePosition ?? 0));
   const [dinamica, setDinamica] = useState(Boolean(inicial?.rules));
   const [sort, setSort] = useState<CatalogSort>(inicial?.sort ?? 'relevance');
   const [reglas, setReglas] = useState<CatalogFilters>(inicial?.rules ?? {});
@@ -101,7 +102,6 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
           handle: handle || slugify(title),
           ...(subtitle ? { subtitle } : {}),
           published,
-          ...(enHome ? { homePosition: Number(homePosition) || 0 } : {}),
           ...(dinamica ? { sort, rules: reglas } : { productIds }),
         },
         id,
@@ -123,32 +123,28 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
       className="flex max-w-2xl flex-col gap-6"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="title">Título</Label>
+        <Campo id="title" label="Nombre" ayuda="Es el encabezado del carrusel en la home.">
           <Input id="title" value={title} onChange={(e) => setTitle(e.currentTarget.value)} />
-          <span className="text-muted-foreground text-xs">
-            Es el encabezado del carrusel en la home.
-          </span>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="handle">Handle</Label>
-          <Input
-            id="handle"
-            value={handle}
-            placeholder={slugify(title)}
-            onChange={(e) => setHandle(e.currentTarget.value)}
-          />
-          <span className="text-muted-foreground text-xs">Vacío: sale del título.</span>
-        </div>
-      </div>
+        </Campo>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="subtitle">Bajada</Label>
-        <Input
-          id="subtitle"
-          value={subtitle}
-          onChange={(e) => setSubtitle(e.currentTarget.value)}
-        />
+        {/*
+          El handle no se muestra.
+
+          Es la dirección con la que el storefront pide la colección, sale del
+          nombre y no hay nada que decidir ahí. Ofrecerlo era pedirle a alguien
+          que elija un identificador técnico —y equivocarse tenía consecuencias
+          que no se ven hasta que una sección deja de encontrar sus productos.
+          Se conserva el que ya tenga una colección editada: cambiarlo en
+          silencio rompería lo que la apunte.
+        */}
+
+        <Campo id="subtitle" label="Subtítulo" ayuda="Opcional. Va abajo del nombre, más chico.">
+          <Input
+            id="subtitle"
+            value={subtitle}
+            onChange={(e) => setSubtitle(e.currentTarget.value)}
+          />
+        </Campo>
       </div>
 
       <fieldset className="flex flex-col gap-3">
@@ -175,33 +171,24 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
         )}
       </fieldset>
 
-      <div className="flex flex-col gap-3">
-        <label className="flex items-center gap-3">
-          <Switch checked={published} onCheckedChange={setPublished} />
-          <span className="text-sm">Publicada</span>
-        </label>
+      {/*
+        Acá estaba «mostrar como sección de la home» con su posición.
 
-        <label className="flex items-center gap-3">
-          <Switch checked={enHome} onCheckedChange={setEnHome} />
-          <span className="text-sm">Mostrar como sección de la home</span>
-        </label>
-
-        {enHome && (
-          <div className="flex flex-col gap-1.5 pl-12">
-            <Label htmlFor="homePosition">Posición en la home</Label>
-            <Input
-              id="homePosition"
-              inputMode="numeric"
-              value={homePosition}
-              onChange={(e) => setHomePosition(e.currentTarget.value)}
-              className="w-24"
-            />
-            <span className="text-muted-foreground text-xs">
-              Menor primero. Una sección sin productos no se dibuja.
-            </span>
-          </div>
-        )}
-      </div>
+        Se sacó porque decía lo mismo desde dos lados. Una colección **se pone**
+        en la home creando una sección de tipo carrusel que la apunte, y ahí se
+        elige el orden arrastrándola entre las demás. Con las dos puertas, mover
+        una colección en Contenido → Secciones no coincidía con lo que decía este
+        formulario, y no había forma de saber cuál mandaba.
+      */}
+      <label className="flex items-center gap-3">
+        <Switch checked={published} onCheckedChange={setPublished} />
+        <span className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium">Publicada</span>
+          <span className="text-muted-foreground text-xs">
+            Despublicada, las secciones que la usan dejan de dibujarse.
+          </span>
+        </span>
+      </label>
 
       {error && (
         <p className="text-destructive text-sm" role="alert">

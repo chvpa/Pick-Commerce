@@ -17,6 +17,7 @@ import {
 } from '@pick/commerce-core';
 import type { ProductStatus } from '@pick/commerce-types';
 import { Badge } from '@/components/ui/badge';
+import { DialogoDeConfirmacion } from '@/components/acciones';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -76,6 +77,15 @@ export function ListaProductos() {
   const [status, setStatus] = useState<ProductStatus | ''>('');
   const [page, setPage] = useState(1);
   const [seleccion, setSeleccion] = useState<RowSelectionState>({});
+  /*
+   * Qué se está por confirmar.
+   *
+   * Los tres avisos de esta pantalla usaban el `confirm()` del navegador: modal
+   * bloqueante, sin estilo, sin foco gestionado, y que algunos browsers permiten
+   * silenciar —en ese caso la acción salía sin preguntar nada—.
+   */
+  const [porArchivar, setPorArchivar] = useState<ResumenProducto | null>(null);
+  const [lotePorConfirmar, setLotePorConfirmar] = useState<'active' | 'archived' | null>(null);
 
   // La búsqueda va al servidor: sin esperar, cada tecla sería una consulta.
   useEffect(() => {
@@ -222,9 +232,10 @@ export function ListaProductos() {
                     cambiarEstado.mutate({ id: row.original.id, status: 'active' });
                     return;
                   }
-                  if (confirm(`¿Archivar “${row.original.title}”? Deja de verse en la tienda.`)) {
-                    cambiarEstado.mutate({ id: row.original.id, status: 'archived' });
-                  }
+                  // Se abre el diálogo en vez de archivar. El interruptor no se
+                  // mueve hasta que la mutación vuelve, así que cancelar lo deja
+                  // donde estaba sin tener que revertirlo a mano.
+                  setPorArchivar(row.original);
                 }}
               />
               <Badge className={cn(TONO[estado])}>{ETIQUETA_ESTADO[estado]}</Badge>
@@ -357,11 +368,7 @@ export function ListaProductos() {
               variant="outline"
               size="sm"
               disabled={enLote.isPending}
-              onClick={() => {
-                if (confirm(`¿Archivar ${marcados.length} producto(s)?`)) {
-                  enLote.mutate({ ids: marcados.map((p) => p.id), status: 'archived' });
-                }
-              }}
+              onClick={() => setLotePorConfirmar('archived')}
             >
               Archivar
             </Button>
@@ -369,15 +376,7 @@ export function ListaProductos() {
               variant="outline"
               size="sm"
               disabled={enLote.isPending}
-              onClick={() => {
-                // Misma semántica que el interruptor de cada fila: publicar es
-                // publicar, venga el producto de donde venga. Que en lote y de a
-                // uno signifiquen cosas distintas es peor que el riesgo de
-                // publicar de más, que además se deshace con el mismo control.
-                if (confirm(`¿Publicar ${marcados.length} producto(s) en la tienda?`)) {
-                  enLote.mutate({ ids: marcados.map((p) => p.id), status: 'active' });
-                }
-              }}
+              onClick={() => setLotePorConfirmar('active')}
             >
               Publicar
             </Button>
@@ -488,6 +487,47 @@ export function ListaProductos() {
           </div>
         </div>
       )}
+
+      <DialogoDeConfirmacion
+        abierto={porArchivar !== null}
+        onAbierto={(abierto) => !abierto && setPorArchivar(null)}
+        titulo={`¿Archivar «${porArchivar?.title ?? ''}»?`}
+        descripcion="Deja de verse en la tienda. Se puede volver a publicar con el mismo interruptor."
+        confirmar="Archivar"
+        pendiente={cambiarEstado.isPending}
+        onConfirmar={() => {
+          if (porArchivar) cambiarEstado.mutate({ id: porArchivar.id, status: 'archived' });
+          setPorArchivar(null);
+        }}
+      />
+
+      <DialogoDeConfirmacion
+        abierto={lotePorConfirmar !== null}
+        onAbierto={(abierto) => !abierto && setLotePorConfirmar(null)}
+        titulo={
+          lotePorConfirmar === 'archived'
+            ? `¿Archivar ${marcados.length} ${marcados.length === 1 ? 'producto' : 'productos'}?`
+            : `¿Publicar ${marcados.length} ${marcados.length === 1 ? 'producto' : 'productos'}?`
+        }
+        descripcion={
+          lotePorConfirmar === 'archived'
+            ? 'Dejan de verse en la tienda. Se pueden volver a publicar.'
+            : /* Publicar es la misma semántica que el interruptor de cada fila:
+                 publicar es publicar, venga el producto de donde venga. Que en
+                 lote y de a uno signifiquen cosas distintas es peor que el
+                 riesgo de publicar de más, que se deshace con el mismo control. */
+              'Pasan a verse en la tienda, incluidos los que estaban en borrador o archivados.'
+        }
+        confirmar={lotePorConfirmar === 'archived' ? 'Archivar' : 'Publicar'}
+        destructivo={lotePorConfirmar === 'archived'}
+        pendiente={enLote.isPending}
+        onConfirmar={() => {
+          if (lotePorConfirmar) {
+            enLote.mutate({ ids: marcados.map((p) => p.id), status: lotePorConfirmar });
+          }
+          setLotePorConfirmar(null);
+        }}
+      />
     </div>
   );
 }

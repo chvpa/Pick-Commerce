@@ -5,6 +5,7 @@ import { repositorioContenido } from '@pick/adapter-supabase';
 import {
   COLUMNAS_POR_DEFECTO,
   columnasDe,
+  moverEn,
   type Banner,
   type LayoutDeSeccion,
   type SeccionDeHome,
@@ -15,6 +16,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Campo } from '@/components/campo';
+import { BorrarConConfirmacion, BotonDeIcono, ControlDeOrden } from '@/components/acciones';
+import { PencilIcon } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
@@ -26,6 +30,20 @@ const SELECT =
   'h-9 cursor-pointer rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3';
 
 const TIPOS: readonly TipoDeSeccion[] = ['hero', 'tiles', 'products', 'categories'];
+
+/**
+ * Qué significa «estático» en cada tipo.
+ *
+ * En el banner principal **no** es apilar: un hero ocupa el alto de la pantalla y
+ * tres apilados empujan el catálogo tan abajo que nadie llega. Ahí estático
+ * quiere decir de a dos.
+ */
+const ESTATICO: Record<TipoDeSeccion, string> = {
+  hero: 'De a dos, uno al lado del otro',
+  tiles: 'En grilla',
+  categories: 'En grilla',
+  products: 'En grilla',
+};
 
 /** Los dos tipos que llevan piezas gráficas. */
 function llevaPiezas(tipo: TipoDeSeccion): boolean {
@@ -105,7 +123,9 @@ function Campos({
     String(inicial ? columnasDe(inicial.settings) : COLUMNAS_POR_DEFECTO),
   );
   const [collectionId, setCollectionId] = useState(inicial?.collectionId ?? '');
-  const [position, setPosition] = useState(String(inicial?.position ?? siguientePosicion));
+  // La posición ya no se escribe: se cambia con las flechas de la lista. Se
+  // conserva la que tiene, y una sección nueva va al final.
+  const position = inicial?.position ?? siguientePosicion;
   const [published, setPublished] = useState(inicial?.published ?? false);
   const [error, setError] = useState<string | null>(null);
 
@@ -126,7 +146,7 @@ function Campos({
           layout,
           settings: type === 'tiles' ? { columns: Number(columns) || COLUMNAS_POR_DEFECTO } : {},
           ...(type === 'products' && collectionId ? { collectionId } : {}),
-          position: Number(position) || 0,
+          position,
           published,
         },
         id,
@@ -154,33 +174,40 @@ function Campos({
         }}
         className="flex flex-col gap-6"
       >
-        <fieldset className="flex flex-col gap-1.5">
-          <Label htmlFor="type">Tipo de sección</Label>
-          <select
-            id="type"
-            value={type}
-            disabled={Boolean(id)}
-            onChange={(e) => setType(e.currentTarget.value as TipoDeSeccion)}
-            className={SELECT}
-          >
-            {TIPOS.map((t) => (
-              <option key={t} value={t}>
-                {ETIQUETA_TIPO[t]}
-              </option>
-            ))}
-          </select>
-          <span className="text-muted-foreground text-xs">{AYUDA_TIPO[type]}</span>
-          {id && (
-            <span className="text-muted-foreground text-xs">
-              El tipo no se cambia después de crearla: sus piezas dejarían de tener sentido.
-              Creá otra y borrá ésta.
-            </span>
-          )}
-        </fieldset>
+        {/*
+          Al crear se elige el tipo; al editar sólo se informa cuál es.
+
+          El tipo no se puede cambiar —las piezas de un hero no significan nada
+          en un carrusel de productos— y un `<select>` deshabilitado sigue
+          pareciendo un control: invita a hacer clic y no pasa nada. Decirlo como
+          dato es más honesto que ofrecer algo que no funciona.
+        */}
+        {id ? (
+          <div className="bg-muted/40 border-border flex flex-col gap-0.5 rounded-lg border p-4">
+            <p className="text-sm font-medium">{ETIQUETA_TIPO[type]}</p>
+            <p className="text-muted-foreground text-xs">
+              {AYUDA_TIPO[type]}. El tipo se elige al crear la sección y no se cambia después.
+            </p>
+          </div>
+        ) : (
+          <Campo id="type" label="Tipo de sección" ayuda={AYUDA_TIPO[type]}>
+            <select
+              id="type"
+              value={type}
+              onChange={(e) => setType(e.currentTarget.value as TipoDeSeccion)}
+              className={SELECT}
+            >
+              {TIPOS.map((t) => (
+                <option key={t} value={t}>
+                  {ETIQUETA_TIPO[t]}
+                </option>
+              ))}
+            </select>
+          </Campo>
+        )}
 
         {type === 'products' && (
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="collection">Colección</Label>
+          <Campo id="collection" label="Colección">
             <select
               id="collection"
               value={collectionId}
@@ -194,53 +221,55 @@ function Campos({
                 </option>
               ))}
             </select>
-          </div>
+          </Campo>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="title">Encabezado</Label>
-            <Input id="title" value={title} onChange={(e) => setTitle(e.currentTarget.value)} />
-            <span className="text-muted-foreground text-xs">
-              {type === 'hero'
+          <Campo
+            id="title"
+            label="Encabezado"
+            ayuda={
+              type === 'hero'
                 ? 'Normalmente vacío: el banner principal lleva su texto en cada pieza.'
-                : 'El título que se ve arriba del bloque. Vacío: sin encabezado.'}
-            </span>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="subtitle">Bajada</Label>
+                : 'El título que se ve arriba del bloque. Vacío: sin encabezado.'
+            }
+          >
+            <Input id="title" value={title} onChange={(e) => setTitle(e.currentTarget.value)} />
+          </Campo>
+
+          <Campo id="subtitle" label="Subtítulo" ayuda="Opcional. Va abajo del encabezado.">
             <Input
               id="subtitle"
               value={subtitle}
               onChange={(e) => setSubtitle(e.currentTarget.value)}
             />
-          </div>
+          </Campo>
         </div>
 
-        {llevaPiezas(type) && (
+        {/*
+          El carrusel de productos no ofrece esta elección: siempre pasa de a uno,
+          que es lo que hace un carrusel. Las otras tres sí.
+        */}
+        {type !== 'products' && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="layout">Cómo se muestran</Label>
+            <Campo
+              id="layout"
+              label="Cómo se muestran"
+              ayuda="Con una sola pieza da lo mismo. Los slides se pasan deslizando o con los puntos; no rotan solos, para no moverse encima de quien está leyendo."
+            >
               <select
                 id="layout"
                 value={layout}
                 onChange={(e) => setLayout(e.currentTarget.value as LayoutDeSeccion)}
                 className={SELECT}
               >
-                <option value="static">
-                  {type === 'hero' ? 'Una debajo de la otra' : 'En grilla'}
-                </option>
+                <option value="static">{ESTATICO[type]}</option>
                 <option value="slider">Pasando de a una (slides)</option>
               </select>
-              <span className="text-muted-foreground text-xs">
-                Con una sola pieza da lo mismo. Los slides se pasan deslizando o con los
-                puntos; no rotan solos, para no moverse encima de quien está leyendo.
-              </span>
-            </div>
+            </Campo>
 
             {type === 'tiles' && layout === 'static' && (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="columns">Columnas</Label>
+              <Campo id="columns" label="Columnas" ayuda="En teléfono siempre va una por fila.">
                 <select
                   id="columns"
                   value={columns}
@@ -253,30 +282,28 @@ function Campos({
                     </option>
                   ))}
                 </select>
-                <span className="text-muted-foreground text-xs">
-                  En teléfono siempre va una por fila.
-                </span>
-              </div>
+              </Campo>
             )}
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="position">Posición en la home</Label>
-            <Input
-              id="position"
-              inputMode="numeric"
-              value={position}
-              onChange={(e) => setPosition(e.currentTarget.value)}
-            />
-            <span className="text-muted-foreground text-xs">Menor primero.</span>
-          </div>
-          <label className="flex items-center gap-3 self-end pb-2">
-            <Switch checked={published} onCheckedChange={setPublished} />
-            <span className="text-sm">Publicada</span>
-          </label>
-        </div>
+        {/*
+          Acá estaba «posición en la home» como un número.
+
+          Se sacó porque pedía traducir a mano una idea que es espacial: para
+          poner un bloque arriba de otro había que abrir los dos, mirar sus
+          números y elegir uno intermedio. Ahora el orden se cambia en la lista
+          con las flechas, que es donde se ve el resultado.
+        */}
+        <label className="flex items-center gap-3">
+          <Switch checked={published} onCheckedChange={setPublished} />
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">Publicada</span>
+            <span className="text-muted-foreground text-xs">
+              Sin publicar no aparece en la tienda, aunque tenga contenido.
+            </span>
+          </span>
+        </label>
 
         {error && (
           <p className="text-destructive text-sm" role="alert">
@@ -363,6 +390,15 @@ function Piezas({ sectionId, tipo }: { sectionId: string; tipo: TipoDeSeccion })
     onSuccess: invalidar,
   });
 
+  const mover = useMutation({
+    mutationFn: ({ desde, hacia }: { desde: number; hacia: number }) =>
+      repositorioContenido(db).reordenarPiezas(
+        tienda.id,
+        moverEn(consulta.data ?? [], desde, hacia).map((p) => p.id),
+      ),
+    onSuccess: invalidar,
+  });
+
   function abrir(p?: Banner): void {
     setError(null);
     setEditando(p?.id ?? 'nueva');
@@ -414,7 +450,7 @@ function Piezas({ sectionId, tipo }: { sectionId: string; tipo: TipoDeSeccion })
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="p-subtitle">Bajada</Label>
+              <Label htmlFor="p-subtitle">Subtítulo</Label>
               <Input
                 id="p-subtitle"
                 value={borrador.subtitle}
@@ -506,28 +542,37 @@ function Piezas({ sectionId, tipo }: { sectionId: string; tipo: TipoDeSeccion })
           uno no se dibuja en la home.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {consulta.data!.map((p) => (
-            <li key={p.id} className="border-border flex items-center gap-4 rounded-lg border p-3">
+        <ul aria-label={tipo === 'hero' ? 'Slides' : 'Avisos'} className="flex flex-col gap-2">
+          {consulta.data!.map((p, i) => (
+            <li key={p.id} className="border-border flex items-center gap-3 rounded-lg border p-3">
+              <ControlDeOrden
+                nombre={p.title}
+                primero={i === 0}
+                ultimo={i === consulta.data!.length - 1}
+                pendiente={mover.isPending}
+                onSubir={() => mover.mutate({ desde: i, hacia: i - 1 })}
+                onBajar={() => mover.mutate({ desde: i, hacia: i + 1 })}
+              />
               <img src={p.image.url} alt="" className="h-14 w-24 rounded object-cover" />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-medium">{p.title}</span>
                 <span className="text-muted-foreground truncate text-xs">
-                  {p.href ?? 'Sin enlace'} · posición {p.position}
+                  {p.href ?? 'Sin enlace'}
                 </span>
               </div>
               {!p.published && <Badge variant="secondary">Oculto</Badge>}
-              <Button variant="outline" size="sm" onClick={() => abrir(p)}>
-                Editar
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={borrar.isPending}
-                onClick={() => borrar.mutate(p.id)}
-              >
-                Borrar
-              </Button>
+              <BotonDeIcono
+                etiqueta={`Editar ${p.title}`}
+                icono={PencilIcon}
+                onClick={() => abrir(p)}
+              />
+              <BorrarConConfirmacion
+                nombre={p.title}
+                etiqueta={`Borrar ${p.title}`}
+                pendiente={borrar.isPending}
+                que={`Se quita ${tipo === 'hero' ? 'este slide' : 'este aviso'} de la sección. La imagen queda subida.`}
+                onConfirmar={() => borrar.mutate(p.id)}
+              />
             </li>
           ))}
         </ul>

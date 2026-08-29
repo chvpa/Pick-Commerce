@@ -137,7 +137,7 @@ const GRILLA: Readonly<Record<number, string>> = {
             {seccion.title && (
               <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>
             )}
-            <CategorySection categories={entradas} />
+            <CategorySection categories={entradas} layout={seccion.layout} />
           </Container>
         );
       }

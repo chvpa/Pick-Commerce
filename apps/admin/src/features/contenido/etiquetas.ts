@@ -20,3 +20,13 @@ export const AYUDA_TIPO: Record<TipoDeSeccion, string> = {
   products: 'Los productos de una colección',
   categories: 'La tira de categorías de la tienda',
 };
+
+/** El orden de una colección dinámica, en palabras. */
+export const ETIQUETA_ORDEN: Partial<Record<string, string>> = {
+  relevance: 'orden del catálogo',
+  newest: 'novedades',
+  'best-selling': 'más vendidos',
+  'price-asc': 'precio, menor a mayor',
+  'price-desc': 'precio, mayor a menor',
+  'title-asc': 'título',
+};

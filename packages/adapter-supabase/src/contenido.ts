@@ -52,6 +52,49 @@ function aColeccion(f: FilaColeccion, productIds?: readonly string[]): Coleccion
   };
 }
 
+/**
+ * Renumera desde cero según el orden recibido.
+ *
+ * Un update por fila y no un upsert en bloque: el upsert de PostgREST exige
+ * mandar la fila entera —y con ella `tenant_id`, `type`, `layout`— así que un
+ * reordenamiento podría pisar campos que nadie quiso tocar. Son cinco o seis
+ * filas; el viaje de más es más barato que ese riesgo.
+ *
+ * `store_id` va en cada update aunque el id ya sea único: es la misma barrera
+ * que el resto del repositorio, y sin ella un id de otra tienda se escribiría
+ * igual cuando la llamada viene con la secret key.
+ */
+async function reordenar(
+  db: PickSupabaseClient,
+  tabla: 'home_sections' | 'banners',
+  storeId: string,
+  idsEnOrden: readonly string[],
+): Promise<void> {
+  const ahora = new Date().toISOString();
+
+  for (const [position, id] of idsEnOrden.entries()) {
+    const { data, error } = await db
+      .from(tabla)
+      .update({ position, updated_at: ahora })
+      .eq('id', id)
+      .eq('store_id', storeId)
+      .select('id');
+
+    if (error) throw new Error(`No se pudo reordenar: ${error.message}`);
+
+    /*
+     * Comprobar que **tocó una fila** no es paranoia: si RLS filtra el update,
+     * PostgREST devuelve éxito con cero filas. Sin esto, un reordenamiento sin
+     * permiso se veía como si hubiera funcionado hasta que la pantalla se
+     * recargaba con el orden viejo, y no había ningún error en ninguna parte que
+     * explicara por qué.
+     */
+    if ((data ?? []).length !== 1) {
+      throw new Error('No se pudo reordenar: la base no aceptó el cambio.');
+    }
+  }
+}
+
 const COLUMNAS_COLECCION = 'id, title, handle, subtitle, published, home_position, sort, rules';
 const COLUMNAS_BANNER =
   'id, title, subtitle, image, image_mobile, href, cta_label, position, published, section_id';
@@ -224,6 +267,14 @@ export function repositorioContenido(db: PickSupabaseClient): RepositorioConteni
         .eq('id', id)
         .eq('store_id', storeId);
       if (error) throw new Error(`No se pudo borrar la sección: ${error.message}`);
+    },
+
+    async reordenarSecciones(storeId, idsEnOrden): Promise<void> {
+      await reordenar(db, 'home_sections', storeId, idsEnOrden);
+    },
+
+    async reordenarPiezas(storeId, idsEnOrden): Promise<void> {
+      await reordenar(db, 'banners', storeId, idsEnOrden);
     },
 
     // --- Piezas (slides del hero y mosaicos) ---------------------------------

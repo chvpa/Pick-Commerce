@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DialogoDeConfirmacion } from '@/components/acciones';
 import { usePuede } from '@/features/auth/usePuede';
 import { avisarStorefront } from '@/lib/notificaciones';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
@@ -67,6 +68,8 @@ export function DetallePedido({ id }: DetallePedidoProps) {
       repositorioAdminPedidos(db).cambiarPago(tienda.id, id, pago, nota || undefined),
     onSuccess: trasCambiar,
   });
+
+  const [porCancelar, setPorCancelar] = useState(false);
 
   const cambiarEstado = useMutation({
     mutationFn: (estado: OrderStatus) =>
@@ -285,15 +288,20 @@ export function DetallePedido({ id }: DetallePedidoProps) {
                 size="sm"
                 className="text-destructive self-start"
                 disabled={cambiarEstado.isPending}
-                onClick={() => {
-                  if (
-                    confirm(`¿Cancelar el pedido #${order.number}? El stock vuelve al inventario.`)
-                  )
-                    cambiarEstado.mutate('cancelled');
-                }}
+                onClick={() => setPorCancelar(true)}
               >
                 Cancelar pedido
               </Button>
+
+              <DialogoDeConfirmacion
+                abierto={porCancelar}
+                onAbierto={setPorCancelar}
+                titulo={`¿Cancelar el pedido #${order.number}?`}
+                descripcion="El stock vuelve al inventario y el pedido no se puede reabrir: cancelado es un estado final."
+                confirmar="Cancelar el pedido"
+                pendiente={cambiarEstado.isPending}
+                onConfirmar={() => cambiarEstado.mutate('cancelled')}
+              />
             </section>
           )}
 

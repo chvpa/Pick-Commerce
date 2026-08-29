@@ -11,13 +11,34 @@ export interface CategoryEntry {
 
 interface Props {
   categories: readonly CategoryEntry[];
+  /**
+   * `slider` las pasa de a una en una fila que se desliza; `static` las apila en
+   * grilla. Con muchas categorías la grilla crece hacia abajo y empuja el resto
+   * de la portada, así que el carrusel deja de ser un adorno.
+   */
+  layout?: 'static' | 'slider';
   class?: string;
 }
 
-const { categories, class: className } = Astro.props;
+const { categories, layout = 'static', class: className } = Astro.props;
 ---
 
-<ul class={cn('grid grid-cols-2 gap-4 md:grid-cols-4', className)}>
+{/* Carrusel por scroll-snap, sin JavaScript, igual que el de productos (ADR-038). */}
+<ul
+  class={cn(
+    layout === 'slider'
+      ? [
+          'flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2',
+          'scroll-smooth motion-reduce:scroll-auto',
+          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+          '[scrollbar-width:thin]',
+          '[&>li]:w-36 [&>li]:shrink-0 [&>li]:snap-start sm:[&>li]:w-44',
+        ]
+      : 'grid grid-cols-2 gap-4 md:grid-cols-4',
+    className,
+  )}
+  {...layout === 'slider' ? { role: 'group', tabindex: '0', 'aria-label': 'Categorías' } : {}}
+>
   {
     categories.map((category) => (
       <li>

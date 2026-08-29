@@ -3742,3 +3742,99 @@ cubre las que hay y las que vengan.
 No se encontró leyendo: se encontró reproduciéndolo. El código «se veía
 correcto» porque la parte que fallaba —estado local que sobrevive a un cambio de
 contexto— no está escrita en ningún lado; es lo que React hace por defecto.
+
+---
+
+## ADR-096 — Confirmar, ordenar y volver: las tres piezas que faltaban en el Admin
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+**Contexto**
+Al usar el Admin recién terminado aparecieron dieciséis problemas de uso, casi
+todos de la misma familia: controles que existían pero pedían al operador
+traducir a mano una idea que la pantalla podía representar sola.
+
+**Borrar pregunta, siempre, y con el mismo diálogo**
+Había tres borrados sin ninguna confirmación —secciones, piezas y colecciones—
+y **seis** usos de `window.confirm`. Ese modal es bloqueante, no se puede
+estilar, no gestiona el foco, y varios navegadores dejan silenciarlo: en ese
+caso la acción salía sin preguntar nada.
+
+Se usa `AlertDialog` de Base UI y no `Dialog`: el primero no cierra con Escape ni
+con un clic afuera. En un diálogo corriente el gesto de descartar es ambiguo
+—¿me arrepentí o se me escapó el clic?— y acá la respuesta por defecto tiene que
+ser no hacer nada, dicha explícitamente.
+
+Dos decisiones sobre el texto. La pregunta nombra **lo que se borra** y no «este
+elemento»: quien llega después de recorrer una lista larga necesita comprobar
+que apuntó a la fila que creía. Y el botón dice el verbo —«Borrar», «Archivar»,
+«Cancelar el pedido»— y no «Sí», que aislado no dice a qué.
+
+`DialogoDeConfirmacion` es controlado además de traer su versión con disparador,
+porque **no todo lo que hay que confirmar lo dispara un botón**: hay un
+interruptor que archiva un producto y un `<select>` que cancela un pedido, y
+fueron justamente esos dos los que se habían quedado con el `confirm()` nativo.
+En el `<select>`, el control ya se movió cuando corre el `onChange`, así que se
+lo devuelve **antes** de preguntar: dejarlo en «Cancelado» mientras el diálogo
+está abierto haría que cancelar el diálogo dejara la fila mintiendo.
+
+**El orden es la lista, no un número**
+La posición de una sección se escribía como entero. Para poner un bloque arriba
+de otro había que abrir los dos, mirar sus números y elegir uno intermedio: una
+idea espacial traducida a aritmética por la persona equivocada.
+
+Se eligieron flechas y no arrastrar-y-soltar. El repo no tiene librería de drag
+and drop y sumar una exige un ADR; pero sobre todo, arrastrar no se puede hacer
+con el teclado sin construir aparte todo el manejo de foco y los anuncios, así
+que una implementación honesta termina teniendo **igual** estos botones. Con
+listas de cinco o seis bloques, que es lo que tiene una portada, el arrastre no
+agrega nada que compense.
+
+La posición se **deriva** del orden y se renumera desde cero en cada cambio.
+Guardarla de a una dejaría huecos y empates que después hay que desempatar.
+
+**Migas de pan**
+Entrar a editar una colección, una sección o una promoción dejaba sin forma de
+volver salvo el botón del navegador, que en mobile ni está a la vista. Se
+derivan de la ruta con reglas declaradas y no partiendo la URL en segmentos:
+`/contenido/colecciones/$id` no tiene tres niveles navegables —`/contenido/
+colecciones` no existe como pantalla— y unas migas que llevan a un 404 son
+peores que no tenerlas. El último nivel no es enlace: es dónde estás.
+
+**Lo que se sacó de la vista**
+El `handle` de una colección salía del nombre y no tenía nada que decidir:
+ofrecerlo era pedir que alguien eligiera un identificador técnico, y
+equivocarse rompía en silencio la sección que la apuntaba. La opción «mostrar en
+la home» de una colección decía lo mismo que la sección de tipo carrusel, desde
+dos lados que podían contradecirse. Y el tipo de sección, que no se puede
+cambiar, dejó de mostrarse como `<select>` deshabilitado: un control apagado
+sigue pareciendo un control, e invita a un clic que no hace nada.
+
+**Validación que se ve**
+Los campos numéricos de una promoción convertían con `Number()` **antes** de
+validar. Un texto se volvía `NaN` y el mensaje resultante hablaba de cero; peor,
+tres campos ni siquiera renderizaban su error, así que el botón de guardar no
+hacía nada y no había forma de saber por qué. Ahora se valida el texto tal como
+se escribió, con mensajes que hablan de puntos y comas y no de enteros ni
+decimales, y el componente `Campo` incluye el error como parte del campo: dejar
+de mostrarlo deja de ser algo que uno pueda olvidarse.
+
+**Un `update` sin filas no es un éxito**
+`reordenar` no comprobaba cuántas filas tocaba. Si RLS filtra un update,
+PostgREST devuelve éxito con cero filas: un reordenamiento sin permiso se veía
+como si hubiera funcionado hasta recargar, y no había ningún error en ninguna
+parte. Ahora se exige que haya tocado exactamente una.
+
+**Un `click()` de Playwright no espera a la petición**
+El test del reordenamiento fallaba culpando al reordenamiento, que funcionaba:
+`click()` vuelve apenas despacha el clic, y el `page.reload()` inmediato abortaba
+la petición en vuelo. Se espera a que la pantalla lo refleje y **recién después**
+se recarga, que además prueba las dos cosas por separado: que cambió, y que
+quedó guardado.
+
+**Alcance del hero**
+El banner principal dejó de ofrecer «uno debajo del otro»: un hero ocupa el alto
+de la pantalla, y tres apilados empujan el catálogo tan abajo que nadie llega.
+Sus dos opciones son slides o de a dos. Las categorías ganaron la de carrusel,
+que con muchas deja de ser un adorno.

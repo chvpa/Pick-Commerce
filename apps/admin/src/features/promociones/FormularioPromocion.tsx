@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Campo, atributosDeError } from '@/components/campo';
 import { Switch } from '@/components/ui/switch';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
@@ -176,41 +177,36 @@ export function FormularioPromocion({ id }: { id?: string }) {
       })}
       className="flex max-w-2xl flex-col gap-6"
     >
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="title">Nombre</Label>
-        <Input id="title" {...register('title')} aria-invalid={!!formState.errors.title} />
-        {formState.errors.title && (
-          <span className="text-destructive text-xs">{formState.errors.title.message}</span>
-        )}
-        <span className="text-muted-foreground text-xs">
-          Lo ve el comprador en el resumen de su pedido.
-        </span>
-      </div>
+      <Campo
+        id="title"
+        label="Nombre"
+        error={formState.errors.title?.message}
+        ayuda="Lo ve el comprador en el resumen de su pedido."
+      >
+        <Input id="title" {...register('title')} {...atributosDeError('title', formState.errors.title?.message)} />
+      </Campo>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="discountType">Tipo</Label>
+        <Campo id="discountType" label="Tipo">
           <select id="discountType" {...register('discountType')} className={SELECT}>
             <option value="percentage">Porcentaje</option>
             <option value="fixed">Monto fijo</option>
           </select>
-        </div>
+        </Campo>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="discountValue">{tipo === 'percentage' ? 'Porcentaje' : 'Monto'}</Label>
+        <Campo
+          id="discountValue"
+          label={tipo === 'percentage' ? 'Porcentaje' : 'Monto'}
+          error={formState.errors.discountValue?.message}
+        >
           <Input
             id="discountValue"
             inputMode="decimal"
             placeholder={tipo === 'percentage' ? '15' : '50000'}
             {...register('discountValue')}
-            aria-invalid={!!formState.errors.discountValue}
+            {...atributosDeError('discountValue', formState.errors.discountValue?.message)}
           />
-          {formState.errors.discountValue && (
-            <span className="text-destructive text-xs">
-              {formState.errors.discountValue.message}
-            </span>
-          )}
-        </div>
+        </Campo>
       </div>
 
       <fieldset className="flex flex-col gap-3">
@@ -231,25 +227,12 @@ export function FormularioPromocion({ id }: { id?: string }) {
         </select>
 
         {alcance === 'category' && (
-          <div className="border-border flex flex-col gap-2 rounded-lg border p-3">
-            {categorias.isPending ? (
-              <p className="text-muted-foreground text-sm">Cargando categorías…</p>
-            ) : (categorias.data ?? []).length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                Esta tienda todavía no tiene categorías.
-              </p>
-            ) : (
-              categorias.data!.map((c) => (
-                <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={(ids ?? []).includes(c.id)}
-                    onCheckedChange={() => alternar(c.id)}
-                  />
-                  {c.name}
-                </label>
-              ))
-            )}
-          </div>
+          <SelectorDeCategorias
+            categorias={categorias.data ?? []}
+            cargando={categorias.isPending}
+            ids={ids ?? []}
+            alternar={alternar}
+          />
         )}
 
         {alcance === 'product' && <SelectorDeProductos ids={ids ?? []} alternar={alternar} />}
@@ -283,41 +266,77 @@ export function FormularioPromocion({ id }: { id?: string }) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="code">Código de cupón</Label>
-          <Input id="code" placeholder="Sin código: se aplica sola" {...register('code')} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="usageLimit">Tope de usos</Label>
-          <Input id="usageLimit" inputMode="numeric" placeholder="Sin tope" {...register('usageLimit')} />
-          {formState.errors.usageLimit && (
-            <span className="text-destructive text-xs">{formState.errors.usageLimit.message}</span>
-          )}
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="startsAt">Empieza</Label>
-          <Input id="startsAt" type="datetime-local" {...register('startsAt')} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="endsAt">Termina</Label>
+        <Campo id="code" label="Código de cupón" error={formState.errors.code?.message}>
+          <Input
+            id="code"
+            placeholder="Sin código: se aplica sola"
+            {...register('code')}
+            {...atributosDeError('code', formState.errors.code?.message)}
+          />
+        </Campo>
+
+        <Campo
+          id="usageLimit"
+          label="Tope de usos"
+          error={formState.errors.usageLimit?.message}
+          ayuda="Cuántos pedidos pueden aprovecharla. Vacío: sin tope."
+        >
+          <Input
+            id="usageLimit"
+            inputMode="numeric"
+            placeholder="Sin tope"
+            {...register('usageLimit')}
+            {...atributosDeError('usageLimit', formState.errors.usageLimit?.message)}
+          />
+        </Campo>
+
+        <Campo id="startsAt" label="Empieza" error={formState.errors.startsAt?.message}>
+          <Input
+            id="startsAt"
+            type="datetime-local"
+            {...register('startsAt')}
+            {...atributosDeError('startsAt', formState.errors.startsAt?.message)}
+          />
+        </Campo>
+
+        <Campo id="endsAt" label="Termina" error={formState.errors.endsAt?.message}>
           <Input
             id="endsAt"
             type="datetime-local"
             {...register('endsAt')}
-            aria-invalid={!!formState.errors.endsAt}
+            {...atributosDeError('endsAt', formState.errors.endsAt?.message)}
           />
-          {formState.errors.endsAt && (
-            <span className="text-destructive text-xs">{formState.errors.endsAt.message}</span>
-          )}
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="minSubtotal">Compra mínima</Label>
-          <Input id="minSubtotal" inputMode="numeric" placeholder="Sin mínimo" {...register('minSubtotal')} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="minQuantity">Cantidad mínima</Label>
-          <Input id="minQuantity" inputMode="numeric" placeholder="Sin mínimo" {...register('minQuantity')} />
-        </div>
+        </Campo>
+
+        <Campo
+          id="minSubtotal"
+          label="Compra mínima"
+          error={formState.errors.minSubtotal?.message}
+          ayuda={`Desde cuánto aplica, en ${tienda.currency}. Vacío: sin mínimo.`}
+        >
+          <Input
+            id="minSubtotal"
+            inputMode="numeric"
+            placeholder="Sin mínimo"
+            {...register('minSubtotal')}
+            {...atributosDeError('minSubtotal', formState.errors.minSubtotal?.message)}
+          />
+        </Campo>
+
+        <Campo
+          id="minQuantity"
+          label="Cantidad mínima"
+          error={formState.errors.minQuantity?.message}
+          ayuda="Cuántas unidades tiene que llevar. Vacío: sin mínimo."
+        >
+          <Input
+            id="minQuantity"
+            inputMode="numeric"
+            placeholder="Sin mínimo"
+            {...register('minQuantity')}
+            {...atributosDeError('minQuantity', formState.errors.minQuantity?.message)}
+          />
+        </Campo>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -333,13 +352,19 @@ export function FormularioPromocion({ id }: { id?: string }) {
             sigan explicando su descuento.
           </span>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="priority">Prioridad</Label>
-          <Input id="priority" inputMode="numeric" {...register('priority')} />
-          <span className="text-muted-foreground text-xs">
-            Mayor primero, cuando hay dos que alcanzan al mismo producto.
-          </span>
-        </div>
+        <Campo
+          id="priority"
+          label="Prioridad"
+          error={formState.errors.priority?.message}
+          ayuda="Mayor primero, cuando hay dos que alcanzan al mismo producto."
+        >
+          <Input
+            id="priority"
+            inputMode="numeric"
+            {...register('priority')}
+            {...atributosDeError('priority', formState.errors.priority?.message)}
+          />
+        </Campo>
       </div>
 
       <label className="flex items-start gap-3">
@@ -371,6 +396,99 @@ export function FormularioPromocion({ id }: { id?: string }) {
 }
 
 /** Buscador de productos para acotar el alcance a unos pocos. */
+/**
+ * Elegir categorías sin desplegar las doscientas.
+ *
+ * Antes se listaban todas, siempre abiertas: con un catálogo de verdad eso
+ * empuja el resto del formulario fuera de la pantalla y obliga a hacer scroll
+ * por una lista para llegar al botón de guardar. Ahora el bloque se abre, tiene
+ * su propio scroll y se cierra con «Listo», así que ocupa lugar sólo mientras se
+ * está usando.
+ *
+ * El buscador aparece recién con unas cuantas: con cinco categorías es un campo
+ * de más.
+ */
+function SelectorDeCategorias({
+  categorias,
+  cargando,
+  ids,
+  alternar,
+}: {
+  categorias: readonly { id: string; name: string }[];
+  cargando: boolean;
+  ids: readonly string[];
+  alternar: (id: string) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [texto, setTexto] = useState('');
+
+  const elegidas = categorias.filter((c) => ids.includes(c.id));
+  const filtradas = texto.trim()
+    ? categorias.filter((c) => c.name.toLowerCase().includes(texto.trim().toLowerCase()))
+    : categorias;
+
+  if (cargando) {
+    return <p className="text-muted-foreground text-sm">Cargando categorías…</p>;
+  }
+
+  if (categorias.length === 0) {
+    return <p className="text-muted-foreground text-sm">Esta tienda todavía no tiene categorías.</p>;
+  }
+
+  if (!abierto) {
+    return (
+      <div className="border-border flex items-center justify-between gap-3 rounded-lg border p-3">
+        <p className="min-w-0 text-sm">
+          {elegidas.length === 0 ? (
+            <span className="text-muted-foreground">Ninguna categoría elegida</span>
+          ) : (
+            <span className="line-clamp-2">{elegidas.map((c) => c.name).join(', ')}</span>
+          )}
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={() => setAbierto(true)}>
+          {elegidas.length === 0 ? 'Elegir' : 'Cambiar'}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-border flex flex-col gap-3 rounded-lg border p-3">
+      {categorias.length > 8 && (
+        <Input
+          value={texto}
+          onChange={(e) => setTexto(e.currentTarget.value)}
+          placeholder="Buscar categoría"
+          aria-label="Buscar categoría"
+        />
+      )}
+
+      <p className="text-muted-foreground text-xs" aria-live="polite">
+        {ids.length} de {categorias.length} elegidas
+      </p>
+
+      <div className="flex max-h-64 flex-col gap-2 overflow-y-auto">
+        {filtradas.length === 0 ? (
+          <p className="text-muted-foreground text-sm">Ninguna categoría coincide.</p>
+        ) : (
+          filtradas.map((c) => (
+            <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+              <Checkbox checked={ids.includes(c.id)} onCheckedChange={() => alternar(c.id)} />
+              {c.name}
+            </label>
+          ))
+        )}
+      </div>
+
+      <div className="flex justify-end">
+        <Button type="button" size="sm" onClick={() => setAbierto(false)}>
+          Listo
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function SelectorDeProductos({
   ids,
   alternar,

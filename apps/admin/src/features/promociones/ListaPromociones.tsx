@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { repositorioPromociones } from '@pick/adapter-supabase';
 import { esDeCatalogo, formatMoney, type Promotion } from '@pick/commerce-core';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { BorrarConConfirmacion, EnlaceDeEdicion } from '@/components/acciones';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Table,
@@ -73,10 +75,26 @@ export function ListaPromociones() {
   const puede = usePuede();
   const [page, setPage] = useState(1);
 
+  const queryClient = useQueryClient();
+
   const consulta = useQuery({
     queryKey: ['promociones', tienda.id, page],
     queryFn: () => repositorioPromociones(db).listar(tienda.id, { page, perPage: POR_PAGINA }),
     placeholderData: keepPreviousData,
+  });
+
+  const refrescar = () =>
+    queryClient.invalidateQueries({ queryKey: ['promociones', tienda.id] });
+
+  const estado = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Promotion['status'] }) =>
+      repositorioPromociones(db).cambiarEstado(tienda.id, id, status),
+    onSuccess: refrescar,
+  });
+
+  const borrar = useMutation({
+    mutationFn: (id: string) => repositorioPromociones(db).borrar(tienda.id, id),
+    onSuccess: refrescar,
   });
 
   const datos = consulta.data;
@@ -114,20 +132,21 @@ export function ListaPromociones() {
                 <TableHead>Dónde se ve</TableHead>
                 <TableHead>Vigencia</TableHead>
                 <TableHead className="text-right">Usos</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {consulta.isPending ? (
                 Array.from({ length: 5 }, (_, i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={8}>
                       <div className="bg-muted h-5 w-full animate-pulse rounded" />
                     </TableCell>
                   </TableRow>
                 ))
               ) : datos && datos.items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center">
+                  <TableCell colSpan={8} className="py-10 text-center">
                     <p className="text-muted-foreground text-sm">
                       Todavía no hay promociones.{' '}
                       {puede('promotion.write')
@@ -152,7 +171,30 @@ export function ListaPromociones() {
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={TONO_ESTADO[p.status]}>{ETIQUETA_ESTADO[p.status]}</Badge>
+                      {puede('promotion.write') ? (
+                        /*
+                         * El interruptor prende y apaga sin abrir el formulario,
+                         * que es lo que se hace todo el tiempo con una campaña.
+                         * Apagar la deja en borrador y no archivada: archivar es
+                         * «esto ya no va más» y se elige a propósito desde el
+                         * formulario, no de un clic al pasar.
+                         */
+                        <label className="flex cursor-pointer items-center gap-2">
+                          <Switch
+                            checked={p.status === 'active'}
+                            disabled={estado.isPending}
+                            onCheckedChange={(activa) =>
+                              estado.mutate({ id: p.id, status: activa ? 'active' : 'draft' })
+                            }
+                            aria-label={`${p.status === 'active' ? 'Desactivar' : 'Activar'} ${p.title}`}
+                          />
+                          <Badge variant={TONO_ESTADO[p.status]}>
+                            {ETIQUETA_ESTADO[p.status]}
+                          </Badge>
+                        </label>
+                      ) : (
+                        <Badge variant={TONO_ESTADO[p.status]}>{ETIQUETA_ESTADO[p.status]}</Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {descuento(p, tienda.locale)}
@@ -167,6 +209,30 @@ export function ListaPromociones() {
                     <TableCell className="text-right tabular-nums">
                       {p.usageCount}
                       {p.usageLimit !== undefined ? ` / ${p.usageLimit}` : ''}
+                    </TableCell>
+                    <TableCell>
+                      {puede('promotion.write') && (
+                        <div className="flex justify-end">
+                          <EnlaceDeEdicion
+                            etiqueta={`Editar ${p.title}`}
+                            to="/promociones/$id"
+                            params={{ id: p.id }}
+                          />
+                          <BorrarConConfirmacion
+                            nombre={p.title}
+                            etiqueta={`Borrar ${p.title}`}
+                            pendiente={borrar.isPending}
+                            que={
+                              <>
+                                Se borra para siempre. Los pedidos que ya la usaron{' '}
+                                <strong>conservan su descuento</strong>: guardan una copia de lo
+                                que se les aplicó, no una referencia a esta campaña.
+                              </>
+                            }
+                            onConfirmar={() => borrar.mutate(p.id)}
+                          />
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

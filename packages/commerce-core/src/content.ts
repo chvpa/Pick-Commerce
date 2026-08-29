@@ -97,6 +97,16 @@ export interface RepositorioContenido {
   guardarSeccion(storeId: string, datos: DatosDeSeccion, id?: string): Promise<string>;
   borrarSeccion(storeId: string, id: string): Promise<void>;
 
+  /**
+   * Escribe el orden a partir de la lista de ids.
+   *
+   * La posición se **deriva** del orden en vez de pedirla: la interfaz mueve
+   * elementos en una lista y esto renumera desde cero. Guardar la posición de a
+   * una dejaría huecos y empates que después hay que desempatar.
+   */
+  reordenarSecciones(storeId: string, idsEnOrden: readonly string[]): Promise<void>;
+  reordenarPiezas(storeId: string, idsEnOrden: readonly string[]): Promise<void>;
+
   /** Las piezas de una sección, en orden. */
   piezas(storeId: string, sectionId: string): Promise<readonly Banner[]>;
   guardarBanner(storeId: string, datos: DatosDeBanner, id?: string): Promise<string>;
@@ -180,7 +190,12 @@ export type SeccionResuelta =
       readonly subtitle?: string;
       readonly productos: readonly ProductoDeSeccion[];
     }
-  | { readonly kind: 'categories'; readonly id: string; readonly title?: string };
+  | {
+      readonly kind: 'categories';
+      readonly id: string;
+      readonly title?: string;
+      readonly layout: LayoutDeSeccion;
+    };
 
 /** Lo que un carrusel de la home necesita de un producto. Es `Product`. */
 export type ProductoDeSeccion = import('@pick/commerce-types').Product;
@@ -201,3 +216,31 @@ export function columnasDe(settings: Readonly<Record<string, string | number | b
 }
 
 export type DatosDeSeccion = Omit<SeccionDeHome, 'id'>;
+
+/**
+ * Mover un elemento de una lista a otra posición.
+ *
+ * Devuelve la lista nueva; no toca la original. Fuera de rango devuelve la misma
+ * lista en vez de lanzar: quien llama es un botón de flecha, y el caso «ya está
+ * primero» tiene que ser inofensivo, no un error.
+ *
+ * Vive en el core y no en el Admin porque es la semántica del orden —qué
+ * significa «subir»— y no una decisión de interfaz: quien la reimplemente en
+ * otra pantalla debería obtener exactamente esto.
+ */
+export function moverEn<T>(lista: readonly T[], desde: number, hacia: number): readonly T[] {
+  if (
+    desde === hacia ||
+    desde < 0 ||
+    hacia < 0 ||
+    desde >= lista.length ||
+    hacia >= lista.length
+  ) {
+    return lista;
+  }
+
+  const copia = [...lista];
+  const [movido] = copia.splice(desde, 1);
+  copia.splice(hacia, 0, movido!);
+  return copia;
+}

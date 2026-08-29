@@ -13,11 +13,27 @@ import { z } from 'zod';
  * manda tenga forma.
  */
 
-const numeroOpcional = z
+/*
+ * Los números que escribe una persona.
+ *
+ * `Number('abc')` da `NaN` y `Number('')` da `0`, así que validar **después** de
+ * convertir confunde dos errores distintos —«no es un número» y «es cero»— y
+ * termina diciendo «tiene que ser mayor a cero» sobre un texto. Se valida el
+ * texto tal como se escribió y recién después se convierte.
+ *
+ * Los mensajes hablan de puntos y comas y no de enteros ni decimales: quien
+ * carga una promoción no tiene por qué saber qué es un entero.
+ */
+const SOLO_DIGITOS = /^\d+$/;
+const NUMERO_CON_DECIMALES = /^\d+([.,]\d+)?$/;
+
+/** Cantidad entera y positiva. Vacío = ausente, no cero. */
+const enteroOpcional = z
   .string()
   .trim()
-  .transform((v) => (v === '' ? undefined : Number(v)))
-  .refine((v) => v === undefined || (Number.isFinite(v) && v > 0), 'Tiene que ser mayor a cero');
+  .refine((v) => v === '' || SOLO_DIGITOS.test(v), 'Sólo números enteros, sin puntos ni comas')
+  .refine((v) => v === '' || Number(v) > 0, 'Tiene que ser mayor que cero')
+  .transform((v) => (v === '' ? undefined : Number(v)));
 
 const fechaOpcional = z
   .string()
@@ -31,8 +47,8 @@ export const promocionSchema = z
     priority: z
       .string()
       .trim()
-      .transform((v) => (v === '' ? 0 : Number(v)))
-      .refine((v) => Number.isInteger(v), 'Tiene que ser un número entero'),
+      .refine((v) => v === '' || SOLO_DIGITOS.test(v), 'Sólo números enteros')
+      .transform((v) => (v === '' ? 0 : Number(v))),
     stackable: z.boolean(),
 
     discountType: z.enum(['percentage', 'fixed']),
@@ -41,8 +57,12 @@ export const promocionSchema = z
       .string()
       .trim()
       .min(1, 'Falta el descuento')
+      // El porcentaje admite decimales —«12,5 %» es un caso real— y el monto no:
+      // se guarda en la unidad mínima de la moneda. La distinción la hace el
+      // refine de abajo, que ya conoce el tipo.
+      .refine((v) => NUMERO_CON_DECIMALES.test(v), 'Sólo números. Para decimales, usá una coma')
       .transform((v) => Number(v.replace(',', '.')))
-      .refine((v) => Number.isFinite(v) && v > 0, 'Tiene que ser mayor a cero'),
+      .refine((v) => v > 0, 'Tiene que ser mayor que cero'),
 
     targetKind: z.enum(['all', 'category', 'collection', 'product']),
     targetIds: z.array(z.string()),
@@ -53,12 +73,18 @@ export const promocionSchema = z
       .transform((v) => (v === '' ? undefined : v.toUpperCase())),
     startsAt: fechaOpcional,
     endsAt: fechaOpcional,
-    usageLimit: numeroOpcional,
-    minSubtotal: numeroOpcional,
-    minQuantity: numeroOpcional,
+    usageLimit: enteroOpcional,
+    minSubtotal: enteroOpcional,
+    minQuantity: enteroOpcional,
   })
   .refine((v) => v.discountType !== 'percentage' || v.discountValue <= 100, {
     message: 'Un porcentaje no puede pasar de 100',
+    path: ['discountValue'],
+  })
+  // Un monto fijo se guarda en la unidad mínima de la moneda, así que «50000,5»
+  // no significa nada. El porcentaje sí admite decimales.
+  .refine((v) => v.discountType !== 'fixed' || Number.isInteger(v.discountValue), {
+    message: 'Un monto no lleva decimales',
     path: ['discountValue'],
   })
   .refine((v) => v.targetKind === 'all' || v.targetIds.length > 0, {

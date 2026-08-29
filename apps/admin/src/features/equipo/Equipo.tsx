@@ -3,6 +3,7 @@ import { repositorioEquipo } from '@pick/adapter-supabase';
 import { DESCRIPCION_ROL, ETIQUETA_ROL, ROLES, esUltimoOwner } from '@pick/commerce-core';
 import type { MemberRole } from '@pick/commerce-types';
 import { Button } from '@/components/ui/button';
+import { BorrarConConfirmacion } from '@/components/acciones';
 import {
   Table,
   TableBody,
@@ -147,19 +148,25 @@ export function Equipo() {
                         </select>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={ocupado || ultimo}
-                          title={motivo}
-                          onClick={() => {
-                            if (confirm(`¿Quitar a ${m.email} de esta organización?`)) {
-                              quitar.mutate(m.userId);
-                            }
-                          }}
-                        >
-                          Quitar
-                        </Button>
+                        {/*
+                          `title={motivo}` explica por qué está deshabilitado —al
+                          último owner no se lo puede quitar—; el diálogo sólo
+                          aparece cuando la acción es posible.
+                        */}
+                        <span title={motivo}>
+                          <BorrarConConfirmacion
+                            nombre={m.email}
+                            etiqueta={`Quitar a ${m.email}`}
+                            // `ultimo` no es «está ocupado» sino «no se puede»:
+                            // al último owner no se lo quita, y el motivo lo
+                            // explica el `title` de arriba. Deshabilitar es lo
+                            // mismo en los dos casos, pero perder esa condición
+                            // dejaría a la organización sin dueño.
+                            pendiente={ocupado || ultimo}
+                            que="Pierde el acceso a esta organización. Sus pedidos y cambios quedan como están."
+                            onConfirmar={() => quitar.mutate(m.userId)}
+                          />
+                        </span>
                       </TableCell>
                     </TableRow>
                   );

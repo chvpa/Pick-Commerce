@@ -5,7 +5,13 @@ import { buttonVariants, cn } from '@pick/commerce-ui';
 
 interface Props {
   piezas: readonly Banner[];
-  /** `slider` deja pasar los slides de a uno; `static` los apila. */
+  /**
+   * `slider` pasa los slides de a uno; `static` los pone **de a dos**.
+   *
+   * Apilarlos uno debajo del otro no es una opción: un hero ocupa el alto de la
+   * pantalla, y tres apilados empujan el catálogo tan abajo que nadie llega. Con
+   * uno solo las dos opciones dan lo mismo.
+   */
   layout: 'static' | 'slider';
   /** Para que los `id` de los slides no choquen si hay dos heros. */
   id: string;
@@ -46,7 +52,9 @@ const esSlider = layout === 'slider' && piezas.length > 1;
             'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
             '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           ]
-        : 'flex flex-col gap-4',
+        // De a dos en pantalla ancha y uno por fila en teléfono, donde dos heros
+        // lado a lado no dejan leer ninguno.
+        : 'grid gap-4 sm:grid-cols-2',
       'rounded-lg',
     )}
   >

@@ -181,22 +181,132 @@ test.describe('Admin', () => {
 
     const titulo = `Novedades del smoke ${Date.now()}`;
     await page.locator('#title').fill(titulo);
-    await page
-      .getByLabel('Cómo se arma la colección')
-      .selectOption('dinamica');
+    await page.getByLabel('Cómo se arma la colección').selectOption('dinamica');
     await page.locator('#sort').selectOption('newest');
-
-    // Publicada y en la home: los dos interruptores del final.
-    await page.getByRole('switch', { name: /Publicada/ }).click();
-    await page.getByRole('switch', { name: /sección de la home/ }).click();
-    await expect(page.locator('#homePosition')).toBeVisible();
+    await page.getByRole('switch').first().click();
 
     await page.getByRole('button', { name: 'Crear colección' }).click();
 
     const fila = page.getByRole('listitem').filter({ hasText: titulo });
     await expect(fila).toBeVisible({ timeout: 15_000 });
-    await expect(fila).toContainText('dinámica, por newest');
+    await expect(fila).toContainText('Se arma sola, por novedades');
     await expect(fila).toContainText('Publicada');
+
+    expect(problemas, problemas.join('\n')).toEqual([]);
+  });
+
+  test('las migas devuelven a la lista desde una pantalla de detalle', async ({ page }) => {
+    /*
+     * Existen por un problema concreto: al entrar a editar no había forma de
+     * volver salvo el botón del navegador, que en mobile ni está a la vista. Se
+     * afirma que el enlace **funciona**, no que se dibuja: unas migas que
+     * apunten a una ruta inexistente se ven igual de bien y no llevan a ningún
+     * lado.
+     */
+    const problemas = vigilar(page);
+    await entrar(page);
+    await abrirSidebar(page);
+
+    await page.getByRole('link', { name: 'Contenido' }).click();
+    await page.getByRole('tab', { name: 'Colecciones' }).click();
+    await page.getByRole('link', { name: 'Nueva colección' }).click();
+
+    const migas = page.getByRole('navigation', { name: 'Migas de pan' });
+    await expect(migas).toContainText('Contenido');
+    await expect(migas).toContainText('Nueva colección');
+
+    await migas.getByRole('link', { name: 'Colecciones' }).click();
+    await expect(page).toHaveURL(/\/contenido\?tab=colecciones/);
+    await expect(page.getByRole('link', { name: 'Nueva colección' })).toBeVisible();
+
+    expect(problemas, problemas.join('\n')).toEqual([]);
+  });
+
+  test('las secciones se reordenan con las flechas', async ({ page }) => {
+    // El orden sale de la lista y no de un número escrito a mano: lo que se ve
+    // arriba tiene que quedar arriba después de recargar, no sólo en pantalla.
+    const problemas = vigilar(page);
+    await entrar(page);
+    await abrirSidebar(page);
+
+    await page.getByRole('link', { name: 'Contenido' }).click();
+
+    // Acotado a la lista de secciones: `getByRole('listitem')` a secas agarra
+    // también los ítems del menú lateral, que también son una lista.
+    const lista = page.getByRole('list', { name: 'Secciones de la portada' });
+    const filas = lista.getByRole('listitem');
+    await expect(filas.first()).toBeVisible({ timeout: 15_000 });
+
+    const cuantas = await filas.count();
+    test.skip(cuantas < 2, 'la tienda del smoke no tiene dos secciones que intercambiar');
+
+    /*
+     * Se compara la secuencia entera, no un nombre suelto: dos secciones pueden
+     * llamarse igual —dos bloques de avisos, por ejemplo— y entonces «la primera
+     * se llama X» sería cierto antes y después de mover sin probar nada.
+     */
+    const titulos = async () =>
+      page
+        .getByRole('list', { name: 'Secciones de la portada' })
+        .getByRole('button', { name: /^Subir / })
+        .evaluateAll((botones) => botones.map((b) => b.getAttribute('title') ?? ''));
+
+    const antes = await titulos();
+    const esperado = [antes[1], antes[0], ...antes.slice(2)];
+
+    await filas.nth(1).getByRole('button', { name: /^Subir / }).click();
+
+    /*
+     * Primero se espera a que la pantalla lo refleje, y **recién después** se
+     * recarga.
+     *
+     * `click()` vuelve apenas despacha el clic, no cuando la petición terminó:
+     * recargar en el acto abortaba el pedido en vuelo, y el test fallaba
+     * culpando al reordenamiento, que funcionaba.
+     */
+    await expect.poll(titulos, { timeout: 15_000 }).toEqual(esperado);
+
+    // Y ahora sí: si el orden hubiera cambiado sólo en pantalla y no en la base,
+    // acá volvería al anterior.
+    await page.reload();
+    await expect(filas.first()).toBeVisible({ timeout: 15_000 });
+    await expect.poll(titulos, { timeout: 15_000 }).toEqual(esperado);
+
+    expect(problemas, problemas.join('\n')).toEqual([]);
+  });
+
+  test('borrar pide confirmación y se puede arrepentir', async ({ page }) => {
+    /*
+     * Antes el tacho borraba de un clic. Se prueban las dos mitades: que
+     * cancelar **no** borre —que es la que importa y la que un test descuidado
+     * no cubre— y que confirmar sí.
+     */
+    const problemas = vigilar(page);
+    await entrar(page);
+    await abrirSidebar(page);
+
+    await page.getByRole('link', { name: 'Contenido' }).click();
+    await page.getByRole('tab', { name: 'Colecciones' }).click();
+    await page.getByRole('link', { name: 'Nueva colección' }).click();
+
+    const titulo = `Novedades del smoke ${Date.now()}`;
+    await page.locator('#title').fill(titulo);
+    await page.getByRole('button', { name: 'Crear colección' }).click();
+
+    const fila = page.getByRole('listitem').filter({ hasText: titulo });
+    await expect(fila).toBeVisible({ timeout: 15_000 });
+
+    // Primero cancelar: la colección tiene que seguir ahí.
+    await fila.getByRole('button', { name: `Borrar ${titulo}` }).click();
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    await expect(fila).toBeVisible();
+
+    // Ahora confirmar.
+    await fila.getByRole('button', { name: `Borrar ${titulo}` }).click();
+    await page.getByRole('button', { name: 'Borrar', exact: true }).click();
+    await expect(fila).toHaveCount(0, { timeout: 15_000 });
 
     expect(problemas, problemas.join('\n')).toEqual([]);
   });

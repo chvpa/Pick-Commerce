@@ -171,7 +171,12 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
             }
 
             if (f.type === 'categories') {
-              return { kind: 'categories', id: f.id, ...(f.title ? { title: f.title } : {}) };
+              return {
+                kind: 'categories',
+                id: f.id,
+                layout,
+                ...(f.title ? { title: f.title } : {}),
+              };
             }
 
             const coleccion = f.collection_id ? porColeccion.get(f.collection_id) : undefined;

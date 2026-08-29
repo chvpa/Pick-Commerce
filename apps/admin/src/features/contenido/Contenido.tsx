@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { repositorioContenido } from '@pick/adapter-supabase';
-import { slugify, tipoDe, type CategoriaAdmin } from '@pick/commerce-core';
+import {
+  moverEn,
+  slugify,
+  tipoDe,
+  type CategoriaAdmin,
+  type Coleccion,
+} from '@pick/commerce-core';
 import type { ProductImage } from '@pick/commerce-types';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -12,8 +18,16 @@ import { usePuede } from '@/features/auth/usePuede';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import { PencilIcon } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import {
+  BorrarConConfirmacion,
+  BotonDeIcono,
+  ControlDeOrden,
+  EnlaceDeEdicion,
+} from '@/components/acciones';
 import { SelectorDeImagen } from './SelectorDeImagen';
-import { ETIQUETA_TIPO } from './etiquetas';
+import { ETIQUETA_ORDEN, ETIQUETA_TIPO } from './etiquetas';
 
 type Pestana = 'secciones' | 'colecciones' | 'categorias';
 
@@ -112,9 +126,22 @@ function PanelSecciones() {
     queryFn: () => repositorioContenido(db).colecciones(tienda.id),
   });
 
+  const refrescar = () => queryClient.invalidateQueries({ queryKey: ['secciones', tienda.id] });
+
   const borrar = useMutation({
     mutationFn: (id: string) => repositorioContenido(db).borrarSeccion(tienda.id, id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['secciones', tienda.id] }),
+    onSuccess: refrescar,
+  });
+
+  const mover = useMutation({
+    mutationFn: ({ desde, hacia }: { desde: number; hacia: number }) =>
+      repositorioContenido(db).reordenarSecciones(
+        tienda.id,
+        moverEn(consulta.data ?? [], desde, hacia).map((s) => s.id),
+      ),
+    // Se refresca también al fallar: si algunas filas se movieron y otras no, lo
+    // que hay que mostrar es lo que quedó en la base, no lo que se pidió.
+    onSettled: refrescar,
   });
 
   if (consulta.isError) {
@@ -139,6 +166,14 @@ function PanelSecciones() {
         )}
       </div>
 
+      {/* Un fallo al mover o al borrar no puede quedar en silencio: la lista se
+          refresca sola y parecería que no pasó nada. */}
+      {(mover.error ?? borrar.error) && (
+        <p className="text-destructive text-sm" role="alert">
+          {((mover.error ?? borrar.error) as Error).message}
+        </p>
+      )}
+
       {consulta.isPending ? (
         <div className="bg-muted h-20 animate-pulse rounded-lg" />
       ) : consulta.data!.length === 0 ? (
@@ -146,12 +181,25 @@ function PanelSecciones() {
           La home no tiene ninguna sección. Empezá por un banner principal.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {consulta.data!.map((s) => (
-            <li key={s.id} className="border-border flex items-center gap-4 rounded-lg border p-3">
-              <span className="text-muted-foreground w-8 shrink-0 text-center text-sm tabular-nums">
-                {s.position}
-              </span>
+        <ul aria-label="Secciones de la portada" className="flex flex-col gap-2">
+          {consulta.data!.map((s, i) => (
+            <li key={s.id} className="border-border flex items-center gap-3 rounded-lg border p-3">
+              {/*
+                El orden **es** la lista, no un número que hay que traducir. Antes
+                acá se mostraba `position` y había que abrir el formulario para
+                cambiarlo, mirando los números de las otras para elegir uno
+                intermedio.
+              */}
+              {puede('catalog.write') && (
+                <ControlDeOrden
+                  nombre={s.title ?? ETIQUETA_TIPO[s.type]}
+                  primero={i === 0}
+                  ultimo={i === consulta.data!.length - 1}
+                  pendiente={mover.isPending}
+                  onSubir={() => mover.mutate({ desde: i, hacia: i - 1 })}
+                  onBajar={() => mover.mutate({ desde: i, hacia: i + 1 })}
+                />
+              )}
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-medium">
                   {s.title ?? ETIQUETA_TIPO[s.type]}
@@ -173,21 +221,22 @@ function PanelSecciones() {
               </Badge>
               {puede('catalog.write') && (
                 <>
-                  <Link
+                  <EnlaceDeEdicion
+                    etiqueta={`Editar ${s.title ?? ETIQUETA_TIPO[s.type]}`}
                     to="/contenido/secciones/$id"
                     params={{ id: s.id }}
-                    className={buttonVariants({ variant: 'outline', size: 'sm' })}
-                  >
-                    Editar
-                  </Link>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={borrar.isPending}
-                    onClick={() => borrar.mutate(s.id)}
-                  >
-                    Borrar
-                  </Button>
+                  />
+                  <BorrarConConfirmacion
+                    nombre={s.title ?? ETIQUETA_TIPO[s.type]}
+                    etiqueta={`Borrar ${s.title ?? ETIQUETA_TIPO[s.type]}`}
+                    pendiente={borrar.isPending}
+                    que={
+                      s.type === 'hero' || s.type === 'tiles'
+                        ? 'Se borra el bloque y sus piezas. Las imágenes quedan subidas.'
+                        : 'Se borra el bloque de la portada. La colección y sus productos no se tocan.'
+                    }
+                    onConfirmar={() => borrar.mutate(s.id)}
+                  />
                 </>
               )}
             </li>
@@ -205,10 +254,36 @@ function PanelSecciones() {
 function PanelColecciones() {
   const tienda = useTiendaActiva();
   const puede = usePuede();
+  const queryClient = useQueryClient();
 
   const consulta = useQuery({
     queryKey: ['colecciones', tienda.id],
     queryFn: () => repositorioContenido(db).colecciones(tienda.id),
+  });
+
+  const refrescar = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['colecciones', tienda.id] });
+    // Una sección de carrusel apunta a una colección: si se despublicó o se
+    // borró, la lista de secciones también cambió de significado.
+    await queryClient.invalidateQueries({ queryKey: ['secciones', tienda.id] });
+  };
+
+  const publicar = useMutation({
+    mutationFn: ({ coleccion, published }: { coleccion: Coleccion; published: boolean }) =>
+      // Se manda la colección entera porque el repositorio guarda todo el
+      // registro. Sin repetir `rules` y `productIds`, prender el interruptor
+      // convertiría una dinámica en una manual vacía.
+      repositorioContenido(db).guardarColeccion(
+        tienda.id,
+        { ...coleccion, published },
+        coleccion.id,
+      ),
+    onSuccess: refrescar,
+  });
+
+  const borrar = useMutation({
+    mutationFn: (id: string) => repositorioContenido(db).borrarColeccion(tienda.id, id),
+    onSuccess: refrescar,
   });
 
   if (consulta.isError) {
@@ -219,7 +294,7 @@ function PanelColecciones() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-muted-foreground text-sm">
-          Las que tienen posición son las secciones de la home, de arriba hacia abajo.
+          Listas de productos. Para mostrar una en la portada, creá una sección de carrusel.
         </p>
         {puede('catalog.write') && (
           <Link to="/contenido/colecciones/nueva" className={buttonVariants({ size: 'sm' })}>
@@ -235,32 +310,51 @@ function PanelColecciones() {
           Todavía no hay colecciones. Son las que arman los carruseles de la home.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul aria-label="Colecciones" className="flex flex-col gap-2">
           {consulta.data!.map((c) => (
-            <li key={c.id} className="border-border flex items-center gap-4 rounded-lg border p-3">
+            <li key={c.id} className="border-border flex items-center gap-3 rounded-lg border p-3">
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-medium">{c.title}</span>
                 <span className="text-muted-foreground truncate text-xs">
-                  /{c.handle} ·{' '}
                   {tipoDe(c) === 'dinamica'
-                    ? `dinámica${c.sort ? `, por ${c.sort}` : ''}`
-                    : 'manual'}
+                    ? `Se arma sola${c.sort ? `, por ${ETIQUETA_ORDEN[c.sort] ?? c.sort}` : ''}`
+                    : `${c.productIds?.length ?? 0} productos elegidos a mano`}
                 </span>
               </div>
-              {c.homePosition !== undefined && (
-                <Badge variant="outline">Home · {c.homePosition}</Badge>
+
+              {puede('catalog.write') ? (
+                <label className="flex cursor-pointer items-center gap-2">
+                  <Switch
+                    checked={c.published}
+                    disabled={publicar.isPending}
+                    onCheckedChange={(published) => publicar.mutate({ coleccion: c, published })}
+                    aria-label={`${c.published ? 'Despublicar' : 'Publicar'} ${c.title}`}
+                  />
+                  <Badge variant={c.published ? 'default' : 'secondary'}>
+                    {c.published ? 'Publicada' : 'Borrador'}
+                  </Badge>
+                </label>
+              ) : (
+                <Badge variant={c.published ? 'default' : 'secondary'}>
+                  {c.published ? 'Publicada' : 'Borrador'}
+                </Badge>
               )}
-              <Badge variant={c.published ? 'default' : 'secondary'}>
-                {c.published ? 'Publicada' : 'Borrador'}
-              </Badge>
+
               {puede('catalog.write') && (
-                <Link
-                  to="/contenido/colecciones/$id"
-                  params={{ id: c.id }}
-                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
-                >
-                  Editar
-                </Link>
+                <>
+                  <EnlaceDeEdicion
+                    etiqueta={`Editar ${c.title}`}
+                    to="/contenido/colecciones/$id"
+                    params={{ id: c.id }}
+                  />
+                  <BorrarConConfirmacion
+                    nombre={c.title}
+                    etiqueta={`Borrar ${c.title}`}
+                    pendiente={borrar.isPending}
+                    que="Se borra la lista, no los productos. Las secciones de la portada que la usaban dejan de mostrarse."
+                    onConfirmar={() => borrar.mutate(c.id)}
+                  />
+                </>
               )}
             </li>
           ))}
@@ -410,7 +504,7 @@ function PanelCategorias() {
           Todavía no hay categorías.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul aria-label="Categorías" className="flex flex-col gap-2">
           {consulta.data!.map((c) => (
             <li key={c.id} className="border-border flex items-center gap-4 rounded-lg border p-3">
               {c.image ? (
@@ -427,9 +521,11 @@ function PanelCategorias() {
                 </span>
               </div>
               {puede('catalog.write') && (
-                <Button variant="outline" size="sm" onClick={() => abrir(c)}>
-                  Editar
-                </Button>
+                <BotonDeIcono
+                  etiqueta={`Editar ${c.name}`}
+                  icono={PencilIcon}
+                  onClick={() => abrir(c)}
+                />
               )}
             </li>
           ))}

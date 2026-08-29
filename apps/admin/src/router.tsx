@@ -1,10 +1,18 @@
 import { Suspense, lazy, type FunctionComponent, type ReactNode } from 'react';
-import { createRootRoute, createRoute, createRouter, Link, Outlet } from '@tanstack/react-router';
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Link,
+  Outlet,
+  useRouterState,
+} from '@tanstack/react-router';
 import type { Permission } from '@pick/commerce-types';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar, useTituloDeSeccion } from '@/features/navegacion/AppSidebar';
+import { Migas, migasDe } from '@/features/navegacion/Migas';
 import { useSesion } from '@/features/auth/SesionContext';
 import { usePuede } from '@/features/auth/usePuede';
 import { ProveedorTienda, useTienda } from '@/features/tienda/TiendaContext';
@@ -114,6 +122,8 @@ function Cascara() {
   const { salir } = useSesion();
   const { tienda, cargando, error } = useTienda();
   const titulo = useTituloDeSeccion();
+  const rutaActual = useRouterState({ select: (s) => s.location.pathname });
+  const migas = migasDe(rutaActual);
 
   if (cargando) {
     return (
@@ -157,11 +167,20 @@ function Cascara() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           {/*
-            El título de la sección, no una miga de pan: la navegación del Admin
-            es plana —seis secciones, sin jerarquía— y una miga de un solo nivel
-            es una miga que miente.
+            En una pantalla de primer nivel, el título; en una de detalle, las
+            migas.
+
+            Antes esto era sólo el título, con el argumento de que la navegación
+            del Admin era plana. Dejó de serlo: editar una colección, una sección
+            o una promoción son pantallas hijas, y desde ellas **no había forma
+            de volver a la lista** salvo el botón del navegador, que en mobile ni
+            siquiera está a la vista.
           */}
-          <h1 className="text-sm font-medium">{titulo}</h1>
+          {migas.length > 0 ? (
+            <Migas />
+          ) : (
+            <h1 className="text-sm font-medium">{titulo}</h1>
+          )}
         </header>
 
         <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">

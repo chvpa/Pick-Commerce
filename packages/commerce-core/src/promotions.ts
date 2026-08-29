@@ -265,6 +265,19 @@ export interface RepositorioPromociones {
   porId(storeId: string, id: string): Promise<Promotion | null>;
   guardar(storeId: string, datos: DatosDePromocion, id?: string): Promise<string>;
   alcance(storeId: string, target: PromotionTarget): Promise<AlcanceDePromocion>;
+
+  /** Prender o apagar una campaña sin abrir su formulario. */
+  cambiarEstado(storeId: string, id: string, status: PromotionStatus): Promise<void>;
+
+  /**
+   * Borrar de verdad, no archivar.
+   *
+   * Es seguro porque el pedido guarda un **snapshot** de lo que se le aplicó y no
+   * una referencia (ADR-092): un pedido de marzo sigue explicando su descuento
+   * aunque la campaña ya no exista. Archivar sigue estando para lo otro —dejar de
+   * aplicar sin perder la campaña— y son dos intenciones distintas.
+   */
+  borrar(storeId: string, id: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

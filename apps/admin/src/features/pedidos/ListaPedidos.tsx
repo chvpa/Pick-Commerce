@@ -9,6 +9,7 @@ import {
   ETIQUETA_ESTADO_PEDIDO,
   formatMoney,
 } from '@pick/commerce-core';
+import type { PedidoDeLista } from '@pick/commerce-core';
 import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ import { usePuede } from '@/features/auth/usePuede';
 import { avisarStorefront } from '@/lib/notificaciones';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
+import { DialogoDeConfirmacion } from '@/components/acciones';
 import { cn } from '@/lib/utils';
 
 const POR_PAGINA = 20;
@@ -73,6 +75,8 @@ export function ListaPedidos() {
   const [texto, setTexto] = useState('');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<OrderStatus | ''>('');
+  /** El pedido que se está por cancelar, o `null`. Ver el `onChange` del select. */
+  const [porCancelar, setPorCancelar] = useState<PedidoDeLista | null>(null);
   const [page, setPage] = useState(1);
 
   // La búsqueda va al servidor: sin esperar, cada tecla sería una consulta.
@@ -273,13 +277,18 @@ export function ListaPedidos() {
                           disabled={cambiarEstado.isPending}
                           onChange={(e) => {
                             const estado = e.currentTarget.value as OrderStatus;
-                            if (
-                              estado === 'cancelled' &&
-                              !confirm(
-                                `¿Cancelar el pedido #${p.number}? El stock vuelve al inventario.`,
-                              )
-                            ) {
+                            if (estado === 'cancelled') {
+                              /*
+                               * El `<select>` ya se movió cuando esto corre, así
+                               * que hay que devolverlo **antes** de preguntar: si
+                               * se lo dejara en «Cancelado» mientras el diálogo
+                               * está abierto, cancelar el diálogo dejaría la fila
+                               * mostrando un estado que el pedido no tiene.
+                               * Confirmar lo vuelve a poner con el dato de la
+                               * mutación.
+                               */
                               e.currentTarget.value = p.status;
+                              setPorCancelar(p);
                               return;
                             }
                             cambiarEstado.mutate({ id: p.id, estado });
@@ -338,6 +347,19 @@ export function ListaPedidos() {
           </div>
         </div>
       )}
+
+      <DialogoDeConfirmacion
+        abierto={porCancelar !== null}
+        onAbierto={(abierto) => !abierto && setPorCancelar(null)}
+        titulo={`¿Cancelar el pedido #${porCancelar?.number ?? ''}?`}
+        descripcion="El stock vuelve al inventario y el pedido no se puede reabrir: cancelado es un estado final."
+        confirmar="Cancelar el pedido"
+        pendiente={cambiarEstado.isPending}
+        onConfirmar={() => {
+          if (porCancelar) cambiarEstado.mutate({ id: porCancelar.id, estado: 'cancelled' });
+          setPorCancelar(null);
+        }}
+      />
     </div>
   );
 }
