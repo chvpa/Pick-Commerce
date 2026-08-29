@@ -1,10 +1,11 @@
 import type {
   ProblemaDeCarrito,
+  ProblemaDeCupon,
   RepositorioCheckout,
   ResultadoDePedido,
   VarianteParaCarrito,
 } from '@pick/commerce-core';
-import type { Order } from '@pick/commerce-types';
+import type { Money, Order } from '@pick/commerce-types';
 import type { PickSupabaseClient } from './client.ts';
 
 /**
@@ -37,6 +38,24 @@ interface FilaVariante {
   inventory_levels: { available: number }[];
 }
 
+/** Lo que devuelve `cart_promotions`: importes pelados y la moneda una vez. */
+interface RespuestaPromociones {
+  currency: string;
+  lines?: { variantId: string; listUnitPrice: number; unitPrice: number; subtotal: number }[];
+  subtotal: number;
+  discount: number;
+  total: number;
+  applied?: {
+    promotionId: string;
+    title: string;
+    code?: string;
+    discountType: 'percentage' | 'fixed';
+    discountValue: number;
+    amount: number;
+  }[];
+  couponIssue?: ProblemaDeCupon;
+}
+
 export function repositorioCheckout(db: PickSupabaseClient): RepositorioCheckout {
   return {
     async variantesParaCarrito(storeId, variantIds) {
@@ -65,6 +84,36 @@ export function repositorioCheckout(db: PickSupabaseClient): RepositorioCheckout
       }));
     },
 
+    async promocionesDelCarrito(storeId, lineas, codigo) {
+      const { data, error } = await db.rpc('cart_promotions', {
+        p_store_id: storeId,
+        p_lines: lineas.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
+        ...(codigo ? { p_code: codigo } : {}),
+      });
+
+      if (error) throw new Error(`No se pudieron resolver las promociones: ${error.message}`);
+
+      // La función devuelve importes pelados y la moneda una sola vez: repetirla
+      // en cada uno sería ruido, y `create_order` ya exige que todo el carrito
+      // comparta una.
+      const r = data as unknown as RespuestaPromociones;
+      const dinero = (amount: number): Money => ({ amount, currency: r.currency });
+
+      return {
+        lines: (r.lines ?? []).map((l) => ({
+          variantId: l.variantId,
+          listUnitPrice: dinero(l.listUnitPrice),
+          unitPrice: dinero(l.unitPrice),
+          subtotal: dinero(l.subtotal),
+        })),
+        subtotal: dinero(r.subtotal),
+        discount: dinero(r.discount),
+        total: dinero(r.total),
+        applied: (r.applied ?? []).map((a) => ({ ...a, amount: dinero(a.amount) })),
+        ...(r.couponIssue ? { couponIssue: r.couponIssue } : {}),
+      };
+    },
+
     async crearPedido(storeId, idempotencyKey, datos): Promise<ResultadoDePedido> {
       const { data, error } = await db.rpc('create_order', {
         p_store_id: storeId,
@@ -79,6 +128,9 @@ export function repositorioCheckout(db: PickSupabaseClient): RepositorioCheckout
           // carrito del cliente llega a la base —un precio en el payload no
           // tendría dónde entrar—.
           lines: datos.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
+          // El código del cupón, nunca su monto: `create_order` lo resuelve
+          // contra la base dentro de su propia transacción.
+          ...(datos.couponCode ? { couponCode: datos.couponCode } : {}),
         },
       });
 

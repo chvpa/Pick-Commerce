@@ -85,9 +85,15 @@ function linea(parcial: Partial<LineaParaPromocion> = {}): LineaParaPromocion {
 }
 
 /** Inserta las promociones del escenario y devuelve lo que calculó el SQL. */
-async function enSql(
-  e: Escenario,
-): Promise<{ subtotal: number; discount: number; total: number; couponIssue?: string }> {
+interface ResultadoSql {
+  readonly subtotal: number;
+  readonly discount: number;
+  readonly total: number;
+  readonly couponIssue?: string;
+  readonly lines: readonly { variantId: string; unitPrice: number; subtotal: number }[];
+}
+
+async function enSql(e: Escenario): Promise<ResultadoSql> {
   await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
 
   for (const p of e.promos) {
@@ -112,12 +118,12 @@ async function enSql(
   }
 
   const lineas = e.lineas.map((l) => ({ variantId: l.variantId, quantity: l.quantity }));
-  const filas = await comoServicio<{ j: Record<string, number | string> }>(
+  const filas = await comoServicio<{ j: ResultadoSql }>(
     db,
     `select cart_promotions(${sql(TIENDA)}::uuid, ${sql(JSON.stringify(lineas))}::jsonb,
                             ${e.codigo ? sql(e.codigo) : 'null'}) as j`,
   );
-  return filas[0]!.j as never;
+  return filas[0]!.j;
 }
 
 before(async () => {
@@ -411,6 +417,14 @@ for (const e of ESCENARIOS) {
     assert.equal(sqlR.discount, coreR.discount.amount, 'el descuento difiere');
     assert.equal(sqlR.total, coreR.total.amount, 'el total difiere');
     assert.equal(sqlR.couponIssue, coreR.couponIssue, 'el motivo de rechazo del cupón difiere');
+
+    // También por línea: es el precio que ve el comprador en el carrito, y si
+    // difiere del que cobra el pedido son dos números para lo mismo.
+    assert.deepEqual(
+      sqlR.lines.map((l) => [l.variantId, l.unitPrice, l.subtotal]),
+      coreR.lines.map((l) => [l.variantId, l.unitPrice.amount, l.subtotal.amount]),
+      'las líneas difieren',
+    );
   });
 }
 

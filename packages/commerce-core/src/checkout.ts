@@ -1,5 +1,6 @@
 import type { Money, Order, OrderAddress, OrderCustomer } from '@pick/commerce-types';
 import { addMoney } from './money.ts';
+import type { PromocionesDelCarrito } from './promotions.ts';
 
 /**
  * Reglas del carrito y del checkout, sin framework y sin base.
@@ -279,9 +280,25 @@ export interface RepositorioCheckout {
     variantIds: readonly string[],
   ): Promise<readonly VarianteParaCarrito[]>;
 
+  /**
+   * El dinero del carrito con las promociones ya aplicadas.
+   *
+   * Va por la misma función que usa `create_order`, y no por una suma propia,
+   * para que el carrito no pueda mostrar un total distinto del que se cobra.
+   */
+  promocionesDelCarrito(
+    storeId: string,
+    lineas: readonly LineaDeCarrito[],
+    codigo?: string,
+  ): Promise<PromocionesDelCarrito>;
+
   crearPedido(
     storeId: string,
     idempotencyKey: string,
-    datos: DatosDeCheckout & { readonly lines: readonly LineaDeCarrito[] },
+    datos: DatosDeCheckout & {
+      readonly lines: readonly LineaDeCarrito[];
+      /** El código, nunca el monto: lo resuelve la base. */
+      readonly couponCode?: string;
+    },
   ): Promise<ResultadoDePedido>;
 }

@@ -67,7 +67,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    const resultado = await checkout().crearPedido(storeId, clave, { ...datos, lines: lineas });
+    // El cupón viaja como código y se acota antes de mandarlo; el descuento lo
+    // calcula `create_order` contra la base. Un monto en el payload no tiene
+    // dónde entrar, igual que un precio.
+    const codigo = typeof bruto.couponCode === 'string' ? bruto.couponCode.trim().slice(0, 64) : '';
+
+    const resultado = await checkout().crearPedido(storeId, clave, {
+      ...datos,
+      lines: lineas,
+      ...(codigo ? { couponCode: codigo } : {}),
+    });
 
     if ('issues' in resultado) {
       // 409 y no 400: la petición estaba bien formada, el mundo cambió mientras

@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { formatMoney, validarDatosDeCheckout } from '@pick/commerce-core';
+import {
+  formatMoney,
+  validarDatosDeCheckout,
+  type ProblemaDeCupon,
+} from '@pick/commerce-core';
 import type { Money } from '@pick/commerce-types';
 import { cn } from '../lib/cn.ts';
 import { buttonVariants } from '../recipes/button.ts';
@@ -14,6 +18,22 @@ interface LineaValidada {
   quantity: number;
   subtotal: Money;
 }
+
+/**
+ * Por qué un cupón no entró, en palabras del comprador.
+ *
+ * Se distingue «no existe» de «venció» y de «se agotó» a propósito: alguien con
+ * un cupón legítimamente vencido merece saber que su código era real. Lo que no
+ * se hace es buscar por prefijo ni por coincidencia parcial, que sí sería una
+ * forma de descubrir códigos probando.
+ */
+const MOTIVO_DEL_CUPON: Record<ProblemaDeCupon, string> = {
+  not_found: 'Ese cupón no existe.',
+  not_started: 'Ese cupón todavía no empezó.',
+  expired: 'Ese cupón venció.',
+  exhausted: 'Ese cupón ya se agotó.',
+  minimum: 'Tu pedido no llega al mínimo que pide ese cupón.',
+};
 
 interface Problema {
   type: string;
@@ -77,14 +97,29 @@ export function CheckoutForm({
   const [estado, setEstado] = useState<Estado>('cargando');
   const [lineas, setLineas] = useState<readonly LineaValidada[]>([]);
   const [total, setTotal] = useState<Money | null>(null);
+  const [subtotal, setSubtotal] = useState<Money | null>(null);
+  const [descuento, setDescuento] = useState<Money | null>(null);
+  const [promociones, setPromociones] = useState<
+    readonly { promotionId: string; title: string; amount: Money }[]
+  >([]);
   const [aviso, setAviso] = useState<string | null>(null);
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
   const [metodo, setMetodo] = useState(metodoPorDefecto);
 
+  /** Lo que la persona escribió, que no es lo mismo que lo que está aplicado. */
+  const [cupon, setCupon] = useState('');
+  /** El que el servidor aceptó. Se manda con el pedido y viaja en cada revalidación. */
+  const [cuponAplicado, setCuponAplicado] = useState<string | null>(null);
+  const [problemaDeCupon, setProblemaDeCupon] = useState<ProblemaDeCupon | null>(null);
+  const [validandoCupon, setValidandoCupon] = useState(false);
+
   const clave = useRef<string>('');
   const enVuelo = useRef(false);
   const formulario = useRef<HTMLFormElement>(null);
+  /** El código viaja por ref además de por estado: `revalidar` se llama desde
+   * una suscripción que capturó el render viejo. */
+  const codigoActual = useRef<string | null>(null);
 
   if (clave.current === '') clave.current = crypto.randomUUID();
 
@@ -107,6 +142,7 @@ export function CheckoutForm({
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         lines: guardadas.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
+        ...(codigoActual.current ? { couponCode: codigoActual.current } : {}),
       }),
     });
 
@@ -116,6 +152,10 @@ export function CheckoutForm({
       lines: LineaValidada[];
       issues: Problema[];
       total: Money | null;
+      subtotal?: Money;
+      discount?: Money;
+      appliedPromotions?: { promotionId: string; title: string; amount: Money }[];
+      couponIssue?: ProblemaDeCupon;
     };
 
     if (datos.issues.length > 0) {
@@ -142,8 +182,53 @@ export function CheckoutForm({
 
     setLineas(datos.lines);
     setTotal(datos.total);
+    setSubtotal(datos.subtotal ?? null);
+    setDescuento(datos.discount ?? null);
+    setPromociones(datos.appliedPromotions ?? []);
+    setProblemaDeCupon(datos.couponIssue ?? null);
+
+    // Un cupón que dejó de valer —se agotó, venció, o el carrito bajó del
+    // mínimo— se suelta acá. Si se guardara igual, el pedido saldría pidiendo un
+    // descuento inexistente y el total mostrado no sería el cobrado.
+    if (datos.couponIssue) {
+      setCuponAplicado(null);
+      codigoActual.current = null;
+    }
+
     setEstado(datos.lines.length === 0 ? 'vacio' : 'listo');
     return datos.lines;
+  }
+
+  /**
+   * Aplica un cupón revalidando contra el servidor.
+   *
+   * No calcula nada del lado del browser: manda el código y muestra lo que la
+   * base contesta. El precio de un cupón no puede salir de acá.
+   */
+  async function aplicarCupon(): Promise<void> {
+    const codigo = cupon.trim();
+    if (codigo === '' || validandoCupon) return;
+
+    setValidandoCupon(true);
+    codigoActual.current = codigo;
+    try {
+      await revalidar();
+      // `revalidar` deja el problema en estado; si no hubo, el cupón entró.
+      setCuponAplicado(codigoActual.current);
+      if (codigoActual.current) setCupon('');
+    } catch {
+      codigoActual.current = cuponAplicado;
+      setErrorGeneral('No pudimos verificar el cupón. Probá de nuevo.');
+    } finally {
+      setValidandoCupon(false);
+    }
+  }
+
+  async function quitarCupon(): Promise<void> {
+    codigoActual.current = null;
+    setCuponAplicado(null);
+    setProblemaDeCupon(null);
+    await revalidar().catch(() => undefined);
   }
 
   useEffect(() => {
@@ -223,6 +308,9 @@ export function CheckoutForm({
           ...entrada,
           idempotencyKey: clave.current,
           lines: getLines().map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
+          // Va el **código**, nunca el monto: `create_order` lo resuelve contra
+          // la base dentro de su transacción.
+          ...(cuponAplicado ? { couponCode: cuponAplicado } : {}),
         }),
       });
 
@@ -432,10 +520,88 @@ export function CheckoutForm({
           ))}
         </ul>
 
+        {estado === 'listo' ? (
+          <div class="flex flex-col gap-2 border-t border-border pt-4">
+            <label class="text-xs text-fg-muted" for="cupon">
+              ¿Tenés un cupón?
+            </label>
+            {cuponAplicado ? (
+              <div class="flex items-center justify-between gap-2 text-sm">
+                <span class="min-w-0 truncate font-medium">{cuponAplicado}</span>
+                <button
+                  type="button"
+                  onClick={quitarCupon}
+                  class="shrink-0 cursor-pointer text-xs text-fg-muted underline underline-offset-2 hover:text-fg"
+                >
+                  Quitar
+                </button>
+              </div>
+            ) : (
+              <div class="flex gap-2">
+                <input
+                  id="cupon"
+                  name="cupon"
+                  type="text"
+                  autocomplete="off"
+                  value={cupon}
+                  disabled={validandoCupon}
+                  onInput={(e) => setCupon((e.target as HTMLInputElement).value)}
+                  onKeyDown={(e) => {
+                    // Enter aplica el cupón en vez de enviar el pedido, que es
+                    // lo que haría por estar dentro del formulario.
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void aplicarCupon();
+                    }
+                  }}
+                  aria-invalid={problemaDeCupon ? 'true' : undefined}
+                  aria-describedby={problemaDeCupon ? 'cupon-error' : undefined}
+                  class="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm uppercase placeholder:normal-case focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
+                  placeholder="Código"
+                />
+                <button
+                  type="button"
+                  onClick={aplicarCupon}
+                  disabled={validandoCupon || cupon.trim() === ''}
+                  class={cn(
+                    buttonVariants({ variant: 'secondary' }),
+                    'shrink-0 disabled:pointer-events-none disabled:opacity-60',
+                  )}
+                >
+                  {validandoCupon ? 'Verificando…' : 'Aplicar'}
+                </button>
+              </div>
+            )}
+            {problemaDeCupon ? (
+              <p id="cupon-error" class="text-xs text-danger" role="status">
+                {MOTIVO_DEL_CUPON[problemaDeCupon]}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
         {total ? (
-          <div class="flex justify-between border-t border-border pt-4 text-sm font-medium">
-            <span>Total</span>
-            <span class="tabular-nums">{formatMoney(total, locale)}</span>
+          <div class="flex flex-col gap-2 border-t border-border pt-4 text-sm">
+            {/* El desglose sólo aparece cuando hay algo que desglosar: con un
+                descuento en cero, tres renglones que dicen lo mismo confunden. */}
+            {descuento && descuento.amount > 0 && subtotal ? (
+              <>
+                <div class="flex justify-between text-fg-muted">
+                  <span>Subtotal</span>
+                  <span class="tabular-nums">{formatMoney(subtotal, locale)}</span>
+                </div>
+                {promociones.map((p) => (
+                  <div key={p.promotionId} class="flex justify-between gap-3 text-success">
+                    <span class="min-w-0 truncate">{p.title}</span>
+                    <span class="shrink-0 tabular-nums">−{formatMoney(p.amount, locale)}</span>
+                  </div>
+                ))}
+              </>
+            ) : null}
+            <div class="flex justify-between font-medium">
+              <span>Total</span>
+              <span class="tabular-nums">{formatMoney(total, locale)}</span>
+            </div>
           </div>
         ) : null}
 

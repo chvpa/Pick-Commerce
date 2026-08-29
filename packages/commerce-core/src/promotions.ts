@@ -249,6 +249,28 @@ export interface CarritoConPromociones {
 }
 
 /**
+ * Lo que el servidor le contesta al carrito sobre dinero.
+ *
+ * Es lo que devuelve la función `cart_promotions`, que es **la misma que usa
+ * `create_order`**: lo que el carrito muestra y lo que el pedido cobra no pueden
+ * divergir porque son un solo cálculo, no dos que hay que mantener de acuerdo.
+ */
+export interface PromocionesDelCarrito {
+  readonly lines: readonly {
+    readonly variantId: string;
+    /** Precio de lista, para tacharlo cuando hay descuento. */
+    readonly listUnitPrice: Money;
+    readonly unitPrice: Money;
+    readonly subtotal: Money;
+  }[];
+  readonly subtotal: Money;
+  readonly discount: Money;
+  readonly total: Money;
+  readonly applied: readonly PromocionAplicada[];
+  readonly couponIssue?: ProblemaDeCupon;
+}
+
+/**
  * Resuelve un carrito completo: promociones de catálogo por línea, después las
  * de carrito sobre el subtotal, después el cupón.
  *
