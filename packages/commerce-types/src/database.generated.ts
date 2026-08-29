@@ -784,10 +784,12 @@ export type Database = {
       orders: {
         Row: {
           address: Json
+          applied_promotions: Json
           created_at: string
           currency: string
           customer: Json
           customer_id: string | null
+          discount_amount: number
           id: string
           idempotency_key: string
           notes: string | null
@@ -796,16 +798,19 @@ export type Database = {
           payment_status: Database["public"]["Enums"]["payment_status"]
           status: Database["public"]["Enums"]["order_status"]
           store_id: string
+          subtotal_amount: number | null
           tenant_id: string
           total_amount: number
           updated_at: string
         }
         Insert: {
           address: Json
+          applied_promotions?: Json
           created_at?: string
           currency: string
           customer: Json
           customer_id?: string | null
+          discount_amount?: number
           id?: string
           idempotency_key: string
           notes?: string | null
@@ -814,16 +819,19 @@ export type Database = {
           payment_status?: Database["public"]["Enums"]["payment_status"]
           status?: Database["public"]["Enums"]["order_status"]
           store_id: string
+          subtotal_amount?: number | null
           tenant_id: string
           total_amount: number
           updated_at?: string
         }
         Update: {
           address?: Json
+          applied_promotions?: Json
           created_at?: string
           currency?: string
           customer?: Json
           customer_id?: string | null
+          discount_amount?: number
           id?: string
           idempotency_key?: string
           notes?: string | null
@@ -832,6 +840,7 @@ export type Database = {
           payment_status?: Database["public"]["Enums"]["payment_status"]
           status?: Database["public"]["Enums"]["order_status"]
           store_id?: string
+          subtotal_amount?: number | null
           tenant_id?: string
           total_amount?: number
           updated_at?: string
@@ -1147,6 +1156,87 @@ export type Database = {
           },
         ]
       }
+      promotions: {
+        Row: {
+          code: string | null
+          created_at: string
+          discount_type: string
+          discount_value: number
+          ends_at: string | null
+          id: string
+          min_quantity: number | null
+          min_subtotal: number | null
+          priority: number
+          stackable: boolean
+          starts_at: string | null
+          status: Database["public"]["Enums"]["promotion_status"]
+          store_id: string
+          target: Json
+          tenant_id: string
+          title: string
+          updated_at: string
+          usage_count: number
+          usage_limit: number | null
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          discount_type: string
+          discount_value: number
+          ends_at?: string | null
+          id?: string
+          min_quantity?: number | null
+          min_subtotal?: number | null
+          priority?: number
+          stackable?: boolean
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["promotion_status"]
+          store_id: string
+          target?: Json
+          tenant_id: string
+          title: string
+          updated_at?: string
+          usage_count?: number
+          usage_limit?: number | null
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          ends_at?: string | null
+          id?: string
+          min_quantity?: number | null
+          min_subtotal?: number | null
+          priority?: number
+          stackable?: boolean
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["promotion_status"]
+          store_id?: string
+          target?: Json
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          usage_count?: number
+          usage_limit?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotions_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "promotions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           permission: string
@@ -1381,6 +1471,7 @@ export type Database = {
         | "cancelled"
       payment_status: "pending" | "paid" | "failed"
       product_status: "draft" | "active" | "inactive" | "archived"
+      promotion_status: "draft" | "active" | "archived"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1521,6 +1612,7 @@ export const Constants = {
       ],
       payment_status: ["pending", "paid", "failed"],
       product_status: ["draft", "active", "inactive", "archived"],
+      promotion_status: ["draft", "active", "archived"],
     },
   },
 } as const

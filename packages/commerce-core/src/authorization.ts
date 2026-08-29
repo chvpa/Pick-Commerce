@@ -16,10 +16,13 @@ export const ROLE_PERMISSIONS: Readonly<Record<MemberRole, readonly Permission[]
     'catalog.write',
     'order.write',
     'settings.write',
+    'promotion.write',
   ],
   // El admin opera la tienda pero no toca la organización ni el equipo.
-  admin: ['store.manage', 'catalog.write', 'order.write', 'settings.write'],
-  // El staff hace el día a día, sin configuración.
+  admin: ['store.manage', 'catalog.write', 'order.write', 'settings.write', 'promotion.write'],
+  // El staff hace el día a día, sin configuración. Tampoco publica descuentos:
+  // una campaña es una decisión de precio, y las de precio ya viven detrás de
+  // `settings.write`, que el staff no tiene.
   staff: ['catalog.write', 'order.write'],
   // El viewer sólo lee: no se le asigna ninguna escritura.
   viewer: [],

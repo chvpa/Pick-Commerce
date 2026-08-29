@@ -14,3 +14,4 @@ export * from './team.ts';
 export * from './payments.ts';
 export * from './notifications.ts';
 export * from './erp.ts';
+export * from './promotions.ts';

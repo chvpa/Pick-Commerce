@@ -67,3 +67,47 @@ export function discountPercent(current: Money, compareAt: Money): number | null
   // Se redondea hacia abajo: mostrar "30 %" con un 29,7 % real exagera la oferta.
   return Math.floor(((compareAt.amount - current.amount) / compareAt.amount) * 100);
 }
+
+/**
+ * Aplica un porcentaje expresado en **puntos básicos** (1500 = 15 %).
+ *
+ * En puntos básicos y no en porcentaje para que "12,5 %" sea un entero: el
+ * dinero de este sistema nunca pasa por un float, y un descuento tampoco.
+ *
+ * Devuelve el **importe a descontar**, no el precio resultante, porque el
+ * llamador casi siempre necesita los dos y derivar el descuento de la resta
+ * vuelve a introducir el redondeo que acá se decide una sola vez.
+ *
+ * Redondea al medio hacia arriba sobre la unidad mínima de la moneda —que es en
+ * la que ya viene `amount`—, así que 15 % de ₲33.333 son ₲5.000 y no ₲4.999,95.
+ */
+export function percentageOf(value: Money, basisPoints: number): Money {
+  if (!Number.isInteger(basisPoints) || basisPoints < 0) {
+    throw new TypeError(`Los puntos básicos deben ser un entero no negativo: ${basisPoints}`);
+  }
+  return { amount: Math.round((value.amount * basisPoints) / 10_000), currency: value.currency };
+}
+
+/**
+ * Resta sin bajar de cero.
+ *
+ * El tope importa: un descuento de monto fijo mayor que el precio dejaría un
+ * importe negativo, y un negativo que llega al total del pedido es plata que el
+ * comercio le termina debiendo al comprador.
+ */
+export function subtractMoney(a: Money, b: Money): Money {
+  if (a.currency !== b.currency) {
+    throw new TypeError(
+      `No se pueden restar importes de distinta moneda: ${a.currency} - ${b.currency}`,
+    );
+  }
+  return { amount: Math.max(0, a.amount - b.amount), currency: a.currency };
+}
+
+/** Multiplica por una cantidad entera de unidades. */
+export function multiplyMoney(value: Money, quantity: number): Money {
+  if (!Number.isInteger(quantity) || quantity < 0) {
+    throw new TypeError(`La cantidad debe ser un entero no negativo: ${quantity}`);
+  }
+  return { amount: value.amount * quantity, currency: value.currency };
+}

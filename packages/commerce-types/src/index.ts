@@ -95,7 +95,8 @@ export type Permission =
   | 'member.manage'
   | 'catalog.write'
   | 'order.write'
-  | 'settings.write';
+  | 'settings.write'
+  | 'promotion.write';
 
 export interface Organization {
   readonly id: string;
