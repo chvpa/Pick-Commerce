@@ -99,9 +99,7 @@ async function eventosDe(
   return r.rows;
 }
 
-async function colaDe(
-  orderId: string,
-): Promise<
+async function colaDe(orderId: string): Promise<
   {
     event: string;
     recipient: string;

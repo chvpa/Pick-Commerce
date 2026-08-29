@@ -341,6 +341,72 @@ export type Database = {
           },
         ]
       }
+      erp_sync_runs: {
+        Row: {
+          adapter: string
+          created_count: number
+          error_details: Json
+          finished_at: string | null
+          id: string
+          items_received: number
+          mode: string
+          products_seen: number
+          started_at: string
+          store_id: string
+          tenant_id: string
+          unchanged_count: number
+          unmatched_count: number
+          updated_count: number
+        }
+        Insert: {
+          adapter: string
+          created_count?: number
+          error_details?: Json
+          finished_at?: string | null
+          id?: string
+          items_received?: number
+          mode: string
+          products_seen?: number
+          started_at?: string
+          store_id: string
+          tenant_id: string
+          unchanged_count?: number
+          unmatched_count?: number
+          updated_count?: number
+        }
+        Update: {
+          adapter?: string
+          created_count?: number
+          error_details?: Json
+          finished_at?: string | null
+          id?: string
+          items_received?: number
+          mode?: string
+          products_seen?: number
+          started_at?: string
+          store_id?: string
+          tenant_id?: string
+          unchanged_count?: number
+          unmatched_count?: number
+          updated_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "erp_sync_runs_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "erp_sync_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_flags: {
         Row: {
           enabled: boolean
@@ -919,6 +985,7 @@ export type Database = {
           cost: number | null
           created_at: string
           currency: string
+          erp_size: string | null
           field_sources: Json
           id: string
           position: number
@@ -936,6 +1003,7 @@ export type Database = {
           cost?: number | null
           created_at?: string
           currency: string
+          erp_size?: string | null
           field_sources?: Json
           id?: string
           position?: number
@@ -953,6 +1021,7 @@ export type Database = {
           cost?: number | null
           created_at?: string
           currency?: string
+          erp_size?: string | null
           field_sources?: Json
           id?: string
           position?: number
@@ -990,6 +1059,7 @@ export type Database = {
           field_sources: Json
           handle: string
           id: string
+          internal_code: string | null
           last_sync_at: string | null
           product_group_id: string | null
           status: Database["public"]["Enums"]["product_status"]
@@ -1010,6 +1080,7 @@ export type Database = {
           field_sources?: Json
           handle: string
           id?: string
+          internal_code?: string | null
           last_sync_at?: string | null
           product_group_id?: string | null
           status?: Database["public"]["Enums"]["product_status"]
@@ -1030,6 +1101,7 @@ export type Database = {
           field_sources?: Json
           handle?: string
           id?: string
+          internal_code?: string | null
           last_sync_at?: string | null
           product_group_id?: string | null
           status?: Database["public"]["Enums"]["product_status"]

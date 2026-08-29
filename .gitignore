@@ -17,3 +17,8 @@ coverage/
 playwright-report/
 test-results/
 .supabase/
+
+# Documentación de la integración del ERP del cliente: lleva IPs del proxy y del
+# ORDS, y referencias a los accesos del servidor. Este repositorio es público.
+ERP_INTEGRATION.md
+LINODE.md

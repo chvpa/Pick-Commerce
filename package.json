@@ -32,6 +32,7 @@
     "test:rls": "node --test \"supabase/tests/**/*.test.ts\"",
     "seed": "node scripts/seed-demo.ts",
     "seed:dummy": "node scripts/seed-dummy.ts",
+    "erp:importar": "node scripts/erp-importar.ts",
     "tienda:crear": "node scripts/crear-tienda.ts",
     "admin:crear": "node scripts/crear-admin.ts"
   },
@@ -39,6 +40,7 @@
     "@electric-sql/pglite": "^0.5.7",
     "@eslint/js": "^10.0.1",
     "@pick/adapter-supabase": "workspace:*",
+    "@pick/adapter-erp-estilosport": "workspace:*",
     "@pick/commerce-core": "workspace:*",
     "@pick/commerce-types": "workspace:*",
     "@playwright/test": "^1.62.1",

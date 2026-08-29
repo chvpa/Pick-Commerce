@@ -87,10 +87,7 @@ export async function firmarToken(datos: DatosDelPago, secreto: string): Promise
  * `crypto.subtle.verify` compara en tiempo constante, que es lo que evita que se
  * pueda adivinar una firma midiendo cuánto tarda el rechazo.
  */
-export async function verificarToken(
-  token: string,
-  secreto: string,
-): Promise<DatosDelPago | null> {
+export async function verificarToken(token: string, secreto: string): Promise<DatosDelPago | null> {
   const corte = token.lastIndexOf('.');
   if (corte <= 0) return null;
 

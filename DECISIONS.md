@@ -380,7 +380,7 @@ Puede existir `demo mode`, pero no lógica ficticia incompatible con producción
 ## ADR-018 — Camelot como shadow ERP pilot
 
 **Fecha:** 2026-08-23  
-**Estado:** Accepted
+**Estado:** Superseded por ADR-084 — Camelot sigue apagado y el piloto pasó a Estilo Sport, que además es bidireccional
 
 **Decisión**
 Usar Camelot como caso real, inicialmente read-only.
@@ -405,13 +405,13 @@ El ERP permite un sandbox o writes seguros.
 
 # Decisiones pendientes
 
-| ID    | Tema                               | Motivo                                                                                                            |
-| ----- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| P-001 | Primer gateway real                | Sigue abierta: el contrato y un proveedor simulado ya existen (ADR-080); falta el adapter real y sus credenciales |
-| P-002 | ~~Storage media definitivo~~       | **Resuelta:** Supabase Storage, por estar ya en el stack (ADR-082). R2 queda como salida si el egress pesa        |
-| P-003 | Analytics store inicial            | Postgres/Analytics Engine/otro según volumen                                                                      |
-| P-004 | Primera estrategia de reservations | Depende de capabilities del ERP piloto                                                                            |
-| P-005 | CLI/provisioner exacto             | Puede empezar manual y automatizarse luego                                                                        |
+| ID    | Tema                                   | Motivo                                                                                                                                   |
+| ----- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| P-001 | Primer gateway real                    | Sigue abierta: el contrato y un proveedor simulado ya existen (ADR-080); falta el adapter real y sus credenciales                        |
+| P-002 | ~~Storage media definitivo~~           | **Resuelta:** Supabase Storage, por estar ya en el stack (ADR-082). R2 queda como salida si el egress pesa                               |
+| P-003 | Analytics store inicial                | Postgres/Analytics Engine/otro según volumen                                                                                             |
+| P-004 | ~~Primera estrategia de reservations~~ | **Resuelta:** el ORDS de Estilo Sport no las tiene, así que validar → cobrar → empujar, sin prometer cero overselling (ADR-084, ADR-085) |
+| P-005 | CLI/provisioner exacto                 | Puede empezar manual y automatizarse luego                                                                                               |
 
 ---
 
@@ -3074,3 +3074,126 @@ produce una sesión válida como cualquier otra, así que sin esa señal el Admi
 mostraría el panel y la persona se iría sin cambiar la contraseña que vino a
 cambiar. `observarSesion` reporta el contexto y la pantalla de contraseña nueva se
 muestra **antes** del router.
+
+---
+
+## ADR-084 — El piloto de ERP pasa de Camelot a Estilo Sport
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted — **supersede a ADR-018**
+
+Camelot está apagado y no hay fecha. Estilo Sport tiene un ERP en producción, con
+acceso, con documentación de integración escrita, y —lo que más vale— con una
+historia de incidentes pagados: el stock por lote pisándose en junio de 2026 y
+pedidos enviados al ERP antes de cobrarlos en abril de 2026.
+
+Eso cambia lo que es esta fase. **No es diseñar un contrato de ERP desde cero, es
+portar y generalizar uno que ya funciona.** Cada regla de ese documento vale más
+que cualquier abstracción inventada, porque cada una costó un incidente.
+
+Y cambia el alcance de lo que se valida. Camelot estaba definido como un clon
+read-only para medir escala y mapeo; Estilo Sport es bidireccional, que es el
+bucle operativo que el piloto necesita. Un clon valida la demo de venta; el bucle
+valida que se puede operar.
+
+Camelot no se descarta: cuando vuelva, sirve como segundo ERP, que es el caso que
+de verdad prueba si el contrato abstrae o si está moldeado sobre un solo
+proveedor.
+
+**P-004 —estrategia de reservations— queda decidida por los datos:** el ORDS de
+Estilo Sport no ofrece reservas, así que el orden es validar → cobrar → empujar, y
+no se promete cero overselling. Se reabre si aparece un ERP que las tenga.
+
+---
+
+## ADR-085 — El adapter de ERP corre fuera del Worker, y el contrato vive en el core
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+**El Worker no puede hablar con este ERP.** El proxy del ORDS está publicado en
+`http://<ip>:3001`, y el `fetch()` de un Worker de Cloudflare **descarta el puerto
+no estándar en producción** —`https://host:8080` termina pidiendo el 443— además
+de bloquear las IPs crudas por sus protecciones anti-SSRF. Verificado contra la
+documentación y contra el issue donde Cloudflare lo cerró como limitación
+conocida, no como bug ([cloudflare-docs#4299](https://github.com/cloudflare/cloudflare-docs/issues/4299),
+[Workers VPC](https://developers.cloudflare.com/workers-vpc/)).
+
+Lo peligroso es que **en local con Miniflare funciona**: el fallo aparece recién
+al desplegar, y sólo en la ruta que lo usa. Es la misma forma del error de
+`locals.runtime.ctx` en Fase 7.
+
+La consecuencia es de diseño, no de configuración: **el importador es un script de
+Node**, no una ruta del storefront. Así la restricción no aplica y no hay que
+tocar la infraestructura del cliente para probar el adapter.
+
+Lo que **sí** necesita el Worker —el chequeo de stock en vivo al agregar al
+carrito y cualquier sync programado— queda bloqueado hasta que el proxy esté en un
+hostname con TLS sobre 443. Sin una zona en Cloudflare, la salida más barata es
+Caddy con un hostname tipo `<ip-con-guiones>.sslip.io`, que da certificado sin
+comprar dominio ni mover nameservers; con una zona, Cloudflare Tunnel además
+permite cerrar el puerto.
+
+**Qué va en el core y qué en el adapter.** En `commerce-core/src/erp.ts`: el
+puerto `ERPAdapter`, la matriz `ERPCapabilities`, la forma normalizada `ERPItem`,
+la agregación por variante y el agrupamiento en productos. En el adapter: el
+cliente HTTP, el parseo del JSON y **la normalización de tallas**.
+
+Esa última división es deliberada y contradice el plan original. La regla
+`"105" → "10.5"` no es un concepto de ERP: es un artefacto de que el campo del
+ORDS tiene tres caracteres de ancho. Subirla al core sería convertir la rareza de
+un proveedor en una regla universal a partir de una sola muestra, que es
+exactamente lo que este repo prohíbe.
+
+**Todo se verificó contra el cable, no contra la documentación**, y las dos
+difieren en cuatro puntos que quedan registrados porque afectan el mapeo:
+
+| Lo que dice el doc                        | Lo que manda el ORDS (9032 filas, 29/08/2026)                                                                                        |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Ocho campos                               | **Once**: agrega `familia`, `linea` y `marca`                                                                                        |
+| `rubro` es la pista de categoría          | `rubro` vale `'GENERICO'` **siempre**; la que sirve es `familia`, con 147 valores                                                    |
+| `cant_dispon` y `precio_vta` son strings  | Son **números**. El adapter acepta las dos formas                                                                                    |
+| Una fila por lote/depósito, hay que sumar | Hoy **no se repite ningún `cod_barra`**. Se agrega igual: si el ORDS cambia de consulta, el error sería silencioso y costaría dinero |
+
+La regla de talla salió de los 70 valores reales, no de la descripción: los once
+de tres dígitos terminan todos en 5, y los nueve que ya vienen con punto tienen
+parte entera de un dígito. `"8.5"` entra en tres caracteres y viaja con punto;
+`"10.5"` no entra y viaja como `"105"`. Por eso `erp_size` se guarda tal cual
+llegó: reconstruirla es adivinar el ancho del campo, y una talla mal escrita
+factura mal.
+
+**La configuración del ERP no está por tenant todavía.** Vive en el `.env` del
+script. Se vuelve obligatoria —tabla propia con la credencial cifrada— el día que
+el sync corra en el Worker, que sirve a todos los tenants desde un solo
+despliegue. Hoy sería abstraer sin un segundo caso.
+
+---
+
+## ADR-086 — Etapa A: el ERP entra, nada sale
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+La tienda actual de Estilo Sport sigue viva y le manda pedidos al mismo Oracle. Si
+Pick también empezara a mandarlos habría **dos emisores contra un ERP que no
+deduplica**: su propia documentación dice que un pedido repetido se anula a mano.
+
+Así que el contrato de envío se define y el adapter declara `supportsOrderPush`,
+pero nada lo cablea. Coincide con el Definition of Done que la Fase 8 ya tenía
+—«sin escribir en ERP»— y con el motivo por el que ADR-018 eligió read-only: se
+valida sin poner en riesgo una operación real.
+
+**El envío de pedidos ni siquiera se implementó contra un mock.** El `Order` de
+Pick no tiene con qué armar el payload: le faltan el CI/RUC del comprador, el
+`internal_code` por línea y la talla nativa de la variante. Escribir el
+constructor hoy exigiría inventar la forma de su entrada y rehacerla cuando esos
+campos existan. Lo que la Etapa B necesita queda nombrado, que es más útil que
+código que hay que tirar.
+
+**Lo que sí se cerró es la otra mitad del no-negociable.** «El ERP conserva
+autoridad sobre lo que le pertenece» se cumplía para los campos del producto y
+para el precio, pero `admin_save_product` escribía `inventory_levels` sin mirar
+`field_sources`: el stock, que es lo único que un ERP posee de verdad, era el
+único campo sin proteger. Ahora se saltea en silencio, igual que el precio, y no
+corta — el formulario manda el stock de todas las variantes en cada guardado, así
+que un error dejaría sin poder editar el título de un producto del ERP.

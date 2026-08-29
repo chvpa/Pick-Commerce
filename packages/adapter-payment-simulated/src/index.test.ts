@@ -87,10 +87,7 @@ test('el webhook acepta el resultado firmado, como JSON y como formulario', asyn
   const p = proveedorSimulado({ secret: SECRETO });
   const token = await firmarResultado(DATOS, 'paid', SECRETO);
 
-  for (const body of [
-    JSON.stringify({ token }),
-    new URLSearchParams({ token }).toString(),
-  ]) {
+  for (const body of [JSON.stringify({ token }), new URLSearchParams({ token }).toString()]) {
     const r = await p.verifyWebhook({ body, headers: {} });
     assert.ok(r.ok, 'rechazó un aviso legítimo');
     assert.equal(r.orderId, DATOS.orderId);
@@ -118,7 +115,10 @@ test('el webhook rechaza lo que no puede verificar', async () => {
     ['sin token', JSON.stringify({ otra: 'cosa' })],
     ['JSON roto', '{no es json'],
     ['token inventado', JSON.stringify({ token: 'aaa.bbb' })],
-    ['firmado con otro secreto', JSON.stringify({ token: await firmarResultado(DATOS, 'paid', 'otro') })],
+    [
+      'firmado con otro secreto',
+      JSON.stringify({ token: await firmarResultado(DATOS, 'paid', 'otro') }),
+    ],
   ] as const) {
     const r = await p.verifyWebhook({ body, headers: {} });
     assert.equal(r.ok, false, `aceptó un aviso con ${caso}`);

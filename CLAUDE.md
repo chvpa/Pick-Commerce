@@ -6,7 +6,7 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-**Fases 0 a 7 cerradas. Fase 8 (ERP Adapter) es la siguiente.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+**Fases 0 a 7 cerradas. Fase 8 (ERP Adapter) al 70%.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
@@ -20,6 +20,10 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 - **Fase 7** — cobro y avisos: contrato `PaymentProvider` con una pasarela
   simulada, cola de correos por trigger enviada con Resend, medios propios en
   Supabase Storage y reset de contraseña.
+- **Fase 8** (en curso) — ERP: puerto `ERPAdapter` con matriz de capacidades,
+  adapter del Oracle ORDS de **Estilo Sport** —el piloto pasó de Camelot, que
+  sigue apagado— e importador acotado. Etapa A: el ERP entra y **nada sale**,
+  porque la tienda actual del cliente sigue facturando contra el mismo Oracle.
 
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,
@@ -34,6 +38,7 @@ packages/
   adapter-supabase/  clientes, repositorios y sesión
   adapter-resend/    envío de correos transaccionales
   adapter-payment-simulated/  pasarela de prueba; el contrato vive en el core
+  adapter-erp-estilosport/    Oracle ORDS tras un proxy; corre en Node, no en el Worker
 apps/
   admin/             React 19 + Vite 8 + Tailwind v4 + shadcn sobre Base UI
   demo/              Astro 7 + Preact islands + Tailwind v4 + adapter Cloudflare
@@ -58,6 +63,7 @@ pnpm db:apply <sql> # aplica una migración al proyecto remoto
 pnpm db:types       # regenera los tipos desde el schema remoto
 pnpm seed           # siembra el catálogo de demostración; idempotente
 pnpm seed:dummy [n] # catálogo de prueba desde dummyjson (--limpiar para quitarlo)
+pnpm erp:importar --tienda <slug> [--limite 100] [--dry-run]   # catálogo desde el ERP
 pnpm tienda:crear <slug> <nombre>      # provisiona organización, tienda, sucursal y settings
 pnpm admin:crear <email> <password> [rol] [org]   # usuario del Admin; sin org, la demo
 ```
@@ -207,6 +213,7 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
 - Astro colapsa el espacio entre dos expresiones adyacentes: `{a} {b}` sale pegado. Usar una sola expresión.
 - El contexto de Workers es `Astro.locals.cfContext`, no `locals.runtime.ctx`: eso último existía en adapters viejos y **falla en runtime**, no al compilar. Todo trabajo posterior a la respuesta va con su `waitUntil`.
 - Un Worker de Cloudflare **no puede hacerse `fetch` a sí mismo** (error 1042). Lo que el storefront tenga que hacer sobre sí mismo, lo hace llamando a la función.
+- El `fetch()` de un Worker **descarta el puerto no estándar** en producción —`host:3001` termina pidiendo el 443— y bloquea las IPs crudas por sus protecciones anti-SSRF. En local con Miniflare funciona, así que falla recién al desplegar. Por eso el importador del ERP es un script de Node (ADR-085).
 - La comprobación de origen de Astro rechaza todo POST de otro origen salvo con un `content-type` que no sea de formulario, y `no-cors` sólo puede mandar los tres que sí lo son: **ningún POST cross-origin del browser llega** sin montar CORS.
 - Una migración que dependa de una extensión o de un schema que PGlite no tenga —`pg_net`, `storage`— deja la suite de aislamiento sin arrancar. Va guardada con un `do` que compruebe que existe.
 
