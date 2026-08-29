@@ -16,6 +16,15 @@ export default function teardown(): void {
    */
   rmSync('apps/demo/dist/server/.dev.vars', { force: true });
 
+  // El preview del Admin se lanzó suelto —`vite preview` no tiene bandera de
+  // segundo plano— y se mata por puerto, que es lo único que se conoce con
+  // certeza desde acá.
+  try {
+    execSync('npx --yes kill-port 4322', { stdio: 'ignore' });
+  } catch {
+    // Ya estaba caído.
+  }
+
   /*
    * Los pedidos que la corrida dejó en el proyecto de desarrollo.
    *

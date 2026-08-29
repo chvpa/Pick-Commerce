@@ -124,8 +124,17 @@ function SelectorDeTienda() {
             side={isMobile ? 'bottom' : 'right'}
             sideOffset={4}
           >
-            <DropdownMenuLabel className="text-muted-foreground text-xs">Tiendas</DropdownMenuLabel>
+            {/*
+              El rótulo va DENTRO del grupo, no antes. `DropdownMenuLabel` es un
+              `Menu.GroupLabel` de Base UI y fuera de un `Menu.Group` no se
+              degrada: lanza al abrir el menú y se lleva la pantalla puesta.
+              Adentro, además, el grupo queda con `role="group"` y su
+              `aria-labelledby`, que es para lo que existe la pieza.
+            */}
             <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-muted-foreground text-xs">
+                Tiendas
+              </DropdownMenuLabel>
               {tiendas.map((t) => (
                 <DropdownMenuItem key={t.id} onClick={() => elegir(t.id)} className="gap-2 p-2">
                   <div className="flex size-6 items-center justify-center rounded-md border">
@@ -170,14 +179,17 @@ function MenuDeUsuario() {
             align="end"
             sideOffset={4}
           >
-            <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-              {correo}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => void salir()}>
-              <LogOutIcon />
-              Salir
-            </DropdownMenuItem>
+            {/* Mismo motivo que en el selector de tienda: el rótulo va adentro. */}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                {correo}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => void salir()}>
+                <LogOutIcon />
+                Salir
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
@@ -188,6 +200,7 @@ function MenuDeUsuario() {
 export function AppSidebar() {
   const puede = usePuede();
   const ruta = useRouterState({ select: (s) => s.location.pathname });
+  const { setOpenMobile } = useSidebar();
 
   return (
     <Sidebar collapsible="icon">
@@ -204,6 +217,14 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     isActive={estaActiva(ruta, s.to)}
                     tooltip={s.label}
+                    /*
+                     * En mobile el sidebar es un sheet modal: navegar sin
+                     * cerrarlo deja la sección nueva tapada por el menú, y como
+                     * el sheet marca el resto de la página `aria-hidden`, un
+                     * lector de pantalla tampoco llega al contenido. En desktop
+                     * no hay sheet y esto no hace nada.
+                     */
+                    onClick={() => setOpenMobile(false)}
                     render={<Link to={s.to} />}
                   >
                     <s.icono />

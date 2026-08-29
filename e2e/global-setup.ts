@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 
 /**
@@ -90,4 +90,54 @@ export default function setup(): void {
     { stdio: 'ignore' },
   );
   execSync('npx --yes wait-on -t 120000 http-get://127.0.0.1:4321/', { stdio: 'ignore' });
+
+  // ---------------------------------------------------------------------------
+  // El Admin
+  // ---------------------------------------------------------------------------
+
+  // Un usuario y una segunda tienda: sin la segunda, el selector dibuja su
+  // variante inerte y el smoke pasaría sin abrir el menú que se rompió.
+  execSync('node scripts/preparar-admin-e2e.ts', { stdio: 'inherit' });
+
+  /*
+   * El Admin hornea su configuración al construir, y las variables se llaman
+   * distinto de las del servidor. En CI sólo existen `SUPABASE_URL` y
+   * `SUPABASE_PUBLISHABLE_KEY`, así que se traducen acá en vez de pedirle al
+   * workflow que conozca el prefijo de Vite.
+   *
+   * Sin esto el build sale con la pantalla de "falta configuración" y el smoke
+   * ni siquiera llega al login — que es, literalmente, lo que produce hoy el
+   * `pnpm build` del CI sin que nadie se entere.
+   */
+  const publishable =
+    process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!publishable) {
+    throw new Error(
+      'Falta SUPABASE_PUBLISHABLE_KEY: el Admin no puede construirse sin su clave pública.',
+    );
+  }
+
+  silencioso('npx --yes kill-port 4322');
+
+  if (process.env.PLAYWRIGHT_SKIP_BUILD !== '1') {
+    execSync('pnpm --filter @pick/admin run build', {
+      stdio: 'inherit',
+      env: { ...process.env, VITE_SUPABASE_URL: url, VITE_SUPABASE_PUBLISHABLE_KEY: publishable },
+    });
+  }
+
+  /*
+   * `vite preview` no tiene bandera de segundo plano, así que se lanza suelto y
+   * se mata por puerto en el teardown. Sirve `dist`, que es el artefacto que se
+   * despliega, con el fallback a `index.html` que necesita el router del SPA.
+   */
+  spawn(
+    // El comando entero en una cadena, no en un array: con `shell: true` los
+    // argumentos sueltos se concatenan mal en Windows y el proceso muere sin
+    // dejar rastro, que fue exactamente lo que pasó la primera vez.
+    'pnpm --filter @pick/admin exec vite preview --port 4322 --strictPort --host 127.0.0.1',
+    { detached: true, stdio: 'ignore', shell: true, windowsHide: true },
+  ).unref();
+
+  execSync('npx --yes wait-on -t 120000 http-get://127.0.0.1:4322/', { stdio: 'ignore' });
 }

@@ -43,7 +43,7 @@ apps/
   admin/             React 19 + Vite 8 + Tailwind v4 + shadcn sobre Base UI
   demo/              Astro 7 + Preact islands + Tailwind v4 + adapter Cloudflare
 supabase/            migraciones y pruebas de aislamiento entre tenants
-e2e/                 Playwright: navegación y presupuesto de performance
+e2e/                 Playwright: storefront, Admin y presupuesto de performance
 ```
 
 Los paquetes se consumen como fuente (`exports` → `src/`), sin build propio. Ver ADR-029.

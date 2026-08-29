@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { clienteDeServidor } from '@pick/adapter-supabase';
+import { ADMIN_E2E, TIENDA_E2E } from './datos-admin-e2e.ts';
 
 /**
  * Borra lo que una corrida de e2e dejó en el proyecto de desarrollo.
@@ -43,6 +44,16 @@ if (url && secretKey) {
     await db.from('customers').delete().like('email', '%@e2e.test');
 
     console.log(`  pedidos de prueba borrados: ${pedidos.data?.length ?? 0}`);
+
+    // La segunda tienda y el usuario que el smoke del Admin necesita para que el
+    // selector sea un menú. La membresía se va en cascada con el usuario.
+    await db.from('stores').delete().eq('id', TIENDA_E2E.id);
+
+    const { data: usuarios } = await db.auth.admin.listUsers();
+    const admin = usuarios?.users.find((u) => u.email === ADMIN_E2E.email);
+    if (admin) await db.auth.admin.deleteUser(admin.id);
+
+    console.log(`  tienda y usuario del smoke del Admin: borrados`);
   } catch (error) {
     // Una limpieza fallida no puede tumbar una corrida que ya pasó: lo peor que
     // deja es basura en un entorno de desarrollo.

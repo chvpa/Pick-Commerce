@@ -52,6 +52,12 @@ jobs:
           echo "SUPABASE_URL=${API_URL}" >> "$GITHUB_ENV"
           echo "SUPABASE_SECRET_KEY=${SERVICE_ROLE_KEY:-${SECRET_KEY}}" >> "$GITHUB_ENV"
           echo "SUPABASE_PUBLISHABLE_KEY=${ANON_KEY:-${PUBLISHABLE_KEY}}" >> "$GITHUB_ENV"
+          # El Admin hornea su configuración al construir y usa el prefijo de
+          # Vite. Sin estas dos, `pnpm build` producía un bundle que arranca en
+          # la pantalla de "falta configuración" — y nadie se enteraba, porque
+          # hasta ahora nada probaba el Admin.
+          echo "VITE_SUPABASE_URL=${API_URL}" >> "$GITHUB_ENV"
+          echo "VITE_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY:-${PUBLISHABLE_KEY}}" >> "$GITHUB_ENV"
 
       - run: pnpm build
 

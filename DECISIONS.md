@@ -3197,3 +3197,49 @@ para el precio, pero `admin_save_product` escribía `inventory_levels` sin mirar
 único campo sin proteger. Ahora se saltea en silencio, igual que el precio, y no
 corta — el formulario manda el stock de todas las variantes en cada guardado, así
 que un error dejaría sin poder editar el título de un producto del ERP.
+
+---
+
+## ADR-087 — Un rótulo de menú vive dentro de su grupo, y el Admin gana un smoke
+
+**Fecha:** 2026-08-29
+**Estado:** Accepted
+
+`DropdownMenuLabel` es un `Menu.GroupLabel` de Base UI, y **fuera de un
+`Menu.Group` no se degrada: lanza**. El menú de usuario y el selector de tiendas
+del sidebar lo tenían como hermano del grupo en vez de como hijo, así que abrir
+cualquiera de los dos tiraba la excepción `MenuGroupContext is missing` y se
+llevaba la pantalla puesta. En producción el mensaje llega minificado —«Base UI
+error #31»—, que es lo que hace que el síntoma no apunte a la causa.
+
+El arreglo va en los dos lugares que lo usan y no en el primitive: `GroupLabel`
+se comporta como Base UI manda, y meterlo adentro del grupo además es lo
+correcto —el menú queda con `role="group"` y su `aria-labelledby`, que es para lo
+que la pieza existe—.
+
+**Por qué no lo vio nadie hasta ahora.** El typecheck pasa, el lint pasa, y el
+control se ve perfecto: sólo falla al hacerle clic. El selector de tiendas
+llevaba así desde la Fase 6 y no daba la cara porque con una sola tienda dibuja
+una variante inerte; apareció al existir una segunda organización. Un fallo que
+espera a que crezcan los datos para manifestarse es exactamente lo que un smoke
+tiene que cubrir, y el Admin no tenía ninguno —figuraba en el backlog desde la
+Fase 6—.
+
+El smoke afirma que el menú **abre**, no que el botón existe. Contar botones
+habría dado verde con la aplicación rota, que es la trampa de este bug.
+
+**Un segundo defecto que encontró el smoke al escribirlo.** En mobile el sidebar
+es un sheet modal, y tocar una sección navegaba **sin cerrarlo**: la pantalla
+nueva quedaba tapada por el menú y, como un sheet marca el resto de la página
+`aria-hidden`, un lector de pantalla tampoco llegaba al contenido. Se cierra al
+navegar. En desktop no hay sheet y no cambia nada.
+
+**Lo que el smoke necesita en la base.** Un usuario, porque el Admin vive detrás
+de un login, y una **segunda tienda**, porque con una sola el selector no es un
+menú y el test pasaría sin ejercitar lo que se rompió. Los dos los crea y los
+borra la corrida.
+
+**Y una tercera cosa que destapó armar todo esto:** el CI construía el Admin sin
+`VITE_SUPABASE_URL` ni `VITE_SUPABASE_PUBLISHABLE_KEY`, así que el bundle salía
+mostrando la pantalla de «falta configuración». No lo notaba nadie porque nada
+probaba el Admin. El workflow ahora las exporta.
