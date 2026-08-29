@@ -119,13 +119,47 @@ test.describe('Admin', () => {
     await entrar(page);
     await abrirSidebar(page);
 
-    for (const seccion of ['Productos', 'Pedidos', 'Clientes']) {
+    for (const seccion of ['Productos', 'Pedidos', 'Promociones', 'Clientes']) {
       await page.getByRole('link', { name: seccion }).click();
       await expect(page.getByRole('heading', { name: seccion, level: 1 })).toBeVisible({
         timeout: 15_000,
       });
       await abrirSidebar(page);
     }
+
+    expect(problemas, problemas.join('\n')).toEqual([]);
+  });
+
+  test('crear una campaña de descuento no exige escribir código', async ({ page }) => {
+    /*
+     * Es el Definition of Done de la Fase 9 en un test. Y como el de los menús,
+     * afirma sobre lo que **pasa** y no sobre lo que se ve: que el preview diga
+     * a cuántos productos alcanza sólo puede salir de una consulta que llegó a
+     * la base con el alcance elegido.
+     */
+    const problemas = vigilar(page);
+    await entrar(page);
+    await abrirSidebar(page);
+
+    await page.getByRole('link', { name: 'Promociones' }).click();
+    await page.getByRole('link', { name: 'Nueva promoción' }).click();
+
+    const titulo = `Rebaja del smoke ${Date.now()}`;
+    await page.locator('#title').fill(titulo);
+    await page.locator('#discountValue').fill('20');
+
+    // El preview responde con el alcance real del catálogo de la tienda.
+    await expect(page.getByText(/Alcanza \d+ productos?\./)).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('button', { name: 'Crear promoción' }).click();
+
+    // Vuelve a la lista, y la promoción está con su descuento y su estado.
+    const fila = page.getByRole('row', { name: new RegExp(titulo) });
+    await expect(fila).toBeVisible({ timeout: 15_000 });
+    await expect(fila).toContainText('20 %');
+    await expect(fila).toContainText('Borrador');
+    // Sin cupón ni mínimos, se ve en la vidriera además del carrito.
+    await expect(fila).toContainText('Catálogo y carrito');
 
     expect(problemas, problemas.join('\n')).toEqual([]);
   });

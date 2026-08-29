@@ -187,8 +187,20 @@ test('un aviso con la firma adulterada no toca nada', async ({ page, request }) 
     .locator('form:has(button:text("Aprobar")) input[name="token"]')
     .inputValue();
 
-  // Un carácter distinto en la firma: es el ataque obvio.
-  const adulterado = token.slice(0, -1) + (token.endsWith('A') ? 'B' : 'A');
+  /*
+   * Se adultera el **primer** carácter de la firma, no el último.
+   *
+   * El último no sirve: la firma son 32 bytes, que en base64 son 43 caracteres,
+   * y en el último **sobran dos bits**. Cuatro caracteres —`A`, `B`, `C` y `D`—
+   * decodifican a los mismos bytes, así que reemplazarlo por `A` dejaba el token
+   * intacto un 6 % de las veces y el test pasaba por suerte. Medido, no
+   * estimado, después de verlo fallar en una corrida real.
+   */
+  const corte = token.lastIndexOf('.');
+  const firma = token.slice(corte + 1);
+  const adulterado =
+    `${token.slice(0, corte + 1)}${firma.startsWith('A') ? 'B' : 'A'}${firma.slice(1)}`;
+  expect(adulterado, 'la adulteración no cambió el token').not.toBe(token);
   const respuesta = await request.post('/api/webhooks/pago', { data: { token: adulterado } });
   expect(respuesta.status()).toBe(403);
 

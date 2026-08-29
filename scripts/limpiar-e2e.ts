@@ -43,7 +43,18 @@ if (url && secretKey) {
       .select('id');
     await db.from('customers').delete().like('email', '%@e2e.test');
 
+    // Las promociones que crea el smoke del Admin. Las de la tienda de prueba se
+    // van en cascada con ella, pero el test corre sobre la tienda activa, que
+    // suele ser la de la demo: sin esto, cada corrida le deja una campaña. El
+    // marcador es el título, igual que el correo para los pedidos.
+    const promos = await db
+      .from('promotions')
+      .delete()
+      .like('title', 'Rebaja del smoke %')
+      .select('id');
+
     console.log(`  pedidos de prueba borrados: ${pedidos.data?.length ?? 0}`);
+    console.log(`  promociones de prueba borradas: ${promos.data?.length ?? 0}`);
 
     // La segunda tienda y el usuario que el smoke del Admin necesita para que el
     // selector sea un menú. La membresía se va en cascada con el usuario.
