@@ -17,8 +17,8 @@ import {
   normalizarTermino,
   type CatalogSort,
 } from '@pick/commerce-core';
-import { seoContexto } from '../lib/store-config.ts';
-import { catalogo, facetasFiltrables, tiendaActual } from '../lib/db.ts';
+
+import { catalogo, contextoSeo, facetasFiltrables, tiendaActual } from '../lib/db.ts';
 import { anotar } from '../lib/analytics.ts';
 import { ClientRouter } from 'astro:transitions';
 import Base from '../layouts/Base.astro';
@@ -130,7 +130,7 @@ const tramos =
 const activeCount =
   Object.values(filters).reduce((n, values) => n + values.length, 0) + (precioActivo ? 1 : 0);
 
-const jsonLd = itemListJsonLd(result.items, seoContexto, 'Catálogo');
+const jsonLd = itemListJsonLd(result.items, await contextoSeo(), 'Catálogo');
 
 /*
  * Una combinación de filtros no es una página nueva: indexarlas multiplica
@@ -150,7 +150,7 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
 */
 }
 <Base
-  title={`Catálogo (${result.total}) · Pick Demo`}
+  title={`Catálogo (${result.total})`}
   description="Catálogo completo: filtrá por marca, color y talle, con precios y disponibilidad."
   noindex={noindex}
 >

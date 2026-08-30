@@ -73,7 +73,6 @@ push a `main` y con cada pull request.
 | 5   | `supabase start`                              | Levanta Postgres, Auth y API de verdad en el runner y aplica las migraciones                   | Una migración no aplica desde cero                     |
 | 6   | Exportar credenciales                         | Toma la URL y las claves del stack recién levantado y las mete en el entorno                   | Cambió el nombre de las claves en el CLI               |
 | 7   | `pnpm build`                                  | Construye admin y storefront                                                                   | El build se rompió                                     |
-| 8   | `pnpm budget`                                 | Mide el peso real por página y falla si excede 25 KB de JS o 20 KB de CSS                      | Alguien engordó el bundle                              |
 | 9   | `playwright install chromium`                 | Baja el navegador                                                                              | Red                                                    |
 | 10  | `pnpm e2e`                                    | Navegación real, desktop y mobile, contra el build servido por workerd                         | Un critical path se rompió                             |
 
@@ -103,7 +102,8 @@ Esto es ADR-058.
 | `playwright install`                      | 26s                  |
 | `pnpm typecheck`                          | 16s                  |
 | `pnpm install`                            | 11s                  |
-| `pnpm test` + `lint` + `build` + `budget` | 16s entre los cuatro |
+| `pnpm test` + `lint` + `build`            | 16s entre los tres   |
+| `pnpm rls:verificar`                      | ~10s, contra el proyecto remoto |
 | `pnpm e2e`                                | 29s                  |
 
 Casi todo el tiempo es levantar Postgres y bajar Chromium; lo que el repo tiene
@@ -521,8 +521,18 @@ pegan directo contra la base real y no esperan a ningún push.
   declarada como tal; falta elegir proveedor y conseguir credenciales (P-001).
 - **Los correos sólo llegan a la casilla del dueño de la cuenta de Resend**
   mientras no haya un dominio verificado.
-- **Nadie mira si el sitio se cayó.** No hay alerta: si el Worker empieza a
-  responder 503, te enterás entrando.
+- **La alerta de caída tiene quince minutos de resolución.** El workflow
+  `latido.yml` pide el storefront y el Admin cada quince minutos y abre un issue
+  —uno solo, con comentarios— si alguno no responde; lo cierra cuando vuelve. No
+  mide latencia, no avisa fuera de GitHub y no distingue «lento» de «caído».
 - **Un solo entorno.** No hay staging: lo que se pushea a `main` es producción.
 - **Los dominios propios de cada cliente** todavía no están montados. El modelo
   está decidido en ADR-062; falta ejecutarlo.
+- **El restore de un backup no se ejerció nunca.** Los automáticos del proyecto
+  existen, con la retención del plan contratado. Nadie restauró uno, así que el
+  tiempo de recuperación es una suposición.
+- **El listado del catálogo tarda 2,3 s con 5000 productos** (`LIMITACIONES.md`).
+
+La lista completa de lo que el sistema no hace, con el motivo y qué lo
+desbloquea, está en [LIMITACIONES.md](LIMITACIONES.md); dar de alta un comercio,
+en [ONBOARDING.md](ONBOARDING.md).

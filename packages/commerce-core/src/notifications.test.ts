@@ -19,6 +19,9 @@ const PEDIDO: Order = {
   paymentStatus: 'pending',
   customer: { name: 'Ana López', email: 'ana@cliente.test', phone: '0981123456' },
   address: { street: 'Avda. Siempre Viva 742', city: 'Asunción', reference: 'Casa verde' },
+  subtotal: { amount: 450000, currency: 'PYG' },
+  discount: { amount: 0, currency: 'PYG' },
+  shipping: { amount: 0, currency: 'PYG' },
   total: { amount: 450000, currency: 'PYG' },
   items: [
     {
@@ -130,4 +133,19 @@ test('esEventoConocido distingue los cuatro que se saben redactar', () => {
   assert.equal(esEventoConocido('order_delivered'), true);
   assert.equal(esEventoConocido('order_preparing'), false);
   assert.equal(esEventoConocido('email_sent'), false);
+});
+
+test('el correo muestra el envío cuando se cobró, y no cuando no', () => {
+  // Sin el renglón, el total del correo no cierra con la suma de las líneas y el
+  // comprador escribe para preguntar por qué le cobraron de más.
+  const conEnvio = plantillaDeCorreo('order_received', {
+    ...CTX,
+    order: { ...PEDIDO, shipping: { amount: 35000, currency: 'PYG' } },
+  });
+
+  assert.match(conEnvio.texto, /Envío: /);
+  assert.match(conEnvio.html, /Envío/);
+
+  const sinEnvio = plantillaDeCorreo('order_received', CTX);
+  assert.ok(!sinEnvio.texto.includes('Envío:'), 'sin envío cobrado no va el renglón');
 });

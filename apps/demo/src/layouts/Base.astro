@@ -9,11 +9,21 @@ import SeoHead from '@pick/commerce-astro/seo/SeoHead.astro';
    descarga las que no usa. Ver ADR-040. */
 import { CartButton } from '@pick/commerce-ui/cart/CartButton';
 import { CartDrawer } from '@pick/commerce-ui/cart/CartDrawer';
-import { ANUNCIO, seoContexto } from '../lib/store-config.ts';
+import { anuncio, contextoSeo } from '../lib/db.ts';
 import '../styles/global.css';
 
 interface Props {
-  title: string;
+  /**
+   * La parte de esta página, sin el nombre de la tienda: el layout lo agrega.
+   *
+   * Antes cada página escribía el título entero y las nueve decían «Pick Demo»,
+   * así que el `<title>` que indexa un buscador anunciaba la demo en el sitio de
+   * cualquier comercio. Componerlo en un solo lugar es lo que hace imposible que
+   * una página nueva se olvide.
+   *
+   * Sin título es la home: queda el nombre de la tienda solo.
+   */
+  title?: string;
   description?: string;
   /** Imagen para compartir. Sin ella el link sale sin miniatura. */
   image?: string;
@@ -27,7 +37,14 @@ const { title, description, image, imageAlt, type, noindex } = Astro.props;
 /* El buscador del header conserva la consulta activa: en el catálogo muestra
    qué se buscó, en el resto arranca vacío. */
 const consulta = Astro.url.searchParams.get('q') ?? '';
-const STORE_NAME = seoContexto.storeName;
+
+/* Quién es la tienda sale de la base. Toda página que use este layout es
+   on-demand por eso: una prerenderizada se sirve sin ejecutar el Worker y
+   hornearía el nombre de la tienda que estuviera configurada al construir. */
+const seo = await contextoSeo();
+const STORE_NAME = seo.storeName;
+const ANUNCIO = await anuncio();
+const tituloCompleto = title ? `${title} · ${STORE_NAME}` : STORE_NAME;
 ---
 
 <!doctype html>
@@ -36,9 +53,9 @@ const STORE_NAME = seoContexto.storeName;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <SeoHead
-      title={title}
+      title={tituloCompleto}
       description={description}
-      siteUrl={seoContexto.siteUrl}
+      siteUrl={seo.siteUrl}
       storeName={STORE_NAME}
       image={image}
       imageAlt={imageAlt}
@@ -48,7 +65,7 @@ const STORE_NAME = seoContexto.storeName;
     <slot name="head" />
   </head>
   <body class="flex min-h-dvh flex-col bg-surface text-fg antialiased">
-    {ANUNCIO && <AnnouncementBar href={ANUNCIO.href}>{ANUNCIO.texto}</AnnouncementBar>}
+    {ANUNCIO && <AnnouncementBar href="/catalogo">{ANUNCIO}</AnnouncementBar>}
 
     <Header storeName={STORE_NAME}>
       <a slot="nav" href="/catalogo" class="cursor-pointer hover:underline">Catálogo</a>

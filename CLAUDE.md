@@ -6,7 +6,7 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-**Fases 0 a 11 cerradas. Fase 12 (demo y piloto) por empezar.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+**v1 cerrada: fases 0 a 12.** Lo único que queda de la 12 es procesar el piloto real, que depende del cliente. El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
@@ -53,6 +53,16 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
   fotos, y cada campo se aplica a mano (ADR-104). Lo que no puede saber —precio,
   stock, SKU, costo— no está en el esquema de la respuesta, así que la API no lo
   puede devolver. Quedan afuera la búsqueda con LLM y el resumen de analytics.
+- **Fase 12** — endurecimiento del piloto. El storefront **dice el nombre de la
+  tienda que sirve**, que estaba fijo en «Pick Demo» desde la Fase 1 y bloqueaba
+  el piloto; el título lo compone el layout, así que la próxima página no puede
+  olvidarse. Existe el **costo de envío** —tarifa plana y umbral de gratis,
+  calculado en el servidor como el descuento (ADR-107)— y el **modo
+  demostración**, donde el pedido se crea y se ve pero no le escribe a nadie
+  (ADR-108). Las funciones paginadas tienen techo. `pnpm budget` se retiró: al
+  volverse on-demand las últimas páginas prerenderizadas dejó de haber HTML que
+  medir, y el presupuesto se mudó al e2e, que mide más páginas y sobre la red
+  (ADR-106). Se entregan `LIMITACIONES.md` y `ONBOARDING.md`.
 
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,
@@ -86,8 +96,8 @@ pnpm dev            # admin (5273) + demo (4321)
 pnpm lint           # ESLint en todo el workspace
 pnpm typecheck      # tsc / astro check por paquete
 pnpm test           # unitarios + aislamiento de tenants; node:test, sin runner externo
-pnpm e2e            # Playwright, desktop y mobile, contra el build de producción
-pnpm budget         # presupuesto de peso por página; falla si se excede
+pnpm e2e            # Playwright, desktop y mobile, contra el build de producción;
+                    # incluye el presupuesto de peso por página, en gzip
 pnpm build
 pnpm db:new <n>     # nueva migración; ver supabase/migrations/README.md
 pnpm db:apply <sql> # aplica una migración al proyecto remoto
@@ -98,6 +108,7 @@ pnpm erp:importar --tienda <slug> [--limite 100] [--dry-run]   # catálogo desde
 pnpm erp:imagenes --tienda <slug>   # fotos, desde el proyecto actual del cliente
 pnpm tienda:crear <slug> <nombre>      # provisiona organización, tienda, sucursal y settings
 pnpm admin:crear <email> <password> [rol] [org]   # usuario del Admin; sin org, la demo
+pnpm rls:verificar  # aislamiento entre comercios con sesiones reales; contra el proyecto remoto
 ```
 
 Deploy: `pnpm --filter <app> run deploy`. El `run` **no es opcional** — `deploy` es un comando built-in de pnpm y sin `run` nunca llega al script del paquete.
@@ -267,9 +278,12 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..098 + decisiones pendientes P-001..005.
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..108 + decisiones pendientes P-001..005.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.
-5. [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md) — cómo corre el proyecto: CI, Workers,
+5. [LIMITACIONES.md](LIMITACIONES.md) — qué **no** hace el sistema, con el motivo
+   y qué lo desbloquea. Es lo que se le entrega a un piloto.
+6. [ONBOARDING.md](ONBOARDING.md) — dar de alta un comercio de punta a punta.
+7. [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md) — cómo corre el proyecto: CI, Workers,
    entornos, credenciales y diagnóstico.
 
 El protocolo de trabajo con IA, las reglas Core vs cliente y las de UX viven en

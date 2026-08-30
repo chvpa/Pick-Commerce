@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
-import { validarCarrito } from '@pick/commerce-core';
-import { checkout, tiendaActual } from '../../../lib/db.ts';
+import { addMoney, calcularEnvio, validarCarrito } from '@pick/commerce-core';
+import { checkout, envio, tiendaActual } from '../../../lib/db.ts';
 import { anotar } from '../../../lib/analytics.ts';
 import { cuerpoJson, falla, json, lineasRecibidas } from '../_respuesta.ts';
 
@@ -65,6 +65,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const porVariante = new Map(dinero.lines.map((l) => [l.variantId, l]));
 
     /*
+     * El envío, con la misma cuenta que hace `create_order`.
+     *
+     * Sobre `dinero.total`, que es el subtotal **ya descontado**: es contra eso
+     * que se mide el umbral de envío gratis, acá y en la base. Si los dos lo
+     * midieran contra cosas distintas, el checkout prometería un envío gratis
+     * que la caja después cobraría.
+     */
+    const costoDeEnvio = calcularEnvio(await envio(), dinero.total);
+
+    /*
      * Los dos eventos de este endpoint.
      *
      * **`add_to_cart` sólo si la petición se declara un alta.** Acá llegan seis
@@ -117,7 +127,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
       issues: resultado.issues,
       subtotal: dinero.subtotal,
       discount: dinero.discount,
-      total: dinero.total,
+      shipping: costoDeEnvio,
+      // Con el envío adentro, porque es lo que se va a cobrar. Mostrar el total
+      // de los productos y el flete aparte, sin sumarlos, es cómo alguien llega
+      // al banco con un número distinto del que vio.
+      total: addMoney(dinero.total, costoDeEnvio),
       ...(dinero.applied.length > 0 ? { appliedPromotions: dinero.applied } : {}),
       ...(dinero.couponIssue ? { couponIssue: dinero.couponIssue } : {}),
     });

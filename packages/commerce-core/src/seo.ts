@@ -13,23 +13,38 @@ import { toMajorUnits } from './money.ts';
  * a un motor de búsqueda, y en comercio eso se paga con el cliente enojado.
  */
 
-export interface SeoContexto {
+/**
+ * De dónde se sirve el sitio, y nada más.
+ *
+ * Existe separado porque `robots.txt` y el índice de sitemaps **sólo** necesitan
+ * esto: son del despliegue y no del comercio, así que pueden prerenderizarse.
+ * Pedirles el `SeoContexto` entero los obligaría a conocer el nombre de la
+ * tienda —que sale de la base— y con eso a ejecutarse en cada petición para un
+ * dato que no usan.
+ */
+export interface OrigenDelSitio {
   /** Origen absoluto del storefront, sin barra final. */
   readonly siteUrl: string;
-  readonly storeName: string;
   /**
    * Si las URLs del sitio llevan barra final. Tiene que coincidir con lo que
    * emite el framework: Astro con `build.format: 'directory'` —su default—
    * genera `/productos/x/`, y el canonical, el og:url y el sitemap también.
    * Si el JSON-LD dijera `/productos/x`, serían dos URLs distintas para la
    * misma página y el buscador recibe señales contradictorias.
+   *
+   * Va acá y no en `SeoContexto` porque es una propiedad del sitio y no del
+   * comercio: la decide el build, igual que `siteUrl`.
    */
   readonly trailingSlash?: boolean;
 }
 
+export interface SeoContexto extends OrigenDelSitio {
+  readonly storeName: string;
+}
+
 const SCHEMA = 'https://schema.org';
 
-export function urlAbsoluta(ctx: SeoContexto, ruta: string): string {
+export function urlAbsoluta(ctx: OrigenDelSitio, ruta: string): string {
   const url = new URL(ruta, ctx.siteUrl);
 
   // Ni la raíz, ni un archivo con extensión, ni una ruta con query llevan
@@ -205,7 +220,7 @@ ${urls}
 }
 
 /** Índice que apunta a los sitemaps. Uno solo hoy; el formato ya soporta más. */
-export function sitemapIndexXml(ctx: SeoContexto, rutas: readonly string[]): string {
+export function sitemapIndexXml(ctx: OrigenDelSitio, rutas: readonly string[]): string {
   const items = rutas
     .map(
       (ruta) => `  <sitemap>
@@ -222,7 +237,7 @@ ${items}
 }
 
 export interface RobotsOptions {
-  readonly ctx: SeoContexto;
+  readonly ctx: OrigenDelSitio;
   /**
    * Si el comercio deja entrar a los crawlers de IA. Por defecto sí: un
    * comercio quiere que le encuentren los productos. Es decisión comercial, no

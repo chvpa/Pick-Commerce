@@ -55,6 +55,14 @@ export default function setup(): void {
    * Parar ANTES de construir: en Windows el preview mantiene `dist` abierto y
    * `astro build`, que lo vacía, muere con un fallo de handle.
    */
+  /*
+   * Lo que el smoke del storefront necesita y el seed no siembra: un nombre de
+   * tienda distinto del que hay en el código, y un envío configurado. Va
+   * después de `pnpm seed` —que restituye la tienda— y antes de levantar el
+   * preview, porque el Worker memoiza la tienda por isolate durante un minuto.
+   */
+  execSync('node scripts/preparar-storefront-e2e.ts', { stdio: 'inherit' });
+
   silencioso('pnpm --filter @pick/demo exec astro preview stop');
 
   // El CI ya construyó para medir el presupuesto; construir de nuevo son varios

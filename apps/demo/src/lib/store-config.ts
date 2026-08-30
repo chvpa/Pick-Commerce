@@ -1,18 +1,20 @@
-import type { SeoContexto } from '@pick/commerce-core';
-
 /**
- * Configuración del storefront.
+ * Configuración **del despliegue**, no del comercio.
  *
- * Cada storefront declara la suya: el Core no conoce el dominio ni el nombre
- * del comercio. En Fase 3 esto pasa a leerse de `store_settings` por tenant;
- * hoy vive acá para no bloquear.
+ * Lo que queda acá es lo que depende de dónde y cómo corre este storefront. Lo
+ * que es del comercio —su nombre, su anuncio, su envío— sale de la base: ver
+ * `contextoSeo` en `db.ts`.
  */
-export const SITE_URL = import.meta.env.SITE ?? 'https://pick-demo.pages.dev';
-
-export const seoContexto: SeoContexto = {
-  siteUrl: SITE_URL,
-  storeName: 'Pick Demo',
-};
+/*
+ * La dirección pública. De acá salen el canonical, el `og:url` y el sitemap.
+ *
+ * El fallback es el Worker de la demo, que es lo que sirve el sitio cuando nadie
+ * declara `SITE_URL`. Antes era `pick-demo.pages.dev`, un dominio que no existe:
+ * sin la variable, el sitio funcionaba perfecto y anunciaba a los buscadores una
+ * dirección inexistente. Ya pasó una vez (INFRAESTRUCTURA §5).
+ */
+export const SITE_URL =
+  import.meta.env.SITE ?? 'https://pick-commerce.chvpa-contacto.workers.dev';
 
 export const features = {
   /**
@@ -23,17 +25,18 @@ export const features = {
   allowAiCrawlers: true,
 } as const;
 
-/**
- * Barra de anuncio del sitio. Va encima del header, que es donde se espera:
- * es contexto de toda la tienda, no contenido de una página.
- * `null` la apaga.
- */
-export const ANUNCIO: { texto: string; href?: string } | null = {
-  texto: 'Envío gratis en compras superiores a Gs. 500.000',
-  href: '/catalogo',
-};
-
 /*
+ * Acá vivían `storeName`, la barra de anuncio y `COLECCION_DESTACADA`.
+ *
+ * Los tres eran decisiones del comercio guardadas en el código del despliegue, y
+ * el diagnóstico ya estaba escrito para el último de ellos. El nombre ahora sale
+ * de `stores.name`; el anuncio se deriva del envío configurado, así que no puede
+ * prometer un envío gratis que la caja no dé.
+ *
+ * Lo que sigue es el comentario original, que valía para los tres.
+ *
+ * ---
+ *
  * Acá vivía `COLECCION_DESTACADA = 'ofertas'`.
  *
  * El comentario decía que era «una decisión del comercio, no del Core», y tenía

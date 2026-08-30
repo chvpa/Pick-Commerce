@@ -39,7 +39,8 @@ const {
  * distinto del que anuncia su JSON-LD, que es exactamente la señal contradictoria
  * que el canonical existe para evitar.
  */
-const canonical = urlAbsoluta({ siteUrl, storeName }, Astro.url.pathname);
+// El canonical sale del sitio, no del comercio: `urlAbsoluta` pide sólo eso.
+const canonical = urlAbsoluta({ siteUrl }, Astro.url.pathname);
 const imagenAbsoluta = image ? new URL(image, siteUrl).href : undefined;
 ---
 

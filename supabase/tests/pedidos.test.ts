@@ -33,6 +33,8 @@ const AJENO = 'd1000000-0000-4000-8000-000000000003';
 const V_REMERA = 'e1000000-0000-4000-8000-000000000000';
 /** Misma remera, otra talla, **sin costo cargado**: el catálogo real es así. */
 const V_SIN_COSTO = 'e1000000-0000-4000-8000-00000000000f';
+/** Sólo para los tests de envío: con su propio stock, para no gastarle a nadie. */
+const V_ENVIO = 'e1000000-0000-4000-8000-0000000000e0';
 const V_BORRADOR = 'e1000000-0000-4000-8000-000000000001';
 const V_REPARTIDO = 'e1000000-0000-4000-8000-000000000002';
 const V_AJENA = 'e1000000-0000-4000-8000-000000000003';
@@ -49,6 +51,9 @@ interface Pedido {
   readonly status: string;
   readonly paymentStatus: string;
   readonly total: { amount: number; currency: string };
+  readonly shipping: { amount: number; currency: string };
+  readonly subtotal: { amount: number; currency: string };
+  readonly isDemo?: boolean;
   readonly items: readonly {
     variantId?: string;
     title: string;
@@ -158,6 +163,7 @@ before(async () => {
       -- un catálogo real y el pedido tiene que distinguirlos.
       ('${V_REMERA}', '${TENANT}', '${REMERA}', 'REM-M', 'M', 150000, 90000, 'PYG', 0),
       ('${V_SIN_COSTO}', '${TENANT}', '${REMERA}', 'REM-L', 'L', 150000, null, 'PYG', 1),
+      ('${V_ENVIO}', '${TENANT}', '${REMERA}', 'REM-XL', 'XL', 100000, null, 'PYG', 2),
       ('${V_BORRADOR}', '${TENANT}', '${BORRADOR}', 'BOR-1', 'Única', 90000, null, 'PYG', 0),
       ('${V_REPARTIDO}', '${TENANT}', '${REPARTIDO}', 'REP-1', 'Única', 50000, null, 'PYG', 0),
       ('${V_AJENA}', '${OTRO_TENANT}', '${AJENO}', 'AJE-1', 'Única', 70000, null, 'PYG', 0);
@@ -165,6 +171,7 @@ before(async () => {
     insert into inventory_levels (tenant_id, variant_id, location_id, available) values
       ('${TENANT}', '${V_REMERA}', '${SUCURSAL}', 40),
       ('${TENANT}', '${V_SIN_COSTO}', '${SUCURSAL}', 40),
+      ('${TENANT}', '${V_ENVIO}', '${SUCURSAL}', 500),
       ('${TENANT}', '${V_BORRADOR}', '${SUCURSAL}', 5),
       -- Repartido a propósito para probar el descuento entre sucursales.
       ('${TENANT}', '${V_REPARTIDO}', '${SUCURSAL}', 3),
@@ -751,4 +758,128 @@ test('el rol anónimo no puede marcar pagos', async () => {
     `select admin_set_payment_status('${TIENDA}'::uuid, '${crypto.randomUUID()}'::uuid, 'paid')`,
   );
   assert.equal(r.ok, false, 'anon pudo invocar admin_set_payment_status');
+});
+
+// --- Envío y modo demo ------------------------------------------------------
+//
+// El envío es plata, así que lo que se prueba es sobre todo **quién decide el
+// importe**: sale de la configuración de la tienda y de ningún otro lado. Un
+// costo de envío que viniera en el payload sería el número que fija cuánto se
+// cobra, elegido por quien paga.
+
+/** Deja la configuración puesta para una llamada y la saca después. */
+async function conAjustes<T>(ajustes: unknown, hacer: () => Promise<T>): Promise<T> {
+  await comoServicio(
+    db,
+    `insert into store_settings (store_id, tenant_id, settings)
+     values ('${TIENDA}', '${TENANT}', ${sql(JSON.stringify(ajustes))}::jsonb)
+     on conflict (store_id) do update set settings = excluded.settings`,
+  );
+  try {
+    return await hacer();
+  } finally {
+    await comoServicio(db, `delete from store_settings where store_id = '${TIENDA}'`);
+  }
+}
+
+const PLANA = { shipping: { mode: 'flat', amount: 35000, freeFrom: 500000 } };
+
+test('sin configuración, el pedido no cobra envío', async () => {
+  const p = pedido(await crear([{ variantId: V_ENVIO, quantity: 1 }]));
+
+  assert.equal(p.shipping.amount, 0);
+  assert.equal(p.total.amount, 100000, 'el total tiene que ser el subtotal');
+});
+
+test('con tarifa plana, el envío entra en el total', async () => {
+  const p = await conAjustes(PLANA, async () =>
+    pedido(await crear([{ variantId: V_ENVIO, quantity: 2 }])),
+  );
+
+  assert.equal(p.subtotal.amount, 200000);
+  assert.equal(p.shipping.amount, 35000);
+  assert.equal(p.total.amount, 235000, 'total = subtotal + envío');
+  assert.equal(p.shipping.currency, 'PYG', 'el envío va en la moneda del pedido');
+});
+
+test('desde el umbral el envío es gratis', async () => {
+  const p = await conAjustes(PLANA, async () =>
+    pedido(await crear([{ variantId: V_ENVIO, quantity: 5 }])),
+  );
+
+  assert.equal(p.subtotal.amount, 500000);
+  assert.equal(p.shipping.amount, 0, '500.000 es «desde», así que entra');
+  assert.equal(p.total.amount, 500000);
+});
+
+test('un envío mandado en el payload se ignora', async () => {
+  /*
+   * El caso que importa: el payload dice cero y la tienda cobra 35.000. Si el
+   * pedido saliera en 100.000, el importe lo estaría eligiendo quien paga — que
+   * es lo mismo que ya se impide con el precio y con el descuento.
+   */
+  const p = await conAjustes(PLANA, async () => {
+    const filas = await comoServicio<{ j: Respuesta }>(
+      db,
+      `select create_order('${TIENDA}'::uuid, '${crypto.randomUUID()}'::uuid, ${sql(
+        JSON.stringify({
+          customer: CLIENTE,
+          address: { street: 'Avda. Siempre Viva 742', city: 'Asunción' },
+          paymentMethod: 'bank_transfer',
+          lines: [{ variantId: V_ENVIO, quantity: 1 }],
+          shippingAmount: 0,
+        }),
+      )}::jsonb) as j`,
+    );
+    return pedido(filas[0]!.j);
+  });
+
+  assert.equal(p.shipping.amount, 35000, 'el payload dijo 0 y la tienda cobra 35.000');
+  assert.equal(p.total.amount, 135000);
+});
+
+test('una configuración de envío mal escrita no cobra ni rompe el pedido', async () => {
+  // La caída del lado seguro: un `amount` que no es número no puede hacer
+  // fallar un pedido entero, y tampoco cobrar un importe inventado.
+  const p = await conAjustes({ shipping: { mode: 'flat', amount: 'mucho' } }, async () =>
+    pedido(await crear([{ variantId: V_ENVIO, quantity: 1 }])),
+  );
+
+  assert.equal(p.shipping.amount, 0);
+  assert.equal(p.total.amount, 100000);
+});
+
+test('en una tienda demo el pedido se marca y no encola correo', async () => {
+  const antes = await contar('notification_outbox');
+
+  const p = await conAjustes({ demo: true }, async () =>
+    pedido(await crear([{ variantId: V_ENVIO, quantity: 1 }])),
+  );
+
+  assert.equal(p.isDemo, true);
+  assert.equal(
+    await contar('notification_outbox'),
+    antes,
+    'un pedido de demostración no le escribe a nadie',
+  );
+});
+
+test('sin modo demo el correo se encola como siempre', async () => {
+  // El gemelo del anterior: sin esto, el test de arriba pasaría igual con el
+  // trigger roto para todos.
+  const antes = await contar('notification_outbox');
+  pedido(await crear([{ variantId: V_ENVIO, quantity: 1 }]));
+
+  assert.equal(await contar('notification_outbox'), antes + 1);
+});
+
+test('un `demo` que no es el booleano no apaga los correos', async () => {
+  const antes = await contar('notification_outbox');
+
+  const p = await conAjustes({ demo: 'true' }, async () =>
+    pedido(await crear([{ variantId: V_ENVIO, quantity: 1 }])),
+  );
+
+  assert.equal(p.isDemo, undefined, 'ausente, no false: es lo que hace `strip_nulls`');
+  assert.equal(await contar('notification_outbox'), antes + 1);
 });

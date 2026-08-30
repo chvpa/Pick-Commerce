@@ -1,76 +1,105 @@
-import { expect, test } from '@playwright/test';
+import { gzipSync } from 'node:zlib';
+import { expect, test, type Page } from '@playwright/test';
 
 /**
- * Presupuesto de performance medido sobre la red real.
+ * Presupuesto de peso del storefront, medido sobre la red real.
  *
- * `pnpm budget` cubre las páginas prerenderizadas leyendo el build, pero no
- * `/catalogo`, que es on-demand y no deja HTML en disco — y es justo la más
- * pesada, porque es la única que carga ClientRouter. Acá se mide lo que el
- * navegador descarga de verdad, incluidas las rutas dinámicas.
+ * Hasta la Fase 12 esto convivía con `pnpm budget`, que leía el build en disco y
+ * era el único que medía **comprimido**. Dejó de tener qué medir: el nombre de
+ * la tienda pasó a salir de la base, así que las dos últimas páginas
+ * prerenderizadas se volvieron on-demand y `dist/client` ya no contiene HTML.
+ *
+ * El control no se perdió, se mudó acá y cubre más que antes: las mismas cifras
+ * en gzip, sobre **todas** las páginas —incluidas home, catálogo y PDP, que
+ * nunca dejaron HTML en disco— y sobre lo que el navegador descarga de verdad en
+ * vez de sobre lo que el build dejó escrito.
+ *
+ * El preview local no comprime, así que se comprime acá: es la misma cuenta que
+ * hacía `budget.mjs` —gzip por archivo y suma— y da el mismo número.
  */
-const PRESUPUESTO_JS = 30 * 1024;
 
-async function pesoDescargado(page: import('@playwright/test').Page, ruta: string) {
-  const porTipo = new Map<string, number>();
+/** Gzip, que es lo que viaja por la red. */
+const CSS = 20 * 1024;
 
-  page.on('response', async (res) => {
+/**
+ * Lo que descarga una página, comprimido.
+ *
+ * Se cuenta por respuesta y no por recurso único: si el navegador pide algo dos
+ * veces, se pagó dos veces.
+ */
+async function pesoGzip(page: Page, ruta: string): Promise<{ js: number; css: number }> {
+  const porTipo = { js: 0, css: 0 };
+  const pendientes: Promise<void>[] = [];
+
+  page.on('response', (res) => {
     const url = res.url();
     if (!url.includes('/_astro/') && !url.endsWith('.js') && !url.endsWith('.css')) return;
-    try {
-      const cuerpo = await res.body();
-      const tipo = url.endsWith('.css') ? 'css' : 'js';
-      porTipo.set(tipo, (porTipo.get(tipo) ?? 0) + cuerpo.length);
-    } catch {
-      // Respuesta sin cuerpo accesible: no suma.
-    }
+    pendientes.push(
+      res
+        .body()
+        .then((cuerpo) => {
+          const tipo = url.endsWith('.css') ? 'css' : 'js';
+          porTipo[tipo] += gzipSync(cuerpo).length;
+        })
+        // Respuesta sin cuerpo accesible —una precarga cancelada, por ejemplo—:
+        // no suma. Ignorarla es correcto; hacer fallar el test, no.
+        .catch(() => {}),
+    );
   });
 
   await page.goto(ruta, { waitUntil: 'networkidle' });
+  await Promise.all(pendientes);
   return porTipo;
 }
 
-test('el catálogo no excede el presupuesto de JavaScript', async ({ page }) => {
-  const peso = await pesoDescargado(page, '/catalogo');
-  const js = peso.get('js') ?? 0;
+function kb(bytes: number): string {
+  return `${(bytes / 1024).toFixed(1)} KB`;
+}
 
-  // Sin comprimir: el preview local no aplica gzip. El presupuesto contempla
-  // ese margen; `pnpm budget` mide el peso comprimido real del build.
-  expect(js, `el catálogo descargó ${(js / 1024).toFixed(1)} KB de JS`).toBeLessThan(
-    PRESUPUESTO_JS * 3,
-  );
-  expect(js).toBeGreaterThan(0);
-});
+/**
+ * Las páginas con presupuesto, y por qué cada una tiene el suyo.
+ *
+ * `/politicas` es la referencia del layout: no tiene nada propio, así que su
+ * peso **es** el del encabezado, el pie y el carrito. Si sube, subió para todo
+ * el sitio.
+ *
+ * El catálogo tiene un presupuesto mayor, y no es una concesión: es el único que
+ * carga `ClientRouter`, que son unos 5,6 KB gzip y que se compró a propósito
+ * para que filtrar no recargue la página entera. Los 25 KB del proyecto se
+ * escribieron cuando lo único que se medía eran las páginas de contenido —el
+ * catálogo no dejaba HTML en disco, así que `pnpm budget` nunca lo pesó—. Al
+ * medirlo por primera vez dio 26,6 KB. El número va declarado con su motivo, que
+ * es mejor que aflojar el presupuesto de todo el sitio para que entre uno.
+ */
+const PAGINAS = [
+  { ruta: '/politicas', que: 'una página de contenido', js: 25 * 1024 },
+  { ruta: '/', que: 'la home', js: 25 * 1024 },
+  { ruta: '/productos/campera-cortaviento', que: 'el PDP', js: 25 * 1024 },
+  { ruta: '/catalogo', que: 'el catálogo', js: 28 * 1024 },
+];
+
+for (const { ruta, que, js } of PAGINAS) {
+  test(`${que} entra en el presupuesto de peso`, async ({ page }) => {
+    const peso = await pesoGzip(page, ruta);
+
+    expect(peso.js, `${que} descargó ${kb(peso.js)} de JS`).toBeLessThan(js);
+    expect(peso.css, `${que} descargó ${kb(peso.css)} de CSS`).toBeLessThan(CSS);
+    // Cero significa que no se midió nada: un cambio de rutas dejaría el
+    // presupuesto en verde sin haber pesado una sola página.
+    expect(peso.js, `${que} no descargó JavaScript: ¿se midió algo?`).toBeGreaterThan(0);
+  });
+}
 
 test('la home carga menos JavaScript que el catálogo', async ({ page }) => {
-  const home = (await pesoDescargado(page, '/')).get('js') ?? 0;
+  const home = (await pesoGzip(page, '/')).js;
 
-  const page2 = await page.context().newPage();
-  const plp = (await pesoDescargado(page2, '/catalogo')).get('js') ?? 0;
-  await page2.close();
+  const otra = await page.context().newPage();
+  const plp = (await pesoGzip(otra, '/catalogo')).js;
+  await otra.close();
 
   // ClientRouter sólo lo paga el catálogo: si la home lo carga, se coló al
   // layout y toda página del sitio está pagando 5,6 KB gzip de más.
-  expect(home, `home=${home} plp=${plp}`).toBeLessThan(plp);
-});
-
-test('la home y el PDP también entran en el presupuesto de red', async ({ page }) => {
-  /*
-   * `pnpm budget` mide el build en disco, y desde ADR-057 estas dos rutas no
-   * dejan HTML ahí: se resuelven en el Worker. Sin este test dejarían de tener
-   * presupuesto sin que nadie lo note.
-   */
-  const home = (await pesoDescargado(page, '/')).get('js') ?? 0;
-
-  const otra = await page.context().newPage();
-  const pdp = (await pesoDescargado(otra, '/productos/campera-cortaviento')).get('js') ?? 0;
-  await otra.close();
-
-  expect(home, `la home descargó ${(home / 1024).toFixed(1)} KB de JS`).toBeLessThan(
-    PRESUPUESTO_JS * 3,
-  );
-  expect(pdp, `el PDP descargó ${(pdp / 1024).toFixed(1)} KB de JS`).toBeLessThan(
-    PRESUPUESTO_JS * 3,
-  );
+  expect(home, `home=${kb(home)} plp=${kb(plp)}`).toBeLessThan(plp);
 });
 
 test('las páginas de contenido no cargan islands innecesarias', async ({ page }) => {

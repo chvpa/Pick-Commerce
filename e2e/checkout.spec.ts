@@ -217,3 +217,38 @@ test('el checkout sin JavaScript explica por qué y ofrece salida', async ({ bro
 
   await contexto.close();
 });
+
+// --- Envío ------------------------------------------------------------------
+
+test('el envío se muestra en el checkout y entra en el total', async ({ page }) => {
+  /*
+   * El importe lo pone la tienda —`store_settings.shipping`, que carga
+   * `preparar-storefront-e2e.ts`— y lo calcula el servidor. Acá se comprueba lo
+   * único que el comprador puede ver: que el número aparece antes de pagar y que
+   * está sumado en el total. Un envío que se cobra y no se muestra es la forma
+   * de que alguien llegue al banco con una cifra distinta de la que vio.
+   */
+  await sembrarCarrito(page, 1);
+  await page.goto('/checkout');
+  await expect(page.getByRole('button', { name: /confirmar pedido/i })).toBeEnabled();
+
+  /*
+   * `exact`: «Envío» suelto también aparece en la barra de anuncio —«Envío
+   * gratis desde…»— y en el enlace de políticas del pie. El del resumen es el
+   * único que es exactamente esa palabra.
+   */
+  const fila = page.getByText('Envío', { exact: true }).locator('..');
+  await expect(fila).toBeVisible();
+  await expect(fila).toContainText('35.000');
+});
+
+test('desde el umbral el checkout dice que el envío es gratis', async ({ page }) => {
+  // La zapatilla vale 720.000 y el umbral del smoke es 1.000.000, así que con
+  // dos se pasa. Que diga «Gratis» y no «0» es deliberado: enterarse de que no
+  // se cobra es parte de lo que decide la compra.
+  await sembrarCarrito(page, 2);
+  await page.goto('/checkout');
+  await expect(page.getByRole('button', { name: /confirmar pedido/i })).toBeEnabled();
+
+  await expect(page.getByText('Envío', { exact: true }).locator('..')).toContainText('Gratis');
+});

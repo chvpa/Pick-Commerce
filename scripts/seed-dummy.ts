@@ -10,13 +10,17 @@ import { dimensionesWebp } from './dimensiones.ts';
  * se ve si la paginación anda, si la búsqueda encuentra, si la selección
  * múltiple escala o si una tabla de veinte filas se lee bien. Con doscientos, sí.
  *
- *   pnpm seed:dummy [cantidad]     # por defecto 60, máximo lo que haya (194)
+ *   pnpm seed:dummy [cantidad]     # por defecto 60; por encima de 194 sintetiza
  *   pnpm seed:dummy --limpiar      # los borra todos y no carga nada
  *
  * Idempotente: los ids se derivan del id de dummyjson, así que repetirlo
  * actualiza en vez de duplicar. Todo lo que crea vive en su propio rango de
  * uuids —`dda0…` en adelante— y por eso `--limpiar` puede distinguirlo del
  * catálogo de la demo sin tocar nada más.
+ *
+ * Por encima de 194 —lo que tiene dummyjson— repite el catálogo con un sufijo.
+ * Sirve para medir con un catálogo del tamaño de uno real sin depender de datos
+ * de un cliente, que es lo que impide usar el del ERP para esto.
  *
  * **Los datos son inventados y las imágenes son de un tercero.** No es un
  * sustituto de un catálogo real: los precios salen de convertir dólares a una
@@ -115,14 +119,49 @@ interface ProductoDummy {
   readonly thumbnail: string;
 }
 
-console.log(`Trayendo ${cantidad} productos de dummyjson.com`);
+console.log(`Trayendo hasta ${cantidad} productos de dummyjson.com`);
 
-const respuesta = await fetch(`https://dummyjson.com/products?limit=${cantidad}`);
+const respuesta = await fetch(`https://dummyjson.com/products?limit=${Math.min(cantidad, 194)}`);
 if (!respuesta.ok) {
   console.error(`dummyjson respondió ${respuesta.status}`);
   process.exit(1);
 }
-const { products } = (await respuesta.json()) as { products: ProductoDummy[] };
+const { products: base } = (await respuesta.json()) as { products: ProductoDummy[] };
+
+/**
+ * Por encima de los 194 que tiene dummyjson, se sintetiza repitiendo el
+ * catálogo con un sufijo.
+ *
+ * Es para lo que 194 productos no alcanzan: medir la PLP, las facetas, el
+ * sitemap y las tablas del Admin con un catálogo del tamaño de uno real. El ERP
+ * del piloto tiene 9032 filas, pero depende de credenciales de un cliente y de
+ * un proxy, y este repositorio es público: un catálogo sintético es
+ * reproducible, no depende de nadie y no publica datos de nadie.
+ *
+ * Los ids derivados quedan dentro de la misma familia de uuids, así que
+ * `--limpiar` los borra igual. El SKU y el handle llevan el sufijo porque son
+ * únicos por tienda: sin él, la segunda copia choca contra la primera.
+ */
+const products: ProductoDummy[] =
+  cantidad <= base.length
+    ? base
+    : Array.from({ length: cantidad }, (_, i) => {
+        const original = base[i % base.length]!;
+        const copia = Math.floor(i / base.length);
+        if (copia === 0) return original;
+        return {
+          ...original,
+          // Deja lugar para 999 copias de 194: 193.806 productos, muy por encima
+          // de cualquier catálogo que este sistema tenga que aguantar.
+          id: original.id + copia * 1000,
+          title: `${original.title} ${copia + 1}`,
+          sku: `${original.sku}-${copia + 1}`,
+        };
+      });
+
+if (products.length !== base.length) {
+  console.log(`Sintetizando ${products.length} a partir de ${base.length} originales`);
+}
 
 // ---------------------------------------------------------------------------
 // Traducción al modelo del catálogo

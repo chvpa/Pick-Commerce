@@ -582,3 +582,21 @@ test('la secret key no alcanza un producto ajeno ni sabiendo su handle', async (
   );
   assert.equal(porHandle.rows[0]?.j.items.length, 0, 'se alcanzó un producto de otra tienda');
 });
+
+test('pedir cien mil productos por página devuelve el tope, no cien mil', async () => {
+  /*
+   * `catalog_search` es la única función paginada **pública y sin sesión**: el
+   * `perPage` llega del query string y hasta la Fase 12 se usaba tal cual. Una
+   * ruta de SEO podía pedir un millón de filas y quedarse con el pool de
+   * conexiones por el que después pasa el checkout.
+   *
+   * Se afirma sobre `perPage` y no sobre la cantidad de items porque el catálogo
+   * de prueba tiene pocos: lo que importa es que la función **use** el tope, y
+   * que lo devuelva, para que quien pagina no haga cuentas con un tamaño que no
+   * existió.
+   */
+  const r = await porRpc({ perPage: 100_000 });
+
+  assert.equal(r.perPage, 200);
+  assert.ok(r.items.length <= 200);
+});

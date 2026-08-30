@@ -130,6 +130,13 @@ export function plantillaDeCorreo(
 
   const items = order.items.map((i) => lineaDeItem(i, locale));
   const total = formatMoney(order.total, locale);
+  /*
+   * El envío sólo aparece si se cobró. Un renglón que dice «Envío: Gs. 0» en el
+   * correo de una tienda que no despacha es ruido; que **no** aparezca cuando sí
+   * se cobró sería peor: el total no cerraría con la suma de las líneas y el
+   * comprador escribiría para preguntar por qué.
+   */
+  const envio = order.shipping.amount > 0 ? formatMoney(order.shipping, locale) : null;
   const direccion = [order.address.street, order.address.city, order.address.reference]
     .filter(Boolean)
     .join(', ');
@@ -141,6 +148,7 @@ export function plantillaDeCorreo(
     '',
     'Detalle:',
     ...items.map((l) => `  ${l}`),
+    ...(envio ? [`  Envío: ${envio}`] : []),
     `  Total: ${total}`,
     '',
     `Enviamos a: ${direccion}`,
@@ -177,6 +185,14 @@ export function plantillaDeCorreo(
       </tr>`,
         )
         .join('\n      ')}
+      ${
+        envio
+          ? `<tr>
+        <td style="padding:6px 0;color:#666">Envío</td>
+        <td style="padding:6px 0;text-align:right;color:#666;white-space:nowrap">${escapar(envio)}</td>
+      </tr>`
+          : ''
+      }
       <tr>
         <td style="padding:10px 0;font-weight:600">Total</td>
         <td style="padding:10px 0;text-align:right;font-weight:600;white-space:nowrap">${escapar(total)}</td>

@@ -97,7 +97,6 @@ Postgres en proceso (PGlite) aplicando las migraciones reales. No necesitan
 Docker ni un Supabase remoto.
 
 ```bash
-pnpm budget        # peso por página; falla si excede el presupuesto
 pnpm test:rls      # sólo el aislamiento entre tenants
 ```
 

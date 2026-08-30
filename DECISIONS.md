@@ -4476,3 +4476,160 @@ Tres opciones con su precio a la vista, porque el que paga es él. Un modelo
 guardado que ya no esté en la lista **no** cae al de por defecto: la llamada
 falla diciendo que hay que elegir otro. Cambiarle el modelo a alguien sin avisar
 es cambiarle la factura.
+
+---
+
+## ADR-106 — La tienda dice su nombre, y el presupuesto de peso se muda al e2e
+
+**Fecha:** 2026-08-30
+**Estado:** Accepted
+
+**Contexto**
+`storeName: 'Pick Demo'` estuvo fijo en el código del storefront desde la Fase 1,
+con un comentario que decía que en la Fase 3 pasaría a leerse de la base. Se
+descubrió en la 8 y se arregla en la 12. El alcance era peor de lo anotado: no
+era una constante sino **nueve títulos** con «Pick Demo» escrito a mano, más el
+encabezado y el pie. Cualquier comercio servido por este Worker se anunciaba como
+la demo, incluido el `<title>` que indexa un buscador.
+
+**El nombre sale de `stores.name`, y el título lo compone el layout**
+Cada página pasa sólo su parte —«Políticas», «Carrito»— y `Base.astro` agrega
+`· ${nombre}`. Componerlo en un solo lugar es lo que hace imposible que la
+próxima página se olvide; con el título entero en cada una, la novena repitió el
+error de la primera.
+
+**`siteUrl` **no** se toca: sigue siendo del despliegue.** No es el dominio desde
+el que se sirve sino el que se declara público, y de él salen el canonical, el
+`og:url` y el sitemap. Fijarlo por despliegue es lo que impide que dos hosts que
+sirven lo mismo produzcan dos canonical distintos. Se verificó contra producción
+antes de tocarlo: `SITE_URL` está bien puesta y el `robots.txt` desplegado apunta
+a donde debe. Lo que sí se corrigió es su fallback, que era un dominio que no
+existe.
+
+**El anuncio se deriva del envío**
+La barra decía «Envío gratis en compras superiores a Gs. 500.000» en toda tienda
+que se sirviera, sin que nada lo respaldara. Ahora sale del mismo número que
+cobra `create_order`: no puede prometer algo que la caja no vaya a cumplir, y
+desaparece sola donde no hay envío gratis. Un anuncio libre es contenido, y para
+eso está el CMS.
+
+**Las páginas de contenido pasan a on-demand**
+Con Workers Assets, una página que existe en disco **se sirve sin ejecutar el
+Worker**, así que no puede preguntar de qué tienda es. `Políticas` y `Preguntas
+frecuentes` llevan el nombre en el encabezado, así que dejan de prerenderizarse.
+
+`robots.txt` y el índice de sitemaps **no**: sólo usan `siteUrl`. Para que eso
+quedara dicho en los tipos y no en un comentario, se separó `OrigenDelSitio`
+—dónde se sirve el sitio— de `SeoContexto` —eso más quién es el comercio—. Una
+función que pide lo primero no puede depender de la base por accidente.
+
+**Y eso deja a `pnpm budget` sin nada que medir, así que se retira**
+Medía exactamente esas dos páginas leyendo el build en disco; con todo on-demand,
+`dist/client` no contiene HTML. Su lista `ESPERADAS` falló al primer build, que
+es justamente para lo que estaba.
+
+El control no se pierde, se muda a `e2e/performance.spec.ts`, que ya medía sobre
+la red y sólo le faltaba comprimir. Cubre **más** que antes —home, catálogo, PDP
+y contenido, en vez de dos páginas— y mide el artefacto servido en vez del build
+escrito. Antes de borrar nada se comprobó la paridad: la medición nueva da
+**21,2 KB**, el mismo número exacto que daba la vieja.
+
+**El catálogo no entraba en el presupuesto, y nadie lo sabía**
+Al medirlo por primera vez dio **26,6 KB** contra los 25 declarados. No es una
+regresión: es el `ClientRouter`, unos 5,6 KB que se compraron a propósito para
+que filtrar no recargue la página, y el catálogo nunca dejó HTML en disco, así
+que `pnpm budget` jamás lo pesó. Se le da su propio presupuesto de 28 KB con el
+motivo escrito, en vez de aflojar el de todo el sitio para que entre uno.
+
+**Efecto secundario que cierra un hueco:** las dos páginas de contenido ahora
+producen vista y sesión, así que analytics dejó de tener páginas fuera de la
+medición. El panel decía que no las contaba; ahora dice que las cuenta.
+
+---
+
+## ADR-107 — El envío lo calcula el servidor, y el pedido lo guarda
+
+**Fecha:** 2026-08-30
+**Estado:** Accepted
+
+**Contexto**
+PROJECT.md §13 pide `shipping` entre lo que un pedido debe conservar y no existía:
+`orders` guardaba `total_amount` a secas. Un comercio que despacha lo cobraba por
+fuera del sistema, y el pedido decía que se pagó menos de lo que se pagó.
+
+**Lo mínimo completo: una tarifa plana y un umbral**
+Zonas, transportistas, cálculo por peso y retiro en sucursal quedan fuera.
+«Pickup por sucursal» está en la Fase 0 de v2, así que adelantarlo acá sería
+construir la mitad de una feature que ya tiene lugar.
+
+**Se calcula en el servidor, como el descuento**
+`create_order` lo lee de `store_settings` y lo suma; el carrito no manda un
+importe de envío ni podría, porque sería el número que decide cuánto se cobra
+elegido por quien paga. El checkout muestra el mismo número porque llama a la
+**misma función del core** que replica la cuenta en SQL, no a una aproximación.
+Hay un test que manda un envío de cero en el payload y afirma que se cobra igual.
+
+**El umbral se mide contra el subtotal ya descontado.** Es la lectura honesta de
+«compras desde X»: contra el subtotal sin descontar se regalaría el envío por una
+compra que terminó costando menos que el umbral.
+
+**El default es no cobrar.** Una tienda recién creada que empezara cobrando un
+envío que nadie configuró le sumaría plata al total sin que el comercio lo sepa.
+El silencio se resuelve hacia el lado que no cobra de más, igual que la
+configuración de moneda y la de pagos.
+
+**Una columna generada rompió por lo que no se ve**
+`subtotal_amount` es `total + descuento`, y esa identidad valía mientras el total
+era `subtotal − descuento`. Con el envío adentro pasaba a valer `subtotal +
+envío`: el pedido informaba un subtotal de productos que incluía el flete y la
+ficha no cerraba consigo misma.
+
+Lo encontró el test, no la lectura del código, y es el riesgo propio de una
+columna derivada: nadie tiene que acordarse de actualizarla, y por eso nadie se
+acuerda de que existe cuando cambia la fórmula de la que depende. Ahora es
+`total + descuento − envío`.
+
+**«Ventas» del panel incluye el envío, y es a propósito.** Es lo facturado, que
+es contra lo que un comercio concilia el banco. El margen y su cobertura se
+calculan **sólo sobre las líneas de producto** (ADR-101), así que el envío no los
+diluye: son dos preguntas distintas y cada una toma el número que le corresponde.
+
+---
+
+## ADR-108 — Un pedido de demostración se crea, se ve y no le escribe a nadie
+
+**Fecha:** 2026-08-30
+**Estado:** Accepted
+
+**Contexto**
+La demo pública crea pedidos reales y encola correos. Cada prospecto que prueba
+deja un pedido indistinguible de uno de verdad y, con un dominio verificado en
+Resend, le llega un aviso a quien haya escrito su dirección en un formulario de
+demostración.
+
+**El pedido se crea igual**
+No se ramifica `create_order` ni se simula la confirmación. El prospecto tiene que
+**ver el pedido entrar al Admin**: es la mitad de lo que se le está mostrando, y
+una confirmación falsa no muestra nada. La alternativa —no escribir nada— era más
+limpia y vendía menos, además de abrir una rama en el camino de dinero, que es el
+que menos conviene ramificar.
+
+**Un flag por tienda, no una tienda especial**
+`store_settings.demo`, que `create_order` lee en la misma consulta que ya hace
+para el envío: una lectura, dos usos. El pedido queda marcado con `is_demo`, y el
+que corta los correos es el trigger de la cola —dos líneas junto a la guarda de
+«sin correo no hay a quién escribirle», que es el mismo tipo de corte.
+
+La comparación es exacta contra `true`, como en el core: un `demo: "no"` guardado
+por error no puede apagarle los avisos a una tienda real. Y con `coalesce`,
+porque `NULL = 'true'` da NULL y no falso — sin eso **todo pedido de toda tienda
+sin configurar fallaba**, que es lo que encontró el test al primer intento.
+
+**La marca queda en el pedido, no sólo en la tienda**
+Importa cuando una tienda deja de ser demostración y se pone a vender: los
+pedidos de antes siguen ahí, y el Admin los muestra marcados para que nadie los
+despache. Guardarlo sólo en la configuración habría hecho que al apagar el modo
+todos parecieran reales.
+
+**El checkout lo avisa antes, no después.** Quien compra tiene que saber que no
+va a recibir nada mientras todavía puede decidir.

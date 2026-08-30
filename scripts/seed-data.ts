@@ -469,5 +469,14 @@ export const CONFIGURACION = {
           'Enviá el comprobante por WhatsApp al 0981 123 456 indicando el número de pedido.',
       },
     },
+    /*
+     * Envío (ADR-107). La demo cobra, porque una demo que no cobra envío no
+     * muestra la mitad de la función: no se ve la línea en el checkout ni el
+     * anuncio de envío gratis, que se **deriva** de este umbral y no de un texto.
+     *
+     * 500.000 es el mismo número que la barra de anuncio decía a mano hasta la
+     * Fase 12, cuando era una promesa que nada respaldaba.
+     */
+    shipping: { mode: 'flat', amount: 35_000, freeFrom: 500_000 },
   },
 };

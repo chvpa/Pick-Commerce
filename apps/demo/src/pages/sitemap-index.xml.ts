@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { sitemapIndexXml } from '@pick/commerce-core';
-import { seoContexto } from '../lib/store-config.ts';
+import { SITE_URL } from '../lib/store-config.ts';
 
 /**
  * Índice de sitemaps.
@@ -15,6 +15,6 @@ import { seoContexto } from '../lib/store-config.ts';
 export const prerender = true;
 
 export const GET: APIRoute = () =>
-  new Response(sitemapIndexXml(seoContexto, ['/sitemap-0.xml']), {
+  new Response(sitemapIndexXml({ siteUrl: SITE_URL }, ['/sitemap-0.xml']), {
     headers: { 'content-type': 'application/xml; charset=utf-8' },
   });

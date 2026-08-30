@@ -11,8 +11,8 @@ import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astr
 import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
 import ProductCarousel from '@pick/commerce-astro/product/ProductCarousel.astro';
 import { organizationJsonLd } from '@pick/commerce-core';
-import { seoContexto } from '../lib/store-config.ts';
-import { catalogo, categorias, tiendaActual } from '../lib/db.ts';
+
+import { catalogo, categorias, contextoSeo, tiendaActual } from '../lib/db.ts';
 import Base from '../layouts/Base.astro';
 
 /*
@@ -45,15 +45,15 @@ const GRILLA: Readonly<Record<number, string>> = {
   3: 'sm:grid-cols-2 lg:grid-cols-3',
   4: 'sm:grid-cols-2 lg:grid-cols-4',
 };
+const seo = await contextoSeo();
 ---
 
 <Base
-  title="Pick Demo · Ropa técnica para todos los días"
   description="Camperas, calzado y accesorios técnicos. Envío a todo el país."
   image="/products/campera-2.jpg"
   imageAlt="Campera cortaviento"
 >
-  <JsonLd slot="head" data={organizationJsonLd(seoContexto)} />
+  <JsonLd slot="head" data={organizationJsonLd(seo)} />
 
   {
     /*

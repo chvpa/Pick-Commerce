@@ -1,5 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
-import { ADMIN_E2E } from '../scripts/datos-admin-e2e.ts';
+import { expect, test } from '@playwright/test';
+import { ADMIN, entrar, irALaTiendaDelSmoke } from './_admin.ts';
 
 /**
  * BYOK: lo que ve una tienda **sin** credencial de OpenAI.
@@ -24,23 +24,20 @@ import { ADMIN_E2E } from '../scripts/datos-admin-e2e.ts';
  * contra OpenAI antes de guardarla, así que una key falsa nunca se guarda y una
  * de verdad no puede vivir en el repositorio. Probar con una falsa mediría que
  * api.openai.com contesta, que no es lo que este smoke tiene que cuidar.
+ *
+ * Todo corre sobre la **segunda tienda**, la que el setup crea y el teardown
+ * borra. Al principio usaba la de demostración y pasaba, hasta que alguien cargó
+ * una clave de verdad ahí para probar la función: los cuatro tests se pusieron
+ * en rojo por un cambio de datos, no de código. Una tienda cuyo ciclo de vida es
+ * el de la corrida no puede tener credencial de nadie.
  */
-
-const ADMIN = 'http://127.0.0.1:4322';
-
-async function entrar(page: Page): Promise<void> {
-  await page.goto(ADMIN);
-  await page.locator('#email').fill(ADMIN_E2E.email);
-  await page.locator('#password').fill(ADMIN_E2E.password);
-  await page.getByRole('button', { name: 'Ingresar' }).click();
-  await expect(page.locator('[data-slot="sidebar-trigger"]')).toBeVisible({ timeout: 30_000 });
-}
 
 test.describe('Inteligencia artificial', () => {
   test('sin credencial, el enriquecimiento explica qué falta en vez de fallar', async ({
     page,
   }) => {
     await entrar(page);
+    await irALaTiendaDelSmoke(page);
     await page.goto(`${ADMIN}/productos/nuevo`);
 
     const sugerencias = page.getByRole('button', { name: 'Sugerir con IA' });
@@ -62,6 +59,7 @@ test.describe('Inteligencia artificial', () => {
 
   test('la configuración ofrece cargar la clave, y nada más hasta que exista', async ({ page }) => {
     await entrar(page);
+    await irALaTiendaDelSmoke(page);
     await page.goto(`${ADMIN}/configuracion`);
 
     await expect(page.getByLabel('Clave de OpenAI')).toBeVisible({ timeout: 30_000 });

@@ -995,10 +995,12 @@ export type Database = {
           discount_amount: number
           id: string
           idempotency_key: string
+          is_demo: boolean
           notes: string | null
           number: number
           payment_method: string
           payment_status: Database["public"]["Enums"]["payment_status"]
+          shipping_amount: number
           status: Database["public"]["Enums"]["order_status"]
           store_id: string
           subtotal_amount: number | null
@@ -1016,10 +1018,12 @@ export type Database = {
           discount_amount?: number
           id?: string
           idempotency_key: string
+          is_demo?: boolean
           notes?: string | null
           number: number
           payment_method: string
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          shipping_amount?: number
           status?: Database["public"]["Enums"]["order_status"]
           store_id: string
           subtotal_amount?: number | null
@@ -1037,10 +1041,12 @@ export type Database = {
           discount_amount?: number
           id?: string
           idempotency_key?: string
+          is_demo?: boolean
           notes?: string | null
           number?: number
           payment_method?: string
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          shipping_amount?: number
           status?: Database["public"]["Enums"]["order_status"]
           store_id?: string
           subtotal_amount?: number | null

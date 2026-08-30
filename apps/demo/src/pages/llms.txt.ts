@@ -1,7 +1,6 @@
 import type { APIRoute } from 'astro';
 import { llmsTxt } from '@pick/commerce-core';
-import { categorias } from '../lib/db.ts';
-import { seoContexto } from '../lib/store-config.ts';
+import { categorias, contextoSeo } from '../lib/db.ts';
 
 /**
  * Índice para agentes de IA (llmstxt.org).
@@ -20,7 +19,7 @@ export const GET: APIRoute = async () => {
 
   return new Response(
     llmsTxt({
-      ctx: seoContexto,
+      ctx: await contextoSeo(),
       resumen:
         'Tienda de ropa y accesorios técnicos. Catálogo con filtros por marca, color y talle, y precios en guaraníes.',
       secciones: [

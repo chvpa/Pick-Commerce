@@ -5,8 +5,8 @@ import Container from '@pick/commerce-astro/layout/Container.astro';
 import ProductGallery from '@pick/commerce-astro/product/ProductGallery.astro';
 import { ProductPurchase } from '@pick/commerce-ui/product/ProductPurchase';
 import { productJsonLd } from '@pick/commerce-core';
-import { seoContexto } from '../../lib/store-config.ts';
-import { catalogo, tiendaActual } from '../../lib/db.ts';
+
+import { catalogo, contextoSeo, tiendaActual } from '../../lib/db.ts';
 import { anotar } from '../../lib/analytics.ts';
 import Base from '../../layouts/Base.astro';
 
@@ -45,11 +45,11 @@ anotar(Astro.locals, 'product_view', Astro.url.pathname, {
 const COLOR_SWATCHES = { Azul: '#2f4858', Negro: '#26262b', Blanco: '#e8e6e1', Verde: '#3f5f46' };
 
 /* Una oferta por variante, con su precio y stock reales. Ver ADR-047. */
-const jsonLd = productJsonLd(product, seoContexto);
+const jsonLd = productJsonLd(product, await contextoSeo());
 ---
 
 <Base
-  title={`${product.title} · Pick Demo`}
+  title={product.title}
   description={product.description ??
     `${product.title}${product.brand ? ` de ${product.brand}` : ''}. Comprá online con envío a todo el país.`}
   image={product.images[0]?.url}

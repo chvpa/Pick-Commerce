@@ -175,6 +175,16 @@ export function DetallePedido({ id }: DetallePedidoProps) {
           >
             {ETIQUETA_ESTADO_PAGO[order.paymentStatus]}
           </Badge>
+          {/*
+            Sólo si lo es. Importa cuando una tienda deja de ser demostración y
+            se pone a vender: los pedidos de antes siguen ahí y nadie tiene que
+            despacharlos.
+          */}
+          {order.isDemo && (
+            <Badge className="border-transparent bg-muted text-muted-foreground">
+              Demostración
+            </Badge>
+          )}
         </>
       }
     >
@@ -240,6 +250,36 @@ export function DetallePedido({ id }: DetallePedidoProps) {
                   </p>
                 </li>
               ))}
+              {/*
+                El desglose sólo cuando hay algo que desglosar: con descuento y
+                envío en cero, tres renglones que dicen lo mismo confunden.
+              */}
+              {order.discount.amount > 0 || order.shipping.amount > 0 ? (
+                <li className="text-muted-foreground flex flex-col gap-1 px-4 pt-3 text-sm">
+                  <span className="flex justify-between gap-4">
+                    <span>Subtotal</span>
+                    <span className="tabular-nums">
+                      {formatMoney(order.subtotal, tienda.locale)}
+                    </span>
+                  </span>
+                  {order.discount.amount > 0 && (
+                    <span className="flex justify-between gap-4">
+                      <span>Descuento</span>
+                      <span className="tabular-nums">
+                        −{formatMoney(order.discount, tienda.locale)}
+                      </span>
+                    </span>
+                  )}
+                  {order.shipping.amount > 0 && (
+                    <span className="flex justify-between gap-4">
+                      <span>Envío</span>
+                      <span className="tabular-nums">
+                        {formatMoney(order.shipping, tienda.locale)}
+                      </span>
+                    </span>
+                  )}
+                </li>
+              ) : null}
               <li className="bg-muted/40 flex justify-between gap-4 p-4 text-sm font-medium">
                 <span>Total</span>
                 <span className="tabular-nums">{formatMoney(order.total, tienda.locale)}</span>

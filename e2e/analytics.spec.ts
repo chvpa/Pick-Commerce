@@ -110,27 +110,31 @@ test('la navegación de la tienda llega al panel del Admin', async ({ page }) =>
   expect(problemas, problemas.join('\n')).toEqual([]);
 });
 
-test('las páginas estáticas no abren sesión, y eso es a propósito', async ({ page }) => {
+test('todas las páginas del sitio abren sesión, incluidas las de contenido', async ({ page }) => {
   /*
-   * Con Workers Assets, una página que existe en disco se sirve **sin ejecutar el
-   * Worker**: no hay middleware, así que no hay ni vista ni cookie.
+   * Hasta la Fase 12 esto afirmaba lo contrario: Políticas y Preguntas
+   * frecuentes eran prerenderizadas y, con Workers Assets, una página que existe
+   * en disco se sirve **sin ejecutar el Worker** — sin middleware, sin vista y
+   * sin cookie. Era un hueco declarado en el panel.
    *
-   * El test existe porque esto se comporta distinto en desarrollo —donde todo es
-   * SSR y sí habría cookie— y esa divergencia es exactamente la clase de cosa que
-   * se descubre en producción tres semanas después. Corre contra el build, así que
-   * mide lo que va a pasar de verdad.
+   * Dejaron de serlo porque su encabezado lleva el nombre de la tienda, que sale
+   * de la base. El efecto secundario es que el hueco se cerró: ya no queda
+   * ninguna página del sitio fuera de la medición.
    *
-   * Y afirma la otra mitad: el carrito **sí** abre sesión, porque se lo sacó de
-   * las estáticas justamente para que el embudo tenga ese escalón.
+   * El test corre contra el build, que es donde esto se decide: en desarrollo
+   * todo es SSR y la diferencia no se vería.
    */
   await page.context().clearCookies();
 
-  await page.goto('/politicas');
-  expect(await page.context().cookies()).toEqual([]);
-
-  await page.goto('/carrito');
-  const cookies = await page.context().cookies();
-  expect(cookies.map((c) => c.name)).toContain('pick_sid');
+  for (const ruta of ['/politicas', '/preguntas-frecuentes', '/carrito']) {
+    await page.context().clearCookies();
+    await page.goto(ruta);
+    const cookies = await page.context().cookies();
+    expect(
+      cookies.map((c) => c.name),
+      `${ruta} no abrió sesión`,
+    ).toContain('pick_sid');
+  }
 });
 
 test('el 404 de un producto inexistente no cuenta dos veces', async ({ page }) => {

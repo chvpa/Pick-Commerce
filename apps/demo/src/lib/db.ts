@@ -9,16 +9,22 @@ import {
   type PickSupabaseClient,
 } from '@pick/adapter-supabase';
 import {
+  anuncioDeEnvio,
+  configuracionDeEnvio,
   configuracionDePagos,
+  esTiendaDemo,
   resolverTenant,
   type CategoriaCatalogo,
+  type ConfiguracionDeEnvio,
   type ConfiguracionDePagos,
   type RepositorioCatalogo,
   type RepositorioCheckout,
   type RepositorioNotificaciones,
   type RepositorioPagos,
   type ResolucionTenant,
+  type SeoContexto,
 } from '@pick/commerce-core';
+import { SITE_URL } from './store-config.ts';
 
 /**
  * Acceso a datos del storefront.
@@ -184,14 +190,68 @@ export function checkout(): RepositorioCheckout {
 /**
  * Formas de pago habilitadas (PROJECT.md §34).
  *
- * Se memoiza como el resto de la configuración: cambia cuando el comercio la
- * edita, no en cada visita.
+ * Sale de `ajustes`, que se memoiza: la configuración cambia cuando el comercio
+ * la edita, no en cada visita, y los tres lectores comparten una sola consulta
+ * en vez de hacer una cada uno.
  */
-export const pagos = memoizar(async (): Promise<ConfiguracionDePagos> => {
+const ajustes = memoizar(async (): Promise<unknown> => {
   const { data } = await db()
     .from('store_settings')
     .select('settings')
     .eq('store_id', (await tiendaActual()).storeId)
     .maybeSingle();
-  return configuracionDePagos(data?.settings);
+  return data?.settings ?? {};
 });
+
+export async function pagos(): Promise<ConfiguracionDePagos> {
+  return configuracionDePagos(await ajustes());
+}
+
+/**
+ * El costo de envío de la tienda.
+ *
+ * Lo lee el checkout para **mostrar** lo que se va a cobrar; quien lo cobra es
+ * `create_order`, con la misma cuenta. Que los dos salgan de la misma
+ * configuración y de la misma función del core es lo que impide que el resumen
+ * diga un número y la caja otro.
+ */
+export async function envio(): Promise<ConfiguracionDeEnvio> {
+  return configuracionDeEnvio(await ajustes());
+}
+
+/** Si esta tienda es una demostración. Lo usa el aviso del checkout. */
+export async function tiendaEsDemo(): Promise<boolean> {
+  return esTiendaDemo(await ajustes());
+}
+
+/**
+ * Quién dice el sitio que es.
+ *
+ * El nombre sale de la base y no de una constante. Estuvo fijo en «Pick Demo»
+ * desde la Fase 1, con un comentario que decía que en la Fase 3 pasaría a
+ * leerse: el storefront de cualquier comercio se anunciaba como la demo en el
+ * encabezado, en el pie y en el `<title>` que indexa un buscador. Es lo que
+ * bloqueaba el piloto.
+ *
+ * `siteUrl` **sí** sigue siendo del despliegue. No es el dominio desde el que se
+ * sirve sino el que se declara como público, y de él salen el canonical, el
+ * `og:url` y el sitemap: fijarlo por despliegue es lo que impide que dos hosts
+ * que sirven lo mismo produzcan dos canonical distintos. Ver INFRAESTRUCTURA §5.
+ */
+export async function contextoSeo(): Promise<SeoContexto> {
+  return { siteUrl: SITE_URL, storeName: (await tiendaActual()).name };
+}
+
+/**
+ * La barra de anuncio, derivada del envío.
+ *
+ * Antes era un texto fijo en el código que prometía envío gratis desde 500.000
+ * en toda tienda que se sirviera, sin que nada lo respaldara. Ahora sale del
+ * mismo número que cobra `create_order`, así que no puede prometer algo que la
+ * caja no vaya a cumplir — y desaparece sola en una tienda que no tiene envío
+ * gratis. Un anuncio libre es contenido, y para eso está el CMS.
+ */
+export async function anuncio(): Promise<string | null> {
+  const tienda = await tiendaActual();
+  return anuncioDeEnvio(await envio(), tienda.currency as 'PYG', tienda.locale);
+}

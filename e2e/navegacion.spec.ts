@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { NOMBRE_E2E as NOMBRE_DE_LA_TIENDA } from '../scripts/preparar-storefront-e2e.ts';
 
 /**
  * Critical path del storefront: Home → PLP → PDP, filtrado y carrito.
@@ -302,4 +303,45 @@ test('el orden está en el PLP, fuera del panel de filtros', async ({ page }) =>
   await expect(page).toHaveURL(/sort=price-asc/);
 
   expect(problemasDe(page)).toEqual([]);
+});
+
+test('el sitio se anuncia con el nombre de la tienda que sirve', async ({ page }) => {
+  /*
+   * El fallo que motivó la Fase 12: el nombre estuvo escrito en el código desde
+   * la Fase 1 —«Pick Demo» en nueve títulos, en el encabezado y en el pie— con
+   * un comentario que decía que en la Fase 3 pasaría a leerse de la base.
+   * Cualquier comercio que se sirviera desde este Worker se anunciaba como la
+   * demo, incluido el `<title>` que indexa un buscador.
+   *
+   * El nombre que se afirma acá **no existe en el código**: lo escribe
+   * `preparar-storefront-e2e.ts` en `stores.name` antes de levantar el sitio.
+   * Ésa es la única forma de que el test distinga «lo lee de la base» de «tiene
+   * la constante de vuelta», porque la tienda de demostración se llama
+   * exactamente igual que la constante que había.
+   *
+   * Se comprueba en las dos clases de página: una on-demand de siempre y una que
+   * era prerenderizada hasta esta fase — que es donde el arreglo podía no llegar,
+   * porque una página servida desde disco no ejecuta el Worker.
+   */
+  for (const ruta of ['/', '/politicas']) {
+    await page.goto(ruta);
+
+    // Subcadena y no regex: el nombre trae paréntesis y escaparlos sólo agrega
+    // una forma de que el test falle por su propia sintaxis.
+    expect(await page.title()).toContain(NOMBRE_DE_LA_TIENDA);
+    await expect(page.getByRole('banner').getByText(NOMBRE_DE_LA_TIENDA)).toBeVisible();
+    await expect(page.getByRole('contentinfo').getByText(NOMBRE_DE_LA_TIENDA)).toBeVisible();
+  }
+});
+
+test('la barra de anuncio sale del envío configurado, no de un texto fijo', async ({ page }) => {
+  /*
+   * Antes era una constante que prometía envío gratis desde 500.000 en toda
+   * tienda que se sirviera, sin que nada lo respaldara. Ahora sale del mismo
+   * número que cobra `create_order`, así que no puede prometer algo que la caja
+   * no vaya a cumplir: el smoke configura el umbral en 1.000.000 y eso es lo que
+   * la barra tiene que decir.
+   */
+  await page.goto('/');
+  await expect(page.getByText(/env[ií]o gratis en compras desde/i)).toContainText('1.000.000');
 });

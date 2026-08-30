@@ -216,7 +216,17 @@ export interface Order {
   readonly customer: OrderCustomer;
   readonly address: OrderAddress;
   readonly notes?: string;
+  /** Suma de los precios de lista, antes de descuento y sin envío. */
+  readonly subtotal: Money;
+  readonly discount: Money;
+  /** Lo cobrado por despachar. Cero cuando la tienda no cobra envío. */
+  readonly shipping: Money;
   readonly total: Money;
+  /**
+   * Presente sólo si el pedido es de una tienda de demostración. Ausente y no
+   * `false`, como el resto de lo opcional: `order_json` hace `strip_nulls`.
+   */
+  readonly isDemo?: boolean;
   readonly items: readonly OrderItem[];
   readonly createdAt: string;
 }

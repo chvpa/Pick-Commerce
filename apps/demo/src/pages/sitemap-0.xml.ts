@@ -1,7 +1,6 @@
 import type { APIRoute } from 'astro';
 import { sitemapXml, type EntradaSitemap } from '@pick/commerce-core';
-import { catalogo, tiendaActual } from '../lib/db.ts';
-import { seoContexto } from '../lib/store-config.ts';
+import { catalogo, contextoSeo, tiendaActual } from '../lib/db.ts';
 
 /**
  * Sitemap del sitio.
@@ -20,7 +19,13 @@ export const prerender = false;
 const ESTATICAS = ['/', '/preguntas-frecuentes', '/politicas'];
 
 /** Por consulta. El protocolo admite 50.000 URLs por archivo. */
-const TAMANO = 500;
+/*
+ * Tiene que ser <= al tope que aplica `catalog_search` (200 desde la Fase 12).
+ * Pedir más no rompe —la función devuelve el tope y `pageCount` sale con ese
+ * tamaño, así que el bucle recorre todo igual— pero pediría páginas de 500
+ * creyendo que las recibe. Declararlo evita esa confusión.
+ */
+const TAMANO = 200;
 const MAXIMO = 50_000;
 
 export const GET: APIRoute = async () => {
@@ -44,7 +49,7 @@ export const GET: APIRoute = async () => {
     console.warn(`sitemap: se alcanzó el límite de ${MAXIMO} URLs; faltan páginas por listar.`);
   }
 
-  return new Response(sitemapXml(seoContexto, entradas), {
+  return new Response(sitemapXml(await contextoSeo(), entradas), {
     headers: {
       'content-type': 'application/xml; charset=utf-8',
       // Un catálogo no cambia entre dos visitas de un crawler.

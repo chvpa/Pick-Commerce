@@ -1,0 +1,102 @@
+name: Latido
+
+# «Nadie mira si el sitio se cayó» estaba anotado en INFRAESTRUCTURA §10 desde
+# que hay producción. Esto es lo mínimo que lo cierra: pedir las páginas que
+# importan cada quince minutos y abrir un issue cuando alguna deja de responder.
+#
+# Sin dependencias ni proveedor nuevo. No reemplaza a un monitor de verdad —no
+# mide latencia, no avisa fuera de GitHub y su resolución es de quince minutos—
+# pero es la diferencia entre enterarse y no enterarse.
+
+on:
+  schedule:
+    # Cada 15 minutos. GitHub no garantiza la puntualidad de los cron y bajo
+    # carga los atrasa; para «¿está en pie?» alcanza.
+    - cron: '*/15 * * * *'
+  # Para probarlo sin esperar, que es la única forma de saber que la alerta anda.
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: latido
+  cancel-in-progress: false
+
+jobs:
+  responde:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pedir las páginas que tienen que responder
+        id: pedir
+        run: |
+          # El storefront y el Admin, y del storefront las dos que se resuelven
+          # en el Worker contra la base: si Supabase se cae, `/` sigue
+          # devolviendo 200 sólo si el Worker lo resuelve, así que pedir `/`
+          # a secas no alcanza para saber que la tienda funciona.
+          fallas=""
+          for url in \
+            "https://pick-commerce.chvpa-contacto.workers.dev/" \
+            "https://pick-commerce.chvpa-contacto.workers.dev/catalogo" \
+            "https://pick-admin.chvpa-contacto.workers.dev/"
+          do
+            # Dos intentos antes de dar por caída: un timeout suelto es ruido, y
+            # un issue por cada hipo del CDN entrena a ignorar la alerta.
+            codigo=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$url" || echo 000)
+            if [ "$codigo" != "200" ]; then
+              sleep 20
+              codigo=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$url" || echo 000)
+            fi
+
+            echo "$url -> $codigo"
+            [ "$codigo" != "200" ] && fallas="${fallas}- ${url} respondió ${codigo}"$'\n'
+          done
+
+          if [ -n "$fallas" ]; then
+            {
+              echo "fallas<<FIN"
+              echo "$fallas"
+              echo "FIN"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Abrir o actualizar el aviso
+        if: steps.pedir.outputs.fallas != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FALLAS: ${{ steps.pedir.outputs.fallas }}
+        run: |
+          # Un issue por caída, no uno cada quince minutos: mientras el sitio
+          # esté abajo esto corre una y otra vez, y una lista de issues idénticos
+          # es la forma más rápida de que nadie mire ninguno.
+          # La etiqueta tiene que existir o `issue create` falla, y fallaría
+          # justo cuando el sitio está caído.
+          gh label create latido --color B60205 --description "El sitio no responde" --force
+
+          abierto=$(gh issue list --label latido --state open --limit 1 --json number --jq '.[0].number')
+
+          cuerpo="Detectado por el latido de las $(date -u '+%Y-%m-%d %H:%M UTC').
+
+          $FALLAS
+          Se cierra solo cuando el sitio vuelve a responder."
+
+          if [ -n "$abierto" ]; then
+            gh issue comment "$abierto" --body "$cuerpo"
+          else
+            gh issue create \
+              --title "El sitio no responde" \
+              --label latido \
+              --body "$cuerpo"
+          fi
+
+      - name: Cerrar el aviso si volvió
+        if: steps.pedir.outputs.fallas == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Cerrarlo solo importa tanto como abrirlo: un issue de caída que queda
+          # abierto para siempre deja de significar «está caído».
+          for n in $(gh issue list --label latido --state open --json number --jq '.[].number'); do
+            gh issue comment "$n" --body "Volvió a responder a las $(date -u '+%Y-%m-%d %H:%M UTC')."
+            gh issue close "$n"
+          done

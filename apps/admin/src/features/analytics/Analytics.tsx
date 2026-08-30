@@ -283,9 +283,9 @@ export function Analytics() {
               herramienta y no entender por qué no da.
             */}
             <p className="text-muted-foreground text-xs">
-              No se cuentan los robots ni las precargas del navegador. Las páginas de Políticas y
-              Preguntas frecuentes se sirven sin pasar por el servidor, así que sus vistas tampoco
-              entran.
+              No se cuentan los robots ni las precargas del navegador. Desde que Políticas y
+              Preguntas frecuentes se resuelven en el servidor, todas las páginas del sitio
+              entran en la medición.
             </p>
           </>
         )

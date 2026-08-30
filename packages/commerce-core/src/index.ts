@@ -17,4 +17,5 @@ export * from './notifications.ts';
 export * from './erp.ts';
 export * from './promotions.ts';
 export * from './content.ts';
+export * from './shipping.ts';
 export * from './ai.ts';

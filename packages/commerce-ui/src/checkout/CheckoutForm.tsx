@@ -94,6 +94,7 @@ export function CheckoutForm({
   const [lineas, setLineas] = useState<readonly LineaValidada[]>([]);
   const [total, setTotal] = useState<Money | null>(null);
   const [subtotal, setSubtotal] = useState<Money | null>(null);
+  const [costoDeEnvio, setCostoDeEnvio] = useState<Money | null>(null);
   const [descuento, setDescuento] = useState<Money | null>(null);
   const [promociones, setPromociones] = useState<
     readonly { promotionId: string; title: string; amount: Money }[]
@@ -150,6 +151,7 @@ export function CheckoutForm({
       total: Money | null;
       subtotal?: Money;
       discount?: Money;
+      shipping?: Money;
       appliedPromotions?: { promotionId: string; title: string; amount: Money }[];
       couponIssue?: ProblemaDeCupon;
     };
@@ -180,6 +182,7 @@ export function CheckoutForm({
     setLineas(datos.lines);
     setTotal(datos.total);
     setSubtotal(datos.subtotal ?? null);
+    setCostoDeEnvio(datos.shipping ?? null);
     setDescuento(datos.discount ?? null);
     setPromociones(datos.appliedPromotions ?? []);
     setProblemaDeCupon(datos.couponIssue ?? null);
@@ -581,19 +584,32 @@ export function CheckoutForm({
           <div class="flex flex-col gap-2 border-t border-border pt-4 text-sm">
             {/* El desglose sólo aparece cuando hay algo que desglosar: con un
                 descuento en cero, tres renglones que dicen lo mismo confunden. */}
-            {descuento && descuento.amount > 0 && subtotal ? (
-              <>
-                <div class="flex justify-between text-fg-muted">
-                  <span>Subtotal</span>
-                  <span class="tabular-nums">{formatMoney(subtotal, locale)}</span>
-                </div>
-                {promociones.map((p) => (
+            {((descuento && descuento.amount > 0) || costoDeEnvio) && subtotal ? (
+              <div class="flex justify-between text-fg-muted">
+                <span>Subtotal</span>
+                <span class="tabular-nums">{formatMoney(subtotal, locale)}</span>
+              </div>
+            ) : null}
+            {descuento && descuento.amount > 0
+              ? promociones.map((p) => (
                   <div key={p.promotionId} class="flex justify-between gap-3 text-success">
                     <span class="min-w-0 truncate">{p.title}</span>
                     <span class="shrink-0 tabular-nums">−{formatMoney(p.amount, locale)}</span>
                   </div>
-                ))}
-              </>
+                ))
+              : null}
+            {/*
+              El envío se muestra aunque sea cero, y por eso dice «Gratis» en vez
+              de «0»: enterarse de que no se cobra es parte de lo que decide la
+              compra, y una línea ausente se lee como que todavía falta calcularlo.
+            */}
+            {costoDeEnvio ? (
+              <div class="flex justify-between text-fg-muted">
+                <span>Envío</span>
+                <span class="tabular-nums">
+                  {costoDeEnvio.amount === 0 ? 'Gratis' : formatMoney(costoDeEnvio, locale)}
+                </span>
+              </div>
             ) : null}
             <div class="flex justify-between font-medium">
               <span>Total</span>

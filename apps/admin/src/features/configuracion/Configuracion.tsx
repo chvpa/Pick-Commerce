@@ -6,8 +6,12 @@ import {
   MODELOS,
   MODELO_POR_DEFECTO,
   actualizarTasa,
+  configuracionDeEnvio,
   configuracionDeMoneda,
   configuracionDePagos,
+  esTiendaDemo,
+  money,
+  toMajorUnits,
   type CurrencyConfig,
   type EntradaDeAuditoria,
 } from '@pick/commerce-core';
@@ -114,6 +118,20 @@ export function Configuracion() {
         descripcion="En qué se cobra y con qué tipo de cambio se muestran los precios."
       >
         <Moneda settings={consulta.data} tienda={tienda} guardado={guardado} />
+      </Seccion>
+
+      <Seccion
+        titulo="Envío"
+        descripcion="Cuánto se cobra por despachar, y desde qué monto no se cobra."
+      >
+        <Envio settings={consulta.data} tienda={tienda} guardado={guardado} />
+      </Seccion>
+
+      <Seccion
+        titulo="Modo demostración"
+        descripcion="Para mostrarle la tienda a alguien sin mandarle correos a nadie."
+      >
+        <ModoDemo settings={consulta.data} guardado={guardado} />
       </Seccion>
 
       <Seccion
@@ -538,6 +556,191 @@ function InteligenciaArtificial({ tienda }: { tienda: TiendaResumen }) {
           {fallo.message}
         </p>
       )}
+    </form>
+  );
+}
+
+/**
+ * El costo de envío.
+ *
+ * Una tarifa plana y un umbral opcional de envío gratis. Zonas, transportistas y
+ * retiro en sucursal quedan fuera de v1: «pickup por sucursal» está en v2 y no
+ * se adelanta.
+ *
+ * Los importes se escriben en la unidad que el operador ve y se guardan en la
+ * mínima, como todo importe del sistema. **El número que se cobra lo calcula el
+ * servidor**: acá sólo se configura.
+ */
+function Envio({
+  settings,
+  tienda,
+  guardado,
+}: {
+  settings: Settings;
+  tienda: TiendaResumen;
+  guardado: Guardado;
+}) {
+  const inicial = configuracionDeEnvio(settings);
+  const moneda = tienda.currency as 'PYG';
+
+  const [cobra, setCobra] = useState(inicial.mode === 'flat');
+  const [tarifa, setTarifa] = useState(
+    inicial.mode === 'flat' ? String(toMajorUnits({ amount: inicial.amount, currency: moneda })) : '',
+  );
+  const [desde, setDesde] = useState(
+    inicial.freeFrom === undefined
+      ? ''
+      : String(toMajorUnits({ amount: inicial.freeFrom, currency: moneda })),
+  );
+  const [listo, setListo] = useState(false);
+  const [error, setError] = useState('');
+
+  function numero(texto: string): number | null {
+    const v = Number(texto.trim().replace(/\./g, ''));
+    return texto.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : null;
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setListo(false);
+        setError('');
+
+        if (!cobra) {
+          guardado.guardar({ shipping: { mode: 'none' } });
+          setListo(true);
+          return;
+        }
+
+        const importe = numero(tarifa);
+        if (importe === null) {
+          setError('La tarifa tiene que ser un número.');
+          return;
+        }
+        const umbral = desde.trim() === '' ? null : numero(desde);
+        if (desde.trim() !== '' && umbral === null) {
+          setError('El monto de envío gratis tiene que ser un número.');
+          return;
+        }
+
+        guardado.guardar({
+          shipping: {
+            mode: 'flat',
+            amount: money(importe, moneda).amount,
+            ...(umbral !== null && umbral > 0 ? { freeFrom: money(umbral, moneda).amount } : {}),
+          },
+        });
+        setListo(true);
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <Checkbox id="cobra-envio" checked={cobra} onCheckedChange={(v) => setCobra(v === true)} />
+        <div className="flex flex-col gap-0.5">
+          <Label htmlFor="cobra-envio" className="cursor-pointer">
+            Cobrar envío
+          </Label>
+          <p className="text-muted-foreground text-xs">
+            Sin esto el envío es cero: el comercio retira, o lo arregla aparte.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="tarifa">Tarifa ({moneda})</Label>
+          <Input
+            id="tarifa"
+            inputMode="numeric"
+            value={tarifa}
+            disabled={!cobra}
+            onChange={(e) => setTarifa(e.currentTarget.value)}
+            placeholder="35000"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="envio-gratis">Gratis desde ({moneda})</Label>
+          <Input
+            id="envio-gratis"
+            inputMode="numeric"
+            value={desde}
+            disabled={!cobra}
+            onChange={(e) => setDesde(e.currentTarget.value)}
+            placeholder="Opcional"
+          />
+          <p className="text-muted-foreground text-xs">
+            Se compara con el total ya descontado. Si lo cargás, la tienda lo anuncia sola.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Button type="submit" size="sm" disabled={guardado.guardando}>
+          {guardado.guardando ? 'Guardando…' : 'Guardar'}
+        </Button>
+        {listo && !guardado.guardando && (
+          <span className="text-muted-foreground text-sm" role="status">
+            Guardado.
+          </span>
+        )}
+      </div>
+
+      {error && (
+        <p className="text-destructive text-sm" role="alert">
+          {error}
+        </p>
+      )}
+    </form>
+  );
+}
+
+/**
+ * Modo demostración.
+ *
+ * Un pedido de una tienda demo se crea igual —el prospecto tiene que verlo
+ * entrar acá, que es la mitad de lo que se le está mostrando— pero queda marcado
+ * y **no dispara correos**. Sin esto, cada prueba deja un pedido indistinguible
+ * de uno real y le manda un aviso a quien haya escrito su dirección.
+ */
+function ModoDemo({ settings, guardado }: { settings: Settings; guardado: Guardado }) {
+  const [demo, setDemo] = useState(esTiendaDemo(settings));
+  const [listo, setListo] = useState(false);
+
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setListo(false);
+        guardado.guardar({ demo });
+        setListo(true);
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <Checkbox id="modo-demo" checked={demo} onCheckedChange={(v) => setDemo(v === true)} />
+        <div className="flex flex-col gap-0.5">
+          <Label htmlFor="modo-demo" className="cursor-pointer">
+            Esta tienda es una demostración
+          </Label>
+          <p className="text-muted-foreground text-xs">
+            Los pedidos se crean y se ven acá, marcados como demo, pero no se le manda ningún correo
+            a quien compra. El checkout lo avisa antes de confirmar.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Button type="submit" size="sm" disabled={guardado.guardando}>
+          {guardado.guardando ? 'Guardando…' : 'Guardar'}
+        </Button>
+        {listo && !guardado.guardando && (
+          <span className="text-muted-foreground text-sm" role="status">
+            Guardado.
+          </span>
+        )}
+      </div>
     </form>
   );
 }
