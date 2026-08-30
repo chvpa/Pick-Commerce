@@ -49,7 +49,16 @@ jobs:
             fi
 
             echo "$url -> $codigo"
-            [ "$codigo" != "200" ] && fallas="${fallas}- ${url} respondió ${codigo}"$'\n'
+
+            # `if` y no `[ ... ] && ...`: Actions corre con `set -e`, y una lista
+            # `&&` cuyo test da falso devuelve 1 — o sea, justo cuando el sitio
+            # está bien. Bash exceptúa esas listas de `-e` y funciona; está
+            # comprobado con `bash -eo pipefail` contra el sitio sano. Pero que la
+            # alerta no se reporte caída cuando todo anda no puede depender de una
+            # excepción que hay que conocer para no «limpiar» esta línea.
+            if [ "$codigo" != "200" ]; then
+              fallas="${fallas}- ${url} respondió ${codigo}"$'\n'
+            fi
           done
 
           if [ -n "$fallas" ]; then
