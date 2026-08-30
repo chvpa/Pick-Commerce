@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
-import { baseDePrueba, comoAdmin, comoServicio, intentar } from './harness.ts';
+import { baseDePrueba, como, comoAdmin, comoServicio, intentar } from './harness.ts';
 
 /**
  * El pago que informa el gateway y la cola de correos.
@@ -383,6 +383,43 @@ test('nadie fuera de la secret key lee la cola', async () => {
     const r = await intentar(db, usuario, `select * from notification_outbox`);
     assert.equal(r.ok, false, 'la cola de correos es legible desde el Admin');
   }
+});
+
+test('el detalle del pedido sí puede ver el estado de sus avisos', async () => {
+  /*
+   * La cola entera sigue sin ser legible —guarda la dirección del comprador— pero
+   * el operador necesita saber si el aviso salió: un correo que falla cinco veces
+   * se abandonaba en silencio y el comprador quedaba esperando.
+   *
+   * La función es `security definer`, así que devuelve **metadatos y nunca el
+   * payload**, y filtra por organización con su propia condición: saltear RLS
+   * significa que ese filtro es la única defensa.
+   */
+  const o = await crearPedido();
+
+  const mios = await como<{ j: { event: string; attempts: number; sentAt: string | null }[] }>(
+    db,
+    DUENO,
+    `select admin_order_notifications(${sql(TIENDA)}::uuid, ${sql(o.id)}::uuid) as j`,
+  );
+  assert.deepEqual(
+    mios[0]!.j.map((n) => [n.event, n.sentAt]),
+    [['order_received', null]],
+  );
+
+  // Y no trae el pedido serializado, que es el motivo por el que la tabla no
+  // tiene políticas.
+  assert.equal('payload' in (mios[0]!.j[0] as object), false);
+});
+
+test('un comercio ajeno no ve los avisos de este pedido', async () => {
+  const o = await crearPedido();
+  const ajeno = await como<{ j: unknown[] }>(
+    db,
+    AJENO_USER,
+    `select admin_order_notifications(${sql(TIENDA)}::uuid, ${sql(o.id)}::uuid) as j`,
+  );
+  assert.deepEqual(ajeno[0]!.j, [], 'security definer sin filtro de tenant');
 });
 
 // --- Reclamar y marcar ------------------------------------------------------------

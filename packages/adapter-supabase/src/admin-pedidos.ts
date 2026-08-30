@@ -1,4 +1,5 @@
 import type {
+  AvisoDelPedido,
   PaginaPedidos,
   PedidoConTimeline,
   RepositorioAdminPedidos,
@@ -33,13 +34,16 @@ export function repositorioAdminPedidos(db: PickSupabaseClient): RepositorioAdmi
       // El pedido sale de `order_json` para que el Admin y el storefront vean
       // exactamente la misma forma; la timeline es una consulta aparte porque
       // sólo la mira esta pantalla.
-      const [pedido, eventos] = await Promise.all([
+      const [pedido, eventos, avisos] = await Promise.all([
         db.rpc('order_json', { p_order_id: id }),
         db
           .from('order_events')
           .select('id, type, data, created_at')
           .eq('order_id', id)
           .order('created_at', { ascending: true }),
+        // Por RPC y no por consulta: la cola no tiene políticas —guarda la
+        // dirección del comprador— y la función devuelve sólo metadatos.
+        db.rpc('admin_order_notifications', { p_store_id: storeId, p_order_id: id }),
       ]);
 
       if (pedido.error) throw new Error(`No se pudo consultar el pedido: ${pedido.error.message}`);
@@ -68,6 +72,9 @@ export function repositorioAdminPedidos(db: PickSupabaseClient): RepositorioAdmi
           data: (e.data ?? {}) as Record<string, unknown>,
           createdAt: e.created_at,
         })),
+        // Un fallo acá no puede tapar el pedido: que no se sepa si el correo
+        // salió es peor que nada, pero mucho menos que no poder abrir la venta.
+        avisos: (avisos.error ? [] : (avisos.data ?? [])) as unknown as AvisoDelPedido[],
       };
     },
 

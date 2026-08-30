@@ -36,6 +36,18 @@ const O_ANA_CANCELADO = '01000000-0000-4000-8000-000000000002';
 const O_BETO = '01000000-0000-4000-8000-000000000003';
 const O_AJENO = '01000000-0000-4000-8000-000000000004';
 
+/*
+ * Un catálogo mínimo, para el modo «sin movimiento».
+ *
+ * Lo que no se vendió no tiene líneas de pedido, así que sale del catálogo: sin
+ * productos sembrados ese modo devolvería vacío y el test pasaría sin probar
+ * nada.
+ */
+const SUCURSAL = 'a6000000-0000-4000-8000-000000000000';
+const P_REMERA = 'd1000000-0000-4000-8000-000000000000';
+const P_MOCHILA = 'd1000000-0000-4000-8000-000000000001';
+const P_BORRADOR = 'd1000000-0000-4000-8000-000000000002';
+
 /** La ventana que usan casi todos los casos: los últimos 7 días. */
 const VENTANA = `now() - interval '7 days', now() + interval '1 hour'`;
 
@@ -44,6 +56,9 @@ let db: PGlite;
 interface Resumen {
   readonly sales: { amount: number; currency: string };
   readonly orderCount: number;
+  readonly units: number;
+  readonly margin: { amount: number; currency: string } | null;
+  readonly marginCoverage: number;
   readonly aov: { amount: number; currency: string };
   readonly byStatus: Record<string, number>;
   readonly topProducts: readonly {
@@ -119,6 +134,26 @@ before(async () => {
       ('${TENANT}', '${VIEWER}', 'viewer'),
       ('${OTRO_TENANT}', '${AJENO_USER}', 'owner');
 
+    insert into locations (id, tenant_id, store_id, name) values
+      ('${SUCURSAL}', '${TENANT}', '${TIENDA}', 'Depósito');
+
+    insert into products (id, tenant_id, store_id, handle, title, status) values
+      ('${P_REMERA}', '${TENANT}', '${TIENDA}', 'remera', 'Remera lisa', 'active'),
+      ('${P_MOCHILA}', '${TENANT}', '${TIENDA}', 'mochila', 'Mochila técnica', 'active'),
+      -- Sin publicar: no se vendió, pero tampoco está a la venta. No es un
+      -- producto que no se mueve, es uno que todavía no salió.
+      ('${P_BORRADOR}', '${TENANT}', '${TIENDA}', 'borrador', 'Sin publicar', 'draft');
+
+    insert into product_variants (id, tenant_id, product_id, sku, title, price, cost, currency, position) values
+      ('e1000000-0000-4000-8000-000000000000', '${TENANT}', '${P_REMERA}', 'REM-M', 'M', 150000, 90000, 'PYG', 0),
+      ('e1000000-0000-4000-8000-000000000001', '${TENANT}', '${P_MOCHILA}', 'MOC-1', 'Única', 480000, 300000, 'PYG', 0),
+      ('e1000000-0000-4000-8000-000000000002', '${TENANT}', '${P_BORRADOR}', 'BOR-1', 'Única', 90000, null, 'PYG', 0);
+
+    insert into inventory_levels (tenant_id, variant_id, location_id, available) values
+      ('${TENANT}', 'e1000000-0000-4000-8000-000000000000', '${SUCURSAL}', 20),
+      ('${TENANT}', 'e1000000-0000-4000-8000-000000000001', '${SUCURSAL}', 14),
+      ('${TENANT}', 'e1000000-0000-4000-8000-000000000002', '${SUCURSAL}', 5);
+
     insert into customers (id, tenant_id, store_id, email, name, phone, tax_id) values
       ('${ANA}', '${TENANT}', '${TIENDA}', 'ana@cliente.test', 'Ana López', '0981111111', '80012345-6'),
       ('${BETO}', '${TENANT}', '${TIENDA}', 'beto@cliente.test', 'Beto Gómez', '0982222222', null),
@@ -153,12 +188,15 @@ before(async () => {
        '${CLIENTE_AJENO}', '{"name":"Ana del otro","email":"ana@cliente.test"}', '{"street":"x","city":"y"}',
        750000, 'PYG', now() - interval '2 days');
 
-    insert into order_items (tenant_id, order_id, title, variant_title, sku, unit_price, currency, quantity, position) values
-      ('${TENANT}', '${O_ANA_VIEJO}', 'Remera lisa', 'M', 'REM-M', 100000, 'PYG', 2, 0),
-      ('${TENANT}', '${O_ANA}', 'Remera lisa', 'M', 'REM-M', 150000, 'PYG', 2, 0),
-      ('${TENANT}', '${O_ANA_CANCELADO}', 'Campera', 'L', 'CAM-L', 900000, 'PYG', 1, 0),
-      ('${TENANT}', '${O_BETO}', 'Gorra', null, 'GOR-1', 100000, 'PYG', 1, 0),
-      ('${OTRO_TENANT}', '${O_AJENO}', 'Zapatilla', '42', 'ZAP-42', 750000, 'PYG', 1, 0);
+    insert into order_items (tenant_id, order_id, title, variant_title, sku, unit_price, unit_cost, currency, quantity, position) values
+      ('${TENANT}', '${O_ANA_VIEJO}', 'Remera lisa', 'M', 'REM-M', 100000, 60000, 'PYG', 2, 0),
+      -- Dentro de la ventana: la remera tiene costo y la gorra no. Así la
+      -- cobertura del margen es parcial, que es el caso real de un catálogo a
+      -- medio cargar y el único que distingue un margen honesto de uno inflado.
+      ('${TENANT}', '${O_ANA}', 'Remera lisa', 'M', 'REM-M', 150000, 90000, 'PYG', 2, 0),
+      ('${TENANT}', '${O_ANA_CANCELADO}', 'Campera', 'L', 'CAM-L', 900000, 100000, 'PYG', 1, 0),
+      ('${TENANT}', '${O_BETO}', 'Gorra', null, 'GOR-1', 100000, null, 'PYG', 1, 0),
+      ('${OTRO_TENANT}', '${O_AJENO}', 'Zapatilla', '42', 'ZAP-42', 750000, 300000, 'PYG', 1, 0);
   `);
 });
 
@@ -195,6 +233,107 @@ test('lo más vendido agrupa por el snapshot y deja fuera lo cancelado', async (
   );
   assert.equal(r.topProducts[0]!.variantTitle, 'M');
   assert.equal(r.topProducts[1]!.variantTitle, undefined, 'un opcional llegó nulo (ADR-059)');
+});
+
+test('las unidades del período son las líneas de lo vendido', async () => {
+  const r = await resumen();
+  // 2 remeras de Ana + 1 gorra de Beto. Ni la campera cancelada ni las 2 de hace
+  // cuarenta días.
+  assert.equal(r.units, 3);
+});
+
+test('el margen suma sólo lo que tiene costo, y dice cuánto cubre', async () => {
+  /*
+   * Es la métrica que más fácil miente. Con la mitad del catálogo sin costo
+   * cargado, sumar sólo lo que tiene costo y presentarlo como «el margen» da el
+   * doble de lo real y parece excelente.
+   *
+   * Acá: la remera aporta (150.000 − 90.000) × 2 = 120.000, y la gorra no aporta
+   * nada porque no tiene costo. La cobertura es 300.000 de 400.000 de ingresos.
+   */
+  const r = await resumen();
+  assert.equal(r.margin?.amount, 120000);
+  assert.equal(r.margin?.currency, 'PYG');
+  assert.equal(r.marginCoverage, 0.75);
+});
+
+// --- Ventas por producto -----------------------------------------------------
+
+interface Fila {
+  readonly sku: string;
+  readonly title: string;
+  readonly variantTitle?: string;
+  readonly unidades: number;
+  readonly ingresos: { amount: number };
+  readonly margen?: { amount: number };
+  readonly stock?: number;
+}
+
+interface Pagina {
+  readonly items: readonly Fila[];
+  readonly total: number;
+  readonly page: number;
+  readonly pageCount: number;
+}
+
+async function rendimiento(
+  modo: 'vendidos' | 'sin_movimiento',
+  opciones: { usuario?: string; page?: number; perPage?: number } = {},
+): Promise<Pagina> {
+  const filas = await como<{ j: Pagina }>(
+    db,
+    opciones.usuario ?? DUENO,
+    `select admin_product_performance('${TIENDA}'::uuid, ${VENTANA}, '${modo}',
+       ${opciones.page ?? 1}, ${opciones.perPage ?? 20}) as j`,
+  );
+  return filas[0]!.j;
+}
+
+test('lo vendido se agrupa por sku, de mayor a menor, con su margen', async () => {
+  const p = await rendimiento('vendidos');
+  assert.deepEqual(
+    p.items.map((f) => [f.sku, f.unidades, f.ingresos.amount, f.margen?.amount ?? null]),
+    [
+      ['REM-M', 2, 300000, 120000],
+      // Sin costo cargado: el margen va `null` y no cero. Cero es un margen;
+      // «no sé» no lo es.
+      ['GOR-1', 1, 100000, null],
+    ],
+  );
+  assert.equal(p.total, 2);
+});
+
+test('sin movimiento son las variantes publicadas que no vendieron, con su stock', async () => {
+  /*
+   * Sale del catálogo y no de los pedidos: lo que no se vendió no tiene líneas.
+   *
+   * Trae el stock porque sin él «no se vendió» es una curiosidad, y con él es
+   * cuánta plata está quieta — que es lo que hace accionable el dato.
+   */
+  const p = await rendimiento('sin_movimiento');
+  assert.deepEqual(
+    p.items.map((f) => [f.sku, f.stock]),
+    [['MOC-1', 14]],
+    'entró un borrador, o faltó la mochila',
+  );
+  // La remera vendió, así que no está. El borrador no está a la venta: no es un
+  // producto que no se mueve, es uno que todavía no salió.
+  assert.equal(p.total, 1);
+});
+
+test('un comercio ajeno no ve el rendimiento de esta tienda', async () => {
+  const p = await rendimiento('vendidos', { usuario: AJENO_USER });
+  assert.deepEqual(p.items, []);
+  assert.equal(p.total, 0);
+});
+
+test('pedir una página que no existe devuelve la última, no una lista vacía', async () => {
+  // Una lista vacía se confunde con «no hay nada», que es lo contrario de lo que
+  // pasa. Mismo criterio que el resto de las listas del Admin.
+  const p = await rendimiento('vendidos', { page: 99, perPage: 1 });
+  assert.equal(p.page, 2);
+  assert.equal(p.pageCount, 2);
+  assert.equal(p.items.length, 1);
 });
 
 test('los pedidos recientes ignoran el período', async () => {

@@ -160,9 +160,31 @@ export interface ConsultaPedidos {
   readonly perPage?: number;
 }
 
+/**
+ * El estado de un aviso del pedido.
+ *
+ * Existe porque un correo que falla cinco veces se abandona: queda en la cola y
+ * nadie se entera, mientras el comprador espera un aviso que no va a llegar.
+ *
+ * Sólo metadatos. La cola guarda el pedido serializado con la dirección del
+ * comprador, y eso no sale de la base.
+ */
+export interface AvisoDelPedido {
+  readonly event: string;
+  readonly recipient: string;
+  readonly attempts: number;
+  /** `null` mientras no salió. */
+  readonly sentAt: string | null;
+  readonly createdAt: string;
+}
+
+/** Cuántos intentos hace la cola antes de abandonar. Lo fija `claim_notifications`. */
+export const INTENTOS_DE_AVISO = 5;
+
 export interface PedidoConTimeline {
   readonly order: Order;
   readonly events: readonly OrderEvent[];
+  readonly avisos: readonly AvisoDelPedido[];
 }
 
 /** Igual que el resto de los repositorios: `storeId` primero, siempre. */

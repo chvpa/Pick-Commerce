@@ -405,13 +405,13 @@ El ERP permite un sandbox o writes seguros.
 
 # Decisiones pendientes
 
-| ID    | Tema                                   | Motivo                                                                                                                                   |
-| ----- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| P-001 | Primer gateway real                    | Sigue abierta: el contrato y un proveedor simulado ya existen (ADR-080); falta el adapter real y sus credenciales                        |
-| P-002 | ~~Storage media definitivo~~           | **Resuelta:** Supabase Storage, por estar ya en el stack (ADR-082). R2 queda como salida si el egress pesa                               |
-| P-003 | ~~Analytics store inicial~~            | **Resuelta:** Postgres detrás de un puerto `AnalyticsDestination` (ADR-099). Analytics Engine muestrea, y el DoD exige cruzar eventos con `orders` en una consulta                                                                                             |
-| P-004 | ~~Primera estrategia de reservations~~ | **Resuelta:** el ORDS de Estilo Sport no las tiene, así que validar → cobrar → empujar, sin prometer cero overselling (ADR-084, ADR-085) |
-| P-005 | CLI/provisioner exacto                 | Puede empezar manual y automatizarse luego                                                                                               |
+| ID    | Tema                                   | Motivo                                                                                                                                                             |
+| ----- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| P-001 | Primer gateway real                    | Sigue abierta: el contrato y un proveedor simulado ya existen (ADR-080); falta el adapter real y sus credenciales                                                  |
+| P-002 | ~~Storage media definitivo~~           | **Resuelta:** Supabase Storage, por estar ya en el stack (ADR-082). R2 queda como salida si el egress pesa                                                         |
+| P-003 | ~~Analytics store inicial~~            | **Resuelta:** Postgres detrás de un puerto `AnalyticsDestination` (ADR-099). Analytics Engine muestrea, y el DoD exige cruzar eventos con `orders` en una consulta |
+| P-004 | ~~Primera estrategia de reservations~~ | **Resuelta:** el ORDS de Estilo Sport no las tiene, así que validar → cobrar → empujar, sin prometer cero overselling (ADR-084, ADR-085)                           |
+| P-005 | CLI/provisioner exacto                 | Puede empezar manual y automatizarse luego                                                                                                                         |
 
 ---
 
@@ -3435,8 +3435,7 @@ coinciden por construcción y no por casualidad.
 SQL eso obliga a `numeric`: el primer comentario que se escribió decía que era
 por pérdida de precisión del float, y al sabotear el test se descubrió que
 pasaba igual. El motivo real es otro: `round(double precision)` de Postgres
-redondea **al par** —15 % de 30 son 4,5 y da 4— mientras que `round(numeric)` da
-5. Se comprobó con las dos formas sobre los mismos valores antes de dejarlo
+redondea **al par** —15 % de 30 son 4,5 y da 4— mientras que `round(numeric)` da 5. Se comprobó con las dos formas sobre los mismos valores antes de dejarlo
 escrito, y el escenario de paridad se cambió por uno cuyo descuento cae justo en
 la mitad, porque el anterior no distinguía nada.
 
@@ -3534,7 +3533,7 @@ efectivo, y eso sí sería el drift que ADR-056 describe.
 **Sobre los motivos de rechazo del cupón**
 Se distingue «no existe» de «venció», «se agotó» y «no llega al mínimo». Quien
 tiene un cupón legítimamente vencido merece saber que su código era real, y
-descubrir códigos *vencidos* no sirve de nada. Lo que no se hace es buscar por
+descubrir códigos _vencidos_ no sirve de nada. Lo que no se hace es buscar por
 prefijo ni por coincidencia parcial: eso sí sería una forma de encontrar códigos
 probando.
 
@@ -3551,7 +3550,7 @@ migración, que es exactamente la clase de fallo que la migración sola no desta
 
 > **Superseded en parte por ADR-094.** El acierto —no inventar tres tipos de
 > sección para tres carruseles de productos— se conserva. El error fue creer que
-> *toda* sección es una colección: un hero no lo es, y los mosaicos tampoco.
+> _toda_ sección es una colección: un hero no lo es, y los mosaicos tampoco.
 
 **Fecha:** 2026-08-29
 **Estado:** Accepted
@@ -3655,11 +3654,11 @@ la otra.
 
 **El vocabulario, que es media decisión**
 
-| Nombre | Qué es |
-|---|---|
-| **hero** | La pieza grande de arriba, con título, bajada y botón |
-| **slide** | Cada pieza de un hero con varias. El conjunto es un *slideshow* |
-| **tiles** | Mosaicos promocionales: los avisos secundarios de más abajo |
+| Nombre       | Qué es                                                              |
+| ------------ | ------------------------------------------------------------------- |
+| **hero**     | La pieza grande de arriba, con título, bajada y botón               |
+| **slide**    | Cada pieza de un hero con varias. El conjunto es un _slideshow_     |
+| **tiles**    | Mosaicos promocionales: los avisos secundarios de más abajo         |
 | **sections** | Los bloques ordenados que componen la portada, cada uno con su tipo |
 
 Son los términos de la industria —Shopify los llama «slideshow» y «sections»— y
@@ -4147,3 +4146,108 @@ carrera original no se puede reproducir a voluntad; su consecuencia sí.
 
 Cambió el contrato: un test afirmaba que `replaceLines` escribe sobre un carrito
 vacío. Se actualizó, que es lo honesto cuando la regla cambia por un motivo.
+
+---
+
+## ADR-101 — El margen se informa con su cobertura, o no se informa
+
+**Fecha:** 2026-08-30
+**Estado:** Accepted
+
+**Contexto**
+El margen era el único ítem de la Fase 10 marcado como bloqueado, y no por
+esfuerzo: por un dato que faltaba. `order_items` abre con este comentario —«Todo
+lo que se muestra está copiado. Un pedido no vuelve al catálogo a averiguar
+cuánto costaba»— y el costo había quedado fuera de ese «todo», aunque
+`product_variants.cost` exista y se cargue por tres caminos.
+
+**El costo se copia en la línea**
+Mismo argumento que ya justifica copiar el título y el precio: el catálogo cambia
+y el pedido tiene que poder decir cuánto se ganó **ese día**. Volver al catálogo
+daría el costo de hoy.
+
+Nullable a propósito. Hay comercios que no cargan costo, y los que lo cargan no
+lo tienen en todo. Un `not null` con default cero diría margen del 100 %, y no
+saber es mejor que mentir.
+
+**Los pedidos viejos no se rellenan.** No tienen costo y no lo van a tener: se
+cuentan como cobertura faltante, que es la verdad. Rellenarlos desde el catálogo
+sería inventar un número con apariencia de histórico.
+
+**La decisión de fondo: el margen nunca va solo**
+Se informa siempre junto a **qué fracción de los ingresos tiene costo conocido**.
+Un margen sobre cobertura parcial no es un margen: con la mitad del catálogo sin
+costo cargado, sumar sólo lo que lo tiene da el doble de lo real y parece
+excelente. Y sin ninguna línea con costo se muestra un guion, no un cero — cero
+es un margen, «no sé» no lo es.
+
+Es el mismo criterio que `medidoDesde` en la conversión (ADR-099): cuando una
+métrica se apoya en datos parciales, se declara el hueco en vez de dar un número
+que no se puede explicar. Los dos casos aparecieron igual, mirando la pantalla y
+no el código.
+
+**«Lo más vendido» se convierte en «Ventas por producto»**
+El top cinco de la Fase 6 servía para mirar de reojo y no para decidir nada: sin
+paginación, sin margen, sin export. Ahora es una tabla paginada con dos modos —lo
+que más se vendió y lo que no se movió— y su export a CSV.
+
+Los dos modos en una tabla y no en dos tarjetas porque son la misma mirada desde
+dos lados: qué conviene reponer y qué está inmovilizando plata. Separarlos
+obligaría a comparar entre dos listas que nunca están a la misma altura.
+
+**«Lo que no se movió» sale del catálogo, no de los pedidos**, porque lo que no se
+vendió no tiene líneas. Por eso trae el stock: sin él, «no se vendió» es una
+curiosidad; con él es cuánta plata está quieta. Un producto en borrador no
+aparece — no es algo que no se mueve, es algo que todavía no salió.
+
+**Dónde vive cada cosa**
+Se mantiene la línea de ADR-067, ahora enunciada: **el Resumen responde por el
+dinero y Analytics por el comportamiento.** Unidades, margen y ventas por
+producto son dinero —lo quieto es capital parado— y van al Resumen. Sesiones,
+embudo y búsquedas son comportamiento y siguen en Analytics.
+
+**El export recorre la paginación**
+No se pide «todo de una» ni en la pantalla ni en el RPC. La regla de ADR-024 —un
+catálogo grande no entra en una consulta— no tiene una excepción para los
+informes, y el export del catálogo ya resolvió esto igual.
+
+En el CSV, un margen desconocido va **vacío y no cero**: en una planilla un cero
+se suma y miente el total.
+
+---
+
+## ADR-102 — Un aviso que no salió se ve en el pedido
+
+**Fecha:** 2026-08-30
+**Estado:** Accepted
+
+**Contexto**
+Deuda de la Fase 7 que el ROADMAP tenía anotada: un correo que falla cinco veces
+se abandona **en silencio**. Queda en `notification_outbox` con `attempts = 5` y
+nadie se entera. El comprador espera un aviso que no va a llegar y el comercio
+cree que salió — y «te confirmamos el pedido» es parte de la venta, no una
+cortesía.
+
+**En el detalle del pedido, no en una pantalla de cola**
+Es donde el operador está cuando le importa: está mirando ese pedido porque el
+cliente preguntó. Una bandeja de la cola entera sería otra pantalla, y obligaría
+a cruzar dos listas para responder una pregunta sobre un pedido.
+
+Se distingue **en cola** de **abandonado**, porque la acción es distinta: uno sale
+solo con la próxima visita al sitio, el otro no va a salir nunca y hay que avisar
+por otro medio. Un solo mensaje para los dos casos habría hecho que el operador
+persiguiera correos que estaban por salir.
+
+**Por RPC y no por consulta**
+`notification_outbox` no tiene políticas a propósito: guarda el pedido serializado
+con la dirección del comprador. La función devuelve **metadatos y nunca el
+payload** —qué aviso, a quién, cuántos intentos, si salió—.
+
+Es `security definer`, así que saltea RLS: el filtro por organización es una línea
+de esa función y ninguna otra. Sin ella, cualquier usuario del Admin leería la
+cola de cualquier comercio pasando un id. Va con su test, y el test del comercio
+ajeno existe justamente porque ese filtro no lo cubre nada más.
+
+**Un fallo al leer los avisos no tapa el pedido.** Si el RPC falla, la lista viene
+vacía y la venta se abre igual: no saber si el correo salió es malo, no poder ver
+el pedido es peor.

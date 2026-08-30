@@ -87,6 +87,7 @@ const CATALOGO: readonly Product[] = [
         sku: 'NRT-CAM-001-AZ-M',
         title: 'Azul / M',
         price: money(389000, 'PYG'),
+        cost: money(233000, 'PYG'),
         compareAtPrice: money(550000, 'PYG'),
         availableQuantity: 4,
         attributes: { color: 'Azul', size: 'M' },
@@ -96,6 +97,7 @@ const CATALOGO: readonly Product[] = [
         sku: 'NRT-CAM-001-AZ-L',
         title: 'Azul / L',
         price: money(389000, 'PYG'),
+        cost: money(233000, 'PYG'),
         compareAtPrice: money(550000, 'PYG'),
         availableQuantity: 0,
         attributes: { color: 'Azul', size: 'L' },
@@ -105,6 +107,7 @@ const CATALOGO: readonly Product[] = [
         sku: 'NRT-CAM-001-NE-M',
         title: 'Negro / M',
         price: money(410000, 'PYG'),
+        cost: money(246000, 'PYG'),
         availableQuantity: 2,
         attributes: { color: 'Negro', size: 'M' },
       },
@@ -113,6 +116,7 @@ const CATALOGO: readonly Product[] = [
         sku: 'NRT-CAM-001-NE-L',
         title: 'Negro / L',
         price: money(410000, 'PYG'),
+        cost: money(246000, 'PYG'),
         availableQuantity: 6,
         attributes: { color: 'Negro', size: 'L' },
       },
@@ -140,6 +144,7 @@ const CATALOGO: readonly Product[] = [
         sku: 'RUT-ZAP-220-41',
         title: '41',
         price: money(720000, 'PYG'),
+        cost: money(430000, 'PYG'),
         availableQuantity: 12,
         attributes: { size: '41', color: 'Negro' },
       },
@@ -183,6 +188,7 @@ const CATALOGO: readonly Product[] = [
         sku: 'RUT-MOC-028',
         title: 'Única',
         price: money(455000, 'PYG'),
+        cost: money(275000, 'PYG'),
         /*
          * Holgado a propósito: es el producto que consume el smoke de pagos, y
          * ahí compran cuatro tests × dos viewports en la misma corrida. Ningún

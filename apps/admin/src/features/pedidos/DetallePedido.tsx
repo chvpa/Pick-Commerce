@@ -4,12 +4,15 @@ import { Link } from '@tanstack/react-router';
 import { repositorioAdminPedidos } from '@pick/adapter-supabase';
 import {
   ESTADOS_DE_PEDIDO,
+  ETIQUETA_EVENTO,
+  INTENTOS_DE_AVISO,
   ETIQUETA_ESTADO_PAGO,
   ETIQUETA_ESTADO_PEDIDO,
   describirEvento,
   formatMoney,
   puedeTransicionar,
 } from '@pick/commerce-core';
+import type { EventoDeNotificacion } from '@pick/commerce-core';
 import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
 import { ReceiptTextIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -129,8 +132,21 @@ export function DetallePedido({ id }: DetallePedidoProps) {
     );
   }
 
-  const { order, events } = consulta.data;
+  const { order, events, avisos } = consulta.data;
   const terminal = order.status === 'cancelled';
+
+  /*
+   * Avisos que no salieron.
+   *
+   * Se separan en dos porque la acción es distinta: uno en cola sale solo con la
+   * próxima visita al sitio; uno abandonado —agotó los cinco intentos— no va a
+   * salir nunca y hay que avisarle al comprador por otro lado.
+   *
+   * Antes esto no se veía en ninguna parte: quedaba en la cola con `attempts = 5`
+   * y el comprador esperaba un correo que no iba a llegar.
+   */
+  const abandonados = avisos.filter((a) => !a.sentAt && a.attempts >= INTENTOS_DE_AVISO);
+  const enCola = avisos.filter((a) => !a.sentAt && a.attempts < INTENTOS_DE_AVISO);
 
   return (
     <PaginaAdmin
@@ -165,6 +181,31 @@ export function DetallePedido({ id }: DetallePedidoProps) {
       {(cambiarEstado.isError || cambiarPago.isError) && (
         <p className="text-destructive text-sm" role="alert">
           {((cambiarEstado.error ?? cambiarPago.error) as Error).message}
+        </p>
+      )}
+
+      {abandonados.length > 0 && (
+        <Tarjeta className="border-destructive/40">
+          <p className="text-destructive text-sm font-medium">
+            {abandonados.length === 1
+              ? 'Un aviso de este pedido no se pudo enviar'
+              : `${abandonados.length} avisos de este pedido no se pudieron enviar`}
+          </p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Se intentó {INTENTOS_DE_AVISO} veces a {order.customer.email} y no salió. El comprador
+            no recibió{' '}
+            {abandonados
+              .map((a) => ETIQUETA_EVENTO[a.event as EventoDeNotificacion] ?? a.event)
+              .join(', ')}
+            : conviene avisarle por otro medio.
+          </p>
+        </Tarjeta>
+      )}
+
+      {abandonados.length === 0 && enCola.length > 0 && (
+        <p className="text-muted-foreground text-sm">
+          {enCola.length === 1 ? 'Hay un aviso' : `Hay ${enCola.length} avisos`} en cola para este
+          pedido. Salen con la próxima visita a la tienda.
         </p>
       )}
 

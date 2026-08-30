@@ -6,7 +6,7 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-**Fases 0 a 9 cerradas. Fase 10 en curso: la Etapa A está hecha.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+**Fases 0 a 10 cerradas. Fase 11 (OpenAI) por empezar.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
@@ -37,7 +37,13 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
   puerto `AnalyticsDestination`, que cierra P-003 en Postgres. La regla que
   ordena todo: **los eventos aportan el denominador y `orders` aporta el
   dinero**, así que la conversión coincide con la facturación por construcción
-  (ADR-099). Falta la Etapa B: export CSV, slow movers, unidades y margen.
+  (ADR-099).
+- **Fase 10, Etapa B** — lo que sale de los pedidos. `order_items` guarda el
+  costo, que es lo que hacía imposible el margen; el margen **nunca se muestra
+  sin su cobertura**, porque uno calculado sobre medio catálogo da el doble y
+  parece excelente (ADR-101). «Lo más vendido» pasó a ser «Ventas por producto»:
+  tabla paginada, dos modos —lo que se vendió y lo que no se movió— y export CSV.
+  Y un aviso que no salió deja de perderse: se ve en el pedido (ADR-102).
 
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,

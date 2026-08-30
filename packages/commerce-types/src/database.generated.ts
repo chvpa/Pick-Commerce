@@ -880,6 +880,7 @@ export type Database = {
           stock_allocation: Json
           tenant_id: string
           title: string
+          unit_cost: number | null
           unit_price: number
           variant_id: string | null
           variant_title: string | null
@@ -894,6 +895,7 @@ export type Database = {
           stock_allocation?: Json
           tenant_id: string
           title: string
+          unit_cost?: number | null
           unit_price: number
           variant_id?: string | null
           variant_title?: string | null
@@ -908,6 +910,7 @@ export type Database = {
           stock_allocation?: Json
           tenant_id?: string
           title?: string
+          unit_cost?: number | null
           unit_price?: number
           variant_id?: string | null
           variant_title?: string | null
@@ -1561,6 +1564,10 @@ export type Database = {
         Args: { p_from: string; p_store_id: string; p_to: string }
         Returns: Json
       }
+      admin_order_notifications: {
+        Args: { p_order_id: string; p_store_id: string }
+        Returns: Json
+      }
       admin_orders: {
         Args: {
           p_page?: number
@@ -1568,6 +1575,17 @@ export type Database = {
           p_query?: string
           p_status?: string
           p_store_id: string
+        }
+        Returns: Json
+      }
+      admin_product_performance: {
+        Args: {
+          p_from: string
+          p_modo?: string
+          p_page?: number
+          p_per_page?: number
+          p_store_id: string
+          p_to: string
         }
         Returns: Json
       }

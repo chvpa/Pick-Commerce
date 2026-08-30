@@ -655,7 +655,10 @@ test('el filtro de precio y los extremos de la barra siguen al descuento', async
 
   // Sin descuento la remera queda fuera de un techo de 100.000.
   const sinPromo = await catalogo({ precioMax: 100_000 });
-  assert.deepEqual(sinPromo.items.map((i) => i.handle), ['gorra']);
+  assert.deepEqual(
+    sinPromo.items.map((i) => i.handle),
+    ['gorra'],
+  );
 
   await comoServicio(
     db,

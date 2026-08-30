@@ -31,6 +31,8 @@ const REPARTIDO = 'd1000000-0000-4000-8000-000000000002';
 const AJENO = 'd1000000-0000-4000-8000-000000000003';
 
 const V_REMERA = 'e1000000-0000-4000-8000-000000000000';
+/** Misma remera, otra talla, **sin costo cargado**: el catálogo real es así. */
+const V_SIN_COSTO = 'e1000000-0000-4000-8000-00000000000f';
 const V_BORRADOR = 'e1000000-0000-4000-8000-000000000001';
 const V_REPARTIDO = 'e1000000-0000-4000-8000-000000000002';
 const V_AJENA = 'e1000000-0000-4000-8000-000000000003';
@@ -151,14 +153,18 @@ before(async () => {
       ('${REPARTIDO}', '${TENANT}', '${TIENDA}', 'repartido', 'En dos sucursales', 'active'),
       ('${AJENO}', '${OTRO_TENANT}', '${OTRA_TIENDA}', 'ajeno', 'De otro comercio', 'active');
 
-    insert into product_variants (id, tenant_id, product_id, sku, title, price, currency, position) values
-      ('${V_REMERA}', '${TENANT}', '${REMERA}', 'REM-M', 'M', 150000, 'PYG', 0),
-      ('${V_BORRADOR}', '${TENANT}', '${BORRADOR}', 'BOR-1', 'Única', 90000, 'PYG', 0),
-      ('${V_REPARTIDO}', '${TENANT}', '${REPARTIDO}', 'REP-1', 'Única', 50000, 'PYG', 0),
-      ('${V_AJENA}', '${OTRO_TENANT}', '${AJENO}', 'AJE-1', 'Única', 70000, 'PYG', 0);
+    insert into product_variants (id, tenant_id, product_id, sku, title, price, cost, currency, position) values
+      -- La remera tiene costo cargado; el repartido no. Los dos casos existen en
+      -- un catálogo real y el pedido tiene que distinguirlos.
+      ('${V_REMERA}', '${TENANT}', '${REMERA}', 'REM-M', 'M', 150000, 90000, 'PYG', 0),
+      ('${V_SIN_COSTO}', '${TENANT}', '${REMERA}', 'REM-L', 'L', 150000, null, 'PYG', 1),
+      ('${V_BORRADOR}', '${TENANT}', '${BORRADOR}', 'BOR-1', 'Única', 90000, null, 'PYG', 0),
+      ('${V_REPARTIDO}', '${TENANT}', '${REPARTIDO}', 'REP-1', 'Única', 50000, null, 'PYG', 0),
+      ('${V_AJENA}', '${OTRO_TENANT}', '${AJENO}', 'AJE-1', 'Única', 70000, null, 'PYG', 0);
 
     insert into inventory_levels (tenant_id, variant_id, location_id, available) values
       ('${TENANT}', '${V_REMERA}', '${SUCURSAL}', 40),
+      ('${TENANT}', '${V_SIN_COSTO}', '${SUCURSAL}', 40),
       ('${TENANT}', '${V_BORRADOR}', '${SUCURSAL}', 5),
       -- Repartido a propósito para probar el descuento entre sucursales.
       ('${TENANT}', '${V_REPARTIDO}', '${SUCURSAL}', 3),
@@ -204,6 +210,40 @@ test('el primer pedido es el 1001, con snapshot y timeline', async () => {
 test('el segundo pedido es el 1002', async () => {
   const o = pedido(await crear([{ variantId: V_REMERA, quantity: 1 }]));
   assert.equal(o.number, 1002);
+});
+
+test('la línea copia el costo del catálogo, y null cuando no hay', async () => {
+  /*
+   * El costo se copia como el título y el precio, y por el mismo motivo: el
+   * catálogo cambia, y el pedido tiene que poder decir cuánto se ganó **ese
+   * día**. Sin esto el margen sólo se podía calcular volviendo al catálogo, que
+   * daría el costo de hoy.
+   *
+   * El caso `null` importa tanto como el otro: el costo es opcional, y guardarlo
+   * como cero diría margen del 100 %. El panel declara qué fracción de los
+   * ingresos tiene costo conocido en vez de suponerlo.
+   */
+  // Las dos en el mismo pedido: es el caso interesante, porque la cobertura del
+  // margen se calcula por línea y no por pedido.
+  const o = pedido(
+    await crear([
+      { variantId: V_REMERA, quantity: 2 },
+      { variantId: V_SIN_COSTO, quantity: 1 },
+    ]),
+  );
+
+  const lineas = await comoServicio<{ sku: string; unit_cost: number | null }>(
+    db,
+    `select sku, unit_cost from order_items where order_id = ${sql(o.id)}::uuid order by sku`,
+  );
+
+  assert.deepEqual(
+    lineas.map((l) => [l.sku, l.unit_cost]),
+    [
+      ['REM-L', null],
+      ['REM-M', 90000],
+    ],
+  );
 });
 
 test('el precio lo pone la base, no el cliente', async () => {
