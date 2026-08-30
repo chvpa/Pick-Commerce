@@ -29,4 +29,5 @@ export { repositorioPagos } from './pagos.ts';
 export { repositorioPromociones } from './promociones.ts';
 export { repositorioContenido } from './contenido.ts';
 export { repositorioNotificaciones } from './notificaciones.ts';
+export { destinoSupabase, repositorioAnalytics } from './analytics.ts';
 export { subirImagenDeProducto } from './media.ts';

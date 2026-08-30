@@ -26,7 +26,7 @@ tocar código:
 | [ROADMAP.md](ROADMAP.md)                         | Qué está hecho, qué falta, en qué fase estamos                  |
 | [DECISIONS.md](DECISIONS.md)                     | Por qué se decidió cada cosa (ADRs)                             |
 | [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) | Cómo desarrollar, testear y cerrar una tarea                    |
-| [AGENTS.md](AGENTS.md) / [CLAUDE.md](CLAUDE.md)  | Protocolo de trabajo asistido por IA                            |
+| [CLAUDE.md](CLAUDE.md)                           | Protocolo de trabajo asistido por IA                            |
 | [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md)         | Cómo corre esto: CI, Workers, entornos y credenciales           |
 
 ## Ramas

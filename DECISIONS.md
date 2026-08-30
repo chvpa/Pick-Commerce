@@ -409,7 +409,7 @@ El ERP permite un sandbox o writes seguros.
 | ----- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | P-001 | Primer gateway real                    | Sigue abierta: el contrato y un proveedor simulado ya existen (ADR-080); falta el adapter real y sus credenciales                        |
 | P-002 | ~~Storage media definitivo~~           | **Resuelta:** Supabase Storage, por estar ya en el stack (ADR-082). R2 queda como salida si el egress pesa                               |
-| P-003 | Analytics store inicial                | Postgres/Analytics Engine/otro según volumen                                                                                             |
+| P-003 | ~~Analytics store inicial~~            | **Resuelta:** Postgres detrás de un puerto `AnalyticsDestination` (ADR-099). Analytics Engine muestrea, y el DoD exige cruzar eventos con `orders` en una consulta                                                                                             |
 | P-004 | ~~Primera estrategia de reservations~~ | **Resuelta:** el ORDS de Estilo Sport no las tiene, así que validar → cobrar → empujar, sin prometer cero overselling (ADR-084, ADR-085) |
 | P-005 | CLI/provisioner exacto                 | Puede empezar manual y automatizarse luego                                                                                               |
 
@@ -3997,3 +3997,153 @@ idempotente distinguiendo «abierto» de «cerrándose» con `data-ending-style`
 es lo que marca Base UI mientras el panel se va. Preguntarlo con `getAttribute`
 no sirve: sobre un elemento que puede no existir, espera hasta el timeout. Va en
 el selector.
+
+---
+
+## ADR-099 — Los eventos aportan el denominador; `orders` aporta el dinero
+
+**Fecha:** 2026-08-30
+**Estado:** Accepted — **cierra P-003**
+
+**Contexto**
+ADR-067 dejó el resumen del Admin derivado de los pedidos y difirió el
+seguimiento de navegación a esta fase, con un criterio que sigue mandando: media
+capacidad de analytics es peor que ninguna, porque el panel invita a leer tasas
+que no puede calcular.
+
+El Definition of Done pide dos cosas —«las métricas coinciden con orders para una
+ventana de prueba» y «los eventos no bloquean UX»— y hay que decir algo
+incómodo: **la primera no alcanza**. Como el numerador de la conversión sale de
+`orders`, coincide siempre, esté el denominador podrido o no. Lo que hay que
+cuidar es el denominador, y la mitad de esta decisión habla de qué **no** contar.
+
+**P-003: Postgres, detrás de un puerto**
+`AnalyticsDestination` vive en el core con su implementación en
+`adapter-supabase`, y la elección es un `if` en el storefront, como
+`proveedorDePago`. Se elige Postgres y no Analytics Engine porque el DoD exige
+cruzar eventos con pedidos en una sola consulta, y un almacén aparte —que además
+muestrea— no puede sostener esa igualdad. El puerto es lo que mantiene abierta la
+migración que PROJECT.md §22 pide.
+
+**La división del trabajo, que es la decisión de fondo**
+Los eventos aportan sesiones y pasos del embudo. `orders` aporta pedidos e
+importes. La conversión es pedidos no cancelados sobre sesiones, así que coincide
+con la facturación **por construcción** y no por casualidad, y el log de eventos
+se puede tirar entero sin perder una venta.
+
+**Captura del lado del servidor, cero JavaScript**
+Los ocho eventos tienen un momento en que el Worker ya está trabajando: el
+middleware, el render del PDP, de la PLP y del checkout, y dos endpoints. Además
+de no costar peso —el presupuesto es 25 KB gzip y `/politicas` ya usa las dos
+islands que el test permite—, hace que el seguimiento no dependa de que el
+visitante no tenga un bloqueador, y cumple el segundo DoD sin esfuerzo.
+
+Se acumula en `Astro.locals` y se vuelca una vez por request, con `waitUntil`.
+Con `splice(0)` y no una lectura: `Astro.rewrite` **vuelve a correr la cadena de
+middleware dentro del mismo request** —el PDP reescribe a `/404`— y leyendo el
+buffer se insertaba todo dos veces.
+
+**Lo que no se cuenta, que es donde se decide si el número sirve**
+
+- **Bots.** El sitio los invita a propósito (ADR-046) y el sitemap publica el
+  catálogo entero. Como no aceptan cookies, cada petición suya sería una sesión.
+- **Precargas.** El `ClientRouter` de la PLP precarga todos los enlaces al pasar
+  el mouse 80 ms, y cada precarga es un GET real. No infla el embudo —viaja con
+  la misma cookie— pero sí las vistas.
+
+Los dos filtros están en el core con tests, y contra navegadores reales además de
+contra bots: descartar un navegador es el error caro, porque deja la conversión
+mirando al techo y el número sigue siendo plausible.
+
+**La deduplicación va al escribir**
+Tres eventos se repiten sin que nadie repita nada: `checkout_completed` cuando se
+reintenta con la misma clave de idempotencia, `coupon_applied` en cada
+revalidación del carrito, y `search` cada vez que la PLP reenvía `q` al cambiar
+de faceta. Un índice único parcial sobre `(store_id, type, dedupe_key)` los
+descarta. Al escribir y no al leer, para que el log crudo quede honesto: es lo que
+va a mirar quien dude del número.
+
+**Distinguir el alta del carrito exigió un campo**
+A `/api/cart/validate` llegan seis llamadas distintas y un carrito de una línea
+sin cupón es byte a byte idéntico en todas. `addToCart` manda `intent: 'add'`; el
+endpoint lo ignora salvo para el evento, así que es aditivo.
+
+**La conversión sólo cuenta el tramo medido**
+Apareció mirando el panel, no el código: decía «Compraron 6 · 600 %». `orders`
+viene de la Fase 5 y está lleno; `store_events` nace hoy. Pedir «últimos 30 días»
+el primer día comparaba treinta días de pedidos contra unas horas de sesiones. No
+era del entorno de prueba: es lo que iba a ver toda tienda que lo activara.
+
+Los pedidos se cuentan desde `greatest(p_from, primer_evento)`, y la función
+devuelve `medidoDesde` para que la pantalla lo diga. La identidad con
+`admin_dashboard` no se pierde: se vuelve **condicional y explícita** —coinciden
+cuando el período está medido entero, que es el estado normal—.
+
+**Sesión anónima, sin banner**
+Cookie propia, `HttpOnly`, `Secure`, `SameSite=Lax`, treinta minutos deslizantes,
+y **sólo en respuestas HTML**: Astro adjunta las cookies al final de la cadena, y
+sin esa condición viajaría también en el sitemap, que es la única respuesta con
+`cache-control: public`. Sin IP y separada de la identidad del cliente
+(PROJECT.md §23). No se usa la sesión del adapter de Cloudflare: su binding KV
+está declarado sin `id`, cada sesión sería una escritura, y lo que hay que
+guardar es un UUID que entra en la cookie.
+
+**El carrito pasó a ser on-demand**
+Con Workers Assets, una página que existe en disco se sirve **sin ejecutar el
+Worker**: `/carrito` no producía ni vista ni cookie. Lo insidioso es que `astro
+dev` y `astro preview` sirven todo por SSR, así que el número aparecía en
+desarrollo y desaparecía al desplegar. `/politicas` y `/preguntas-frecuentes`
+siguen estáticas y quedan declaradamente fuera de la medición, dicho en la
+pantalla.
+
+**Retención sin scheduler**
+No hay `pg_cron`, ni cron trigger, ni acción programada. La purga de 180 días
+viaja con el tráfico, con la misma compuerta por isolate que el drenaje de la cola
+de correos. Techo declarado: si la tienda deja de recibir visitas, deja de
+limpiarse — y una tienda sin visitas tampoco genera filas.
+
+**Los errores no se tragan**
+`enSegundoPlano` silencia los fallos, y acá eso sería lo peor: si el insert
+fallara desde el primer despliegue, el sitio funcionaría perfecto y el panel
+quedaría vacío sin una sola señal. Va con su propio `console.error`.
+
+---
+
+## ADR-100 — Un carrito vacío no se corrige, y por eso no resucita
+
+**Fecha:** 2026-08-30
+**Estado:** Accepted
+
+**Contexto**
+El smoke del checkout fallaba de forma intermitente: después de comprar,
+`/carrito` seguía mostrando el producto. Tres corridas idénticas daban verde,
+verde, rojo, y la primera vez se registró como flake sin causa.
+
+**La causa**
+El checkout revalida el carrito contra el servidor y escribe la respuesta con
+`replaceLines`. Al confirmar el pedido llama a `clear()` y navega — pero una
+revalidación que ya había leído las líneas sigue viva y resuelve **después**,
+escribiendo el carrito de antes. `location.assign` no detiene el JavaScript
+pendiente: la navegación es asíncrona y la promesa alcanza a resolver.
+
+El resultado para el comprador es del camino de dinero: llega a la confirmación
+con su pedido hecho **y el carrito otra vez lleno**, listo para comprar lo mismo
+de nuevo.
+
+**La decisión**
+`replaceLines` no escribe sobre un carrito vacío. Corregir es ajustar algo que
+existe; un carrito vacío no tiene nada que ajustar, así que la única lectura
+posible de «vacío» es que se vació a propósito — se compró, o se vació en otra
+pestaña.
+
+La guarda va en el store y no en quien llama porque **ahí está la escritura**: un
+segundo llamador la heredaría, y el de hoy ya se olvidó una vez. Cubre además el
+caso de las dos pestañas, que el arreglo en el checkout no habría cubierto.
+
+**Cómo se sabe que sirve**
+Con un test determinista —agregar, `clear()`, `replaceLines` con lo que la
+revalidación había leído— y con su sabotaje: quitar la guarda lo pone en rojo. La
+carrera original no se puede reproducir a voluntad; su consecuencia sí.
+
+Cambió el contrato: un test afirmaba que `replaceLines` escribe sobre un carrito
+vacío. Se actualizó, que es lo honesto cuando la regla cambia por un motivo.

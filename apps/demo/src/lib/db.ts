@@ -81,6 +81,17 @@ function db(): PickSupabaseClient {
   return cliente;
 }
 
+/**
+ * El cliente crudo, para lo que no tiene repositorio propio.
+ *
+ * Hoy sólo lo usa analytics, que escribe en una tabla en vez de llamar a una
+ * función. Sigue siendo la secret key: mismo alcance y mismas advertencias que el
+ * resto de este archivo.
+ */
+export function clienteDelStorefront(): PickSupabaseClient {
+  return db();
+}
+
 let repo: RepositorioCatalogo | undefined;
 
 export function catalogo(): RepositorioCatalogo {

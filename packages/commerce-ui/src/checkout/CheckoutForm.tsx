@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import {
-  formatMoney,
-  validarDatosDeCheckout,
-  type ProblemaDeCupon,
-} from '@pick/commerce-core';
+import { formatMoney, validarDatosDeCheckout, type ProblemaDeCupon } from '@pick/commerce-core';
 import type { Money } from '@pick/commerce-types';
 import { cn } from '../lib/cn.ts';
 import { buttonVariants } from '../recipes/button.ts';
@@ -167,7 +163,8 @@ export function CheckoutForm({
       );
     }
 
-    // El espejo se alinea con lo que el servidor dice que existe.
+    // El espejo se alinea con lo que el servidor dice que existe. Si el carrito
+    // se vació mientras esto viajaba, `replaceLines` no escribe: ver su docblock.
     const porId = new Map(guardadas.map((l) => [l.variantId, l]));
     replaceLines(
       datos.lines.map((l): CartLine => ({

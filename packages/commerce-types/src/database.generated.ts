@@ -1407,6 +1407,57 @@ export type Database = {
         }
         Relationships: []
       }
+      store_events: {
+        Row: {
+          data: Json
+          dedupe_key: string | null
+          id: number
+          occurred_at: string
+          path: string | null
+          session_id: string
+          store_id: string
+          tenant_id: string
+          type: string
+        }
+        Insert: {
+          data?: Json
+          dedupe_key?: string | null
+          id?: never
+          occurred_at?: string
+          path?: string | null
+          session_id: string
+          store_id: string
+          tenant_id: string
+          type: string
+        }
+        Update: {
+          data?: Json
+          dedupe_key?: string | null
+          id?: never
+          occurred_at?: string
+          path?: string | null
+          session_id?: string
+          store_id?: string
+          tenant_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_events_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "store_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       store_settings: {
         Row: {
           settings: Json
@@ -1492,6 +1543,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_analytics: {
+        Args: { p_from: string; p_store_id: string; p_to: string }
+        Returns: Json
+      }
       admin_customers: {
         Args: {
           p_customer_id?: string

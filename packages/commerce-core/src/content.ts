@@ -229,13 +229,7 @@ export type DatosDeSeccion = Omit<SeccionDeHome, 'id'>;
  * otra pantalla debería obtener exactamente esto.
  */
 export function moverEn<T>(lista: readonly T[], desde: number, hacia: number): readonly T[] {
-  if (
-    desde === hacia ||
-    desde < 0 ||
-    hacia < 0 ||
-    desde >= lista.length ||
-    hacia >= lista.length
-  ) {
+  if (desde === hacia || desde < 0 || hacia < 0 || desde >= lista.length || hacia >= lista.length) {
     return lista;
   }
 

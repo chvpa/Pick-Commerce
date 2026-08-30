@@ -7,6 +7,7 @@ import { ProductPurchase } from '@pick/commerce-ui/product/ProductPurchase';
 import { productJsonLd } from '@pick/commerce-core';
 import { seoContexto } from '../../lib/store-config.ts';
 import { catalogo, tiendaActual } from '../../lib/db.ts';
+import { anotar } from '../../lib/analytics.ts';
 import Base from '../../layouts/Base.astro';
 
 /*
@@ -29,6 +30,16 @@ if (!product) {
   const pagina = await Astro.rewrite('/404');
   return new Response(pagina.body, { status: 404, headers: pagina.headers });
 }
+
+/*
+ * Se anota después del 404, no antes: un handle que no existe no es una vista de
+ * producto. El `Astro.rewrite` de arriba corre la cadena de middleware otra vez,
+ * así que anotar antes habría dado además una vista con el producto en null.
+ */
+anotar(Astro.locals, 'product_view', Astro.url.pathname, {
+  handle: product.handle,
+  productId: product.id,
+});
 
 /* Los swatches los aporta el storefront: el catálogo guarda "Azul", no un hex. */
 const COLOR_SWATCHES = { Azul: '#2f4858', Negro: '#26262b', Blanco: '#e8e6e1', Verde: '#3f5f46' };

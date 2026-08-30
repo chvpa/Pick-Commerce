@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import {
+  ChartNoAxesColumnIcon,
   ChevronRightIcon,
   ChevronsUpDownIcon,
   GalleryVerticalEndIcon,
@@ -101,6 +102,12 @@ const SECCIONES: readonly Seccion[] = [
       { to: '/contenido/categorias', label: 'Categorías', icono: TagsIcon },
     ],
   },
+  /*
+   * Analytics va después de Contenido y antes de Clientes: el sidebar sigue el
+   * recorrido del comercio —qué vendo, a quién, con qué campañas, cómo se ve, cómo
+   * le fue— y esto es el cierre de esa lectura, no una sección de configuración.
+   */
+  { to: '/analytics', label: 'Analytics', icono: ChartNoAxesColumnIcon },
   { to: '/clientes', label: 'Clientes', icono: UsersIcon },
   { to: '/equipo', label: 'Equipo', icono: UsersRoundIcon, permiso: 'member.manage' },
   { to: '/configuracion', label: 'Configuración', icono: SettingsIcon, permiso: 'settings.write' },

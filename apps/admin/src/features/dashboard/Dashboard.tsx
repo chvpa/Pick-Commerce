@@ -12,13 +12,7 @@ import {
 import type { OrderStatus } from '@pick/commerce-types';
 import { LayoutDashboardIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import {
-  EstadoDeError,
-  PaginaAdmin,
-  SELECT,
-  Tarjeta,
-  TituloDeTarjeta,
-} from '@/components/pagina';
+import { EstadoDeError, PaginaAdmin, SELECT, Tarjeta, TituloDeTarjeta } from '@/components/pagina';
 import {
   Table,
   TableBody,

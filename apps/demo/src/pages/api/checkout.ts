@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { validarDatosDeCheckout } from '@pick/commerce-core';
 import { checkout, pagos, tiendaActual } from '../../lib/db.ts';
 import { drenarNotificaciones, enSegundoPlano } from '../../lib/notificaciones.ts';
+import { anotar } from '../../lib/analytics.ts';
 import { proveedorDePago } from '../../lib/proveedor-de-pago.ts';
 import { cuerpoJson, falla, json, lineasRecibidas } from './_respuesta.ts';
 
@@ -86,6 +87,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const { order } = resultado;
+
+    /*
+     * La compra.
+     *
+     * Existe para saber **qué sesión** compró — el dinero y la cantidad de
+     * pedidos salen de `orders`, que es la fuente de verdad, y por eso la
+     * conversión coincide con la facturación por construcción.
+     *
+     * Se anota en las tres ramas que devuelven 201 porque en las tres el pedido
+     * ya existe. Que una de ellas sea un reintento con la misma clave de
+     * idempotencia —que devuelve el pedido que ya estaba— lo resuelve la clave de
+     * deduplicación, que es el id del pedido.
+     */
+    anotar(locals, 'checkout_completed', '/api/checkout', { orderId: order.id });
 
     // El aviso de «recibimos tu pedido» ya está encolado por el trigger; esto
     // sólo lo empuja. Va en segundo plano: el comprador no tiene por qué esperar

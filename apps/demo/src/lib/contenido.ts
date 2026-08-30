@@ -61,4 +61,16 @@ export const POLITICAS = [
       'Podés pedir la baja de tus datos escribiéndonos.',
     ],
   },
+  /*
+   * Existe porque medimos, y decirlo es la contrapartida de no pedir permiso con
+   * un banner: la medición es de primera parte, anónima y no sale del sitio, y eso
+   * sólo vale si está escrito en algún lado.
+   */
+  {
+    titulo: 'Qué medimos',
+    parrafos: [
+      'Contamos visitas, búsquedas y pasos de la compra para saber qué funciona de la tienda. Lo hacemos desde nuestro propio servidor: no usamos servicios de terceros, no hay publicidad y nada de esto sale de acá.',
+      'Para distinguir una visita de otra guardamos un identificador al azar en una cookie que se borra sola a la media hora de inactividad. No guardamos tu dirección IP ni nada que permita identificarte, y esa cookie no se cruza con tus datos de cliente.',
+    ],
+  },
 ] as const;

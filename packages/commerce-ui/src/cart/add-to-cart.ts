@@ -50,7 +50,22 @@ export async function addToCart(input: AddToCartInput): Promise<void> {
     const respuesta = await fetch('/api/cart/validate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ lines: [{ variantId: input.variantId, quantity: input.quantity }] }),
+      /*
+       * `intent` es lo único que distingue un alta de una revalidación.
+       *
+       * A `/api/cart/validate` llegan seis llamadas distintas —ésta, el montaje
+       * del checkout, cada cambio del carrito, aplicar y quitar cupón, y el
+       * reintento tras un 409— y un carrito de una línea sin cupón es byte a byte
+       * idéntico en todas. Sin este campo, contar altas sería adivinar por la
+       * forma del cuerpo.
+       *
+       * El endpoint lo ignora salvo para el evento, así que es aditivo: nada se
+       * rompe si falta.
+       */
+      body: JSON.stringify({
+        lines: [{ variantId: input.variantId, quantity: input.quantity }],
+        intent: 'add',
+      }),
     });
 
     if (respuesta.ok) {

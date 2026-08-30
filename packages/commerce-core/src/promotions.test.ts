@@ -97,7 +97,10 @@ test('el target decide a qué productos alcanza', () => {
 test('un producto sin categoría no lo alcanza una promoción por categoría', () => {
   // Sin esto, `undefined` entraría en la lista de ids por comparación floja.
   const sinCategoria = { productId: 'prod-2', collectionIds: [] };
-  assert.equal(alcanza(promo({ target: { kind: 'category', ids: ['cat-1'] } }), sinCategoria), false);
+  assert.equal(
+    alcanza(promo({ target: { kind: 'category', ids: ['cat-1'] } }), sinCategoria),
+    false,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -186,13 +189,25 @@ test('el porcentaje redondea al medio hacia arriba', () => {
 // ---------------------------------------------------------------------------
 
 test('el precio de catálogo devuelve el rebajado y tacha el de lista', () => {
-  const r = precioDeCatalogo(PYG(100_000), undefined, [promo({ discountValue: 2000 })], PRODUCTO, AHORA);
+  const r = precioDeCatalogo(
+    PYG(100_000),
+    undefined,
+    [promo({ discountValue: 2000 })],
+    PRODUCTO,
+    AHORA,
+  );
   assert.equal(r.price.amount, 80_000);
   assert.equal(r.compareAtPrice?.amount, 100_000);
 });
 
 test('sin promoción vigente el precio no se toca', () => {
-  const r = precioDeCatalogo(PYG(100_000), undefined, [promo({ status: 'draft' })], PRODUCTO, AHORA);
+  const r = precioDeCatalogo(
+    PYG(100_000),
+    undefined,
+    [promo({ status: 'draft' })],
+    PRODUCTO,
+    AHORA,
+  );
   assert.equal(r.price.amount, 100_000);
   assert.equal(r.compareAtPrice, undefined);
 });
@@ -211,7 +226,13 @@ test('una promoción con condición de carrito no baja el precio del catálogo',
 
 test('si la variante ya traía un tachado mayor, gana ese', () => {
   // Tachar el de lista mostraría un ahorro más chico del real.
-  const r = precioDeCatalogo(PYG(100_000), PYG(150_000), [promo({ discountValue: 2000 })], PRODUCTO, AHORA);
+  const r = precioDeCatalogo(
+    PYG(100_000),
+    PYG(150_000),
+    [promo({ discountValue: 2000 })],
+    PRODUCTO,
+    AHORA,
+  );
   assert.equal(r.price.amount, 80_000);
   assert.equal(r.compareAtPrice?.amount, 150_000);
 });

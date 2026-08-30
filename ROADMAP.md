@@ -64,7 +64,7 @@ Objetivo: repositorio, tooling, CI y estructura base funcionando.
 - [x] Configurar deploy inicial a Cloudflare. Deploy por push funcionando desde Workers Builds.
 - [x] Crear Supabase project de desarrollo. Proyecto `snnbkqesjiooejaccqhg` creado y verificado (auth responde, publishable y secret key válidas). Las credenciales viven en `.env`, fuera de git.
 - [x] Definir migraciones/versionado de schema.
-- [x] Confirmar que `AGENTS.md`, `PROJECT.md`, `ROADMAP.md`, `DECISIONS.md` y `ENGINEERING_HARNESS.md` forman parte del repo.
+- [x] Confirmar que `CLAUDE.md`, `PROJECT.md`, `ROADMAP.md`, `DECISIONS.md` y `ENGINEERING_HARNESS.md` forman parte del repo.
 
 **Definition of Done**
 
@@ -462,29 +462,39 @@ interfaz en vez de afirmar que los botones existen.
 
 ## Fase 10 — Analytics v1
 
-**Avance: 0%**
+**Avance: 65%** — Etapa A cerrada: la tubería de eventos y lo que sólo ellos
+pueden medir. La Etapa B —lo que se deriva de los pedidos— queda pendiente.
 
 Objetivo: métricas comerciales esenciales.
 
-- [ ] Definir event schema.
-- [ ] page_view.
-- [ ] product_view.
-- [ ] search.
-- [ ] search_no_results.
-- [ ] add_to_cart.
-- [ ] begin_checkout.
-- [ ] checkout_completed.
-- [ ] coupon_applied.
-- [ ] Dashboard ventas.
-- [ ] AOV.
-- [ ] units.
-- [ ] conversion básica.
-- [ ] best sellers.
-- [ ] slow movers básico.
-- [ ] search insights.
-- [ ] export CSV.
-- [ ] margen cuando exista costo.
-- [ ] abstraer storage para migración futura.
+- [x] Definir event schema.
+- [x] page_view.
+- [x] product_view.
+- [x] search.
+- [x] search_no_results.
+- [x] add_to_cart.
+- [x] begin_checkout.
+- [x] checkout_completed.
+- [x] coupon_applied.
+- [x] Dashboard ventas. Ya estaba desde la Fase 6 (ADR-067).
+- [x] AOV. Ídem.
+- [ ] units. Etapa B: sale de `order_items`, no de eventos.
+- [x] conversion básica.
+- [x] best sellers. Top 5 desde la Fase 6; ampliarlo es Etapa B.
+- [ ] slow movers básico. Etapa B.
+- [x] search insights.
+- [ ] export CSV. Etapa B.
+- [-] margen cuando exista costo. **Bloqueado por un dato que falta:**
+  `order_items` copia título, precio y SKU pero **no el costo**, aunque
+  `product_variants.cost` exista y se cargue por tres caminos. Necesita
+  `unit_cost` en la línea y que `create_order` lo copie — Etapa B, con su
+  migración—, y lo anterior a esa migración no tendrá margen: volver al catálogo
+  daría el costo de hoy y no el de la venta.
+- [x] abstraer storage para migración futura.
+- [-] `wishlist_add` (PROJECT.md §22). No hay wishlist: es v2.
+- [-] `remove_from_cart` (PROJECT.md §22). Es el único de los diez sin momento de
+  servidor —quitar una línea no habla con nadie— y registrarlo costaría
+  JavaScript en el navegador, que es lo que este diseño evita.
 
 **Definition of Done**
 
@@ -794,6 +804,9 @@ caso que prueba de verdad si el contrato abstrae (ADR-084).
 | 2026-08-29 | `abrirSidebar` del smoke se colgaba con el sheet ya abierto | Daba por hecho que en mobile el menú estaba cerrado y esperaba a que desapareciera. Era cierto mientras toda entrada del sidebar navegaba; con «Contenido» como disclosure dejó de serlo y siete tests de mobile se quedaron esperando 30 s. La suposición estaba escrita en un comentario, no en una aserción | Resuelto: distingue abierto de cerrándose por `data-ending-style`, el atributo que Base UI marca mientras el panel se va (ADR-098) | Fase 9 | Resuelto |
 | 2026-08-29 | El compilador de React no está activo, y hay comentarios que dan a entender que sí | `@vitejs/plugin-react` 6.1.0 trae `compiler` en `false` por defecto y `apps/admin/vite.config.ts` lo usa pelado; `oxc-transform-react` ni siquiera está instalado, así que no podría correr aunque se prendiera el flag. Verificado sobre el artefacto: cero ocurrencias de `compiler-runtime` y del idiom `c[0]!==` en los 69 chunks del build. Lo que sí está activo es el **lint** `react-hooks` v7, que avisa igual y hace parecer que el compilador corre. El comentario de `ListaProductos` lo da por hecho | Decidir: o se activa —y entonces medir— o se corrigen los comentarios que lo suponen. Mientras tanto, no omitir `useMemo`/`useCallback` confiando en él | v1.1 | Pendiente |
 | 2026-08-29 | Colapsar la barra con el foco dentro del submenú deja el foco en el `body` | Ctrl/Cmd+B con el foco en «Colecciones»: el `<ul>` pasa a `display:none` y el navegador suelta el foco. Medido en Chromium: **no** es un fallo de orden de foco —el siguiente Tab va a «Clientes», que es donde correspondía— pero se pierde el anillo de foco hasta ese Tab. La APG devuelve el foco al botón del grupo | Devolver el foco al disparador cuando el submenú deja de verse, si alguna vez molesta. No se hizo ahora: es una pérdida transitoria sobre un elemento que la persona acaba de pedir ocultar, y el arreglo mete un ref y un efecto por eso solo | v1.1 | Pendiente |
+| 2026-08-30 | Después de comprar, el carrito volvía a llenarse | El checkout revalida contra el servidor y escribe la respuesta con `replaceLines`; al confirmar llama a `clear()` y navega, pero una revalidación en vuelo resolvía **después** y reescribía el carrito de antes. El comprador llegaba a la confirmación con el pedido hecho y el carrito lleno, listo para comprar lo mismo de nuevo. Es del camino de dinero y era intermitente: la primera vez se anotó como flake sin causa | Resuelto: `replaceLines` no escribe sobre un carrito vacío. La guarda va en el store —donde está la escritura— y cubre además el caso de dos pestañas. Con test determinista y su sabotaje (ADR-100) | Fase 10 | Resuelto |
+| 2026-08-30 | El prefetch global del `ClientRouter` nunca se decidió | Llegó por defecto al montar view transitions en la PLP: `prefetchAll` con estrategia hover a 80 ms, o sea un GET real al Worker por cada enlace que el mouse roce. Contradice PROJECT.md §1401, que pide «prefetch selectivo cuando aporte UX». Analytics lo descarta por cabecera, así que la medición ya no miente, pero el tráfico sigue | Decidir si se deja, se acota a los enlaces que valen o se apaga, y registrarlo. Hoy nadie eligió esto | v1.1 | Pendiente |
+| 2026-08-30 | El residuo de precarga de Safari no se puede descartar | Chrome manda `Sec-Purpose: prefetch` y Firefox `X-moz`, pero el fallback de Safari usa un `fetch()` sin ninguna cabecera que lo distinga de una navegación. Infla las vistas —no el embudo, que se cuenta por sesión— en la proporción de Safari desktop | Si molesta, apagar el prefetch o pedirle a Astro una cabecera propia. La pantalla ya declara que existe | v1.1 | Pendiente |
 | 2026-08-29 | Un Worker de Cloudflare no puede alcanzar el proxy del ERP                                     | El `fetch()` de Workers descarta el puerto no estándar en producción y bloquea las IPs crudas, y el proxy vive en `http://<ip>:3001`. En local con Miniflare funciona, así que el fallo aparecería recién al desplegar. Bloquea el chequeo de stock en vivo al agregar al carrito y cualquier sync programado                                                                                                    | El importador corre en Node, donde la restricción no aplica. Para subirlo al Worker hay que publicar el proxy en un hostname con TLS sobre 443: Caddy con `sslip.io` sin comprar dominio, o Cloudflare Tunnel si aparece una zona. ADR-085                            | Fase 8       | Pendiente |
 | 2026-08-29 | El stock que administra el ERP se podía pisar desde el Admin                                   | `admin_save_product` respetaba `field_sources` para los campos del producto y para el precio, pero escribía `inventory_levels` sin mirar. El stock es lo único que un ERP posee de verdad y era el único campo sin proteger; el no-negociable del repo dice lo contrario desde Fase 0                                                                                                                            | Misma comprobación que el precio, salteando en silencio para no romper la edición del resto del producto. Cuatro tests que fallan si se quita. ADR-086                                                                                                                | Fase 8       | Resuelto  |
 | 2026-08-29 | La documentación del ERP difiere del cable en cuatro puntos                                    | El payload trae once campos y no ocho; `rubro` vale `GENERICO` siempre y no sirve de categoría —la que sirve es `familia`, no documentada—; `cant_dispon` y `precio_vta` son números y no strings; y hoy ningún `cod_barra` viene repetido, aunque el doc describa una fila por lote. Mapear desde el doc habría dejado el catálogo sin categorías y con la marca perdida                                        | Todo el mapeo salió del cable, con fixtures verbatim de las 9032 filas. La agregación por variante se conserva igual, porque si el ORDS vuelve a repetir el error sería silencioso. ADR-085                                                                           | Fase 8       | Resuelto  |
@@ -918,6 +931,8 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-29 | Dieciséis mejoras de uso en el Admin: confirmación en todo borrado, orden por flechas, migas de pan, íconos de acción, validación que se ve y acciones desde las listas. ADR-096                                                             | Fase 9 |         100% |           100% |
 | 2026-08-29 | Fase 9: el Admin se reorganiza con la distribución de Shopify —encabezado con ícono y acción principal, contenido en tarjetas, filtros y paginación adentro— y se unifican paginación, desplegables, estados vacíos y de error (ADR-097) |
 | 2026-08-29 | Contenido deja de ser una pantalla con pestañas: el sidebar despliega Secciones, Colecciones y Categorías, que pasan a ser rutas reales. Se va el parámetro `?tab=` y sus doce call sites sin tipar (ADR-098) |
+| 2026-08-30 | Fase 10 Etapa A: la tubería de eventos. Captura del lado del servidor —cero JavaScript nuevo—, sesión anónima sin banner, `store_events` con RLS, puerto `AnalyticsDestination` que cierra P-003, y la pantalla de Analytics en el Admin. La conversión sale de `orders` y sólo cuenta el tramo medido (ADR-099) |
+| 2026-08-30 | Después de comprar, el carrito podía volver a llenarse: una revalidación en vuelo lo reescribía tras vaciarlo. `replaceLines` deja de resucitar un carrito vacío (ADR-100) |
 
 ---
 

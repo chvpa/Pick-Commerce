@@ -142,7 +142,9 @@ export function DetallePedido({ id }: DetallePedidoProps) {
           <Badge
             className={cn(
               'border-transparent',
-              terminal ? 'bg-muted text-muted-foreground line-through' : 'bg-primary/10 text-primary',
+              terminal
+                ? 'bg-muted text-muted-foreground line-through'
+                : 'bg-primary/10 text-primary',
             )}
           >
             {ETIQUETA_ESTADO_PEDIDO[order.status]}
@@ -224,7 +226,10 @@ export function DetallePedido({ id }: DetallePedidoProps) {
             <TituloDeTarjeta>Cliente</TituloDeTarjeta>
             <div className="flex flex-col gap-1 p-4 text-sm">
               <p className="font-medium">{order.customer.name}</p>
-              <a href={`mailto:${order.customer.email}`} className="text-muted-foreground underline">
+              <a
+                href={`mailto:${order.customer.email}`}
+                className="text-muted-foreground underline"
+              >
                 {order.customer.email}
               </a>
               <a href={`tel:${order.customer.phone}`} className="text-muted-foreground underline">

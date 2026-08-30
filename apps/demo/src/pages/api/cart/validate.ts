@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { validarCarrito } from '@pick/commerce-core';
 import { checkout, tiendaActual } from '../../../lib/db.ts';
+import { anotar } from '../../../lib/analytics.ts';
 import { cuerpoJson, falla, json, lineasRecibidas } from '../_respuesta.ts';
 
 export const prerender = false;
@@ -18,7 +19,7 @@ export const prerender = false;
  * La tienda sale de `tiendaActual()` y **nunca del cuerpo**: es lo único que
  * acota los datos en este camino, porque la secret key saltea RLS (ADR-052).
  */
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   const cuerpo = await cuerpoJson(request);
   const { lines: lineas, invalidas } = lineasRecibidas(cuerpo);
   if (invalidas > 0) {
@@ -62,6 +63,37 @@ export const POST: APIRoute = async ({ request }) => {
       codigo,
     );
     const porVariante = new Map(dinero.lines.map((l) => [l.variantId, l]));
+
+    /*
+     * Los dos eventos de este endpoint.
+     *
+     * **`add_to_cart` sólo si la petición se declara un alta.** Acá llegan seis
+     * llamadas distintas —el alta, el montaje del checkout, cada cambio del
+     * carrito, aplicar y quitar cupón, y el reintento tras un 409— y un carrito
+     * de una línea sin cupón es byte a byte idéntico en todas. Distinguirlas por
+     * su forma sería adivinar; `intent` lo dice. El campo es opcional, así que un
+     * cliente que no lo mande simplemente no se cuenta.
+     *
+     * Y sólo si **no hubo problemas**: cuando el stock no alcanza, `addToCart`
+     * lanza y no agrega nada. Contar el intento sería contar altas que no
+     * ocurrieron.
+     */
+    const esAlta = (cuerpo as { intent?: unknown } | undefined)?.intent === 'add';
+    if (esAlta && resultado.issues.length === 0) {
+      anotar(locals, 'add_to_cart', '/api/cart/validate', {
+        variantId: resultado.lines[0]?.variantId,
+        quantity: resultado.lines[0]?.quantity,
+      });
+    }
+
+    /*
+     * El cupón, cuando resolvió de verdad. El checkout revalida en cada cambio
+     * del carrito y lo reenvía siempre, así que esto llega muchas veces por un
+     * solo cupón: la clave de deduplicación —sesión más código— las colapsa.
+     */
+    if (codigo && !dinero.couponIssue && dinero.applied.length > 0) {
+      anotar(locals, 'coupon_applied', '/api/cart/validate', { code: codigo });
+    }
 
     return json({
       lines: resultado.lines.map((l) => {

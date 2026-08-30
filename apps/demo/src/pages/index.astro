@@ -134,9 +134,7 @@ const GRILLA: Readonly<Record<number, string>> = {
         if (entradas.length === 0) return null;
         return (
           <Container class="flex flex-col gap-4 py-8">
-            {seccion.title && (
-              <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>
-            )}
+            {seccion.title && <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>}
             <CategorySection categories={entradas} layout={seccion.layout} />
           </Container>
         );
@@ -150,9 +148,7 @@ const GRILLA: Readonly<Record<number, string>> = {
       return (
         <Container class="flex flex-col gap-4 py-8">
           <div class="flex flex-col gap-1">
-            {seccion.title && (
-              <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>
-            )}
+            {seccion.title && <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>}
             {seccion.subtitle && <p class="text-sm text-fg-muted">{seccion.subtitle}</p>}
           </div>
           <ProductCarousel label={seccion.title ?? 'Productos'}>

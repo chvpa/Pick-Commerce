@@ -175,9 +175,28 @@ export function removeLine(variantId: string): void {
   actualizar((current) => current.filter((l) => l.variantId !== variantId));
 }
 
-/** Reemplaza el carrito entero. Lo usa el checkout al corregirlo contra el servidor. */
+/**
+ * Reemplaza el carrito entero. Lo usa el checkout al corregirlo contra el servidor.
+ *
+ * **Nunca resucita un carrito vacío**, y esa guarda es del camino de dinero.
+ *
+ * El checkout revalida contra el servidor y escribe acá lo que le responde. Al
+ * confirmar el pedido llama a `clear()` y navega — pero una revalidación que ya
+ * había leído las líneas sigue viva y resuelve **después**, con el carrito de
+ * antes. El comprador terminaba en la confirmación con su pedido hecho y el
+ * carrito otra vez lleno, listo para comprar lo mismo de nuevo. Falla
+ * intermitente: depende de que la respuesta llegue entre el `clear()` y la
+ * navegación.
+ *
+ * La guarda va acá y no en quien llama porque acá está la escritura: un segundo
+ * llamador la heredaría, y el de hoy ya se olvidó una vez.
+ *
+ * Corregir es ajustar algo que existe. Un carrito vacío no tiene nada que
+ * ajustar, así que la única lectura posible de «vacío» es que se vació a
+ * propósito: se compró, o alguien lo vació en otra pestaña.
+ */
 export function replaceLines(siguientes: readonly CartLine[]): void {
-  actualizar(() => siguientes.filter(esLinea));
+  actualizar((actuales) => (actuales.length === 0 ? [] : siguientes.filter(esLinea)));
 }
 
 export function clear(): void {

@@ -119,8 +119,35 @@ test('poner cantidad cero quita la línea', () => {
 });
 
 test('replaceLines descarta lo mal formado', () => {
+  // Con algo adentro: corregir es ajustar lo que existe, y sobre un carrito
+  // vacío `replaceLines` ya no escribe. Ver el caso de abajo.
+  store.addLine({ ...LINEA, variantId: 'v9' });
   store.replaceLines([LINEA, { variantId: 'x' } as never]);
   assert.equal(store.getLines().length, 1);
+  assert.equal(store.getLines()[0]!.variantId, 'v1');
+});
+
+test('replaceLines no resucita un carrito vaciado', () => {
+  /*
+   * La carrera del camino de dinero, en un caso determinista.
+   *
+   * El checkout revalida contra el servidor, y al confirmar el pedido llama a
+   * `clear()` y navega. Una revalidación que ya había leído las líneas sigue
+   * viva y resuelve **después**, escribiendo el carrito de antes: el comprador
+   * llegaba a la confirmación con su pedido hecho y el carrito otra vez lleno,
+   * listo para comprar lo mismo de nuevo.
+   *
+   * Lo encontró el smoke, de forma intermitente, y costó tres corridas
+   * entenderlo porque depende de que la respuesta llegue en la rendija entre el
+   * `clear()` y la navegación.
+   */
+  store.addLine(LINEA);
+  const enVuelo = [...store.getLines()]; // lo que la revalidación ya había leído
+
+  store.clear(); // el pedido se creó
+
+  store.replaceLines(enVuelo); // la respuesta llega tarde
+  assert.deepEqual([...store.getLines()], []);
 });
 
 // --- Entre pestañas -------------------------------------------------------------

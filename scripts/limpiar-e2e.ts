@@ -61,7 +61,23 @@ if (url && secretKey) {
       .like('title', 'Novedades del smoke %')
       .select('id');
 
+    /*
+     * Los eventos que la corrida generó navegando la demo.
+     *
+     * No se van con nada: la tienda de la demo no se borra, y los eventos cuelgan
+     * de ella. Sin esto, cada corrida de CI deja un puñado de sesiones falsas en
+     * el proyecto de desarrollo y la conversión del panel de la demo baja sola,
+     * sin que nadie entienda por qué.
+     *
+     * Se borra por ventana de tiempo y no por marcador: un `page_view` no tiene
+     * dónde llevar uno, y todo lo de la última hora en desarrollo es de la
+     * corrida.
+     */
+    const desde = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const eventos = await db.from('store_events').delete().gte('occurred_at', desde).select('id');
+
     console.log(`  pedidos de prueba borrados: ${pedidos.data?.length ?? 0}`);
+    console.log(`  eventos de la corrida borrados: ${eventos.data?.length ?? 0}`);
     console.log(`  promociones de prueba borradas: ${promos.data?.length ?? 0}`);
     console.log(`  colecciones de prueba borradas: ${colecciones.data?.length ?? 0}`);
 

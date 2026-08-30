@@ -197,11 +197,7 @@ export function repositorioContenido(db: PickSupabaseClient): RepositorioConteni
     },
 
     async borrarColeccion(storeId, id): Promise<void> {
-      const { error } = await db
-        .from('collections')
-        .delete()
-        .eq('id', id)
-        .eq('store_id', storeId);
+      const { error } = await db.from('collections').delete().eq('id', id).eq('store_id', storeId);
       if (error) throw new Error(`No se pudo borrar la colección: ${error.message}`);
     },
 

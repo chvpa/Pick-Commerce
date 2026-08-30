@@ -32,7 +32,7 @@ No convertir cada tarea en un ciclo de QA de horas.
 
 La IA debe leer, en este orden:
 
-1. `AGENTS.md`
+1. `CLAUDE.md`
 2. `PROJECT.md`
 3. `ROADMAP.md`
 4. `DECISIONS.md`

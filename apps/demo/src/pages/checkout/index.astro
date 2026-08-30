@@ -1,4 +1,5 @@
 ---
+import { anotar } from '../../lib/analytics.ts';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import { CheckoutForm } from '@pick/commerce-ui/checkout/CheckoutForm';
 import Base from '../../layouts/Base.astro';
@@ -18,6 +19,14 @@ const ETIQUETAS: Record<string, string> = {
 
 const formasDePago = await pagos();
 const metodos = formasDePago.enabled.map((id) => ({ id, label: ETIQUETAS[id] ?? id }));
+
+/*
+ * Llegar al checkout es el paso del embudo, y se cuenta por sesión: recargar o
+ * volver con el botón atrás no son dos intenciones de comprar. La deduplicación
+ * la hace el `count(distinct session_id)` del RPC, no una clave — que alguien
+ * vuelva al checkout dos días después sí es otra intención.
+ */
+anotar(Astro.locals, 'begin_checkout', Astro.url.pathname);
 ---
 
 <Base title="Checkout · Pick Demo" description="Confirmá tu pedido." noindex>

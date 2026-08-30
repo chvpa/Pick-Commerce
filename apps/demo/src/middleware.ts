@@ -1,6 +1,15 @@
 import { defineMiddleware } from 'astro:middleware';
 import { getSecret } from 'astro:env/server';
 import { drenarNotificaciones, enSegundoPlano } from './lib/notificaciones.ts';
+import {
+  COOKIE_DE_SESION,
+  MINUTOS_DE_SESION,
+  anotar,
+  cuentaComoVisita,
+  purgar,
+  tocaPurgar,
+  volcar,
+} from './lib/analytics.ts';
 
 /**
  * Falla legible cuando falta configuración.
@@ -50,6 +59,66 @@ function vaciarLaColaDeCorreos(locals: App.Locals): void {
   });
 }
 
+/**
+ * Abre o renueva la sesión anónima, y decide si esta petición se cuenta.
+ *
+ * Tres cosas que parecen detalles y no lo son:
+ *
+ * - **Sólo sobre HTML.** Astro adjunta las cookies al final de la cadena, así que
+ *   sin esta condición la de sesión viajaría también en el sitemap, que es la
+ *   única respuesta con `cache-control: public`. El día que haya dominio propio
+ *   con una regla de caché, un `anonymous_session_id` quedaría compartido entre
+ *   personas.
+ * - **Bots y precargas quedan afuera**, y sin sesión no se anota nada. Ver
+ *   `cuentaComoVisita`.
+ * - **Deslizante.** Se re-emite en cada visita, así que media hora sin moverse
+ *   cierra la sesión y volver empieza otra. Es la definición corriente de sesión
+ *   y el identificador menos persistente que permite calcular conversión
+ *   (PROJECT.md §23).
+ */
+function abrirSesion(context: Parameters<Parameters<typeof defineMiddleware>[0]>[0]): void {
+  if (!cuentaComoVisita(context.request)) return;
+
+  const existente = context.cookies.get(COOKIE_DE_SESION)?.value;
+  const sessionId = existente ?? crypto.randomUUID();
+  context.locals.sessionId = sessionId;
+
+  context.cookies.set(COOKIE_DE_SESION, sessionId, {
+    path: '/',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: MINUTOS_DE_SESION * 60,
+  });
+}
+
+/**
+ * Manda los eventos que juntó la petición, y cada tanto borra los viejos.
+ *
+ * Va con `waitUntil`, después de generar la respuesta: nadie espera por esto.
+ *
+ * El `catch` es propio y ruidoso a propósito. `enSegundoPlano` se traga los
+ * fallos, y acá eso sería lo peor posible: si el insert falla desde el primer
+ * despliegue —una FK mal puesta, un permiso— el sitio funciona perfecto y el
+ * panel queda vacío sin una sola señal de que algo está roto.
+ */
+function guardarLosEventos(locals: App.Locals): void {
+  void enSegundoPlano(
+    locals,
+    volcar(locals).catch((error: unknown) => {
+      console.error('[analytics] no se pudieron guardar los eventos', error);
+    }),
+  );
+
+  if (!tocaPurgar()) return;
+  void enSegundoPlano(
+    locals,
+    purgar().catch((error: unknown) => {
+      console.error('[analytics] falló la purga', error);
+    }),
+  );
+}
+
 function llego(nombre: string): boolean {
   try {
     return Boolean(getSecret(nombre));
@@ -68,7 +137,25 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const faltan = REQUERIDAS.filter((nombre) => !llego(nombre));
   if (faltan.length === 0) {
+    abrirSesion(context);
+
     const respuesta = await next();
+
+    /*
+     * La vista se anota **después** de generar la respuesta, no antes: sólo acá
+     * se sabe si esto terminó siendo HTML. Un `GET /llms.txt` o el sitemap no son
+     * páginas y no cuentan.
+     *
+     * `Astro.rewrite` vuelve a correr esta cadena dentro del mismo request —el
+     * PDP reescribe a `/404` cuando el handle no existe—, así que este bloque
+     * puede ejecutarse dos veces. `volcar` lo resuelve vaciando el buffer, que es
+     * lo que hace que el segundo pase no duplique nada.
+     */
+    if (respuesta.headers.get('content-type')?.startsWith('text/html')) {
+      anotar(context.locals, 'page_view', context.url.pathname);
+    }
+
+    guardarLosEventos(context.locals);
     vaciarLaColaDeCorreos(context.locals);
     return respuesta;
   }

@@ -11,13 +11,7 @@ import {
 import { formatMoney, percentageOf, subtractMoney } from '@pick/commerce-core';
 import { PercentIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Esqueleto,
-  PaginaAdmin,
-  SELECT,
-  Tarjeta,
-  TituloDeTarjeta,
-} from '@/components/pagina';
+import { Esqueleto, PaginaAdmin, SELECT, Tarjeta, TituloDeTarjeta } from '@/components/pagina';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,7 +26,6 @@ import {
   type FormularioPromocion as Valores,
   type PromocionValidada,
 } from './esquema';
-
 
 /**
  * Alta y edición de una promoción.

@@ -11,9 +11,15 @@ import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astr
 import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
 import ProductGrid from '@pick/commerce-astro/product/ProductGrid.astro';
 import SortSelect from '@pick/commerce-astro/catalog/SortSelect.astro';
-import { formatMoney, itemListJsonLd, type CatalogSort } from '@pick/commerce-core';
+import {
+  formatMoney,
+  itemListJsonLd,
+  normalizarTermino,
+  type CatalogSort,
+} from '@pick/commerce-core';
 import { seoContexto } from '../lib/store-config.ts';
 import { catalogo, facetasFiltrables, tiendaActual } from '../lib/db.ts';
+import { anotar } from '../lib/analytics.ts';
 import { ClientRouter } from 'astro:transitions';
 import Base from '../layouts/Base.astro';
 
@@ -77,6 +83,29 @@ const result = await catalogo().buscar(tienda.storeId, {
   ...(precioMin === undefined ? {} : { precioMin }),
   ...(precioMax === undefined ? {} : { precioMax }),
 });
+
+/*
+ * La búsqueda, y si no encontró nada.
+ *
+ * Sólo con texto: filtrar sin buscar no es una búsqueda, y contarlo mezclaría
+ * «nadie encontró esto» con «nadie tiene ese talle».
+ *
+ * El término se normaliza porque además forma la clave de deduplicación: esta
+ * página reenvía `q` en un campo oculto al cambiar de faceta, así que buscar una
+ * vez y tocar cinco filtros llegarían acá como cinco búsquedas. La clave las
+ * colapsa en una.
+ *
+ * Se anotan las dos cosas y no una sola con un booleano adentro: un término que
+ * aparece ocho veces y ocho sin resultados es un producto que la gente pide y la
+ * tienda no tiene, y eso se lee de una comparando las dos columnas.
+ */
+const termino = normalizarTermino(search);
+if (termino !== '') {
+  anotar(Astro.locals, 'search', url.pathname, { term: termino, results: result.total });
+  if (result.total === 0) {
+    anotar(Astro.locals, 'search_no_results', url.pathname, { term: termino });
+  }
+}
 
 /*
  * Tramos de precio sobre el mínimo y el máximo del catálogo entero —no del

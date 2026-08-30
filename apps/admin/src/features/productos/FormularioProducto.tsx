@@ -280,7 +280,11 @@ export function FormularioProducto({ id }: { id?: string }) {
           <EstadoVacio
             titulo="Este producto no existe en la tienda seleccionada"
             accion={
-              <Button size="lg" variant="outline" onClick={() => void navegar({ to: '/productos' })}>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => void navegar({ to: '/productos' })}
+              >
                 Volver a productos
               </Button>
             }
@@ -512,7 +516,12 @@ export function FormularioProducto({ id }: { id?: string }) {
                     <Input {...register(`media.${i}.height`)} inputMode="numeric" />
                   </Campo>
                   <div className="flex items-end">
-                    <Button type="button" variant="ghost" size="sm" onClick={() => medios.remove(i)}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => medios.remove(i)}
+                    >
                       Quitar
                     </Button>
                   </div>

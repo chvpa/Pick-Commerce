@@ -186,7 +186,10 @@ export function repositorioPromociones(db: PickSupabaseClient): RepositorioPromo
           .from('collection_products')
           .select('product_id')
           .in('collection_id', [...target.ids]);
-        consulta = consulta.in('id', (enColeccion ?? []).map((c) => c.product_id));
+        consulta = consulta.in(
+          'id',
+          (enColeccion ?? []).map((c) => c.product_id),
+        );
       }
 
       // Sólo hace falta un ejemplo; el count viene igual sobre el total.

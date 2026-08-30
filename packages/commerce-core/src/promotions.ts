@@ -361,7 +361,10 @@ export function aplicarAlCarrito(
 
   const lines = lineas.map((linea): LineaConPromociones => {
     const aplicables = deCatalogo.filter((p) => alcanza(p, linea));
-    const { amount: unitPrice, applied: enLaLinea } = aplicarCadena(linea.listUnitPrice, aplicables);
+    const { amount: unitPrice, applied: enLaLinea } = aplicarCadena(
+      linea.listUnitPrice,
+      aplicables,
+    );
 
     for (const a of enLaLinea) {
       applied.push({ ...a, amount: multiplyMoney(a.amount, linea.quantity) });

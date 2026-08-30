@@ -2,6 +2,21 @@
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import { CartView } from '@pick/commerce-ui/cart/CartView';
 import Base from '../layouts/Base.astro';
+
+/*
+ * On-demand aunque no lea nada de la base.
+ *
+ * Con Workers Assets, una página prerenderizada se sirve desde el disco **sin
+ * ejecutar el Worker**: no habría middleware, así que ni vista ni cookie de
+ * sesión. El carrito es el paso entre agregar y empezar el checkout, y un embudo
+ * con ese escalón en cero no se puede leer.
+ *
+ * Lo insidioso es que `astro dev` y `astro preview` sirven todo por SSR, así que
+ * el número aparecía en desarrollo y desaparecía al desplegar. `/politicas` y
+ * `/preguntas-frecuentes` siguen estáticas y quedan declaradamente fuera de la
+ * medición: no están en el embudo.
+ */
+export const prerender = false;
 ---
 
 <Base title="Carrito · Pick Demo" description="Los productos que agregaste a tu carrito." noindex>

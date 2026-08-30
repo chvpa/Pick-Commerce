@@ -198,8 +198,7 @@ test('un aviso con la firma adulterada no toca nada', async ({ page, request }) 
    */
   const corte = token.lastIndexOf('.');
   const firma = token.slice(corte + 1);
-  const adulterado =
-    `${token.slice(0, corte + 1)}${firma.startsWith('A') ? 'B' : 'A'}${firma.slice(1)}`;
+  const adulterado = `${token.slice(0, corte + 1)}${firma.startsWith('A') ? 'B' : 'A'}${firma.slice(1)}`;
   expect(adulterado, 'la adulteración no cambió el token').not.toBe(token);
   const respuesta = await request.post('/api/webhooks/pago', { data: { token: adulterado } });
   expect(respuesta.status()).toBe(403);

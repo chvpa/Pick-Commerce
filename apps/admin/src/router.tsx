@@ -40,6 +40,7 @@ function pantalla<P extends object>(
 }
 
 const Dashboard = pantalla(() => import('@/features/dashboard/Dashboard'), 'Dashboard');
+const Analytics = pantalla(() => import('@/features/analytics/Analytics'), 'Analytics');
 const ListaProductos = pantalla(
   () => import('@/features/productos/ListaProductos'),
   'ListaProductos',
@@ -413,6 +414,18 @@ const coleccionRoute = createRoute({
   },
 });
 
+/*
+ * Analytics se ve con sólo pertenecer a la organización, igual que Promociones:
+ * saber cuánta gente entró es información operativa, y no hay ningún permiso que
+ * distinga quién puede mirarla. ADR-056 dice no inventar permisos cuando ningún
+ * rol los distingue.
+ */
+const analyticsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/analytics',
+  component: Analytics,
+});
+
 const clientesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/clientes',
@@ -467,6 +480,7 @@ const arbol = rootRoute.addChildren([
   seccionRoute,
   coleccionNuevaRoute,
   coleccionRoute,
+  analyticsRoute,
   clientesRoute,
   clienteRoute,
   equipoRoute,

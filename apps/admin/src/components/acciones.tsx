@@ -127,7 +127,10 @@ export function DialogoDeConfirmacion({
         <AlertDialogTitle>{titulo}</AlertDialogTitle>
         <AlertDialogDescription>{descripcion}</AlertDialogDescription>
         <AlertDialogFooter>
-          <AlertDialogClose render={<Button type="button" variant="outline" />} disabled={pendiente}>
+          <AlertDialogClose
+            render={<Button type="button" variant="outline" />}
+            disabled={pendiente}
+          >
             Cancelar
           </AlertDialogClose>
           <Button

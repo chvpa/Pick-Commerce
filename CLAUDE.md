@@ -6,7 +6,7 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-**Fases 0 a 9 cerradas. Fase 10 (Analytics) por empezar.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+**Fases 0 a 9 cerradas. Fase 10 en curso: la Etapa A está hecha.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
@@ -31,6 +31,13 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
   CMS: la portada se compone por **secciones** ordenadas con su tipo —banner
   principal con slides, avisos, carruseles de productos, categorías— y cada
   carrusel es una colección, manual o dinámica (ADR-094, que corrige ADR-093).
+- **Fase 10, Etapa A** — analytics. Los ocho eventos del storefront se registran
+  **del lado del servidor**, sin una línea de JavaScript nueva: cada uno tiene un
+  momento en que el Worker ya está trabajando. Van a `store_events` detrás del
+  puerto `AnalyticsDestination`, que cierra P-003 en Postgres. La regla que
+  ordena todo: **los eventos aportan el denominador y `orders` aporta el
+  dinero**, así que la conversión coincide con la facturación por construcción
+  (ADR-099). Falta la Etapa B: export CSV, slow movers, unidades y margen.
 
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,
@@ -226,6 +233,8 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
 - El `fetch()` de un Worker **descarta el puerto no estándar** en producción —`host:3001` termina pidiendo el 443— y bloquea las IPs crudas por sus protecciones anti-SSRF. En local con Miniflare funciona, así que falla recién al desplegar. Por eso el importador del ERP es un script de Node (ADR-085).
 - La comprobación de origen de Astro rechaza todo POST de otro origen salvo con un `content-type` que no sea de formulario, y `no-cors` sólo puede mandar los tres que sí lo son: **ningún POST cross-origin del browser llega** sin montar CORS.
 - Una migración que dependa de una extensión o de un schema que PGlite no tenga —`pg_net`, `storage`— deja la suite de aislamiento sin arrancar. Va guardada con un `do` que compruebe que existe.
+- Con Workers Assets, una página **prerenderizada se sirve desde el disco sin ejecutar el Worker**: no corre el middleware. En `astro dev` y `astro preview` todo es SSR, así que lo que dependa del middleware se ve en desarrollo y desaparece al desplegar. Por eso `/carrito` es on-demand aunque no lea la base (ADR-099).
+- El `ClientRouter` **precarga todos los enlaces** al pasar el mouse por encima, y no hay que declarar nada para que pase: cada precarga es un GET real al Worker. Lo que cuente peticiones tiene que descartarlas por `Sec-Purpose` y `X-moz`.
 
 ---
 
@@ -233,13 +242,16 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
 
 Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes de trabajar:
 
-1. [AGENTS.md](AGENTS.md) — protocolo de trabajo con IA, reglas Core vs cliente, reglas UX.
-2. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
-3. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-4. [DECISIONS.md](DECISIONS.md) — ADR-001..066 + decisiones pendientes P-001..005.
-5. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.
-6. [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md) — cómo corre el proyecto: CI, Workers,
+1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
+2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..098 + decisiones pendientes P-001..005.
+4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.
+5. [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md) — cómo corre el proyecto: CI, Workers,
    entornos, credenciales y diagnóstico.
+
+El protocolo de trabajo con IA, las reglas Core vs cliente y las de UX viven en
+**este** archivo. Hubo un `AGENTS.md` con esa parte y se disolvió acá: tener dos
+documentos sobre lo mismo garantizaba que uno de los dos quedara viejo.
 
 Si el código contradice un documento, no asumir que el código gana: identificar si es bug, deuda o decisión nueva, y registrarlo.
 

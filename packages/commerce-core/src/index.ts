@@ -10,6 +10,7 @@ export * from './currency-config.ts';
 export * from './checkout.ts';
 export * from './orders.ts';
 export * from './dashboard.ts';
+export * from './analytics.ts';
 export * from './team.ts';
 export * from './payments.ts';
 export * from './notifications.ts';

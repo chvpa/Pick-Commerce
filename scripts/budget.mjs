@@ -67,7 +67,10 @@ function pesoGzip(archivos) {
 const ESPERADAS = [
   // 404 no está: se resuelve en el Worker porque el PDP reescribe a él cuando el
   // handle no existe, y una ruta on-demand no puede reescribir a una estática.
-  'carrito/index.html',
+  //
+  // El carrito tampoco, desde la Fase 10: con Workers Assets una página en disco
+  // se sirve sin ejecutar el Worker, así que no habría ni vista ni sesión, y el
+  // carrito es el paso entre agregar y empezar el checkout.
   'politicas/index.html',
   'preguntas-frecuentes/index.html',
 ];
