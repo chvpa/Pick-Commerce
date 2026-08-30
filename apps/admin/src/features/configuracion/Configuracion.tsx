@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { repositorioConfiguracion } from '@pick/adapter-supabase';
+import { repositorioConfiguracion, repositorioCredencialDeIA } from '@pick/adapter-supabase';
 import {
+  MODELOS,
+  MODELO_POR_DEFECTO,
   actualizarTasa,
   configuracionDeMoneda,
   configuracionDePagos,
@@ -12,7 +14,7 @@ import {
 import type { TiendaResumen } from '@pick/commerce-core';
 import { Button } from '@/components/ui/button';
 import { SettingsIcon } from 'lucide-react';
-import { EstadoDeError, PaginaAdmin, Tarjeta } from '@/components/pagina';
+import { EstadoDeError, PaginaAdmin, SELECT, Tarjeta } from '@/components/pagina';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useSesion } from '@/features/auth/SesionContext';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
+import { guardarCredencial, probarCredencial } from '@/lib/ia';
 
 type Settings = Readonly<Record<string, unknown>>;
 
@@ -112,6 +115,13 @@ export function Configuracion() {
       >
         <Moneda settings={consulta.data} tienda={tienda} guardado={guardado} />
       </Seccion>
+
+      <Seccion
+        titulo="Inteligencia artificial"
+        descripcion="Tu clave de OpenAI, para que el Admin pueda proponer fichas de producto."
+      >
+        <InteligenciaArtificial tienda={tienda} />
+      </Seccion>
     </Envoltura>
   );
 }
@@ -122,7 +132,7 @@ function Envoltura({ tienda, children }: { tienda: TiendaResumen; children: Reac
     <PaginaAdmin
       titulo="Configuración"
       icono={SettingsIcon}
-      descripcion={`Cómo cobra y en qué moneda opera ${tienda.name}.`}
+      descripcion={`Cómo cobra, en qué moneda opera y con qué IA trabaja ${tienda.name}.`}
     >
       {children}
     </PaginaAdmin>
@@ -350,6 +360,182 @@ function Moneda({
       {error && (
         <p className="text-destructive text-sm" role="alert">
           {error}
+        </p>
+      )}
+    </form>
+  );
+}
+
+/**
+ * La credencial de OpenAI de la tienda (BYOK).
+ *
+ * La key **es del comercio**: la carga acá, se cifra del lado del servidor y no
+ * vuelve nunca. De ella sólo se vuelven a ver los últimos cuatro caracteres, que
+ * alcanzan para reconocer cuál está puesta.
+ *
+ * Tres botones y tres caminos distintos a propósito:
+ *
+ * - **Guardar** pasa por el Worker, que es el único que tiene la clave maestra.
+ *   Prueba la credencial antes de guardarla: una que no sirve guardada sería una
+ *   pantalla que dice «configurada» y un botón que falla siempre.
+ * - **Probar** vuelve a preguntarle a OpenAI por la que ya está. Una key se
+ *   revoca del otro lado sin avisar.
+ * - **Quitar** va directo por RPC: borrar no necesita descifrar nada, y una ruta
+ *   de servidor que no toca el secreto sería una capa de más.
+ */
+function InteligenciaArtificial({ tienda }: { tienda: TiendaResumen }) {
+  const cliente = useQueryClient();
+  const [apiKey, setApiKey] = useState('');
+  const [modelo, setModelo] = useState<string>(MODELO_POR_DEFECTO);
+  const [aviso, setAviso] = useState('');
+
+  const clave = ['credencial-ia', tienda.id];
+
+  const consulta = useQuery({
+    queryKey: clave,
+    queryFn: () => repositorioCredencialDeIA(db).estado(tienda.id),
+  });
+
+  // El modelo guardado manda sobre el estado local, pero sólo hasta que alguien
+  // toca el select: sembrarlo en un efecto haría que la elección se revirtiera
+  // sola cuando vuelve una consulta de fondo.
+  const [tocado, setTocado] = useState(false);
+  const modeloActual = tocado ? modelo : (consulta.data?.model ?? MODELO_POR_DEFECTO);
+
+  function alTerminar(mensaje: string) {
+    return () => {
+      setAviso(mensaje);
+      setApiKey('');
+      void cliente.invalidateQueries({ queryKey: clave });
+    };
+  }
+
+  const guardar = useMutation({
+    mutationFn: () => guardarCredencial(tienda.id, apiKey, modeloActual),
+    onSuccess: alTerminar('Credencial guardada y verificada.'),
+  });
+
+  const probar = useMutation({
+    mutationFn: () => probarCredencial(tienda.id),
+    onSuccess: () => setAviso('La credencial funciona.'),
+  });
+
+  const quitar = useMutation({
+    mutationFn: () => repositorioCredencialDeIA(db).quitar(tienda.id),
+    onSuccess: alTerminar('Credencial quitada.'),
+  });
+
+  const trabajando = guardar.isPending || probar.isPending || quitar.isPending;
+  const fallo = (guardar.error ?? probar.error ?? quitar.error) as Error | null;
+
+  if (consulta.isError) {
+    return (
+      <EstadoDeError
+        titulo="No se pudo leer la configuración de IA"
+        error={consulta.error as Error}
+        onReintentar={() => void consulta.refetch()}
+      />
+    );
+  }
+
+  const estado = consulta.data;
+
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setAviso('');
+        guardar.mutate();
+      }}
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="openai-key">Clave de OpenAI</Label>
+        <Input
+          id="openai-key"
+          type="password"
+          autoComplete="off"
+          value={apiKey}
+          disabled={trabajando}
+          onChange={(e) => setApiKey(e.currentTarget.value)}
+          placeholder={
+            estado?.configured ? `Guardada, termina en ····${estado.last4}` : 'sk-proj-…'
+          }
+        />
+        <p className="text-muted-foreground text-xs">
+          {estado?.configured
+            ? 'Escribí una nueva para reemplazarla. La que está guardada no se puede volver a ver.'
+            : 'Se guarda cifrada en el servidor y nunca llega al navegador. La cuenta y el consumo son tuyos.'}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="openai-modelo">Modelo</Label>
+        <select
+          id="openai-modelo"
+          className={SELECT}
+          value={modeloActual}
+          disabled={trabajando}
+          onChange={(e) => {
+            setTocado(true);
+            setModelo(e.currentTarget.value);
+          }}
+        >
+          {MODELOS.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.nombre} — {m.nota}
+            </option>
+          ))}
+        </select>
+        <p className="text-muted-foreground text-xs">
+          Cambiar de modelo sólo tiene efecto si guardás de nuevo la credencial.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="submit" size="sm" disabled={trabajando || apiKey.trim() === ''}>
+          {guardar.isPending ? 'Verificando…' : 'Guardar'}
+        </Button>
+
+        {estado?.configured && (
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={trabajando}
+              onClick={() => {
+                setAviso('');
+                probar.mutate();
+              }}
+            >
+              {probar.isPending ? 'Probando…' : 'Probar conexión'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={trabajando}
+              onClick={() => {
+                setAviso('');
+                quitar.mutate();
+              }}
+            >
+              {quitar.isPending ? 'Quitando…' : 'Quitar'}
+            </Button>
+          </>
+        )}
+
+        {aviso && !trabajando && (
+          <span className="text-muted-foreground text-sm" role="status">
+            {aviso}
+          </span>
+        )}
+      </div>
+
+      {fallo && (
+        <p className="text-destructive text-sm" role="alert">
+          {fallo.message}
         </p>
       )}
     </form>

@@ -4251,3 +4251,228 @@ ajeno existe justamente porque ese filtro no lo cubre nada más.
 **Un fallo al leer los avisos no tapa el pedido.** Si el RPC falla, la lista viene
 vacía y la venta se abre igual: no saber si el correo salió es malo, no poder ver
 el pedido es peor.
+
+---
+
+## ADR-103 — El Admin gana un Worker, y existe sólo donde hace falta un secreto
+
+**Fecha:** 2026-08-30
+**Estado:** Accepted
+
+**Contexto**
+ADR-068 dejó esto anotado y sin resolver: «invitar por correo desde la interfaz
+exigiría una superficie de servidor propia del Admin —hoy no existe— y eso es un
+ADR aparte». La Fase 11 lo obliga. BYOK guarda la clave de OpenAI de cada
+comercio cifrada, y descifrarla en el navegador sería no cifrarla.
+
+**El Worker va en el Admin, no en el storefront**
+`apps/admin/wrangler.jsonc` suma un `main` y un `run_worker_first` acotado a
+`/api/`, sobre el `assets` que ya tenía. Verificado contra la documentación de
+Cloudflare y después **contra el sitio desplegado**: esas rutas ejecutan el
+Worker y todo lo demás sigue cayendo en el `index.html` del SPA.
+
+Las dos alternativas se descartaron por lo mismo, el radio de daño:
+
+- **Una ruta en el Worker del storefront** era el diff más chico —cero
+  infraestructura nueva— pero es cross-origin, así que exige montar CORS, y sobre
+  todo pone la clave maestra de descifrado en el Worker público de más tráfico,
+  que hoy no tiene un solo secreto de administración.
+- **Una Edge Function de Supabase** corre en Deno, y los paquetes `@pick/*` se
+  consumen como fuente TypeScript sin build (ADR-029). El filtro de campos
+  prohibidos y el armado del prompt habría que duplicarlos o construirlos aparte,
+  y dejarían de correr bajo `pnpm test`. Es el argumento decisivo: la regla que
+  impide que la IA invente un precio no puede vivir en una copia.
+
+**El Worker no tiene la secret key de Supabase, y no la va a tener**
+Toma el `Authorization` de quien llamó y arma `clienteDeUsuario` con esa
+identidad. Las funciones `ai_credential_*` son `security definer` y verifican
+`settings.write` por su cuenta, así que **la autorización sigue estando en
+Postgres**, que es donde está la del resto del Admin. El corolario es el que
+importa: un agujero en este código no da acceso a la base más allá del que ya
+tenía quien llamó.
+
+Su único secreto propio es la clave maestra de cifrado.
+
+**Sólo tres rutas, y las tres necesitan esa clave**
+Leer si hay credencial y quitarla van directo por RPC desde el browser, como todo
+lo demás del Admin. La regla queda enunciada para la próxima ruta que alguien
+quiera agregar: **si no necesita la clave maestra, no va acá.** Sin ese criterio,
+un servidor recién creado se llena de proxies que sólo agregan un salto.
+
+**Dos runtimes, un handler**
+En producción y en el e2e lo ejecuta workerd; en `pnpm dev` lo monta un plugin de
+Vite de quince líneas que llama a **la misma función** `manejar`. No hay dos
+implementaciones que puedan divergir, sólo dos runtimes, y el handler usa nada
+más que APIs web estándar. Sin el plugin, una ruta nueva daría 404 en desarrollo
+y andaría al desplegar — la divergencia al revés de la habitual, y por eso más
+difícil de notar.
+
+**El e2e del Admin pasó a `wrangler dev`**
+Servía `dist` con `vite preview`, que no ejecuta ningún Worker: una ruta bajo
+`/api/` habría dado 404 y los tests habrían pasado en verde sin probar nada. Es
+además lo que el propio comentario de `playwright.config.ts` argumenta para el
+storefront —correr contra el artefacto que se despliega— y de lo que el Admin era
+la única excepción.
+
+**Lo que el e2e no cubre, medido y no supuesto:** quitar `run_worker_first` deja
+la suite en verde, porque `wrangler dev` ejecuta el Worker para una ruta sin
+asset la declare o no. Esa configuración se verifica desplegando y pidiéndole una
+ruta `/api/` al sitio real. Está escrito en el spec para que nadie lea el verde
+como una garantía que no da.
+
+---
+
+## ADR-104 — La IA propone; aplicar y guardar es de la persona
+
+**Fecha:** 2026-08-30
+**Estado:** Accepted
+
+**Contexto**
+El ROADMAP pide «human review antes de datos dudosos» y «prohibir inventar datos
+críticos». La forma habitual de cumplirlo es una pantalla de aprobación, con su
+estado intermedio, su cola y su permiso.
+
+**No hay ninguna escritura nueva**
+El enriquecimiento devuelve una propuesta al navegador y cada campo tiene su
+«Usar», que es un `setValue` sobre el formulario que ya existía. Guardar sigue
+siendo el botón de siempre, con `admin_save_product`. La revisión humana no es
+una etapa del flujo: **es que no existe ningún camino por el que un dato
+propuesto llegue a la base sin que alguien lo haya mirado y apretado.** Una
+pantalla de aprobación habría agregado un estado que hay que mantener para
+garantizar lo que la ausencia de escritura ya garantiza.
+
+**Lo que no se propone, no se pide**
+Los campos prohibidos —SKU, código de barras, stock, costo, precio, impuestos— no
+están en el esquema de la respuesta, y en modo estricto la API no puede devolver
+lo que el esquema no declara. La prohibición vive en el contrato y no en un
+pedido dentro del prompt, que es una sugerencia.
+
+Aun así el servidor recorta la respuesta a los campos permitidos, y el atributo
+libre se filtra con el mismo criterio: `attributes` admite cualquier par, así que
+un «Precio: 90.000» ahí adentro terminaría en la ficha igual. Es la puerta de
+atrás del esquema estricto, y tiene su test.
+
+Que el filtro sea redundante es el punto: **es lo que hace la regla
+verificable.** El test le mete un precio y afirma que sale sin él. Sin eso,
+«prohibir inventar datos críticos» es una frase en un ROADMAP.
+
+**La categoría se resuelve contra las que existen**
+El modelo devuelve un nombre y el servidor lo busca entre las categorías de la
+tienda; sin coincidencia, la propuesta sale sin categoría. Una inventada no rompe
+nada al proponerse, pero el operador la aplicaría creyendo que existe y el
+producto quedaría sin clasificar — peor que verlo vacío, porque parece resuelto.
+
+La comparación es por `slugify`, el mismo normalizador que ya usa el catálogo
+para el handle, así que «Calzado Deportivo» y «calzado  deportivo» son el mismo
+nombre acá y allá.
+
+**El ERP conserva autoridad también frente a la IA**
+Un campo que administra el ERP se muestra en la propuesta pero **no se puede
+aplicar**. En el formulario está deshabilitado, pero un `setValue` lo cambiaría
+igual y el producto se guardaría con un valor que nadie escribió y que el próximo
+sync pisa sin avisar. Es el mismo argumento de ADR-056, ahora con un actor nuevo.
+
+**Se enriquece lo que está en pantalla**
+El borrador viaja en el cuerpo del pedido en vez de leerse de la base: incluye los
+cambios sin guardar, que es lo que el operador está mirando, y ahorra una
+consulta. No hay riesgo de autorización en eso — lo único que el servidor decide
+por su cuenta es si esta persona puede usar la credencial de esta tienda, y eso
+lo decide el RPC.
+
+**Los atributos son de la variante, y las fotos del producto**
+Así que la correspondencia no es automática: la elige quien mira, con un selector
+que sólo aparece si hay más de una variante. Y se **suman** a los que ya están en
+vez de reemplazarlos, porque la IA mira una foto y no sabe el talle.
+
+**Visión sobre las fotos que ya están**
+El bucket `product-media` es público (ADR-082), así que las URLs se le pasan a
+OpenAI tal cual, sin firmar nada. Tope de tres imágenes: la cuarta son ángulos
+del mismo objeto y la paga el comercio. Si algún día el bucket se vuelve privado,
+OpenAI recibe un 403 y la sugerencia empeora **en silencio**; queda dicho en el
+adapter, que es donde se va a leer.
+
+**Tags y SEO quedan afuera porque no tienen dónde caer.** `products` no tiene esas
+columnas, y agregarlas para llenar un campo que nadie lee sería una migración
+inventada: el SEO ya se deriva del título y la descripción, así que enriquecer
+esos dos lo enriquece por construcción.
+
+---
+
+## ADR-105 — La credencial de IA se cifra contra una filtración de la base, y eso es todo lo que promete
+
+**Fecha:** 2026-08-30
+**Estado:** Accepted
+
+**Contexto**
+BYOK: la clave de OpenAI es del comercio (PROJECT.md §25). Se guarda cifrada con
+AES-GCM y la clave maestra vive sólo en el Worker del Admin, así que la tabla
+entera no alcanza para usar la credencial de nadie.
+
+**Qué protege, dicho sin adornos**
+Una **filtración de la base**: un dump, un backup mal guardado, una política de
+RLS rota. **No** protege del propio dueño del comercio, que es quien cargó la
+clave y puede volver a pedir el ciphertext con el permiso que ya tiene. Decirlo
+importa: un ADR que insinúe más de lo que da hace que alguien apoye una decisión
+futura en una garantía que no existe, y ya pasó acá (ADR-032).
+
+**Tabla propia, sin ninguna política**
+No va en `store_settings`, que tiene política de lectura para todo miembro de la
+organización: un `viewer` leería el ciphertext. Va en `ai_credentials` con el
+molde de `notification_outbox` —RLS activa y ninguna política— y todo pasa por
+tres funciones `security definer`.
+
+**Tres funciones y no una con bandera**
+`ai_credential_status` devuelve si hay credencial, en qué termina y con qué
+modelo. `ai_credential_secret` devuelve el ciphertext. `admin_save_ai_credential`
+guarda o borra. Un parámetro que decidiera si devolver el secreto es exactamente
+la forma en que un día se devuelve el secreto: alcanza con una llamada que lo
+pase mal. Las tres verifican `settings.write` en su primera línea, y el test del
+comercio ajeno está tres veces porque cada `security definer` tiene su guarda y
+equivocarse en una no rompe las otras dos.
+
+**El iv va adentro del paquete**
+Doce bytes al frente del ciphertext, todo en una columna. Con dos columnas hay
+dos formas de que queden desparejas —una migración que copia una y no la otra, un
+update parcial— y ninguna falla ruidosamente.
+
+**GCM y no CBC** porque autentica: un ciphertext adulterado lanza en vez de
+descifrar a basura. Tiene su test, y corrió también dentro de workerd: el cifrado
+nunca se había ejecutado ahí y `crypto.subtle` es lo único de este módulo que
+podía comportarse distinto entre runtimes.
+
+**Sin versión de clave.** Rotar la maestra invalida lo guardado y hay que volver a
+cargar las credenciales a mano. Es una decisión: hoy no hay ninguna en
+producción, y una columna de versión sin nada que versionar es la abstracción que
+la regla anti-overengineering desaconseja. Queda anotado en el código y en
+INFRAESTRUCTURA, que es donde lo va a buscar quien rote.
+
+**Guardar audita, y la auditoría no lleva el secreto**
+En la misma transacción, por el criterio de ADR-069: cambiar la credencial de IA
+de un comercio es un evento de seguridad. Registra qué pasó, quién y los últimos
+cuatro caracteres — que alcanzan para reconocer cuál se cambió y para nada más.
+
+**Se prueba antes de guardar**
+El Worker le pide la lista de modelos a OpenAI —que no consume tokens— y sólo
+entonces cifra y guarda. Una credencial que no sirve guardada sería una pantalla
+que dice «configurada» y un botón que falla siempre. El botón de «Probar
+conexión» queda igual para después: una clave se revoca del otro lado sin avisar.
+
+**Dos clases de error, tratadas distinto**
+Lo que dice OpenAI se le muestra al operador —es su cuenta y su factura, y
+«rechazó la credencial» es lo que necesita para resolverlo—; lo que dice Postgres
+queda en el log, porque publica nombres de tablas y no le sirve a nadie del otro
+lado. Es la diferencia con el storefront, donde el mensaje del adapter nunca sale
+porque lo leería un comprador.
+
+Y un caso aparte: un JWT que la base rechaza sale como 401 «volvé a iniciar
+sesión» y no como «probá de nuevo». Se descubrió probando el Worker contra la
+base real, no leyendo el código, y sin eso una sesión vencida dejaba al Admin
+repitiendo un botón que nunca iba a andar. Se distingue por el código de
+PostgREST y no por el texto del mensaje, que cambia según el motivo y está en
+inglés.
+
+**El modelo lo elige el comercio**
+Tres opciones con su precio a la vista, porque el que paga es él. Un modelo
+guardado que ya no esté en la lista **no** cae al de por defecto: la llamada
+falla diciendo que hay que elegir otro. Cambiarle el modelo a alguien sin avisar
+es cambiarle la factura.

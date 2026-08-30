@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
+import { PID_DEL_ADMIN } from './global-setup.ts';
 
 export default function teardown(): void {
   try {
@@ -16,9 +17,29 @@ export default function teardown(): void {
    */
   rmSync('apps/demo/dist/server/.dev.vars', { force: true });
 
-  // El preview del Admin se lanzó suelto —`vite preview` no tiene bandera de
-  // segundo plano— y se mata por puerto, que es lo único que se conoce con
-  // certeza desde acá.
+  /*
+   * El Worker del Admin, con su árbol.
+   *
+   * Matar por puerto alcanzaba con `vite preview`, que era un solo proceso. Con
+   * `wrangler dev` hay dos —node y el workerd que lanza— y el segundo sobrevive
+   * al primero: se queda con el 4322 y hace que la corrida siguiente falle
+   * esperando un servidor que ya está escuchando, pero con el código viejo.
+   */
+  try {
+    const pid = readFileSync(PID_DEL_ADMIN, 'utf8').trim();
+    if (pid) {
+      execSync(
+        process.platform === 'win32' ? `taskkill /PID ${pid} /T /F` : `kill -- -${pid}`,
+        { stdio: 'ignore' },
+      );
+    }
+  } catch {
+    // Sin archivo de pid, o el proceso ya no está.
+  }
+
+  rmSync(PID_DEL_ADMIN, { force: true });
+  rmSync('apps/admin/.dev.vars', { force: true });
+
   try {
     execSync('npx --yes kill-port 4322', { stdio: 'ignore' });
   } catch {

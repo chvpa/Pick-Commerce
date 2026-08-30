@@ -151,7 +151,7 @@ tiene disco, ni `process.env`, ni Node completo —de ahí el
 | Worker          | App          | Qué sirve                                                                       | Estado                                                     |
 | --------------- | ------------ | ------------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | `pick-commerce` | `apps/demo`  | El storefront. Mezcla páginas estáticas y páginas que se arman en cada petición | En línea: https://pick-commerce.chvpa-contacto.workers.dev |
-| `pick-admin`    | `apps/admin` | El Admin, que es una SPA: sólo archivos estáticos, sin código de servidor       | **Todavía no desplegado**                                  |
+| `pick-admin`    | `apps/admin` | El Admin: una SPA de archivos estáticos **más** un Worker que atiende `/api/*` | En línea: https://pick-admin.chvpa-contacto.workers.dev    |
 
 El nombre lo declara `wrangler.jsonc` de cada app y **tiene que coincidir con el
 Worker que ya existe** en Cloudflare. Con otro nombre, un deploy no actualiza el
@@ -381,6 +381,44 @@ romper, así que un despliegue sin ellos sigue vendiendo.
 Cargar `PAYMENT_WEBHOOK_SECRET` con un valor largo y aleatorio: es lo que firma
 los avisos de pago, y quien lo tenga puede marcar pedidos como pagados.
 
+### Secretos del Worker del Admin, que trajo la Fase 11
+
+El Admin dejó de ser sólo assets. Desde la Fase 11 su `wrangler.jsonc` declara un
+`main` y un `run_worker_first: ["/api/*"]`: las rutas bajo `/api/` ejecutan el
+Worker y **todo lo demás** se sigue sirviendo como archivo estático, con el
+fallback a `index.html` que necesita el router del SPA.
+
+Existe por una sola razón: BYOK. La clave de OpenAI de cada comercio se guarda
+cifrada, y descifrarla en el navegador sería no cifrarla.
+
+| Variable                   | Qué es                                                     |
+| -------------------------- | ---------------------------------------------------------- |
+| `SUPABASE_URL`             | La misma del storefront. La usa para llamar a los RPC.     |
+| `SUPABASE_PUBLISHABLE_KEY` | La pública. **No** lleva la secret key: no la necesita.    |
+| `PICK_AI_MASTER_KEY`       | 32 bytes en base64. Con lo que cifra las credenciales.     |
+
+Los tres son de **runtime**, no de build. Sin alguno, las rutas `/api/*`
+responden 503 nombrando cuál falta y el resto del Admin funciona igual: sin IA,
+que es exactamente lo que tiene que pasar en un comercio que no la usa.
+
+```bash
+# Generar la clave maestra. Una por entorno, y guardarla: perderla es perder
+# todas las credenciales guardadas, que habría que volver a cargar a mano.
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+# Cargarla, junto con las otras dos.
+pnpm --filter @pick/admin exec wrangler secret put PICK_AI_MASTER_KEY
+```
+
+En local salen de `apps/admin/.dev.vars` —junto al `wrangler.jsonc`, como el del
+storefront— y en `pnpm dev` del `.env` de la raíz, que es de donde las lee el
+plugin de Vite que monta el mismo handler dentro del dev server.
+
+**Rotar la clave maestra invalida lo guardado.** No hay versión de clave: las
+credenciales cifradas con la anterior dejan de abrirse y hay que volver a
+cargarlas desde la pantalla de Configuración. Es una decisión, no un olvido
+(ADR-105).
+
 ### Correos: el techo del sandbox
 
 Sin un dominio verificado, **Resend sólo entrega a la casilla del dueño de la
@@ -477,7 +515,7 @@ pegan directo contra la base real y no esperan a ningún push.
   Builds: cada cambio necesita `pnpm --filter @pick/admin run deploy`. Para
   automatizarlo hace falta un segundo proyecto con `VITE_SUPABASE_URL` y
   `VITE_SUPABASE_PUBLISHABLE_KEY` como variables de **build**, porque el Admin
-  las hornea al construir.
+  las hornea al construir — y ahora además sus tres secretos de runtime.
 - **El CI no bloquea el deploy** (§4).
 - **No hay gateway de pago real.** El contrato existe y hay una pasarela simulada
   declarada como tal; falta elegir proveedor y conseguir credenciales (P-001).

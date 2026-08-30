@@ -6,7 +6,7 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-**Fases 0 a 10 cerradas. Fase 11 (OpenAI) por empezar.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+**Fases 0 a 11 cerradas. Fase 12 (demo y piloto) por empezar.** El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
@@ -44,6 +44,15 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
   parece excelente (ADR-101). «Lo más vendido» pasó a ser «Ventas por producto»:
   tabla paginada, dos modos —lo que se vendió y lo que no se movió— y export CSV.
   Y un aviso que no salió deja de perderse: se ve en el pedido (ADR-102).
+- **Fase 11** — OpenAI. BYOK: la clave es del comercio, se guarda cifrada con
+  AES-GCM y **nunca vuelve al navegador**. Para eso el Admin dejó de ser sólo
+  assets y tiene un Worker propio en `/api/*` —el que ADR-068 había diferido—,
+  que existe **sólo donde hace falta la clave maestra**: lo que no la necesita
+  sigue yendo por RPC. El enriquecimiento de producto **no escribe nada**:
+  propone título, descripción, marca, categoría y atributos mirando también las
+  fotos, y cada campo se aplica a mano (ADR-104). Lo que no puede saber —precio,
+  stock, SKU, costo— no está en el esquema de la respuesta, así que la API no lo
+  puede devolver. Quedan afuera la búsqueda con LLM y el resumen de analytics.
 
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,
@@ -59,8 +68,10 @@ packages/
   adapter-resend/    envío de correos transaccionales
   adapter-payment-simulated/  pasarela de prueba; el contrato vive en el core
   adapter-erp-estilosport/    Oracle ORDS tras un proxy; corre en Node, no en el Worker
+  adapter-openai/    Responses API por fetch, sin SDK; el puerto vive en el core
 apps/
   admin/             React 19 + Vite 8 + Tailwind v4 + shadcn sobre Base UI
+                     + `worker/`: las rutas /api/* que necesitan un secreto
   demo/              Astro 7 + Preact islands + Tailwind v4 + adapter Cloudflare
 supabase/            migraciones y pruebas de aislamiento entre tenants
 e2e/                 Playwright: storefront, Admin y presupuesto de performance
@@ -90,6 +101,11 @@ pnpm admin:crear <email> <password> [rol] [org]   # usuario del Admin; sin org, 
 ```
 
 Deploy: `pnpm --filter <app> run deploy`. El `run` **no es opcional** — `deploy` es un comando built-in de pnpm y sin `run` nunca llega al script del paquete.
+
+El Worker del Admin necesita tres secretos de runtime —`SUPABASE_URL`,
+`SUPABASE_PUBLISHABLE_KEY` y `PICK_AI_MASTER_KEY`—; sin alguno, sus rutas `/api/*`
+responden 503 nombrando cuál falta y el resto del Admin funciona igual, sin IA.
+Ver INFRAESTRUCTURA §7.
 
 Supabase se opera por CLI/API con las credenciales de `.env`, nunca por MCP: ese servidor está reservado a otro proyecto y no ve éste. Las migraciones se aplican con la API de Management, que sólo necesita `SUPABASE_ACCESS_TOKEN`.
 
@@ -240,6 +256,7 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
 - La comprobación de origen de Astro rechaza todo POST de otro origen salvo con un `content-type` que no sea de formulario, y `no-cors` sólo puede mandar los tres que sí lo son: **ningún POST cross-origin del browser llega** sin montar CORS.
 - Una migración que dependa de una extensión o de un schema que PGlite no tenga —`pg_net`, `storage`— deja la suite de aislamiento sin arrancar. Va guardada con un `do` que compruebe que existe.
 - Con Workers Assets, una página **prerenderizada se sirve desde el disco sin ejecutar el Worker**: no corre el middleware. En `astro dev` y `astro preview` todo es SSR, así que lo que dependa del middleware se ve en desarrollo y desaparece al desplegar. Por eso `/carrito` es on-demand aunque no lea la base (ADR-099).
+- Un Worker con `assets` sirve el archivo antes que el código: para que una ruta llegue al Worker hay que declararla en `run_worker_first`. **`wrangler dev` no lo respeta** —ejecuta el Worker para cualquier ruta sin asset, esté declarada o no— así que un `run_worker_first` faltante pasa el e2e en verde y falla recién al desplegar. Medido quitándolo (ADR-103).
 - El `ClientRouter` **precarga todos los enlaces** al pasar el mouse por encima, y no hay que declarar nada para que pase: cada precarga es un GET real al Worker. Lo que cuente peticiones tiene que descartarlas por `Sec-Purpose` y `X-moz`.
 
 ---

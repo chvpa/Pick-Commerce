@@ -20,7 +20,7 @@
 
 | Versión | Objetivo                                    |      Estado | Avance |
 | ------- | ------------------------------------------- | ----------: | -----: |
-| v1      | Commerce Core vendible + primer piloto real | IN PROGRESS |    85% |
+| v1      | Commerce Core vendible + primer piloto real | IN PROGRESS |    92% |
 | v2      | Operación avanzada, AI Commerce y escala    |        TODO |     0% |
 | v3      | MCP, intelligence layer y expansión LATAM   |        TODO |     0% |
 
@@ -505,26 +505,43 @@ Objetivo: métricas comerciales esenciales.
 
 ## Fase 11 — OpenAI v1
 
-**Avance: 0%**
+**Avance: 100%**
 
 Objetivo: AI útil sin volverla requisito del ecommerce.
 
-- [ ] BYOK OpenAI por tenant.
-- [ ] Storage cifrado de API key.
-- [ ] Test connection.
-- [ ] AI enrichment de producto.
-- [ ] OCR/vision de etiqueta cuando corresponda.
-- [ ] Generación de nombre/description/category/attributes.
-- [ ] Human review antes de datos dudosos.
-- [ ] Prohibir inventar datos críticos.
-- [ ] Search query understanding básico.
-- [ ] AI summary de analytics opcional.
+- [x] BYOK OpenAI por tenant. Tabla `ai_credentials` sin ninguna política, con
+      tres funciones `security definer` que verifican `settings.write` (ADR-105).
+- [x] Storage cifrado de API key. AES-GCM en el Worker del Admin, que existe
+      desde esta fase y sólo para esto (ADR-103). El cifrado protege contra una
+      filtración de la base y **no** contra el dueño del comercio; está dicho.
+- [x] Test connection. Al guardar y a pedido: una clave se revoca del otro lado
+      sin avisar. Usa el listado de modelos, que no consume tokens.
+- [x] AI enrichment de producto.
+- [x] OCR/vision de etiqueta cuando corresponda. Sobre las fotos que el producto
+      **ya tiene**, que están en un bucket público. El flujo de cámara a ficha
+      del AI Product Studio (PROJECT.md §20) es otra cosa y es posterior.
+- [x] Generación de nombre/description/category/attributes. Tags y SEO no: no
+      tienen columna, y el SEO ya se deriva del título y la descripción.
+- [x] Human review antes de datos dudosos. Por construcción: el enriquecimiento
+      **no escribe nada**, propone y cada campo se aplica a mano (ADR-104).
+- [x] Prohibir inventar datos críticos. El esquema estricto no los declara, el
+      servidor recorta igual, y el atributo libre se filtra con el mismo
+      criterio — que es la puerta de atrás. Con su test.
+- [-] Search query understanding básico. PROJECT.md §21 dice explícitamente «no
+      usar un LLM completo para cada búsqueda»; además pondría un viaje a OpenAI
+      en el camino crítico de la PLP, que tiene presupuesto de performance, y
+      obligaría a que el storefront también pudiera descifrar la credencial.
+- [-] AI summary de analytics opcional. El propio ROADMAP lo marca opcional. Se
+      difiere entero en vez de a medias.
 
 **Definition of Done**
 
-- un tenant sin OpenAI sigue funcionando normalmente
-- un tenant con key puede enriquecer un producto
-- secrets no aparecen en frontend/logs
+- [x] un tenant sin OpenAI sigue funcionando normalmente — con su e2e: el botón
+      está, explica qué falta y enlaza a Configuración
+- [x] un tenant con key puede enriquecer un producto
+- [x] secrets no aparecen en frontend/logs — la key nunca vuelve al navegador y
+      de ella sólo se muestran cuatro caracteres; la auditoría registra qué pasó
+      y nunca el ciphertext
 
 ---
 
@@ -878,6 +895,11 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 
 ---
 
+| 2026-08-30 | El e2e del Admin corría sobre `vite preview`, no sobre el artefacto que se despliega | Servía `dist` estático, así que ninguna ruta de servidor existía en la corrida. Iba al revés de lo que argumenta el propio comentario de `playwright.config.ts` para el storefront, y estuvo así desde que el Admin tuvo e2e | Resuelto: pasa a `wrangler dev`, que es workerd. El teardown mata el árbol de procesos y no sólo el puerto, porque el workerd huérfano se queda con el 4322 y rompe la corrida siguiente por un motivo que no se parece a la causa. ADR-103 | Fase 11 | Resuelto |
+| 2026-08-30 | El e2e no puede detectar un `run_worker_first` mal configurado | Medido quitándolo: la suite siguió en verde. `wrangler dev` ejecuta el Worker para una ruta sin asset la declare o no, mientras que en producción, con Workers Assets, la documentación dice que caería en el `index.html` del SPA. Es una divergencia dev/producción sobre la línea que hace existir al servidor del Admin | Se verifica desplegando y pidiéndole una ruta `/api/` al sitio real, que es lo que se hizo. Queda escrito en `e2e/ia.spec.ts` para que el verde no se lea como una garantía que no da | Fase 11 | Pendiente |
+| 2026-08-30 | `store_settings` es legible por cualquier miembro de la organización, incluido un `viewer` | Para moneda y medios de pago está bien y fue deliberado. Pero es una propiedad que no estaba escrita en ningún lado, y la encontró de casualidad la primera configuración sensible: una credencial cifrada guardada ahí la habría podido leer todo el equipo | La credencial de IA fue a su propia tabla sin políticas (ADR-105). Queda anotado para la próxima configuración que no sea pública: la pregunta hay que hacerla antes, no al llegar | Fase 11 | Pendiente |
+| 2026-08-30 | El enriquecimiento nunca corrió contra una credencial de OpenAI real | El cuerpo del pedido y la lectura de la respuesta salieron de la documentación, y están cubiertos por tests con respuestas fijas. Lo verificado contra la API de verdad es sólo el rechazo de una clave inválida: un 401 llega antes que cualquier validación del cuerpo, así que la forma del pedido no se probó | Cargar una clave real en Configuración, enriquecer un producto con foto y confirmar que la descripción habla de lo que se ve. Es el único paso del plan de verificación que quedó sin hacer | Fase 12 | Pendiente |
+
 # Changelog de avance
 
 | Fecha      | Cambio                                                                                                                                                                                                                                                                                                                | Fase   | Avance antes | Avance después |
@@ -934,6 +956,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-08-30 | Fase 10 Etapa A: la tubería de eventos. Captura del lado del servidor —cero JavaScript nuevo—, sesión anónima sin banner, `store_events` con RLS, puerto `AnalyticsDestination` que cierra P-003, y la pantalla de Analytics en el Admin. La conversión sale de `orders` y sólo cuenta el tramo medido (ADR-099)      |
 | 2026-08-30 | Fase 10 cerrada. Etapa B: `order_items` guarda el costo, así que hay margen —siempre con su cobertura, porque un margen parcial no es un margen—. «Lo más vendido» pasa a ser «Ventas por producto»: tabla paginada con dos modos, margen y export CSV. Y un aviso que no salió se ve en el pedido (ADR-101, ADR-102) |
 | 2026-08-30 | Después de comprar, el carrito podía volver a llenarse: una revalidación en vuelo lo reescribía tras vaciarlo. `replaceLines` deja de resucitar un carrito vacío (ADR-100)                                                                                                                                            |
+| 2026-08-30 | Fase 11 cerrada: BYOK con la credencial cifrada, el Worker propio del Admin y el enriquecimiento de producto que propone sin escribir                                                                                                                          | Fase 11 |           0% |           100% |
 
 ---
 

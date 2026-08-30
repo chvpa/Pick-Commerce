@@ -37,6 +37,7 @@ import {
   type FormularioProducto as Valores,
   type ProductoValidado,
 } from './esquema';
+import { SugerenciasDeIA, type CampoAplicable } from './SugerenciasDeIA';
 
 const ESTADOS: readonly ProductStatus[] = ['draft', 'active', 'inactive', 'archived'];
 
@@ -131,6 +132,7 @@ export function FormularioProducto({ id }: { id?: string }) {
     handleSubmit,
     reset,
     setValue,
+    getValues,
     getFieldState,
     formState: { errors, isSubmitting },
   } = useForm<Valores, unknown, ProductoValidado>({
@@ -398,6 +400,43 @@ export function FormularioProducto({ id }: { id?: string }) {
               </div>
             </div>
           </Tarjeta>
+
+          <SugerenciasDeIA
+            storeId={tienda.id}
+            fuentes={fuentes}
+            categorias={(categorias.data ?? []).map((c) => ({ id: c.id, nombre: c.name }))}
+            variantes={(getValues('variantes') ?? []).map((v) => ({
+              titulo: v.title ?? '',
+              atributos: v.atributos ?? '',
+            }))}
+            /*
+             * Se lee del formulario y no de lo que trajo la consulta: lo que se
+             * enriquece es lo que hay en pantalla, con los cambios sin guardar
+             * incluidos. Enriquecer una versión vieja de la ficha sería
+             * proponer sobre algo que el operador ya corrigió.
+             */
+            leer={() => {
+              const v = getValues();
+              return {
+                title: v.title ?? '',
+                description: v.description,
+                brand: v.brand,
+                categoria: (categorias.data ?? []).find((c) => c.id === v.categoryId)?.name,
+                variantes: (v.variantes ?? []).map((x) => ({
+                  title: x.title ?? '',
+                  atributos: parsearAtributos(x.atributos ?? ''),
+                })),
+                // Las del bucket, que es público: OpenAI las descarga por URL.
+                imagenes: (v.media ?? []).map((m) => m.url).filter(Boolean),
+              };
+            }}
+            aplicar={(campo: CampoAplicable, valor: string) =>
+              setValue(campo, valor, { shouldDirty: true })
+            }
+            aplicarAtributos={(i, texto) =>
+              setValue(`variantes.${i}.atributos`, texto, { shouldDirty: true })
+            }
+          />
 
           <Tarjeta sinRelleno>
             <TituloDeTarjeta

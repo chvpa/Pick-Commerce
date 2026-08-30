@@ -15,6 +15,7 @@
     "@base-ui/react": "^1.7.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@hookform/resolvers": "^5.9.1",
+    "@pick/adapter-openai": "workspace:*",
     "@pick/adapter-supabase": "workspace:*",
     "@pick/commerce-core": "workspace:*",
     "@pick/commerce-types": "workspace:*",

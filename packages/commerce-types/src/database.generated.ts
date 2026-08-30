@@ -21,6 +21,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_credentials: {
+        Row: {
+          ciphertext: string
+          created_at: string
+          last4: string
+          model: string
+          store_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          ciphertext: string
+          created_at?: string
+          last4: string
+          model: string
+          store_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          ciphertext?: string
+          created_at?: string
+          last4?: string
+          model?: string
+          store_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_credentials_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "ai_credentials_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attribute_definitions: {
         Row: {
           category_id: string | null
@@ -1599,6 +1644,15 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_save_ai_credential: {
+        Args: {
+          p_ciphertext: string
+          p_last4: string
+          p_model: string
+          p_store_id: string
+        }
+        Returns: Json
+      }
       admin_save_product: {
         Args: { p_producto: Json; p_store_id: string }
         Returns: string
@@ -1626,6 +1680,8 @@ export type Database = {
         Returns: Json
       }
       admin_team: { Args: { p_tenant: string }; Returns: Json }
+      ai_credential_secret: { Args: { p_store_id: string }; Returns: Json }
+      ai_credential_status: { Args: { p_store_id: string }; Returns: Json }
       cart_promotions: {
         Args: { p_code?: string; p_lines: Json; p_store_id: string }
         Returns: Json

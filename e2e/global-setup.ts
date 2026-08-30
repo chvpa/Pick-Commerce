@@ -11,6 +11,12 @@ import { existsSync, writeFileSync } from 'node:fs';
 /** El secreto con el que se firman los pagos de prueba. Lo comparte el spec. */
 export const SECRETO_DE_PAGO = 'secreto-de-prueba-del-e2e';
 
+/** 32 bytes en base64, fijos: es una clave de juguete para una base de juguete. */
+export const CLAVE_MAESTRA_E2E = 'ZTJlLWNsYXZlLW1hZXN0cmEtZGUtcHJ1ZWJhLTMyYnk=';
+
+/** Dónde queda anotado el proceso del Admin, para que el teardown mate su árbol. */
+export const PID_DEL_ADMIN = 'apps/admin/.wrangler/e2e.pid';
+
 function silencioso(comando: string): void {
   try {
     execSync(comando, { stdio: 'ignore' });
@@ -127,17 +133,48 @@ export default function setup(): void {
   }
 
   /*
-   * `vite preview` no tiene bandera de segundo plano, así que se lanza suelto y
-   * se mata por puerto en el teardown. Sirve `dist`, que es el artefacto que se
-   * despliega, con el fallback a `index.html` que necesita el router del SPA.
+   * Los secretos del Worker del Admin, que corre sobre workerd y no ve
+   * `process.env`. Mismo mecanismo que el del storefront, con el `.dev.vars`
+   * junto al `wrangler.jsonc`.
+   *
+   * La clave maestra es un valor fijo de prueba: no cifra nada real, y tenerla
+   * fija hace que una credencial guardada en una corrida se pueda descifrar en
+   * la siguiente en vez de romper de una forma que no se entiende.
    */
-  spawn(
+  writeFileSync(
+    'apps/admin/.dev.vars',
+    `SUPABASE_URL=${url}
+SUPABASE_PUBLISHABLE_KEY=${publishable}
+` +
+      `PICK_AI_MASTER_KEY=${CLAVE_MAESTRA_E2E}
+`,
+    'utf8',
+  );
+
+  /*
+   * `wrangler dev` y no `vite preview`.
+   *
+   * El Admin dejó de ser sólo assets: desde la Fase 11 tiene un Worker que
+   * atiende `/api/*`, y `vite preview` sirve `dist` estático, así que esas rutas
+   * darían 404 y los tests pasarían en verde sin haber probado nada. Es además
+   * lo que ya argumenta el comentario de `playwright.config.ts` para el
+   * storefront —correr contra el artefacto que se despliega— y de lo que el
+   * Admin era la excepción.
+   *
+   * El pid se guarda porque matar por puerto alcanza para el proceso de node
+   * pero deja vivo el workerd que lanzó, y un workerd huérfano se queda con el
+   * 4322 y hace fallar la corrida siguiente por un motivo que no se parece en
+   * nada a la causa.
+   */
+  const admin = spawn(
     // El comando entero en una cadena, no en un array: con `shell: true` los
     // argumentos sueltos se concatenan mal en Windows y el proceso muere sin
     // dejar rastro, que fue exactamente lo que pasó la primera vez.
-    'pnpm --filter @pick/admin exec vite preview --port 4322 --strictPort --host 127.0.0.1',
+    'pnpm --filter @pick/admin exec wrangler dev --port 4322 --local --ip 127.0.0.1',
     { detached: true, stdio: 'ignore', shell: true, windowsHide: true },
-  ).unref();
+  );
+  writeFileSync(PID_DEL_ADMIN, String(admin.pid ?? ''), 'utf8');
+  admin.unref();
 
   execSync('npx --yes wait-on -t 120000 http-get://127.0.0.1:4322/', { stdio: 'ignore' });
 }

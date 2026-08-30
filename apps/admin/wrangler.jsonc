@@ -2,9 +2,20 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "pick-admin",
   "compatibility_date": "2026-08-01",
-  // El Admin es una SPA: se sirve como assets estáticos, sin Worker propio.
+  // `@supabase/supabase-js` lo pide, igual que en el Worker del storefront.
+  "compatibility_flags": ["nodejs_compat"],
+  // Logs del Worker. Sin esto, un error en producción es un 500 sin rastro.
+  "observability": { "enabled": true },
+  // El Admin es una SPA **con** un servidor mínimo: existe sólo para lo que
+  // necesita la clave maestra de cifrado, que no puede estar en el navegador.
+  "main": "./worker/index.ts",
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",
+    // Sólo `/api/*` ejecuta el Worker; el resto sigue sirviéndose como asset
+    // estático y cayendo a `index.html` para el router del SPA. Verificado
+    // contra la documentación de Cloudflare: `run_worker_first` acepta patrones
+    // y convive con el fallback de SPA.
+    "run_worker_first": ["/api/*"],
   },
 }

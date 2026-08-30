@@ -31,3 +31,4 @@ export { repositorioContenido } from './contenido.ts';
 export { repositorioNotificaciones } from './notificaciones.ts';
 export { destinoSupabase, repositorioAnalytics } from './analytics.ts';
 export { subirImagenDeProducto } from './media.ts';
+export { repositorioCredencialDeIA, ErrorDeCredencial } from './ia.ts';
