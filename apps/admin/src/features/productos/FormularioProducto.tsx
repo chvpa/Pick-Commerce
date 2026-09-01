@@ -17,13 +17,14 @@ import {
   type FieldSources,
 } from '@pick/commerce-core';
 import type { ProductStatus } from '@pick/commerce-types';
-import { PackageIcon } from 'lucide-react';
+import { PackageIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
 import {
+  BarraDeAcciones,
   Esqueleto,
   EstadoVacio,
   PaginaAdmin,
-  SELECT,
+  Selector,
   Tarjeta,
   TituloDeTarjeta,
 } from '@/components/pagina';
@@ -38,6 +39,7 @@ import {
   type ProductoValidado,
 } from './esquema';
 import { SugerenciasDeIA, type CampoAplicable } from './SugerenciasDeIA';
+import { SelectItem } from '@/components/ui/select';
 
 const ESTADOS: readonly ProductStatus[] = ['draft', 'active', 'inactive', 'archived'];
 
@@ -139,6 +141,9 @@ export function FormularioProducto({ id }: { id?: string }) {
     resolver: zodResolver(productoSchema),
     defaultValues: VACIO,
   });
+
+  const estado = useWatch({ control, name: 'status' });
+  const categoriaElegida = useWatch({ control, name: 'categoryId' });
 
   const variantes = useFieldArray({ control, name: 'variantes' });
   const medios = useFieldArray({ control, name: 'media' });
@@ -316,23 +321,6 @@ export function FormularioProducto({ id }: { id?: string }) {
       <PaginaAdmin
         titulo={id === undefined ? 'Nuevo producto' : 'Editar producto'}
         icono={PackageIcon}
-        acciones={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              disabled={guardar.isPending}
-              onClick={() => void navegar({ to: '/productos' })}
-            >
-              Cancelar
-            </Button>
-            {/* `disabled` mientras envía: sin eso, dos clicks son dos productos. */}
-            <Button type="submit" size="lg" disabled={pendiente}>
-              {pendiente ? 'Guardando…' : 'Guardar'}
-            </Button>
-          </>
-        }
       >
         {guardar.isError && (
           <p className="text-destructive text-sm" role="alert">
@@ -353,9 +341,9 @@ export function FormularioProducto({ id }: { id?: string }) {
               </Campo>
 
               <Campo
-                label="Handle"
+                label="URL"
                 error={errors.handle?.message}
-                ayuda="Es la URL pública del producto"
+                ayuda="La dirección pública del producto: /productos/…"
               >
                 <Input {...register('handle')} />
               </Campo>
@@ -377,25 +365,39 @@ export function FormularioProducto({ id }: { id?: string }) {
               </Campo>
 
               <div className="grid gap-4 sm:grid-cols-2">
+                {/*
+                  Estos dos se leen con `useWatch` y se escriben con `setValue`
+                  en vez de con `register`: un desplegable de Base UI devuelve el
+                  valor elegido y no un evento de cambio, así que derramarle los
+                  handlers de react-hook-form no lo conecta con nada.
+                */}
                 <Campo label="Estado" error={errors.status?.message}>
-                  <select {...register('status')} className={SELECT}>
+                  <Selector
+                    value={estado}
+                    aria-label="Estado"
+                    onValueChange={(v) => setValue('status', v as Valores['status'])}
+                  >
                     {ESTADOS.map((e) => (
-                      <option key={e} value={e}>
+                      <SelectItem key={e} value={e}>
                         {ETIQUETA_ESTADO[e]}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
+                  </Selector>
                 </Campo>
 
                 <Campo label="Categoría" error={errors.categoryId?.message}>
-                  <select {...register('categoryId')} className={SELECT}>
-                    <option value="">Sin categoría</option>
+                  <Selector
+                    value={categoriaElegida ?? ''}
+                    aria-label="Categoría"
+                    onValueChange={(v) => setValue('categoryId', v)}
+                  >
+                    <SelectItem value="">Sin categoría</SelectItem>
                     {(categorias.data ?? []).map((c) => (
-                      <option key={c.id} value={c.id}>
+                      <SelectItem key={c.id} value={c.id}>
                         {c.name}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
+                  </Selector>
                 </Campo>
               </div>
             </div>
@@ -569,6 +571,21 @@ export function FormularioProducto({ id }: { id?: string }) {
             </div>
           </Tarjeta>
         </div>
+        <BarraDeAcciones>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            disabled={guardar.isPending}
+            onClick={() => void navegar({ to: '/productos' })}
+          >
+            Cancelar
+          </Button>
+          {/* `disabled` mientras envía: sin eso, dos clicks son dos productos. */}
+          <Button type="submit" size="lg" disabled={pendiente}>
+            {pendiente ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </BarraDeAcciones>
       </PaginaAdmin>
     </form>
   );

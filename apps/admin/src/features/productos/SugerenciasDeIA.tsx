@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { SparklesIcon } from 'lucide-react';
+import { SparklesIcon } from '@/components/iconos';
 import { esEditable, type FieldSources } from '@pick/commerce-core';
 import { Button } from '@/components/ui/button';
-import { SELECT, Tarjeta, TituloDeTarjeta } from '@/components/pagina';
+import { Selector, Tarjeta, TituloDeTarjeta } from '@/components/pagina';
 import { ErrorDeIA, enriquecerProducto, type PropuestaDeIA } from '@/lib/ia';
 import { formatearAtributos, parsearAtributos } from './esquema';
+import { SelectItem } from '@/components/ui/select';
 
 /** El borrador que hay en pantalla, incluidos los cambios sin guardar. */
 export interface BorradorParaIA {
@@ -261,18 +262,17 @@ function AtributosPropuestos({
 
       <div className="flex flex-wrap items-center gap-2">
         {variantes.length > 1 && (
-          <select
-            className={SELECT}
-            value={destino}
+          <Selector
+            value={String(destino)}
             aria-label="A qué variante se aplican"
-            onChange={(e) => setDestino(Number(e.currentTarget.value))}
+            onValueChange={(valor) => setDestino(Number(valor))}
           >
             {variantes.map((v, i) => (
-              <option key={i} value={i}>
+              <SelectItem key={i} value={String(i)}>
                 {v.titulo || `Variante ${i + 1}`}
-              </option>
+              </SelectItem>
             ))}
-          </select>
+          </Selector>
         )}
         <Button
           type="button"

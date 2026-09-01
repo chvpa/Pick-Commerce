@@ -28,11 +28,14 @@ test('sin configuración no se cobra envío', () => {
 });
 
 test('una tarifa plana se lee con su umbral', () => {
-  assert.deepEqual(configuracionDeEnvio({ shipping: { mode: 'flat', amount: 35000, freeFrom: 500000 } }), {
-    mode: 'flat',
-    amount: 35000,
-    freeFrom: 500000,
-  });
+  assert.deepEqual(
+    configuracionDeEnvio({ shipping: { mode: 'flat', amount: 35000, freeFrom: 500000 } }),
+    {
+      mode: 'flat',
+      amount: 35000,
+      freeFrom: 500000,
+    },
+  );
 });
 
 test('un importe que no es un entero no negativo se descarta entero', () => {

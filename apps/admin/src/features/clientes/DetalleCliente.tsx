@@ -5,7 +5,7 @@ import { repositorioAdminClientes, repositorioAdminPedidos } from '@pick/adapter
 import { ETIQUETA_ESTADO_PEDIDO, formatMoney } from '@pick/commerce-core';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
-import { UsersIcon } from 'lucide-react';
+import { UsersIcon } from '@/components/iconos';
 import {
   Esqueleto,
   EstadoDeError,

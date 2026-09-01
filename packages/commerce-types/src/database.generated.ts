@@ -1604,10 +1604,12 @@ export type Database = {
       admin_customers: {
         Args: {
           p_customer_id?: string
+          p_from?: string
           p_page?: number
           p_per_page?: number
           p_query?: string
           p_store_id: string
+          p_to?: string
         }
         Returns: Json
       }

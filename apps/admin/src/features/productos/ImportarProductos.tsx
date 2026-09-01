@@ -3,7 +3,7 @@ import Papa from 'papaparse';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { repositorioAdminCatalogo, repositorioCatalogo } from '@pick/adapter-supabase';
 import type { ResultadoImport } from '@pick/commerce-core';
-import { PackageIcon } from 'lucide-react';
+import { PackageIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
 import { PaginaAdmin, Tarjeta, TituloDeTarjeta } from '@/components/pagina';
 import {
@@ -157,10 +157,11 @@ export function ImportarProductos() {
           <TituloDeTarjeta>1 · El formato</TituloDeTarjeta>
           <div className="flex flex-col gap-3 p-4">
             <p className="text-muted-foreground text-sm">
-              Una fila por variante, agrupadas por <code>handle</code>. Los datos del producto
-              —título, marca, categoría, estado— los toma la primera fila de cada handle. Los
-              atributos van como <code>color: Azul | size: M</code>. El archivo no lleva imágenes:
-              importar no toca las que el producto ya tenga.
+              Una fila por variante, agrupadas por <code>handle</code> —así se llama la columna en
+              el archivo, y es la URL del producto—. Los datos del producto —título, marca,
+              categoría, estado— los toma la primera fila de cada handle. Los atributos van como{' '}
+              <code>color: Azul | size: M</code>. El archivo no lleva imágenes: importar no toca las
+              que el producto ya tenga.
             </p>
             <p className="text-muted-foreground text-sm">
               Para un producto que ya existe, el archivo manda: sus variantes pasan a ser
@@ -236,7 +237,7 @@ export function ImportarProductos() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-20">Línea</TableHead>
-                        <TableHead>Handle</TableHead>
+                        <TableHead>URL</TableHead>
                         <TableHead>Motivo</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -296,7 +297,7 @@ export function ImportarProductos() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Handle</TableHead>
+                        <TableHead>URL</TableHead>
                         <TableHead>Error</TableHead>
                       </TableRow>
                     </TableHeader>

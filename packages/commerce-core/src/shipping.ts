@@ -73,10 +73,7 @@ export function configuracionDeEnvio(settings: unknown): ConfiguracionDeEnvio {
  * Es la misma cuenta que hace `create_order`, y por eso vive acá: el checkout
  * tiene que poder mostrar el número que se va a cobrar, no una aproximación.
  */
-export function calcularEnvio(
-  config: ConfiguracionDeEnvio,
-  subtotalConDescuento: Money,
-): Money {
+export function calcularEnvio(config: ConfiguracionDeEnvio, subtotalConDescuento: Money): Money {
   if (config.mode === 'none') return money(0, subtotalConDescuento.currency);
   if (config.freeFrom !== undefined && subtotalConDescuento.amount >= config.freeFrom) {
     return money(0, subtotalConDescuento.currency);

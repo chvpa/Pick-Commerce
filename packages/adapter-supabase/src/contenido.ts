@@ -10,6 +10,7 @@ import type {
   TipoDeSeccion,
 } from '@pick/commerce-core';
 import type { ProductImage } from '@pick/commerce-types';
+import type { Json } from '@pick/commerce-types/database';
 import type { PickSupabaseClient } from './client.ts';
 
 /**
@@ -233,7 +234,12 @@ export function repositorioContenido(db: PickSupabaseClient): RepositorioConteni
         title: datos.title ?? null,
         subtitle: datos.subtitle ?? null,
         layout: datos.layout,
-        settings: { ...datos.settings },
+        /*
+         * `as Json`: los tipos generados describen la columna como el `Json` de
+         * PostgREST, que no acepta `readonly`. Los ajustes son un jsonb y llevan
+         * arreglos desde que la sección de categorías guarda cuáles muestra.
+         */
+        settings: { ...datos.settings } as unknown as Json,
         // El check de la base exige colección si y sólo si el tipo es `products`.
         collection_id: datos.type === 'products' ? (datos.collectionId ?? null) : null,
         position: datos.position,
@@ -348,6 +354,56 @@ export function repositorioContenido(db: PickSupabaseClient): RepositorioConteni
         position: c.position,
         ...(c.image ? { image: c.image as unknown as ProductImage } : {}),
       }));
+    },
+
+    async paginaDeCategorias(storeId, { page, perPage, query }) {
+      const desde = (Math.max(1, page) - 1) * perPage;
+
+      let consulta = db
+        .from('categories')
+        .select('id, name, slug, parent_id, position, image', { count: 'exact' })
+        .eq('store_id', storeId);
+
+      // Coincidencia de subcadena, insensible a mayúsculas: es lo que espera
+      // quien busca «cal» para encontrar «Calzado».
+      if (query && query.trim() !== '') consulta = consulta.ilike('name', `%${query.trim()}%`);
+
+      const { data, error, count } = await consulta
+        // Por nombre y no por posición: la posición dejó de editarse desde que
+        // el orden de la portada lo decide la sección de categorías, así que
+        // ordenar por ella dejaría la lista en el orden de creación.
+        .order('name')
+        .range(desde, desde + perPage - 1);
+
+      if (error) throw new Error(`No se pudieron leer las categorías: ${error.message}`);
+
+      const total = count ?? 0;
+      return {
+        items: (data ?? []).map((c) => ({
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+          ...(c.parent_id ? { parentId: c.parent_id } : {}),
+          position: c.position,
+          ...(c.image ? { image: c.image as unknown as ProductImage } : {}),
+        })),
+        total,
+        page: Math.max(1, page),
+        pageCount: Math.max(1, Math.ceil(total / perPage)),
+      };
+    },
+
+    async borrarCategoria(storeId, id): Promise<void> {
+      const { error } = await db
+        .from('categories')
+        .delete()
+        .eq('id', id)
+        // Acotado por tienda además de por id: RLS ya impide tocar otra
+        // organización, pero dentro de una con dos tiendas el id solo no dice
+        // de cuál es.
+        .eq('store_id', storeId);
+
+      if (error) throw new Error(`No se pudo borrar la categoría: ${error.message}`);
     },
 
     async guardarCategoria(storeId, datos, id): Promise<string> {

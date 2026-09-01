@@ -17,7 +17,7 @@ import {
   TagsIcon,
   UsersIcon,
   UsersRoundIcon,
-} from 'lucide-react';
+} from '@/components/iconos';
 import type { Permission } from '@pick/commerce-types';
 import {
   DropdownMenu,

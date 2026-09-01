@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { repositorioContenido } from '@pick/adapter-supabase';
 import { tipoDe, type Coleccion } from '@pick/commerce-core';
-import { LibraryBigIcon } from 'lucide-react';
+import { LibraryBigIcon } from '@/components/iconos';
 import { buttonVariants } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { BorrarConConfirmacion, EnlaceDeEdicion } from '@/components/acciones';
@@ -93,7 +93,7 @@ export function Colecciones() {
         ) : (
           <ul aria-label="Colecciones" className="divide-border divide-y">
             {consulta.data.map((c) => (
-              <li key={c.id} className="flex items-center gap-3 px-4 py-3">
+              <li key={c.id} className="hover:bg-muted/40 flex items-center gap-3 px-4 py-3">
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-medium">{c.title}</span>
                   <span className="text-muted-foreground truncate text-xs">

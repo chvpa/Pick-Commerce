@@ -80,6 +80,17 @@ export type DatosDeBanner = Omit<Banner, 'id'>;
 export type DatosDeCategoria = Omit<CategoriaAdmin, 'id'>;
 
 /**
+ * Una página de categorías. Misma forma que el resto de las listas paginadas del
+ * Admin, para que `Paginacion` la reciba sin traducir nada.
+ */
+export interface PaginaDeCategorias {
+  readonly items: readonly CategoriaAdmin[];
+  readonly total: number;
+  readonly page: number;
+  readonly pageCount: number;
+}
+
+/**
  * El contenido, desde el Admin.
  *
  * Todo detrás de `catalog.write` y sin permiso propio: el precedente de ADR-056
@@ -112,8 +123,29 @@ export interface RepositorioContenido {
   guardarBanner(storeId: string, datos: DatosDeBanner, id?: string): Promise<string>;
   borrarBanner(storeId: string, id: string): Promise<void>;
 
+  /** Todas, para los selectores. Un `<select>` con miles de opciones ya es otro problema. */
   categorias(storeId: string): Promise<readonly CategoriaAdmin[]>;
+  /**
+   * La página que muestra la pantalla de categorías.
+   *
+   * Separada de `categorias` y no un parámetro opcional: son dos usos con
+   * necesidades opuestas —una lista que crece y hay que acotar, y un selector
+   * que necesita el conjunto entero— y un método que hace las dos cosas termina
+   * llamándose sin paginar desde donde importaba paginar.
+   */
+  paginaDeCategorias(
+    storeId: string,
+    opciones: { page: number; perPage: number; query?: string },
+  ): Promise<PaginaDeCategorias>;
   guardarCategoria(storeId: string, datos: DatosDeCategoria, id?: string): Promise<string>;
+  /**
+   * Borra una categoría.
+   *
+   * Los productos que la tenían **no se borran**: quedan sin categoría, porque
+   * `products.category_id` es `on delete set null`. Las subcategorías sí caen
+   * con ella. Las dos cosas las decide el esquema y la pantalla las anuncia.
+   */
+  borrarCategoria(storeId: string, id: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -153,7 +185,15 @@ export interface SeccionDeHome {
    * se leen en una plantilla, y un `unknown` obliga a castear en cada uso además
    * de admitir formas que la base no acepta.
    */
-  readonly settings: Readonly<Record<string, string | number | boolean>>;
+  /**
+   * Ajustes de presentación por tipo.
+   *
+   * Admite arreglos porque la sección de categorías guarda **cuáles** muestra y
+   * en qué orden (`categoryIds`). Va acá y no en una tabla intermedia por el
+   * mismo motivo que `columns`: es una decisión de presentación de una sección,
+   * y una tabla por cada una sería una migración por retoque visual.
+   */
+  readonly settings: Readonly<Record<string, string | number | boolean | readonly string[]>>;
   /** Sólo en `products`, y obligatorio ahí: la base lo comprueba. */
   readonly collectionId?: string;
   readonly position: number;
@@ -195,6 +235,14 @@ export type SeccionResuelta =
       readonly id: string;
       readonly title?: string;
       readonly layout: LayoutDeSeccion;
+      /**
+       * Cuáles muestra, en su orden. Vacío es todas.
+       *
+       * Resuelto acá y no leído de `settings` en la plantilla: este tipo existe
+       * justamente para que el storefront reciba la decisión tomada en vez de
+       * interpretar un jsonb en medio del render.
+       */
+      readonly categoryIds: readonly string[];
     };
 
 /** Lo que un carrusel de la home necesita de un producto. Es `Product`. */
@@ -207,12 +255,49 @@ export const PRODUCTOS_POR_SECCION = 8;
 export const COLUMNAS_POR_DEFECTO = 2;
 
 /** Las columnas declaradas en `settings`, acotadas a lo que la grilla admite. */
-export function columnasDe(settings: Readonly<Record<string, string | number | boolean>>): number {
+export function columnasDe(
+  settings: Readonly<Record<string, string | number | boolean | readonly string[]>>,
+): number {
   const crudo = settings.columns;
   const n = typeof crudo === 'number' ? crudo : Number(crudo);
   // Fuera de rango o ausente cae al defecto: el dato viene de un jsonb, y un
   // `columns: 97` dibujaría mosaicos de dos píxeles sin avisar.
   return Number.isInteger(n) && n >= 1 && n <= 4 ? n : COLUMNAS_POR_DEFECTO;
+}
+
+/**
+ * Qué categorías muestra una sección de categorías, en su orden.
+ *
+ * Vacío significa **todas**, y no «ninguna». Es lo que hace que las secciones
+ * que ya existían sigan mostrando lo mismo: antes no había forma de elegir, así
+ * que la ausencia de elección tiene que seguir queriendo decir lo de siempre.
+ * Una tira de categorías vacía tampoco tendría sentido como estado guardable.
+ */
+export function categoriasDe(
+  settings: Readonly<Record<string, string | number | boolean | readonly string[]>>,
+): readonly string[] {
+  const crudo = settings.categoryIds;
+  if (!Array.isArray(crudo)) return [];
+  return crudo.filter((id): id is string => typeof id === 'string' && id !== '');
+}
+
+/**
+ * Ordena y filtra las categorías según lo que la sección eligió.
+ *
+ * En el orden de la selección, no en el del catálogo: elegir el orden es la
+ * mitad de para qué se eligen. Un id que ya no existe —una categoría borrada—
+ * simplemente no aparece, sin romper la sección.
+ */
+export function categoriasDeLaSeccion<T extends { readonly id: string }>(
+  todas: readonly T[],
+  seleccion: readonly string[],
+): readonly T[] {
+  if (seleccion.length === 0) return todas;
+  const porId = new Map(todas.map((c) => [c.id, c]));
+  return seleccion.flatMap((id) => {
+    const c = porId.get(id);
+    return c ? [c] : [];
+  });
 }
 
 export type DatosDeSeccion = Omit<SeccionDeHome, 'id'>;

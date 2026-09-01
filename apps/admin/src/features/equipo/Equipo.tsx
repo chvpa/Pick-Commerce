@@ -2,13 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { repositorioEquipo } from '@pick/adapter-supabase';
 import { DESCRIPCION_ROL, ETIQUETA_ROL, ROLES, esUltimoOwner } from '@pick/commerce-core';
 import type { MemberRole } from '@pick/commerce-types';
-import { UsersRoundIcon } from 'lucide-react';
+import { UsersRoundIcon } from '@/components/iconos';
 import {
   Esqueleto,
   EstadoDeError,
   EstadoVacio,
   PaginaAdmin,
-  SELECT,
+  Selector,
   Tarjeta,
 } from '@/components/pagina';
 import { BorrarConConfirmacion } from '@/components/acciones';
@@ -23,6 +23,7 @@ import {
 import { useSesion } from '@/features/auth/SesionContext';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
+import { SelectItem } from '@/components/ui/select';
 
 function fecha(iso: string, locale: string): string {
   return new Date(iso).toLocaleDateString(locale, {
@@ -141,25 +142,24 @@ export function Equipo() {
                           {fecha(m.createdAt, tienda.locale)}
                         </TableCell>
                         <TableCell>
-                          <select
+                          <Selector
                             aria-label={`Rol de ${m.email}`}
                             value={m.role}
                             disabled={ocupado || ultimo}
                             title={motivo}
-                            onChange={(e) =>
+                            onValueChange={(valor) =>
                               cambiarRol.mutate({
                                 userId: m.userId,
-                                rol: e.currentTarget.value as MemberRole,
+                                rol: valor as MemberRole,
                               })
                             }
-                            className={SELECT}
                           >
                             {ROLES.map((r) => (
-                              <option key={r} value={r} title={DESCRIPCION_ROL[r]}>
+                              <SelectItem key={r} value={r} title={DESCRIPCION_ROL[r]}>
                                 {ETIQUETA_ROL[r]}
-                              </option>
+                              </SelectItem>
                             ))}
-                          </select>
+                          </Selector>
                         </TableCell>
                         <TableCell>
                           {/*

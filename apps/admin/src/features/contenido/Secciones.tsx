@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { repositorioContenido } from '@pick/adapter-supabase';
 import { moverEn, type SeccionDeHome } from '@pick/commerce-core';
-import { GalleryVerticalEndIcon } from 'lucide-react';
+import { GalleryVerticalEndIcon } from '@/components/iconos';
 import { buttonVariants } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { BorrarConConfirmacion, ControlDeOrden, EnlaceDeEdicion } from '@/components/acciones';
@@ -113,7 +113,7 @@ export function Secciones() {
           // tarjeta, cada fila con su propio borde eran cajas dentro de una caja.
           <ul aria-label="Secciones de la portada" className="divide-border divide-y">
             {consulta.data.map((s, i) => (
-              <li key={s.id} className="flex items-center gap-3 px-4 py-3">
+              <li key={s.id} className="hover:bg-muted/40 flex items-center gap-3 px-4 py-3">
                 {/*
                   El orden **es** la lista, no un número que hay que traducir.
                   Antes acá se mostraba `position` y había que abrir el

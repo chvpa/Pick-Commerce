@@ -4633,3 +4633,102 @@ todos parecieran reales.
 
 **El checkout lo avisa antes, no después.** Quien compra tiene que saber que no
 va a recibir nada mientras todavía puede decidir.
+
+---
+
+## ADR-109 — El vocabulario de interacción del Admin
+
+**Fecha:** 2026-08-31
+**Estado:** Accepted
+
+**Contexto**
+Un repaso de las pantallas encontró que el Admin no tenía una forma de editar
+sino varias, y que las tres piezas más usadas —editar, elegir, guardar— estaban
+resueltas con lo más barato en cada pantalla. No es un problema estético: cada
+una tenía un fallo concreto y comprobable.
+
+**Editar abre un panel, no un formulario encima de la lista**
+Con el formulario arriba, editar el último elemento de una lista mandaba la vista
+al tope y había que desplazarse hasta arriba para escribir. El panel es un modal
+en pantalla ancha y una hoja desde abajo en teléfono: la lista queda detrás —que
+era la razón de editar en línea— sin mover el scroll.
+
+Se descartó el panel lateral, que en desktop tapa justo la columna de acciones, y
+la página propia por elemento, que para cuatro campos es un viaje de ida y vuelta
+que pierde la lista de vista. Cuando un formulario crezca, su lugar **sí** es una
+página; producto y promoción ya la tienen.
+
+Efecto que no se buscaba y conviene registrar: con el panel abierto **no se puede
+cambiar de tienda**, porque es modal. Eso cierra por construcción el fallo que
+antes cubría un test —un borrador de una tienda guardándose en otra— y el test
+pasó a comprobar la otra mitad, que el borrador se descarta si la tienda cambia.
+
+**Las acciones de un formulario largo van al pie, pegajosas**
+Vivían arriba a la derecha: al bajar a llenar un formulario de tres tarjetas, el
+botón de guardar dejaba de verse. `sticky` y no `fixed` — una barra fija flota
+sobre el contenido y en un teléfono tapa el último campo justo cuando se lo está
+completando.
+
+Ojo con lo que `sticky` **no** resuelve: mientras se recorre el medio de la
+página, la barra sí cubre una franja. Se vio en una captura tapando el editor de
+slides, que además traía su propio par de botones. Por eso ese editor pasó al
+panel: dos «Guardar» compitiendo era peor que el problema original.
+
+**Los desplegables son el Select de shadcn, detrás de un envoltorio**
+El `<select>` nativo no se puede estilar de forma consistente entre navegadores y
+no admite grupos con el mismo aspecto que el resto del Admin. La forma completa
+del componente son cinco elementos anidados, y repetirlos en las veintipico de
+pantallas que tienen un desplegable garantiza que alguna se escriba distinto: el
+envoltorio deja el sitio de llamada tan corto como estaba —el control más sus
+opciones— y los primitivos siguen disponibles para lo que necesite más.
+
+Dos cosas que sólo aparecieron al mirarlo funcionando:
+
+- El disparador mostraba el **valor** y no la etiqueta: una fila de pedido decía
+  «received» en vez de «Recibido», y un filtro sin elegir quedaba vacío. Base UI
+  lo resuelve con `items` en el `Root`, que se arma leyendo las propias opciones
+  para que ninguna pantalla escriba las etiquetas dos veces.
+- Los que estaban atados a react-hook-form con `register` dejaron de funcionar:
+  un control de Base UI devuelve el valor elegido y no un evento, así que
+  derramarle los manejadores no lo conecta con nada. Se leen con `useWatch` y se
+  escriben con `setValue`, que es lo que esos formularios ya hacían con sus
+  interruptores.
+
+Y uno que el cambio **eliminó**: la lista de pedidos devolvía el `<select>` a su
+valor anterior antes de preguntar si cancelar, porque el control nativo ya se
+había movido solo. Un control controlado no se mueve hasta que el dato cambia, y
+esa compensación se fue con su comentario.
+
+**Los íconos son Hugeicons**
+Reemplazan a lucide, que se desinstaló. Hugeicons no exporta componentes sino
+**datos** de SVG que se dibujan con `<HugeiconsIcon icon={…} />`, y el Admin pasa
+íconos como componentes por todos lados: el menú, las cabeceras de pantalla y los
+botones de icono los reciben como prop.
+
+Por eso hay un módulo puente, `components/iconos.tsx`, que envuelve cada dato en
+un componente con la forma de llamada anterior. La alternativa era reescribir las
+veintipico de pantallas y, de paso, perder el patrón de «pasá el ícono como
+prop». El puente además concentra el inventario: el próximo cambio de librería es
+ese archivo y no una búsqueda por todo el repositorio.
+
+Dos nombres no existen en la librería nueva y quedan mapeados con su motivo a la
+vista: `ChevronsUpDown` es `UnfoldMore` y `Trash2` es `Trash`. Los otros
+veinticinco coinciden exactamente, lo que hizo que el cambio fuera una línea de
+import por archivo.
+
+**Se probó rellenar los íconos y se descartó.** Lucide y Hugeicons son de trazo;
+`fill="currentColor"` funciona en los que son formas cerradas y no hace nada en
+los que son líneas —el porcentaje, las barras del gráfico—, así que el menú
+quedaba mezclado. Se midió con una captura antes de decidir.
+
+**Subir una imagen es una zona de arrastre**
+Reemplaza al `<input type="file">` crudo. El input sigue existiendo debajo,
+oculto pero real, y la zona es un `<button>`: el teclado la alcanza con Tab y la
+activa con Enter sin reimplementar nada. Arrastrar es un atajo, no el único
+camino.
+
+**Qué no cambió, y por qué se nombra**
+El storefront no usa nada de esto. Su `<select>` de orden sigue siendo nativo:
+es una página que se resuelve en el servidor, sin JavaScript propio, y un
+desplegable de Base UI ahí costaría hidratación en el camino que tiene
+presupuesto de peso.

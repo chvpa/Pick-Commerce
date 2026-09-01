@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { ADMIN_E2E, TIENDA_E2E } from '../scripts/datos-admin-e2e.ts';
 
 /**
@@ -131,4 +131,28 @@ export async function irALaTiendaDelSmoke(page: Page): Promise<void> {
   await cabecera.locator('button').first().click();
   await page.getByRole('menu').getByRole('menuitem', { name: TIENDA_E2E.name }).click();
   await expect(cabecera).toContainText(TIENDA_E2E.name);
+}
+
+/**
+ * Elige una opción de un desplegable.
+ *
+ * Desde que los `<select>` nativos son el Select de Base UI, `selectOption` no
+ * sirve: no hay `<option>` que elegir sino un menú que hay que abrir. Se abre
+ * por el disparador y se elige por el texto, que es lo que hace una persona.
+ *
+ * Tanto el disparador como la opción se buscan por `data-slot`: dentro de un
+ * `<form>`, Base UI dibuja además un `<select>` nativo oculto para que el
+ * control se envíe con el formulario, y ese select responde al mismo rol y al
+ * mismo `aria-label` que el botón. Buscar por etiqueta encuentra el que nunca se
+ * ve, el clic no abre nada y el test espera hasta el timeout.
+ */
+export function desplegable(page: Page, selector: string): Locator {
+  return page.locator(`[data-slot="select-trigger"]${selector}`);
+}
+export async function elegir(page: Page, disparador: Locator, opcion: string): Promise<void> {
+  await disparador.click();
+  await page
+    .locator('[data-slot="select-content"]')
+    .getByRole('option', { name: opcion, exact: true })
+    .click();
 }

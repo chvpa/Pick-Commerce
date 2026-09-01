@@ -14,7 +14,7 @@ import {
 } from '@pick/commerce-core';
 import type { EventoDeNotificacion } from '@pick/commerce-core';
 import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
-import { ReceiptTextIcon } from 'lucide-react';
+import { ReceiptTextIcon } from '@/components/iconos';
 import { Badge } from '@/components/ui/badge';
 import {
   Esqueleto,

@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { repositorioContenido } from '@pick/adapter-supabase';
 import {
   COLUMNAS_POR_DEFECTO,
+  categoriasDe,
   columnasDe,
   moverEn,
   type Banner,
@@ -12,14 +13,15 @@ import {
   type TipoDeSeccion,
 } from '@pick/commerce-core';
 import type { ProductImage } from '@pick/commerce-types';
-import { LayoutTemplateIcon } from 'lucide-react';
+import { LayoutTemplateIcon } from '@/components/iconos';
 import { Badge } from '@/components/ui/badge';
 import {
+  BarraDeAcciones,
   Esqueleto,
   EstadoDeError,
   EstadoVacio,
   PaginaAdmin,
-  SELECT,
+  Selector,
   Tarjeta,
   TituloDeTarjeta,
 } from '@/components/pagina';
@@ -28,12 +30,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Campo } from '@/components/campo';
 import { BorrarConConfirmacion, BotonDeIcono, ControlDeOrden } from '@/components/acciones';
-import { PencilIcon } from 'lucide-react';
+import { PencilIcon } from '@/components/iconos';
 import { Switch } from '@/components/ui/switch';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
+import { PanelDeEdicion } from '@/components/panel';
+import { SelectorDeCategorias } from './SelectorDeCategorias';
+import { SelectorDeDestino } from './SelectorDeDestino';
 import { SelectorDeImagen } from './SelectorDeImagen';
 import { AYUDA_TIPO, ETIQUETA_TIPO } from './etiquetas';
+import { SelectItem } from '@/components/ui/select';
 
 const TIPOS: readonly TipoDeSeccion[] = ['hero', 'tiles', 'products', 'categories'];
 
@@ -141,6 +147,9 @@ function Campos({
     String(inicial ? columnasDe(inicial.settings) : COLUMNAS_POR_DEFECTO),
   );
   const [collectionId, setCollectionId] = useState(inicial?.collectionId ?? '');
+  const [categoryIds, setCategoryIds] = useState<readonly string[]>(
+    inicial ? categoriasDe(inicial.settings) : [],
+  );
   // La posición ya no se escribe: se cambia con las flechas de la lista. Se
   // conserva la que tiene, y una sección nueva va al final.
   const position = inicial?.position ?? siguientePosicion;
@@ -162,7 +171,12 @@ function Campos({
           ...(title ? { title } : {}),
           ...(subtitle ? { subtitle } : {}),
           layout,
-          settings: type === 'tiles' ? { columns: Number(columns) || COLUMNAS_POR_DEFECTO } : {},
+          settings:
+            type === 'tiles'
+              ? { columns: Number(columns) || COLUMNAS_POR_DEFECTO }
+              : type === 'categories'
+                ? { categoryIds }
+                : {},
           ...(type === 'products' && collectionId ? { collectionId } : {}),
           position,
           published,
@@ -187,27 +201,6 @@ function Campos({
       titulo={id ? 'Editar sección' : 'Nueva sección'}
       icono={LayoutTemplateIcon}
       descripcion={id ? ETIQUETA_TIPO[type] : 'Un bloque de la portada.'}
-      acciones={
-        <>
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={() => void navegar({ to: '/contenido/secciones' })}
-          >
-            Cancelar
-          </Button>
-          {/*
-            El botón vive fuera del `<form>` y lo envía por su id: es el atributo
-            `form` de HTML. Sin él habría que meter el formulario alrededor de
-            toda la página, y las piezas —que traen sus propios botones— quedarían
-            adentro enviándolo sin querer.
-          */}
-          <Button type="submit" form="form-seccion" size="lg" disabled={guardar.isPending}>
-            {guardar.isPending ? 'Guardando…' : id ? 'Guardar cambios' : 'Crear sección'}
-          </Button>
-        </>
-      }
     >
       <div className="flex max-w-2xl flex-col gap-5">
         <Tarjeta sinRelleno>
@@ -238,36 +231,34 @@ function Campos({
               </div>
             ) : (
               <Campo id="type" label="Tipo de sección" ayuda={AYUDA_TIPO[type]}>
-                <select
+                <Selector
                   id="type"
                   value={type}
-                  onChange={(e) => setType(e.currentTarget.value as TipoDeSeccion)}
-                  className={SELECT}
+                  onValueChange={(valor) => setType(valor as TipoDeSeccion)}
                 >
                   {TIPOS.map((t) => (
-                    <option key={t} value={t}>
+                    <SelectItem key={t} value={t}>
                       {ETIQUETA_TIPO[t]}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
+                </Selector>
               </Campo>
             )}
 
             {type === 'products' && (
               <Campo id="collection" label="Colección">
-                <select
+                <Selector
                   id="collection"
                   value={collectionId}
-                  onChange={(e) => setCollectionId(e.currentTarget.value)}
-                  className={SELECT}
+                  onValueChange={(valor) => setCollectionId(valor)}
                 >
-                  <option value="">Elegí una colección</option>
+                  <SelectItem value="">Elegí una colección</SelectItem>
                   {(colecciones.data ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>
+                    <SelectItem key={c.id} value={c.id}>
                       {c.title}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
+                </Selector>
               </Campo>
             )}
 
@@ -314,34 +305,36 @@ function Campos({
                   label="Cómo se muestran"
                   ayuda="Con una sola pieza da lo mismo. Los slides se pasan deslizando o con los puntos; no rotan solos, para no moverse encima de quien está leyendo."
                 >
-                  <select
+                  <Selector
                     id="layout"
                     value={layout}
-                    onChange={(e) => setLayout(e.currentTarget.value as LayoutDeSeccion)}
-                    className={SELECT}
+                    onValueChange={(valor) => setLayout(valor as LayoutDeSeccion)}
                   >
-                    <option value="static">{ESTATICO[type]}</option>
-                    <option value="slider">Pasando de a una (slides)</option>
-                  </select>
+                    <SelectItem value="static">{ESTATICO[type]}</SelectItem>
+                    <SelectItem value="slider">Pasando de a una (slides)</SelectItem>
+                  </Selector>
                 </Campo>
 
                 {type === 'tiles' && layout === 'static' && (
                   <Campo id="columns" label="Columnas" ayuda="En teléfono siempre va una por fila.">
-                    <select
+                    <Selector
                       id="columns"
                       value={columns}
-                      onChange={(e) => setColumns(e.currentTarget.value)}
-                      className={SELECT}
+                      onValueChange={(valor) => setColumns(valor)}
                     >
                       {[1, 2, 3, 4].map((n) => (
-                        <option key={n} value={String(n)}>
+                        <SelectItem key={n} value={String(n)}>
                           {n}
-                        </option>
+                        </SelectItem>
                       ))}
-                    </select>
+                    </Selector>
                   </Campo>
                 )}
               </div>
+            )}
+
+            {type === 'categories' && (
+              <SelectorDeCategorias seleccion={categoryIds} onChange={setCategoryIds} />
             )}
 
             {/*
@@ -373,6 +366,25 @@ function Campos({
         {/* Las piezas se cargan con la sección ya creada: cuelgan de ella. */}
         {id && llevaPiezas(type) && <Piezas sectionId={id} tipo={type} />}
       </div>
+      <BarraDeAcciones>
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          onClick={() => void navegar({ to: '/contenido/secciones' })}
+        >
+          Cancelar
+        </Button>
+        {/*
+      El botón vive fuera del `<form>` y lo envía por su id: es el atributo
+      `form` de HTML. Sin él habría que meter el formulario alrededor de
+      toda la página, y las piezas —que traen sus propios botones— quedarían
+      adentro enviándolo sin querer.
+      */}
+        <Button type="submit" form="form-seccion" size="lg" disabled={guardar.isPending}>
+          {guardar.isPending ? 'Guardando…' : id ? 'Guardar cambios' : 'Crear sección'}
+        </Button>
+      </BarraDeAcciones>
     </PaginaAdmin>
   );
 }
@@ -487,8 +499,29 @@ function Piezas({ sectionId, tipo }: { sectionId: string; tipo: TipoDeSeccion })
             : 'Cada aviso es una imagen con su título y su enlace.'}
         </p>
 
-        {editando && (
-          <div className="border-border flex flex-col gap-4 rounded-lg border p-5">
+        {/*
+          El editor es un panel y no un bloque encima de la lista.
+
+          En línea competía con la barra de acciones de la sección —dos pares de
+          «Guardar» a la vez, y la barra pegajosa flotando sobre los campos— y en
+          una lista larga mandaba la vista al tope para editar el último.
+        */}
+        <PanelDeEdicion
+          abierto={editando !== null}
+          onCerrar={() => setEditando(null)}
+          titulo={editando === 'nueva' ? `Nuevo ${singular}` : `Editar ${singular}`}
+          acciones={
+            <>
+              <Button variant="outline" onClick={() => setEditando(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={() => guardar.mutate()} disabled={guardar.isPending}>
+                {guardar.isPending ? 'Guardando…' : 'Guardar'}
+              </Button>
+            </>
+          }
+        >
+          <>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="p-title">Título</Label>
@@ -506,18 +539,11 @@ function Piezas({ sectionId, tipo }: { sectionId: string; tipo: TipoDeSeccion })
                   onChange={(e) => setBorrador({ ...borrador, subtitle: e.currentTarget.value })}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="p-href">A dónde lleva</Label>
-                <Input
-                  id="p-href"
-                  value={borrador.href}
-                  placeholder="/catalogo?categoria=calzado"
-                  onChange={(e) => setBorrador({ ...borrador, href: e.currentTarget.value })}
-                />
-                <span className="text-muted-foreground text-xs">
-                  Una ruta de la tienda. Vacío: no enlaza.
-                </span>
-              </div>
+              <SelectorDeDestino
+                id="p-href"
+                valor={borrador.href}
+                onChange={(href) => setBorrador({ ...borrador, href })}
+              />
               {tipo === 'hero' && (
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="p-cta">Texto del botón</Label>
@@ -532,17 +558,15 @@ function Piezas({ sectionId, tipo }: { sectionId: string; tipo: TipoDeSeccion })
                   </span>
                 </div>
               )}
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="p-position">Posición</Label>
-                <Input
-                  id="p-position"
-                  inputMode="numeric"
-                  value={String(borrador.position)}
-                  onChange={(e) =>
-                    setBorrador({ ...borrador, position: Number(e.currentTarget.value) || 0 })
-                  }
-                />
-              </div>
+              {/*
+                Acá estaba «posición» como un número.
+
+                Se sacó por lo mismo que se había sacado de la sección: al crear
+                una pieza no hay contra qué compararla, y para ponerla entre dos
+                que ya existen había que abrirlas, mirar sus números y elegir uno
+                intermedio. Una pieza nueva va al final, y el orden se cambia con
+                las flechas de la lista, que es donde se ve el resultado.
+              */}
             </div>
 
             <SelectorDeImagen
@@ -571,17 +595,8 @@ function Piezas({ sectionId, tipo }: { sectionId: string; tipo: TipoDeSeccion })
                 {error}
               </p>
             )}
-
-            <div className="flex gap-3">
-              <Button onClick={() => guardar.mutate()} disabled={guardar.isPending}>
-                {guardar.isPending ? 'Guardando…' : 'Guardar'}
-              </Button>
-              <Button variant="outline" onClick={() => setEditando(null)}>
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        )}
+          </>
+        </PanelDeEdicion>
 
         {consulta.isPending ? (
           <div className="bg-muted h-16 animate-pulse rounded-lg" />

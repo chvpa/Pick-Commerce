@@ -133,10 +133,7 @@ async function claveDeCifrado(maestra: string): Promise<CryptoKey> {
       `La clave maestra tiene que ser de ${BYTES_DE_LA_CLAVE} bytes en base64; llegaron ${bytes.length}.`,
     );
   }
-  return crypto.subtle.importKey('raw', bytes, { name: 'AES-GCM' }, false, [
-    'encrypt',
-    'decrypt',
-  ]);
+  return crypto.subtle.importKey('raw', bytes, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 }
 
 /**

@@ -11,16 +11,16 @@ import {
 } from '@pick/commerce-core';
 import type { PedidoDeLista } from '@pick/commerce-core';
 import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
-import { ReceiptTextIcon } from 'lucide-react';
+import { ReceiptTextIcon } from '@/components/iconos';
 import { Badge } from '@/components/ui/badge';
 import {
   BarraDeFiltros,
   Esqueleto,
   EstadoDeError,
   EstadoVacio,
-  Paginacion,
   PaginaAdmin,
-  SELECT,
+  Paginacion,
+  Selector,
   Tarjeta,
 } from '@/components/pagina';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,7 @@ import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { DialogoDeConfirmacion } from '@/components/acciones';
 import { cn } from '@/lib/utils';
+import { SelectItem } from '@/components/ui/select';
 
 const POR_PAGINA = 20;
 
@@ -174,22 +175,21 @@ export function ListaPedidos() {
             <Label htmlFor="estado" className="text-muted-foreground text-xs">
               Estado
             </Label>
-            <select
+            <Selector
               id="estado"
               value={status}
-              onChange={(e) => {
-                setStatus(e.currentTarget.value as OrderStatus | '');
+              onValueChange={(valor) => {
+                setStatus(valor as OrderStatus | '');
                 setPage(1);
               }}
-              className={SELECT}
             >
-              <option value="">Todos</option>
+              <SelectItem value="">Todos</SelectItem>
               {ESTADOS_DE_PEDIDO.map((e) => (
-                <option key={e} value={e}>
+                <SelectItem key={e} value={e}>
                   {ETIQUETA_ESTADO_PEDIDO[e]}
-                </option>
+                </SelectItem>
               ))}
-            </select>
+            </Selector>
           </div>
         </BarraDeFiltros>
 
@@ -204,12 +204,12 @@ export function ListaPedidos() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Pedido</TableHead>
+                  <TableHead className="w-40">Pedido</TableHead>
                   <TableHead>Cliente</TableHead>
-                  <TableHead className="text-right">Ítems</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Pago</TableHead>
-                  <TableHead>Estado</TableHead>
+                  <TableHead className="w-20 text-right">Ítems</TableHead>
+                  <TableHead className="w-36 text-right">Total</TableHead>
+                  <TableHead className="w-40">Pago</TableHead>
+                  <TableHead className="w-44">Estado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -269,24 +269,24 @@ export function ListaPedidos() {
                             {ETIQUETA_ESTADO_PAGO[p.paymentStatus]}
                           </Badge>
                         ) : (
-                          <select
+                          <Selector
                             aria-label={`Estado de pago del pedido #${p.number}`}
                             value={p.paymentStatus}
                             disabled={cambiarPago.isPending}
-                            onChange={(e) =>
+                            onValueChange={(valor) =>
                               cambiarPago.mutate({
                                 id: p.id,
-                                pago: e.currentTarget.value as PaymentStatus,
+                                pago: valor as PaymentStatus,
                               })
                             }
                             className={cn(SELECT_DE_ESTADO, TONO_PAGO[p.paymentStatus])}
                           >
                             {ESTADOS_DE_PAGO.map((e) => (
-                              <option key={e} value={e}>
+                              <SelectItem key={e} value={e}>
                                 {ETIQUETA_ESTADO_PAGO[e]}
-                              </option>
+                              </SelectItem>
                             ))}
-                          </select>
+                          </Selector>
                         )}
                       </TableCell>
                       <TableCell>
@@ -305,23 +305,21 @@ export function ListaPedidos() {
                             {ETIQUETA_ESTADO_PEDIDO[p.status]}
                           </Badge>
                         ) : (
-                          <select
+                          <Selector
                             aria-label={`Estado del pedido #${p.number}`}
                             value={p.status}
                             disabled={cambiarEstado.isPending}
-                            onChange={(e) => {
-                              const estado = e.currentTarget.value as OrderStatus;
+                            onValueChange={(valor) => {
+                              const estado = valor as OrderStatus;
                               if (estado === 'cancelled') {
                                 /*
-                                 * El `<select>` ya se movió cuando esto corre, así
-                                 * que hay que devolverlo **antes** de preguntar: si
-                                 * se lo dejara en «Cancelado» mientras el diálogo
-                                 * está abierto, cancelar el diálogo dejaría la fila
-                                 * mostrando un estado que el pedido no tiene.
-                                 * Confirmar lo vuelve a poner con el dato de la
-                                 * mutación.
+                                 * Sólo se pregunta: el desplegable es controlado y
+                                 * su valor sale de `p.status`, así que mientras el
+                                 * diálogo está abierto la fila sigue mostrando el
+                                 * estado real. Con el `<select>` nativo había que
+                                 * devolverlo a mano acá, porque el control ya se
+                                 * había movido solo.
                                  */
-                                e.currentTarget.value = p.status;
                                 setPorCancelar(p);
                                 return;
                               }
@@ -330,11 +328,11 @@ export function ListaPedidos() {
                             className={cn(SELECT_DE_ESTADO, TONO[p.status])}
                           >
                             {ESTADOS_DE_PEDIDO.map((e) => (
-                              <option key={e} value={e}>
+                              <SelectItem key={e} value={e}>
                                 {ETIQUETA_ESTADO_PEDIDO[e]}
-                              </option>
+                              </SelectItem>
                             ))}
-                          </select>
+                          </Selector>
                         )}
                       </TableCell>
                     </TableRow>

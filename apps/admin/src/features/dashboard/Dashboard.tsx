@@ -13,14 +13,14 @@ import {
   type Periodo,
 } from '@pick/commerce-core';
 import type { OrderStatus } from '@pick/commerce-types';
-import { LayoutDashboardIcon } from 'lucide-react';
+import { LayoutDashboardIcon } from '@/components/iconos';
 import { Badge } from '@/components/ui/badge';
 import {
-  EstadoDeError,
   Esqueleto,
+  EstadoDeError,
   PaginaAdmin,
   Paginacion,
-  SELECT,
+  Selector,
   Tarjeta,
   TituloDeTarjeta,
 } from '@/components/pagina';
@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/table';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
+import { SelectItem } from '@/components/ui/select';
 
 const PERIODOS: readonly Periodo[] = ['hoy', '7d', '30d'];
 
@@ -157,21 +158,20 @@ function VentasPorProducto({
       <TituloDeTarjeta
         accion={
           <div className="flex items-center gap-2">
-            <select
+            <Selector
               value={modo}
-              onChange={(e) => {
-                setModo(e.currentTarget.value as ModoDeRendimiento);
+              onValueChange={(valor) => {
+                setModo(valor as ModoDeRendimiento);
                 setPage(1);
               }}
-              className={SELECT}
               aria-label="Qué mostrar"
             >
               {(['vendidos', 'sin_movimiento'] as const).map((m) => (
-                <option key={m} value={m}>
+                <SelectItem key={m} value={m}>
                   {ETIQUETA_MODO[m]}
-                </option>
+                </SelectItem>
               ))}
-            </select>
+            </Selector>
             <Button
               variant="outline"
               size="sm"
@@ -308,18 +308,17 @@ export function Dashboard() {
       icono={LayoutDashboardIcon}
       descripcion={`${tienda.name} · sale de los pedidos, no de las visitas.`}
       acciones={
-        <select
+        <Selector
           value={periodo}
-          onChange={(e) => setPeriodo(e.currentTarget.value as Periodo)}
-          className={SELECT}
+          onValueChange={(valor) => setPeriodo(valor as Periodo)}
           aria-label="Período"
         >
           {PERIODOS.map((p) => (
-            <option key={p} value={p}>
+            <SelectItem key={p} value={p}>
               {ETIQUETA_PERIODO[p]}
-            </option>
+            </SelectItem>
           ))}
-        </select>
+        </Selector>
       }
     >
       {consulta.isError ? (

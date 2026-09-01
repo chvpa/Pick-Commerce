@@ -3,7 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { Link } from '@tanstack/react-router';
 import { repositorioPromociones } from '@pick/adapter-supabase';
 import { esDeCatalogo, formatMoney, type Promotion } from '@pick/commerce-core';
-import { PercentIcon } from 'lucide-react';
+import { PercentIcon } from '@/components/iconos';
 import {
   Esqueleto,
   EstadoDeError,
@@ -130,11 +130,11 @@ export function ListaPromociones() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Promoción</TableHead>
-                  <TableHead className="text-right">Descuento</TableHead>
-                  <TableHead>Alcance</TableHead>
-                  <TableHead>Dónde se ve</TableHead>
-                  <TableHead>Vigencia</TableHead>
-                  <TableHead className="text-right">Usos</TableHead>
+                  <TableHead className="w-28 text-right">Descuento</TableHead>
+                  <TableHead className="w-44">Alcance</TableHead>
+                  <TableHead className="w-36">Dónde se ve</TableHead>
+                  <TableHead className="w-44">Vigencia</TableHead>
+                  <TableHead className="w-20 text-right">Usos</TableHead>
                   {/*
                   El interruptor y las acciones al final, juntos: es donde el ojo
                   termina de leer la fila y donde se actúa sobre ella. El estado
@@ -142,8 +142,8 @@ export function ListaPromociones() {
                   estado, y repetirlo al lado era decir dos veces lo mismo
                   ocupando la columna más ancha de la tabla.
                 */}
-                  <TableHead className="text-right">Activa</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                  <TableHead className="w-24 text-right">Activa</TableHead>
+                  <TableHead className="w-28 text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

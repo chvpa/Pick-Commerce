@@ -8,13 +8,14 @@ import {
   type CatalogSort,
   type Coleccion,
 } from '@pick/commerce-core';
-import { LayoutTemplateIcon } from 'lucide-react';
+import { LayoutTemplateIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
 import {
+  BarraDeAcciones,
   Esqueleto,
   EstadoDeError,
   PaginaAdmin,
-  SELECT,
+  Selector,
   Tarjeta,
   TituloDeTarjeta,
 } from '@/components/pagina';
@@ -26,6 +27,7 @@ import { Switch } from '@/components/ui/switch';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import { SelectItem } from '@/components/ui/select';
 
 const ORDENES: readonly { valor: CatalogSort; label: string }[] = [
   { valor: 'relevance', label: 'Como están en el catálogo' },
@@ -138,21 +140,6 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
         titulo={id ? 'Editar colección' : 'Nueva colección'}
         icono={LayoutTemplateIcon}
         descripcion="Una lista de productos. Para mostrarla en la portada, creá una sección de carrusel."
-        acciones={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              onClick={() => void navegar({ to: '/contenido/colecciones' })}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" size="lg" disabled={guardar.isPending || !title}>
-              {guardar.isPending ? 'Guardando…' : id ? 'Guardar cambios' : 'Crear colección'}
-            </Button>
-          </>
-        }
       >
         {error && (
           <p className="text-destructive text-sm" role="alert">
@@ -199,15 +186,14 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
 
               <fieldset className="flex flex-col gap-3">
                 <legend className="text-sm font-medium">Cómo se arma</legend>
-                <select
+                <Selector
                   value={dinamica ? 'dinamica' : 'manual'}
-                  onChange={(e) => setDinamica(e.currentTarget.value === 'dinamica')}
-                  className={SELECT}
+                  onValueChange={(valor) => setDinamica(valor === 'dinamica')}
                   aria-label="Cómo se arma la colección"
                 >
-                  <option value="manual">La armo yo, eligiendo productos</option>
-                  <option value="dinamica">Se arma sola, con una regla</option>
-                </select>
+                  <SelectItem value="manual">La armo yo, eligiendo productos</SelectItem>
+                  <SelectItem value="dinamica">Se arma sola, con una regla</SelectItem>
+                </Selector>
 
                 {dinamica ? (
                   <ReglasDinamicas
@@ -242,6 +228,19 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
             </div>
           </Tarjeta>
         </div>
+        <BarraDeAcciones>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={() => void navegar({ to: '/contenido/colecciones' })}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" size="lg" disabled={guardar.isPending || !title}>
+            {guardar.isPending ? 'Guardando…' : id ? 'Guardar cambios' : 'Crear colección'}
+          </Button>
+        </BarraDeAcciones>
       </PaginaAdmin>
     </form>
   );
@@ -295,18 +294,13 @@ function ReglasDinamicas({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="sort">Orden</Label>
-        <select
-          id="sort"
-          value={sort}
-          onChange={(e) => onSort(e.currentTarget.value as CatalogSort)}
-          className={SELECT}
-        >
+        <Selector id="sort" value={sort} onValueChange={(valor) => onSort(valor as CatalogSort)}>
           {ORDENES.map((o) => (
-            <option key={o.valor} value={o.valor}>
+            <SelectItem key={o.valor} value={o.valor}>
               {o.label}
-            </option>
+            </SelectItem>
           ))}
-        </select>
+        </Selector>
         {sort === 'best-selling' && (
           <span className="text-muted-foreground text-xs">
             Con la tienda todavía sin ventas, todos los productos empatan en cero y el orden queda

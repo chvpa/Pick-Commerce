@@ -1,6 +1,7 @@
 import {
-  columnasDe,
   PRODUCTOS_POR_SECCION,
+  categoriasDe,
+  columnasDe,
   type Banner,
   type CatalogQuery,
   type CatalogSort,
@@ -151,7 +152,10 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
       return (
         await Promise.all(
           (filas ?? []).map(async (f): Promise<SeccionResuelta | null> => {
-            const settings = (f.settings ?? {}) as Record<string, string | number | boolean>;
+            const settings = (f.settings ?? {}) as Record<
+              string,
+              string | number | boolean | readonly string[]
+            >;
             const layout = f.layout as LayoutDeSeccion;
 
             if (f.type === 'hero') {
@@ -176,6 +180,7 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
                 id: f.id,
                 layout,
                 ...(f.title ? { title: f.title } : {}),
+                categoryIds: categoriasDe(settings),
               };
             }
 

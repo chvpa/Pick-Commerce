@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { columnasDe, moverEn, tipoDe } from './content.ts';
+import { categoriasDe, categoriasDeLaSeccion, columnasDe, moverEn, tipoDe } from './content.ts';
 
 test('mover cambia el orden sin tocar la lista original', () => {
   const original = ['a', 'b', 'c', 'd'];
@@ -38,4 +38,34 @@ test('una colección con reglas es dinámica', () => {
   // Sin reglas, aunque el objeto exista vacío, sigue siendo manual: `{}` como
   // regla no acota nada y una colección que no acota nada es todo el catálogo.
   assert.equal(tipoDe({ rules: undefined }), 'manual');
+});
+
+// --- Qué categorías muestra una sección -------------------------------------
+
+test('sin selección, la sección muestra todas las categorías', () => {
+  // Vacío es «todas» y no «ninguna»: las secciones que ya existían no podían
+  // elegir, así que la ausencia de elección tiene que seguir significando lo de
+  // siempre.
+  assert.deepEqual(categoriasDe({}), []);
+  assert.deepEqual(categoriasDe({ categoryIds: 'calzado' }), []);
+
+  const todas = [{ id: 'a' }, { id: 'b' }];
+  assert.deepEqual(categoriasDeLaSeccion(todas, []), todas);
+});
+
+test('la sección respeta el orden elegido, no el del catálogo', () => {
+  const todas = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  assert.deepEqual(categoriasDeLaSeccion(todas, ['c', 'a']), [{ id: 'c' }, { id: 'a' }]);
+});
+
+test('una categoría borrada no rompe la sección: desaparece', () => {
+  const todas = [{ id: 'a' }];
+  assert.deepEqual(categoriasDeLaSeccion(todas, ['a', 'fantasma']), [{ id: 'a' }]);
+});
+
+test('los ids que no son texto se descartan al leerlos', () => {
+  assert.deepEqual(categoriasDe({ categoryIds: ['a', '', 'b'] as unknown as readonly string[] }), [
+    'a',
+    'b',
+  ]);
 });

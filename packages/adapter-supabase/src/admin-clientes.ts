@@ -16,6 +16,10 @@ export function repositorioAdminClientes(db: PickSupabaseClient): RepositorioAdm
         p_query: consulta.query ?? '',
         p_page: consulta.page ?? 1,
         p_per_page: consulta.perPage ?? 20,
+        // Sin rango, todos: es el comportamiento que la pantalla tenía y el que
+        // espera cualquier otro llamador.
+        ...(consulta.desde ? { p_from: consulta.desde } : {}),
+        ...(consulta.hasta ? { p_to: consulta.hasta } : {}),
       });
 
       if (error) throw new Error(`No se pudieron consultar los clientes: ${error.message}`);

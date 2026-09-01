@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { repositorioAdminClientes } from '@pick/adapter-supabase';
-import { formatMoney } from '@pick/commerce-core';
-import { UsersIcon } from 'lucide-react';
+import { ETIQUETA_PERIODO, formatMoney, rangoDePeriodo, type Periodo } from '@pick/commerce-core';
+import { UsersIcon } from '@/components/iconos';
 import {
   BarraDeFiltros,
   Esqueleto,
   EstadoDeError,
   EstadoVacio,
-  Paginacion,
   PaginaAdmin,
+  Paginacion,
+  Selector,
   Tarjeta,
 } from '@/components/pagina';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ import {
 } from '@/components/ui/table';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
+import { SelectItem } from '@/components/ui/select';
 
 const POR_PAGINA = 20;
 
@@ -48,6 +50,7 @@ export function ListaClientes() {
   const tienda = useTiendaActiva();
 
   const [texto, setTexto] = useState('');
+  const [periodo, setPeriodo] = useState<Periodo | 'siempre'>('siempre');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
 
@@ -59,10 +62,22 @@ export function ListaClientes() {
     return () => clearTimeout(id);
   }, [texto]);
 
+  /*
+   * «Siempre» es el valor por defecto y no un período: la lista de clientes se
+   * abre para buscar a alguien tanto como para ver quién compró este mes, y
+   * arrancar filtrada escondería clientes sin que nadie lo haya pedido.
+   */
+  const rango = periodo === 'siempre' ? undefined : rangoDePeriodo(periodo, new Date());
+
   const consulta = useQuery({
-    queryKey: ['clientes', tienda.id, query, page],
+    queryKey: ['clientes', tienda.id, query, periodo, page],
     queryFn: () =>
-      repositorioAdminClientes(db).listar(tienda.id, { query, page, perPage: POR_PAGINA }),
+      repositorioAdminClientes(db).listar(tienda.id, {
+        query,
+        page,
+        perPage: POR_PAGINA,
+        ...(rango ? { desde: rango.from, hasta: rango.to } : {}),
+      }),
     placeholderData: keepPreviousData,
   });
 
@@ -88,6 +103,27 @@ export function ListaClientes() {
               className="h-8 w-72"
             />
           </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="periodo" className="text-muted-foreground text-xs">
+              Última compra
+            </Label>
+            <Selector
+              id="periodo"
+              className="h-8 w-44"
+              value={periodo}
+              onValueChange={(valor) => {
+                setPeriodo(valor as Periodo | 'siempre');
+                setPage(1);
+              }}
+            >
+              <SelectItem value="siempre">Siempre</SelectItem>
+              {(['hoy', '7d', '30d'] as const).map((p) => (
+                <SelectItem key={p} value={p}>
+                  {ETIQUETA_PERIODO[p]}
+                </SelectItem>
+              ))}
+            </Selector>
+          </div>
         </BarraDeFiltros>
 
         {consulta.isError ? (
@@ -102,10 +138,10 @@ export function ListaClientes() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead className="text-right">Pedidos</TableHead>
-                  <TableHead className="text-right">Total comprado</TableHead>
-                  <TableHead>Última compra</TableHead>
+                  <TableHead className="w-40">Teléfono</TableHead>
+                  <TableHead className="w-24 text-right">Pedidos</TableHead>
+                  <TableHead className="w-40 pr-6 text-right">Total comprado</TableHead>
+                  <TableHead className="w-40">Última compra</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -142,7 +178,7 @@ export function ListaClientes() {
                       </TableCell>
                       <TableCell className="tabular-nums">{c.phone}</TableCell>
                       <TableCell className="text-right tabular-nums">{c.orderCount}</TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell className="pr-6 text-right tabular-nums">
                         {formatMoney(c.totalSpent, tienda.locale)}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">

@@ -16,16 +16,16 @@ import {
   type ResumenProducto,
 } from '@pick/commerce-core';
 import type { ProductStatus } from '@pick/commerce-types';
-import { PackageIcon } from 'lucide-react';
+import { PackageIcon } from '@/components/iconos';
 import { Badge } from '@/components/ui/badge';
 import {
   BarraDeFiltros,
   Esqueleto,
   EstadoDeError,
   EstadoVacio,
-  Paginacion,
   PaginaAdmin,
-  SELECT,
+  Paginacion,
+  Selector,
   Tarjeta,
 } from '@/components/pagina';
 import { DialogoDeConfirmacion } from '@/components/acciones';
@@ -46,6 +46,7 @@ import { usePuede } from '@/features/auth/usePuede';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import { SelectItem } from '@/components/ui/select';
 
 const POR_PAGINA = 20;
 
@@ -153,6 +154,7 @@ export function ListaProductos() {
     () => [
       columna.display({
         id: 'seleccion',
+        meta: { ancho: 'w-10' },
         header: ({ table }) => (
           <Checkbox
             aria-label="Seleccionar todo lo que se ve"
@@ -217,6 +219,7 @@ export function ListaProductos() {
         },
       }),
       columna.accessor('status', {
+        meta: { ancho: 'w-36' },
         header: 'En la tienda',
         cell: ({ row, getValue }) => {
           const estado = getValue();
@@ -255,10 +258,12 @@ export function ListaProductos() {
         },
       }),
       columna.accessor('variantes', {
+        meta: { ancho: 'w-24' },
         header: () => <span className="block text-right">Variantes</span>,
         cell: ({ getValue }) => <span className="block text-right tabular-nums">{getValue()}</span>,
       }),
       columna.accessor('stock', {
+        meta: { ancho: 'w-20' },
         header: () => <span className="block text-right">Stock</span>,
         cell: ({ getValue }) => (
           <span
@@ -269,6 +274,7 @@ export function ListaProductos() {
         ),
       }),
       columna.accessor('precioDesde', {
+        meta: { ancho: 'w-32' },
         header: () => <span className="block text-right">Desde</span>,
         cell: ({ row, getValue }) => (
           <span className="block text-right tabular-nums">
@@ -363,22 +369,21 @@ export function ListaProductos() {
               `<select>` nativo: teclado, lectores de pantalla y el selector del
               sistema en mobile ya vienen resueltos, y no cuesta JavaScript.
             */}
-            <select
+            <Selector
               id="estado"
               value={status}
-              onChange={(e) => {
-                setStatus(e.currentTarget.value as ProductStatus | '');
+              onValueChange={(valor) => {
+                setStatus(valor as ProductStatus | '');
                 setPage(1);
               }}
-              className={SELECT}
             >
-              <option value="">Todos</option>
+              <SelectItem value="">Todos</SelectItem>
               {ESTADOS.map((e) => (
-                <option key={e} value={e}>
+                <SelectItem key={e} value={e}>
                   {ETIQUETA_ESTADO[e]}
-                </option>
+                </SelectItem>
               ))}
-            </select>
+            </Selector>
           </div>
         </BarraDeFiltros>
 
@@ -438,7 +443,18 @@ export function ListaProductos() {
                 {tabla.getHeaderGroups().map((grupo) => (
                   <TableRow key={grupo.id}>
                     {grupo.headers.map((h) => (
-                      <TableHead key={h.id}>
+                      /*
+                        El ancho lo declara la columna, no el contenido. Sin
+                        esto el navegador reparte por lo que hay adentro y las
+                        columnas de números terminan anchas y con el valor
+                        flotando en el medio.
+                      */
+                      <TableHead
+                        key={h.id}
+                        className={
+                          (h.column.columnDef.meta as { ancho?: string } | undefined)?.ancho
+                        }
+                      >
                         {h.isPlaceholder
                           ? null
                           : flexRender(h.column.columnDef.header, h.getContext())}

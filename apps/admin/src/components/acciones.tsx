@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { ArrowDownIcon, ArrowUpIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { ArrowDownIcon, ArrowUpIcon, PencilIcon, Trash2Icon } from '@/components/iconos';
 import { Link } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {

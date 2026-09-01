@@ -9,9 +9,16 @@ import {
   repositorioPromociones,
 } from '@pick/adapter-supabase';
 import { formatMoney, percentageOf, subtractMoney } from '@pick/commerce-core';
-import { PercentIcon } from 'lucide-react';
+import { PercentIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
-import { Esqueleto, PaginaAdmin, SELECT, Tarjeta, TituloDeTarjeta } from '@/components/pagina';
+import {
+  BarraDeAcciones,
+  Esqueleto,
+  PaginaAdmin,
+  Selector,
+  Tarjeta,
+  TituloDeTarjeta,
+} from '@/components/pagina';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +33,7 @@ import {
   type FormularioPromocion as Valores,
   type PromocionValidada,
 } from './esquema';
+import { SelectItem } from '@/components/ui/select';
 
 /**
  * Alta y edición de una promoción.
@@ -110,6 +118,14 @@ export function FormularioPromocion({ id }: { id?: string }) {
   // `useWatch` y no `formulario.watch()`: el segundo devuelve una función que el
   // compilador de React no puede memoizar, y lo marca el lint.
   const combina = useWatch({ control, name: 'stackable' });
+  /*
+   * Los desplegables ya no son `<select>` nativos, así que `register` no
+   * alcanza: un control de Base UI no recibe un evento de cambio sino el valor
+   * elegido. Se leen con `useWatch` y se escriben con `setValue`, que es lo que
+   * este formulario ya hacía con `targetKind` y con el interruptor.
+   */
+  const tipoDeDescuento = useWatch({ control, name: 'discountType' });
+  const estado = useWatch({ control, name: 'status' });
 
   /* Una promoción con cupón o con mínimos no se puede pintar en la grilla: sin
      carrito no hay subtotal contra el que evaluarla. Decirlo mientras se escribe
@@ -179,25 +195,7 @@ export function FormularioPromocion({ id }: { id?: string }) {
         guardar.mutate(v);
       })}
     >
-      <PaginaAdmin
-        titulo={id ? 'Editar promoción' : 'Nueva promoción'}
-        icono={PercentIcon}
-        acciones={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              onClick={() => void navegar({ to: '/promociones' })}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" size="lg" disabled={guardar.isPending}>
-              {guardar.isPending ? 'Guardando…' : id ? 'Guardar cambios' : 'Crear promoción'}
-            </Button>
-          </>
-        }
-      >
+      <PaginaAdmin titulo={id ? 'Editar promoción' : 'Nueva promoción'} icono={PercentIcon}>
         {errorGeneral && (
           <p className="text-destructive text-sm" role="alert">
             {errorGeneral}
@@ -223,10 +221,14 @@ export function FormularioPromocion({ id }: { id?: string }) {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Campo id="discountType" label="Tipo">
-                  <select id="discountType" {...register('discountType')} className={SELECT}>
-                    <option value="percentage">Porcentaje</option>
-                    <option value="fixed">Monto fijo</option>
-                  </select>
+                  <Selector
+                    id="discountType"
+                    value={tipoDeDescuento}
+                    onValueChange={(v) => setValue('discountType', v as Valores['discountType'])}
+                  >
+                    <SelectItem value="percentage">Porcentaje</SelectItem>
+                    <SelectItem value="fixed">Monto fijo</SelectItem>
+                  </Selector>
                 </Campo>
 
                 <Campo
@@ -246,20 +248,19 @@ export function FormularioPromocion({ id }: { id?: string }) {
 
               <fieldset className="flex flex-col gap-3">
                 <legend className="mb-1.5 text-sm font-medium">A qué productos alcanza</legend>
-                <select
-                  {...register('targetKind')}
-                  className={SELECT}
-                  onChange={(e) => {
-                    setValue('targetKind', e.currentTarget.value as Valores['targetKind']);
+                <Selector
+                  value={alcance}
+                  onValueChange={(valor) => {
+                    setValue('targetKind', valor as Valores['targetKind']);
                     // Cambiar de tipo con ids de otro tipo dejaría una selección
                     // que no corresponde a nada.
                     setValue('targetIds', []);
                   }}
                 >
-                  <option value="all">Todo el catálogo</option>
-                  <option value="category">Categorías</option>
-                  <option value="product">Productos</option>
-                </select>
+                  <SelectItem value="all">Todo el catálogo</SelectItem>
+                  <SelectItem value="category">Categorías</SelectItem>
+                  <SelectItem value="product">Productos</SelectItem>
+                </Selector>
 
                 {alcance === 'category' && (
                   <SelectorDeCategorias
@@ -394,11 +395,15 @@ export function FormularioPromocion({ id }: { id?: string }) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="status">Estado</Label>
-                  <select id="status" {...register('status')} className={SELECT}>
-                    <option value="draft">Borrador</option>
-                    <option value="active">Activa</option>
-                    <option value="archived">Archivada</option>
-                  </select>
+                  <Selector
+                    id="status"
+                    value={estado}
+                    onValueChange={(v) => setValue('status', v as Valores['status'])}
+                  >
+                    <SelectItem value="draft">Borrador</SelectItem>
+                    <SelectItem value="active">Activa</SelectItem>
+                    <SelectItem value="archived">Archivada</SelectItem>
+                  </Selector>
                   <span className="text-muted-foreground text-xs">
                     Sólo las activas descuentan. Se archiva en vez de borrar, para que los pedidos
                     viejos sigan explicando su descuento.
@@ -431,6 +436,19 @@ export function FormularioPromocion({ id }: { id?: string }) {
             </div>
           </Tarjeta>
         </div>
+        <BarraDeAcciones>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={() => void navegar({ to: '/promociones' })}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" size="lg" disabled={guardar.isPending}>
+            {guardar.isPending ? 'Guardando…' : id ? 'Guardar cambios' : 'Crear promoción'}
+          </Button>
+        </BarraDeAcciones>
       </PaginaAdmin>
     </form>
   );

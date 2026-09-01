@@ -17,8 +17,8 @@ import {
 } from '@pick/commerce-core';
 import type { TiendaResumen } from '@pick/commerce-core';
 import { Button } from '@/components/ui/button';
-import { SettingsIcon } from 'lucide-react';
-import { EstadoDeError, PaginaAdmin, SELECT, Tarjeta } from '@/components/pagina';
+import { SettingsIcon } from '@/components/iconos';
+import { EstadoDeError, PaginaAdmin, Selector, Tarjeta } from '@/components/pagina';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +27,7 @@ import { useSesion } from '@/features/auth/SesionContext';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { guardarCredencial, probarCredencial } from '@/lib/ia';
+import { SelectItem } from '@/components/ui/select';
 
 type Settings = Readonly<Record<string, unknown>>;
 
@@ -489,22 +490,21 @@ function InteligenciaArtificial({ tienda }: { tienda: TiendaResumen }) {
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="openai-modelo">Modelo</Label>
-        <select
+        <Selector
           id="openai-modelo"
-          className={SELECT}
           value={modeloActual}
           disabled={trabajando}
-          onChange={(e) => {
+          onValueChange={(valor) => {
             setTocado(true);
-            setModelo(e.currentTarget.value);
+            setModelo(valor);
           }}
         >
           {MODELOS.map((m) => (
-            <option key={m.id} value={m.id}>
+            <SelectItem key={m.id} value={m.id}>
               {m.nombre} — {m.nota}
-            </option>
+            </SelectItem>
           ))}
-        </select>
+        </Selector>
         <p className="text-muted-foreground text-xs">
           Cambiar de modelo sólo tiene efecto si guardás de nuevo la credencial.
         </p>
@@ -585,7 +585,9 @@ function Envio({
 
   const [cobra, setCobra] = useState(inicial.mode === 'flat');
   const [tarifa, setTarifa] = useState(
-    inicial.mode === 'flat' ? String(toMajorUnits({ amount: inicial.amount, currency: moneda })) : '',
+    inicial.mode === 'flat'
+      ? String(toMajorUnits({ amount: inicial.amount, currency: moneda }))
+      : '',
   );
   const [desde, setDesde] = useState(
     inicial.freeFrom === undefined

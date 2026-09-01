@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { ADMIN_E2E, TIENDA_E2E } from '../scripts/datos-admin-e2e.ts';
-import { ADMIN, abrirSidebar, entrar, irAContenido, vigilar } from './_admin.ts';
+import {
+  ADMIN,
+  abrirSidebar,
+  desplegable,
+  elegir,
+  entrar,
+  irAContenido,
+  vigilar,
+} from './_admin.ts';
 
 /**
  * Smoke del Admin: entrar, moverse por el sidebar y salir.
@@ -194,8 +202,8 @@ test.describe('Admin', () => {
 
     const titulo = `Novedades del smoke ${Date.now()}`;
     await page.locator('#title').fill(titulo);
-    await page.getByLabel('Cómo se arma la colección').selectOption('dinamica');
-    await page.locator('#sort').selectOption('newest');
+    await elegir(page, desplegable(page, '[aria-label="Cómo se arma la colección"]'), 'Se arma sola, con una regla');
+    await elegir(page, desplegable(page, '#sort'), 'Novedades (lo último que entró)');
     await page.getByRole('switch').first().click();
 
     await page.getByRole('button', { name: 'Crear colección' }).click();
@@ -357,13 +365,16 @@ test.describe('Admin', () => {
     expect(problemas, problemas.join('\n')).toEqual([]);
   });
 
-  test('cambiar de tienda cierra el formulario abierto', async ({ page }) => {
+  test('cambiar de tienda descarta el borrador del formulario', async ({ page }) => {
     /*
-     * El editor de banners y el de categorías viven en estado local del panel, y
-     * ese estado no sabe nada de la tienda. Con un formulario abierto y un cambio
-     * de tienda, seguía mostrando el registro de la anterior —que es lo que se ve
-     * como «me cambié de tienda y sigo viendo lo de la otra»— y, peor, guardarlo
-     * lo habría escrito en la tienda nueva.
+     * El editor de categorías vive en estado local, y ese estado no sabe de qué
+     * tienda es. Con un borrador escrito y un cambio de tienda, seguía mostrando
+     * lo de la anterior —que se lee como «me cambié y sigo viendo lo de la
+     * otra»— y guardarlo lo habría escrito en la tienda nueva.
+     *
+     * Desde que el editor es un panel modal, el selector de tiendas no se puede
+     * tocar con él abierto: ése es el primer cierre. El segundo, que es el que
+     * se prueba acá, es que el borrador tampoco sobrevive al cambio.
      */
     const problemas = vigilar(page);
     await entrar(page);
@@ -376,14 +387,25 @@ test.describe('Admin', () => {
     await page.locator('#c-name').fill(nombre);
     await expect(page.locator('#c-name')).toHaveValue(nombre);
 
+    // Cerrar es lo único que se puede hacer sin guardar: el panel es modal.
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#c-name')).toHaveCount(0);
+
     await abrirSidebar(page);
     await page.locator('[data-slot="sidebar-header"] button').first().click();
     await page.getByRole('menu').getByRole('menuitem', { name: TIENDA_E2E.name }).click();
     await expect(page.locator('[data-slot="sidebar-header"]')).toContainText(TIENDA_E2E.name);
 
-    await expect(page.locator('#c-name')).toHaveCount(0, {
-      timeout: 15_000,
-    });
+    // En mobile el sidebar es un sheet y cambiar de tienda no navega, así que
+    // queda abierto tapando la pantalla. En desktop no hay sheet y esto no hace
+    // nada.
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+
+    // `first()`: la tienda del smoke no tiene categorías, así que el estado
+    // vacío ofrece su propio botón además del de la cabecera.
+    await page.getByRole('button', { name: 'Nueva categoría' }).first().click();
+    await expect(page.locator('#c-name')).toHaveValue('');
 
     expect(problemas, problemas.join('\n')).toEqual([]);
   });

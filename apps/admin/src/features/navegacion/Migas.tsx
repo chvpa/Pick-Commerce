@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router';
-import { ChevronRightIcon } from 'lucide-react';
+import { ChevronRightIcon } from '@/components/iconos';
 
 /**
  * Las migas de pan del Admin.

@@ -238,6 +238,13 @@ export interface ConsultaClientes {
   readonly query?: string;
   readonly page?: number;
   readonly perPage?: number;
+  /**
+   * Acota por **última compra**, no por fecha de alta: un cliente se crea con su
+   * primer pedido y lo que se pregunta acá es quién compró últimamente. Sin
+   * rango, todos.
+   */
+  readonly desde?: string;
+  readonly hasta?: string;
 }
 
 export interface RepositorioAdminClientes {

@@ -1,5 +1,7 @@
+import { Children, isValidElement } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 /**
@@ -114,16 +116,96 @@ export function Tarjeta({
 }
 
 /**
- * Las clases de un `<select>` nativo.
+ * El texto de cada opción, indexado por su valor.
  *
- * Vive acá porque estaba copiada en ocho lugares con **tres alturas distintas**
- * —h-7, h-8 y h-9— según qué pantalla la hubiera pegado. Un desplegable que
- * cambia de tamaño entre pantallas se lee como si fueran controles distintos.
+ * Recorre en profundidad porque las opciones pueden venir agrupadas, y también
+ * dentro de un `map`, que React entrega como un arreglo más.
  */
-export const SELECT =
-  'border-border bg-background focus-visible:border-ring focus-visible:ring-ring/50 ' +
-  'h-8 cursor-pointer rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3 ' +
-  'disabled:cursor-not-allowed disabled:opacity-60';
+function etiquetasDe(nodos: ReactNode): Record<string, ReactNode> {
+  const etiquetas: Record<string, ReactNode> = {};
+
+  function visitar(nodo: ReactNode): void {
+    Children.forEach(nodo, (hijo) => {
+      if (!isValidElement(hijo)) return;
+      const props = hijo.props as { value?: unknown; children?: ReactNode };
+      if (typeof props.value === 'string') {
+        etiquetas[props.value] = props.children;
+        return;
+      }
+      if (props.children) visitar(props.children);
+    });
+  }
+
+  visitar(nodos);
+  return etiquetas;
+}
+
+/**
+ * Un desplegable, con el mismo largo de llamada que tenía el `<select>` nativo.
+ *
+ * Envuelve el `Select` de shadcn —que es Base UI por debajo— porque su forma
+ * completa son cinco elementos anidados, y repetirlos en las veintipico de
+ * pantallas que tienen un desplegable garantiza que alguna se escriba distinto.
+ * Acá el sitio de llamada sigue siendo el control más sus opciones:
+ *
+ *     <Selector value={estado} onValueChange={setEstado} aria-label="Estado">
+ *       <SelectItem value="todos">Todos</SelectItem>
+ *     </Selector>
+ *
+ * Para lo que necesite más —grupos, separadores— están los primitivos sueltos;
+ * esto no los esconde, sólo evita repetirlos.
+ *
+ * `w-full` por defecto: un desplegable de Base UI se ajusta a su contenido, así
+ * que sin esto una fila de filtros cambia de ancho según lo que esté elegido.
+ */
+export function Selector({
+  value,
+  onValueChange,
+  children,
+  className,
+  placeholder,
+  disabled,
+  id,
+  title,
+  'aria-label': ariaLabel,
+}: {
+  value: string;
+  onValueChange: (valor: string) => void;
+  children: ReactNode;
+  className?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  id?: string;
+  /** Por qué está deshabilitado, cuando lo está. */
+  title?: string;
+  'aria-label'?: string;
+}) {
+  return (
+    <Select
+      value={value}
+      onValueChange={(v) => onValueChange(String(v))}
+      /*
+       * Sin esto el disparador muestra el **valor** y no su etiqueta: la fila de
+       * un pedido decía «received» en vez de «Recibido», y el filtro sin elegir
+       * quedaba vacío. Base UI lo resuelve con `items`, y acá se arma leyendo las
+       * propias opciones para que ningún sitio de llamada tenga que escribir las
+       * etiquetas dos veces.
+       */
+      items={etiquetasDe(children)}
+    >
+      <SelectTrigger
+        id={id}
+        aria-label={ariaLabel}
+        title={title}
+        disabled={disabled}
+        className={cn('w-full', className)}
+      >
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>{children}</SelectContent>
+    </Select>
+  );
+}
 
 /** El esqueleto de una lista mientras carga. */
 export function Esqueleto({ filas = 5 }: { filas?: number }) {
@@ -244,6 +326,36 @@ export function EstadoDeError({
           Reintentar
         </Button>
       )}
+    </div>
+  );
+}
+
+/**
+ * Las acciones de un formulario largo, pegadas al pie.
+ *
+ * Antes vivían arriba a la derecha, en la cabecera de la pantalla. Con un
+ * formulario de tres tarjetas eso significa que apenas se baja a llenarlo el
+ * botón de guardar deja de verse, y hay que volver arriba para confirmar algo
+ * que se terminó de escribir abajo.
+ *
+ * `sticky` y no `fixed`, y ahí está la diferencia que importa: una barra fija
+ * flota sobre el contenido y en un teléfono tapa el último campo justo cuando se
+ * lo está completando. Una pegajosa **ocupa su lugar** en el flujo, así que
+ * acompaña el scroll sin cubrir nada y al llegar al final del formulario se
+ * queda donde le toca.
+ *
+ * El principal va último: es el orden de lectura y el que espera el pulgar en la
+ * esquina inferior derecha.
+ */
+export function BarraDeAcciones({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className={
+        'bg-background/85 border-border sticky bottom-0 z-10 -mx-4 flex flex-wrap ' +
+        'items-center justify-end gap-3 border-t px-4 py-3 backdrop-blur-sm sm:mx-0 sm:rounded-b-xl'
+      }
+    >
+      {children}
     </div>
   );
 }

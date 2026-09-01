@@ -278,7 +278,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..108 + decisiones pendientes P-001..005.
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..109 + decisiones pendientes P-001..005.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.
 5. [LIMITACIONES.md](LIMITACIONES.md) — qué **no** hace el sistema, con el motivo
    y qué lo desbloquea. Es lo que se le entrega a un piloto.
@@ -299,7 +299,7 @@ Si el código contradice un documento, no asumir que el código gana: identifica
 Rompen la arquitectura si se violan, y no son obvias desde el código:
 
 - **Un solo Commerce Core.** Nada de forks por industria o cliente (`Pick Fashion`, etc.). Las diferencias van en presets, feature flags, attributes y adapters. No hardcodear nombres de clientes en el Core.
-- **Stack cerrado.** Storefront: Astro + Preact islands + Tailwind v4 + Cloudflare. Admin: React + Vite + TanStack (Router/Query/Table) + shadcn/Base UI + RHF + Zod. Backend: Supabase/Postgres/Auth/RLS. AI: **sólo OpenAI**, BYOK por tenant, key cifrada server-side y nunca en el browser. Email: Resend. No introducir otro framework/provider sin ADR.
+- **Stack cerrado.** Storefront: Astro + Preact islands + Tailwind v4 + Cloudflare. Admin: React + Vite + TanStack (Router/Query/Table) + shadcn/Base UI + Hugeicons + RHF + Zod. Backend: Supabase/Postgres/Auth/RLS. AI: **sólo OpenAI**, BYOK por tenant, key cifrada server-side y nunca en el browser. Email: Resend. No introducir otro framework/provider sin ADR.
 - **El ERP conserva autoridad** sobre stock, precios, costos y SKUs cuando sea su source of truth. Cada campo sincronizable declara su origen; los campos ERP se bloquean localmente. Los adapters declaran capabilities (`supportsReservations`) — no prometer cero overselling si el ERP no las tiene.
 - **Fuera del core:** facturación, notas de crédito, refunds, returns engine, contabilidad. MCP tampoco puede ejecutarlos, y respeta siempre `user_id`/`tenant_id`/`role`/`permissions`; las escrituras sensibles usan PREVIEW → CONFIRM → EXECUTE.
 - **Toda entidad de negocio lleva tenant scope** y se protege con RLS + autorización en el servicio de dominio. El frontend nunca es la capa de autorización.

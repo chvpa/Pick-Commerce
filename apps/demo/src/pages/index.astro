@@ -10,7 +10,7 @@ import ProductCardBody from '@pick/commerce-astro/product/ProductCardBody.astro'
 import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astro';
 import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
 import ProductCarousel from '@pick/commerce-astro/product/ProductCarousel.astro';
-import { organizationJsonLd } from '@pick/commerce-core';
+import { categoriasDeLaSeccion, organizationJsonLd } from '@pick/commerce-core';
 
 import { catalogo, categorias, contextoSeo, tiendaActual } from '../lib/db.ts';
 import Base from '../layouts/Base.astro';
@@ -32,7 +32,15 @@ const tienda = await tiendaActual();
  */
 const [secciones, cats] = await Promise.all([catalogo().home(tienda.storeId), categorias()]);
 
+/**
+ * Las categorías, con su enlace al catálogo filtrado.
+ *
+ * Qué categorías muestra cada sección y en qué orden lo decide la propia
+ * sección, así que esto es el conjunto completo y cada bloque se queda con su
+ * parte más abajo.
+ */
 const entradas = cats.map((c) => ({
+  id: c.id,
   label: c.name,
   href: `/catalogo?categoria=${encodeURIComponent(c.slug)}`,
   ...(c.image ? { image: c.image } : {}),
@@ -131,11 +139,13 @@ const seo = await contextoSeo();
       }
 
       if (seccion.kind === 'categories') {
-        if (entradas.length === 0) return null;
+        // La sección elige cuáles y en qué orden; sin elección, todas.
+        const elegidas = categoriasDeLaSeccion(entradas, seccion.categoryIds);
+        if (elegidas.length === 0) return null;
         return (
           <Container class="flex flex-col gap-4 py-8">
             {seccion.title && <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>}
-            <CategorySection categories={entradas} layout={seccion.layout} />
+            <CategorySection categories={elegidas} layout={seccion.layout} />
           </Container>
         );
       }

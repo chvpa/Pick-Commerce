@@ -71,10 +71,19 @@ async function estadoDe(numero: number) {
 async function comprarConTarjeta(page: Page, correo: string): Promise<void> {
   await page.goto(`/productos/${HANDLE}/`);
 
-  // El id de la variante viaja en el HTML que la página serializa para la
-  // island; los ids del seed son fijos y tienen forma reconocible.
+  /*
+   * El id sale de las props que la página serializa para la island, ancladas en
+   * `"id":[0,"…"`.
+   *
+   * Antes se tomaba «el primer uuid con la forma de los ids del seed», y ese uuid
+   * es el del **tenant**: viaja en la ruta de las imágenes del bucket, que está
+   * antes en el HTML. El carrito quedaba con una variante inexistente y el
+   * checkout lo vaciaba diciendo que el producto ya no estaba disponible — un
+   * síntoma que no se parece en nada a la causa. Es el mismo fallo que ADR-082
+   * arregló en el smoke del checkout; este spec había quedado con la heurística.
+   */
   const html = await page.content();
-  const variante = html.match(/[0-9a-f]{8}-0000-4000-8000-[0-9a-f]{12}/)?.[0];
+  const variante = html.match(/&quot;id&quot;:\[0,&quot;([0-9a-f-]{36})&quot;/)?.[1];
   expect(variante, 'no se encontró el id de variante en el PDP').toBeTruthy();
 
   await page.evaluate((id) => {

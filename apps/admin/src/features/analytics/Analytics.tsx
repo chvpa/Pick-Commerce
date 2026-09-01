@@ -7,12 +7,12 @@ import {
   type PasoDelEmbudo,
   type Periodo,
 } from '@pick/commerce-core';
-import { ChartNoAxesColumnIcon } from 'lucide-react';
+import { ChartNoAxesColumnIcon } from '@/components/iconos';
 import {
   EstadoDeError,
   EstadoVacio,
   PaginaAdmin,
-  SELECT,
+  Selector,
   Tarjeta,
   TituloDeTarjeta,
 } from '@/components/pagina';
@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/table';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
+import { SelectItem } from '@/components/ui/select';
 
 const PERIODOS: readonly Periodo[] = ['hoy', '7d', '30d'];
 
@@ -148,18 +149,17 @@ export function Analytics() {
       icono={ChartNoAxesColumnIcon}
       descripcion="Cuánta gente miró, qué buscó y dónde se fue. Sale de la navegación, no de los pedidos."
       acciones={
-        <select
+        <Selector
           value={periodo}
-          onChange={(e) => setPeriodo(e.currentTarget.value as Periodo)}
-          className={SELECT}
+          onValueChange={(valor) => setPeriodo(valor as Periodo)}
           aria-label="Período"
         >
           {PERIODOS.map((p) => (
-            <option key={p} value={p}>
+            <SelectItem key={p} value={p}>
               {ETIQUETA_PERIODO[p]}
-            </option>
+            </SelectItem>
           ))}
-        </select>
+        </Selector>
       }
     >
       {consulta.isError ? (
@@ -284,8 +284,8 @@ export function Analytics() {
             */}
             <p className="text-muted-foreground text-xs">
               No se cuentan los robots ni las precargas del navegador. Desde que Políticas y
-              Preguntas frecuentes se resuelven en el servidor, todas las páginas del sitio
-              entran en la medición.
+              Preguntas frecuentes se resuelven en el servidor, todas las páginas del sitio entran
+              en la medición.
             </p>
           </>
         )
