@@ -558,5 +558,28 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
   document.addEventListener('astro:before-preparation', () => {
     document.getElementById('plp-resultados')?.setAttribute('aria-busy', 'true');
   });
+
+  /*
+   * Y sacarla, que es la mitad que faltaba.
+   *
+   * Al filtrar no hacía falta: el router reemplaza el DOM y el HTML nuevo llega
+   * sin el atributo. Pero `astro:before-preparation` también se dispara al ir a
+   * un producto, y el PDP no monta el `ClientRouter` —vive sólo en esta ruta—,
+   * así que ahí no hay reemplazo: se navega la página entera con la PLP ya
+   * marcada, y el browser la guarda en el bfcache así.
+   *
+   * Al volver atrás la restaura tal cual: `opacity: .5` y `pointer-events: none`
+   * sobre `#plp-resultados`. Los filtros y el header quedan afuera del
+   * contenedor y siguen andando, así que no parece un estado de carga pegado
+   * sino una página rota.
+   *
+   * `pageshow` y no `astro:page-load`: una restauración del bfcache no vuelve a
+   * ejecutar los scripts ni dispara los eventos del router, y `pageshow` es el
+   * único que llega en ese caso. En una carga normal también se dispara, donde
+   * quitar un atributo que no está no cuesta nada.
+   */
+  addEventListener('pageshow', () => {
+    document.getElementById('plp-resultados')?.removeAttribute('aria-busy');
+  });
   addEventListener('change', alCambiarFiltro);
 </script>

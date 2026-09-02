@@ -345,3 +345,51 @@ test('la barra de anuncio sale del envío configurado, no de un texto fijo', asy
   await page.goto('/');
   await expect(page.getByText(/env[ií]o gratis en compras desde/i)).toContainText('1.000.000');
 });
+
+test('volver del PDP no deja la grilla atenuada y sin clicks', async ({ page }) => {
+  /*
+   * El fallo: `astro:before-preparation` marcaba `#plp-resultados` con
+   * `aria-busy` —que lo atenúa y le saca los clicks— y nada lo desmarcaba. Al
+   * filtrar no se notaba, porque el router reemplaza el DOM por HTML sin el
+   * atributo. Pero el PDP no monta el `ClientRouter`, así que ir a un producto
+   * es una navegación entera: la PLP se guarda en el bfcache ya marcada y al
+   * volver se restaura así. Los filtros y el header quedan afuera del
+   * contenedor, así que seguían andando y la página parecía rota en vez de
+   * cargando.
+   *
+   * Las dos mitades se comprueban por separado, y en este orden porque la
+   * primera deja una navegación a medio camino que abortaría la siguiente.
+   */
+  const grilla = page.locator('#plp-resultados');
+  const tarjeta = page.locator('#plp-resultados a[href^="/productos/"]').first();
+
+  /*
+   * 1. Un `pageshow` desmarca la grilla. Es el único evento que llega cuando el
+   *    browser restaura desde el bfcache: los scripts no se vuelven a ejecutar y
+   *    el router no dispara nada. La restauración real no es reproducible acá
+   *    —Chromium bajo Playwright vuelve a pedir la página, y entonces el HTML
+   *    llega limpio del servidor— así que se verifica sobre el evento.
+   */
+  await page.goto('/catalogo');
+  await page.evaluate(() => {
+    document.getElementById('plp-resultados')?.setAttribute('aria-busy', 'true');
+    dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+  });
+  await expect(grilla).not.toHaveAttribute('aria-busy', 'true');
+  await expect(grilla).toHaveCSS('pointer-events', 'auto');
+  await tarjeta.click();
+  await expect(page).toHaveURL(/\/productos\//);
+
+  /*
+   * 2. Y que la marca exista: ir a un producto la pone. Se demora la respuesta
+   *    para mirar la grilla en ese estado en vez de suponer que ocurre.
+   */
+  await page.goto('/catalogo');
+  await page.route('**/productos/**', async (ruta) => {
+    await new Promise((r) => setTimeout(r, 3000));
+    await ruta.continue();
+  });
+  await tarjeta.click({ noWaitAfter: true });
+  await expect(grilla).toHaveAttribute('aria-busy', 'true');
+  await expect(grilla).toHaveCSS('pointer-events', 'none');
+});
