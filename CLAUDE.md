@@ -268,6 +268,17 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
 - Una migración que dependa de una extensión o de un schema que PGlite no tenga —`pg_net`, `storage`— deja la suite de aislamiento sin arrancar. Va guardada con un `do` que compruebe que existe.
 - Con Workers Assets, una página **prerenderizada se sirve desde el disco sin ejecutar el Worker**: no corre el middleware. En `astro dev` y `astro preview` todo es SSR, así que lo que dependa del middleware se ve en desarrollo y desaparece al desplegar. Por eso `/carrito` es on-demand aunque no lea la base (ADR-099).
 - Un Worker con `assets` sirve el archivo antes que el código: para que una ruta llegue al Worker hay que declararla en `run_worker_first`. **`wrangler dev` no lo respeta** —ejecuta el Worker para cualquier ruta sin asset, esté declarada o no— así que un `run_worker_first` faltante pasa el e2e en verde y falla recién al desplegar. Medido quitándolo (ADR-103).
+- Una **subconsulta correlacionada contra un CTE** no tiene índice que usar:
+  Postgres recorre el CTE entero una vez por fila. Es lo que hacía que el
+  catálogo tardara 2,3 s con 5000 productos, en una sola línea. Contra una tabla
+  el mismo patrón usa el índice y no se nota, así que el error aparece recién con
+  volumen. Si el valor se necesita por fila, agregarlo una vez en su propio CTE y
+  entrar por join.
+- Postgres 17 empuja el tope de un `row_number()` adentro de la ventana
+  —`Run Condition` en el plan—, pero **sólo el límite superior**. Una paginación
+  `rn > a and rn <= b` corta bien en la página 1 y en la 100 serializa `b` filas
+  para descartar `b - a`. Por eso el corte de página va antes de armar el
+  documento, y por eso medir sólo la primera página no prueba nada.
 - El `ClientRouter` **precarga todos los enlaces** al pasar el mouse por encima, y no hay que declarar nada para que pase: cada precarga es un GET real al Worker. Lo que cuente peticiones tiene que descartarlas por `Sec-Purpose` y `X-moz`.
 
 ---

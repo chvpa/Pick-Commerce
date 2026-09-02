@@ -15,31 +15,6 @@ una lista que envejece deja de leerse.
 
 ## Lo que bloquea, y hay que saber antes de vender
 
-### El catálogo grande hace lenta la vitrina
-
-Medido con 5000 productos sobre el proyecto de desarrollo, con la ida y vuelta a
-Supabase en 115 ms:
-
-| Consulta | Tiempo |
-| --- | ---: |
-| Listado del catálogo (PLP), primera página | **2.323 ms** |
-| Listado del catálogo, página 100 | **3.719 ms** |
-| Catálogo con búsqueda | **2.233 ms** |
-| Admin: productos | 135 ms |
-| Admin: resumen | 91 ms |
-| Admin: ventas por producto | 122 ms |
-
-El Admin aguanta sin despeinarse. El que no es `catalog_search`, y no por falta
-de índices: cada pieza suya medida por separado tarda entre 1 y 15 ms. El costo
-está en cómo se componen — **arma el JSON de todos los productos y después se
-queda con los 24 de la página**, en vez de elegir la página primero y armar sólo
-esos.
-
-**Qué lo desbloquea:** rehacer esa parte de la función, que tiene 44 tests de
-paridad cubriéndola. Es una unidad de trabajo con su propio plan, no un retoque.
-**Con un catálogo de menos de mil productos no se nota**; el del piloto tiene
-9032.
-
 ### No hay pasarela de pago real
 
 Existe el contrato `PaymentProvider` y una pasarela **simulada, declarada como
@@ -154,6 +129,38 @@ desde su URL de `workers.dev`.
 ---
 
 ## Medición
+
+### El catálogo se midió hasta 5006 productos, no hasta 9032
+
+Hasta el 1 de septiembre de 2026 esto era un bloqueo: el listado tardaba 2,3
+segundos con 5000 productos y casi 4 en la página 100. Ahora es plano. Medido con
+`explain analyze` en el proyecto de desarrollo, con 5006 productos, 5010
+variantes y 12175 imágenes:
+
+| Consulta | Antes | Ahora |
+| --- | ---: | ---: |
+| Listado del catálogo (PLP), primera página | 2287 ms | **233 ms** |
+| Listado del catálogo, página 100 | 3886 ms | **229 ms** |
+| Listado del catálogo, última página (209) | — | **223 ms** |
+| Catálogo con búsqueda | 2191 ms | **194 ms** |
+| Catálogo ordenado por precio | — | **254 ms** |
+| Producto por handle (PDP) | 31 ms | **37 ms** |
+| Admin: productos | 135 ms | sin cambios |
+| Admin: resumen | 91 ms | sin cambios |
+| Admin: ventas por producto | 122 ms | sin cambios |
+
+Sobre la red, la página del catálogo entera sale en 0,4 s con ese catálogo.
+
+Eran dos costos y no uno. El precio más bajo de cada producto se calculaba con
+una subconsulta correlacionada contra un CTE —y un CTE no tiene índices, así que
+se recorría entero una vez por producto—; y el documento JSON de cada ítem se
+armaba antes del corte de página, lo que en la página 100 significaba armar 2400
+y descartar 2376.
+
+**Lo que queda:** el catálogo del piloto tiene **9032 productos** y esta medición
+llega a 5006. Los tiempos son planos de la primera página a la última, así que no
+hay motivo para esperar un salto — pero no está medido, y eso es distinto de
+estar bien.
 
 ### Analytics no cuenta las precargas de Safari
 
