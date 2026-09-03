@@ -25,6 +25,50 @@ function silencioso(comando: string): void {
   }
 }
 
+/**
+ * Deja el puerto libre, y se asegura de que lo esté.
+ *
+ * `kill-port` puede fallar —el proceso es de otro usuario, o Windows no lo
+ * suelta a tiempo— y fallaba en silencio. Entonces el `wait-on` de más abajo
+ * encontraba respondiendo al servidor **viejo** de otra corrida, y la suite
+ * probaba un artefacto que no era el que se acababa de construir. Los síntomas
+ * no se parecen a la causa: tests de pantallas que nadie tocó, en rojo por un
+ * build anterior.
+ *
+ * Es la misma trampa que `PLAYWRIGHT_SKIP_BUILD=1` y ya costó una corrida entera
+ * de diagnóstico, así que acá se aborta con el motivo escrito.
+ */
+function puertoOcupado(puerto: number): boolean {
+  try {
+    // Un subproceso corto en vez de `net` acá: el setup es síncrono y abrir un
+    // socket no lo es. Sale 0 si alguien contesta, 1 si nadie.
+    execSync(
+      `node -e "const s=require('net').connect(${puerto},'127.0.0.1');` +
+        `s.on('connect',()=>{s.destroy();process.exit(0)});` +
+        `s.on('error',()=>process.exit(1));` +
+        `s.setTimeout(1500,()=>{s.destroy();process.exit(1)})"`,
+      { stdio: 'ignore' },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function liberarPuerto(puerto: number): void {
+  if (!puertoOcupado(puerto)) return;
+
+  silencioso(`npx --yes kill-port ${puerto}`);
+  if (!puertoOcupado(puerto)) return;
+
+  throw new Error(
+    `El puerto ${puerto} sigue ocupado después de intentar liberarlo. Hay un ` +
+      'servidor de otra corrida o un `pnpm dev` abierto, y la suite probaría ese ' +
+      'build viejo en vez del que se acaba de construir. Cerralo y volvé a correr.',
+  );
+}
+
+
 export default function setup(): void {
   if (existsSync('.env')) process.loadEnvFile('.env');
 
@@ -99,6 +143,8 @@ export default function setup(): void {
     'utf8',
   );
 
+  liberarPuerto(4321);
+
   execSync(
     'pnpm --filter @pick/demo exec astro preview --background --host 127.0.0.1 --port 4321',
     { stdio: 'ignore' },
@@ -131,7 +177,7 @@ export default function setup(): void {
     );
   }
 
-  silencioso('npx --yes kill-port 4322');
+  liberarPuerto(4322);
 
   if (process.env.PLAYWRIGHT_SKIP_BUILD !== '1') {
     execSync('pnpm --filter @pick/admin run build', {
