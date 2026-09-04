@@ -209,6 +209,61 @@ importers:
         specifier: ^4.125.0
         version: 4.125.0
 
+  apps/treeshop:
+    dependencies:
+      '@astrojs/cloudflare':
+        specifier: ^14.2.3
+        version: 14.2.3(@types/node@26.2.0)(astro@7.2.4(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0))(esbuild@0.28.2)(jiti@2.7.0)(wrangler@4.125.0)(yaml@2.9.0)
+      '@astrojs/preact':
+        specifier: ^6.0.4
+        version: 6.0.4(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(preact@10.29.8)(rollup@4.62.5)(supports-color@10.2.2)(yaml@2.9.0)
+      '@fontsource-variable/montserrat':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@pick/adapter-payment-simulated':
+        specifier: workspace:*
+        version: link:../../packages/adapter-payment-simulated
+      '@pick/adapter-resend':
+        specifier: workspace:*
+        version: link:../../packages/adapter-resend
+      '@pick/adapter-supabase':
+        specifier: workspace:*
+        version: link:../../packages/adapter-supabase
+      '@pick/commerce-astro':
+        specifier: workspace:*
+        version: link:../../packages/commerce-astro
+      '@pick/commerce-core':
+        specifier: workspace:*
+        version: link:../../packages/commerce-core
+      '@pick/commerce-types':
+        specifier: workspace:*
+        version: link:../../packages/commerce-types
+      '@pick/commerce-ui':
+        specifier: workspace:*
+        version: link:../../packages/commerce-ui
+      astro:
+        specifier: ^7.2.4
+        version: 7.2.4(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0)
+      preact:
+        specifier: ^10.29.8
+        version: 10.29.8(preact-render-to-string@6.7.0)
+    devDependencies:
+      '@astrojs/check':
+        specifier: ^0.9.10
+        version: 0.9.10(prettier-plugin-astro@0.14.1)(prettier@3.9.6)(typescript@6.0.3)
+      '@tailwindcss/vite':
+        specifier: ^4.3.3
+        version: 4.3.3(vite@8.2.2(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
+      tailwindcss:
+        specifier: ^4.3.3
+        version: 4.3.3
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      wrangler:
+        specifier: ^4.125.0
+        version: 4.125.0
+
   packages/adapter-erp-estilosport:
     dependencies:
       '@pick/commerce-core':
@@ -1244,6 +1299,9 @@ packages:
 
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
+
+  '@fontsource-variable/montserrat@5.3.0':
+    resolution: {integrity: sha512-7PaZoxaxrWLAyrhO46v65An9LhUhfkTExWLhfbywYZCnZEgg/W1rEHnlNmZKjNZ3nJTVYyicqxlJt10z/26yTA==}
 
   '@fontsource-variable/onest@5.3.1':
     resolution: {integrity: sha512-xaaw6G4HDB2/RczsWLD/2bnib4ykmQlTlBUN3GOEOiyErilZukQWVJG95h9zwAy0i8KY+QzDa+COPfqhI72Acw==}
@@ -5582,6 +5640,8 @@ snapshots:
       react-dom: 19.2.8(react@19.2.8)
 
   '@floating-ui/utils@0.2.12': {}
+
+  '@fontsource-variable/montserrat@5.3.0': {}
 
   '@fontsource-variable/onest@5.3.1': {}
 

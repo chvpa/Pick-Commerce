@@ -1,0 +1,164 @@
+---
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  enlaces: readonly { label: string; href: string }[];
+  class?: string;
+}
+
+const { enlaces, class: className } = Astro.props;
+---
+
+{
+  /*
+   * El menú de navegación en teléfono.
+   *
+   * Es un `<dialog>` nativo abierto con `showModal()`, y esa elección es la que
+   * evita reimplementar media pantalla: el browser regala el foco atrapado, el
+   * cierre con Escape, el `inert` del fondo y el backdrop. Un `<div>` con
+   * `position: fixed` obliga a escribir las cuatro cosas a mano y a mantenerlas.
+   *
+   * Mejora progresiva: sin JavaScript el `<summary>` no existe, así que el
+   * disparador es un enlace al catálogo. Con JavaScript pasa a abrir el panel.
+   * Nunca queda un control muerto.
+   *
+   * ADR-045 y ADR-049: el `display` va acotado a `:modal`. Sin eso el panel se
+   * ve estando cerrado, que es el fallo que ya se cometió dos veces acá.
+   */
+}
+<a
+  id="ts-menu-abrir"
+  href="/catalogo"
+  aria-label="Abrir el menú"
+  aria-expanded="false"
+  aria-controls="ts-menu"
+  class={cn(
+    'flex h-10 w-10 cursor-pointer items-center justify-center rounded-md transition-colors',
+    'hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+    className,
+  )}
+>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    class="h-6 w-6"
+    aria-hidden="true"
+  >
+    <path d="M4 7h16"></path>
+    <path d="M4 12h16"></path>
+    <path d="M4 17h16"></path>
+  </svg>
+</a>
+
+<dialog id="ts-menu" aria-label="Menú" class="ts-menu">
+  <div class="flex h-full flex-col bg-surface text-fg">
+    <div class="flex h-16 items-center justify-between border-b border-border px-4">
+      <span class="font-display text-base font-semibold">Menú</span>
+      <button
+        id="ts-menu-cerrar"
+        type="button"
+        aria-label="Cerrar el menú"
+        class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          class="h-5 w-5"
+          aria-hidden="true"
+        >
+          <path d="M6 6l12 12"></path>
+          <path d="M18 6 6 18"></path>
+        </svg>
+      </button>
+    </div>
+
+    <nav aria-label="Principal" class="flex flex-col gap-1 p-4">
+      {
+        enlaces.map((e) => (
+          <a
+            href={e.href}
+            class="cursor-pointer rounded-md px-3 py-3 text-base font-semibold tracking-wide uppercase hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            {e.label}
+          </a>
+        ))
+      }
+    </nav>
+  </div>
+</dialog>
+
+<style>
+  /* Cerrado no se ve, y eso hay que decirlo: un `display` sin acotar a `:modal`
+     deja el panel visible con el diálogo cerrado. */
+  .ts-menu {
+    display: none;
+  }
+
+  .ts-menu:modal {
+    display: block;
+    margin: 0;
+    max-width: none;
+    max-height: none;
+    width: min(20rem, 85vw);
+    height: 100dvh;
+    padding: 0;
+    border: 0;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .ts-menu::backdrop {
+    background: rgb(0 0 0 / 0.4);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .ts-menu:modal {
+      animation: ts-menu-entra 180ms ease-out;
+    }
+    @keyframes ts-menu-entra {
+      from {
+        transform: translateX(-100%);
+      }
+    }
+  }
+</style>
+
+<script is:inline>
+  /*
+   * `astro:page-load` y no un listener suelto: si alguna ruta monta el
+   * ClientRouter, el DOM se reemplaza al navegar y los nodos capturados una vez
+   * dejarían de existir. En una carga normal el evento igual se dispara.
+   */
+  function iniciarMenuMobile() {
+    const panel = document.getElementById('ts-menu');
+    const abrir = document.getElementById('ts-menu-abrir');
+    if (!panel || !abrir) return;
+
+    abrir.addEventListener('click', (evento) => {
+      // Se respetan los modificadores: con Ctrl o Cmd sigue siendo el enlace al
+      // catálogo, que es lo que el HTML promete.
+      if (evento.metaKey || evento.ctrlKey || evento.shiftKey) return;
+      evento.preventDefault();
+      panel.showModal();
+      abrir.setAttribute('aria-expanded', 'true');
+    });
+
+    // El click en el backdrop llega al propio <dialog> y no a su contenido, así
+    // que comparar el target alcanza para distinguirlo.
+    panel.addEventListener('click', (evento) => {
+      if (evento.target === panel) panel.close();
+    });
+
+    document.getElementById('ts-menu-cerrar')?.addEventListener('click', () => panel.close());
+    panel.addEventListener('close', () => abrir.setAttribute('aria-expanded', 'false'));
+  }
+
+  document.addEventListener('astro:page-load', iniciarMenuMobile);
+  if (document.readyState !== 'loading') iniciarMenuMobile();
+  else document.addEventListener('DOMContentLoaded', iniciarMenuMobile);
+</script>

@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // El nombre del Worker que ya existe en Cloudflare. Tiene que coincidir: con
+  // otro nombre, un `pnpm deploy:demo` desde local crea un Worker nuevo en vez
+  // de actualizar el que está sirviendo el sitio.
+  "name": "treeshop",
+  "compatibility_date": "2026-08-23",
+  "compatibility_flags": ["nodejs_compat"],
+  // Logs del Worker. Sin esto, un error en producción es un 500 sin rastro: no
+  // hay dónde leer qué pasó, ni siquiera sabiendo que pasó.
+  "observability": { "enabled": true },
+  // El entry del Worker y los assets los inyecta @astrojs/cloudflare al construir.
+}

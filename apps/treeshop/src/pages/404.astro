@@ -1,0 +1,31 @@
+---
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import { buttonVariants } from '@pick/commerce-ui';
+import Base from '../layouts/Base.astro';
+
+/*
+ * On-demand aunque no lea datos: una ruta que se resuelve en el Worker **no
+ * puede reescribir a una prerenderizada** —no hay componente que instanciar— y
+ * el PDP necesita mostrar esta página cuando el handle no existe. Ver ADR-057.
+ */
+export const prerender = false;
+---
+
+<Base
+  title="Página no encontrada"
+  description="La página que buscás no existe o cambió de dirección."
+  noindex
+>
+  <Container class="flex flex-col items-start gap-4 py-24">
+    <p class="text-sm text-fg-subtle">Error 404</p>
+    <h1 class="font-display text-2xl font-semibold tracking-tight">No encontramos esta página</h1>
+    <p class="max-w-prose text-fg-muted">
+      Puede que el producto ya no esté publicado o que la dirección haya cambiado.
+    </p>
+    {/* Salidas útiles en vez de un callejón sin salida. */}
+    <div class="flex flex-wrap gap-3 pt-2">
+      <a href="/catalogo" class={buttonVariants()}>Ver el catálogo</a>
+      <a href="/" class={buttonVariants({ variant: 'secondary' })}>Ir al inicio</a>
+    </div>
+  </Container>
+</Base>

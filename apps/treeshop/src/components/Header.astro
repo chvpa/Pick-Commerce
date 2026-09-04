@@ -1,0 +1,132 @@
+---
+import { Image } from 'astro:assets';
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import { cn } from '@pick/commerce-ui';
+import { CartButton } from '@pick/commerce-ui/cart/CartButton';
+import logotipo from '../assets/logotipo.svg';
+import MenuMobile from './MenuMobile.astro';
+
+interface Props {
+  /** Los enlaces del medio. Salen de la página, no del componente. */
+  enlaces: readonly { label: string; href: string }[];
+  /** La consulta activa, para que el buscador la conserve. */
+  consulta?: string;
+  /**
+   * Transparente y encima del contenido. Es para la home, donde el hero ocupa
+   * la pantalla y el header va sobre la foto; en el resto sería texto blanco
+   * sobre fondo blanco.
+   */
+  flotante?: boolean;
+  class?: string;
+}
+
+const { enlaces, consulta = '', flotante = false, class: className } = Astro.props;
+---
+
+{
+  /*
+   * El header de Treeshop, y no el del paquete.
+   *
+   * El del paquete pone la navegación pegada al logo y el buscador a la
+   * derecha; acá los enlaces van centrados y a la derecha hay tres íconos. Es
+   * disposición, que es lo que cambia de una marca a otra, así que vive en la
+   * app. Lo que sí es estructural —el comportamiento del menú en teléfono— está
+   * en `MenuMobile`, para que el próximo cliente no lo reescriba.
+   */
+}
+<header
+  class={cn(
+    'z-30 w-full transition-colors',
+    flotante
+      ? 'absolute top-0 left-0 text-white [--color-fg:currentColor]'
+      : 'relative border-b border-border bg-surface',
+    className,
+  )}
+>
+  <Container class="flex h-16 items-center gap-4 md:h-20">
+    {/* Menú en teléfono. Ocupa el lugar del logo en desktop, donde se oculta. */}
+    <MenuMobile enlaces={enlaces} class="md:hidden" />
+
+    <a
+      href="/"
+      aria-label="Treeshop"
+      class="flex shrink-0 cursor-pointer items-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+    >
+      {
+        /*
+         * El logotipo es un SVG por `astro:assets`: se sirve con hash y cache
+         * inmutable. Con `is:inline` heredaría el color del header, que es lo
+         * que haría falta si el logo fuera monocromo — no es el caso, el rojo
+         * de la marca tiene que ser el rojo de la marca sobre cualquier fondo.
+         */
+      }
+      <Image src={logotipo} alt="Treeshop" width={150} height={31} loading="eager" />
+    </a>
+
+    {/* Los enlaces, centrados. `flex-1` a los dos lados los deja en el medio
+        aunque el logo y las acciones midan distinto. */}
+    <nav
+      aria-label="Principal"
+      class="hidden flex-1 items-center justify-center gap-8 text-sm font-semibold tracking-wide uppercase md:flex"
+    >
+      {
+        enlaces.map((e) => (
+          <a
+            href={e.href}
+            class="cursor-pointer transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+          >
+            {e.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="ml-auto flex items-center gap-1 md:ml-0">
+      {/* Buscar. Es un enlace al catálogo y no un campo: en el header ocuparía
+          el espacio de los enlaces, y la PLP ya tiene el buscador de verdad. */}
+      <a
+        href={`/catalogo${consulta ? `?q=${encodeURIComponent(consulta)}` : ''}`}
+        aria-label="Buscar productos"
+        class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          class="h-5 w-5"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+      </a>
+
+      {/* Mi cuenta. Todavía no hay cuentas de comprador, así que lleva al
+          seguimiento del pedido por correo, que es lo que sí existe. */}
+      <a
+        href="/preguntas-frecuentes#pedido"
+        aria-label="Mi cuenta"
+        class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-5 w-5"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="8" r="4"></circle>
+          <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"></path>
+        </svg>
+      </a>
+
+      {/* `client:idle`: el contador no compite con el render inicial. */}
+      <CartButton icono client:idle />
+    </div>
+  </Container>
+</header>

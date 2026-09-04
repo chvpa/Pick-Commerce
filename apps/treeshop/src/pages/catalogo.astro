@@ -1,0 +1,585 @@
+---
+import Badge from '@pick/commerce-astro/primitives/Badge.astro';
+import JsonLd from '@pick/commerce-astro/seo/JsonLd.astro';
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import FacetAccordion from '@pick/commerce-astro/catalog/FacetAccordion.astro';
+import Pagination from '@pick/commerce-astro/catalog/Pagination.astro';
+import Price from '@pick/commerce-astro/product/Price.astro';
+import ProductCard from '@pick/commerce-astro/product/ProductCard.astro';
+import ProductCardBody from '@pick/commerce-astro/product/ProductCardBody.astro';
+import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astro';
+import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
+import ProductGrid from '@pick/commerce-astro/product/ProductGrid.astro';
+import SortSelect from '@pick/commerce-astro/catalog/SortSelect.astro';
+import {
+  formatMoney,
+  itemListJsonLd,
+  normalizarTermino,
+  type CatalogSort,
+} from '@pick/commerce-core';
+
+import { catalogo, contextoSeo, facetasFiltrables, tiendaActual } from '../lib/db.ts';
+import { anotar } from '../lib/analytics.ts';
+import { ClientRouter } from 'astro:transitions';
+import Base from '../layouts/Base.astro';
+
+/*
+ * Ruta on-demand: los filtros, el orden y la paginación se resuelven en el
+ * servidor, como exige ADR-024. El resto del sitio sigue prerenderizado.
+ */
+export const prerender = false;
+
+const PER_PAGE = 12;
+const SORTS: readonly CatalogSort[] = ['relevance', 'price-asc', 'price-desc', 'title-asc'];
+/** Cuántos tramos de precio ofrecer. Cuatro entran sin scroll y separan bien. */
+const TRAMOS = 4;
+
+/*
+ * La marca y la categoría son campos del producto, no atributos de la tienda:
+ * existen siempre y no están en `attribute_definitions`. El resto lo declara
+ * cada tienda, así que un atributo nuevo aparece solo en la PLP.
+ */
+const FIJAS = [
+  { name: 'categoria', label: 'Categoría' },
+  { name: 'brand', label: 'Marca' },
+];
+
+const tienda = await tiendaActual();
+const definiciones = await facetasFiltrables();
+// El orden de esta lista es el orden en que se muestran las facetas, y lo
+// decide `attribute_definitions.position`. El RPC las devuelve en orden de
+// descubrimiento, que no es una decisión de nadie.
+const declaradas = [...FIJAS, ...definiciones.map((d) => ({ name: d.name, label: d.label }))];
+
+const url = Astro.url;
+const search = url.searchParams.get('q') ?? '';
+const rawSort = url.searchParams.get('sort') ?? 'relevance';
+const sort: CatalogSort = SORTS.includes(rawSort as CatalogSort)
+  ? (rawSort as CatalogSort)
+  : 'relevance';
+const page = Number.parseInt(url.searchParams.get('page') ?? '1', 10) || 1;
+
+/* Sólo se aceptan las facetas declaradas: un parámetro cualquiera de la URL no
+   se convierte en filtro. */
+const filters: Record<string, string[]> = {};
+for (const { name } of declaradas) {
+  const values = url.searchParams.getAll(name);
+  if (values.length > 0) filters[name] = values;
+}
+
+/* El precio no es una faceta: es un rango, y se envía como un solo valor. */
+const precioCrudo = url.searchParams.get('precio') ?? '';
+const tramo = /^(\d+)-(\d+)$/.exec(precioCrudo);
+const precioMin = tramo ? Number(tramo[1]) : undefined;
+const precioMax = tramo ? Number(tramo[2]) : undefined;
+const precioActivo = precioMin !== undefined;
+
+const result = await catalogo().buscar(tienda.storeId, {
+  filters,
+  sort,
+  search,
+  page,
+  perPage: PER_PAGE,
+  ...(precioMin === undefined ? {} : { precioMin }),
+  ...(precioMax === undefined ? {} : { precioMax }),
+});
+
+/*
+ * La búsqueda, y si no encontró nada.
+ *
+ * Sólo con texto: filtrar sin buscar no es una búsqueda, y contarlo mezclaría
+ * «nadie encontró esto» con «nadie tiene ese talle».
+ *
+ * El término se normaliza porque además forma la clave de deduplicación: esta
+ * página reenvía `q` en un campo oculto al cambiar de faceta, así que buscar una
+ * vez y tocar cinco filtros llegarían acá como cinco búsquedas. La clave las
+ * colapsa en una.
+ *
+ * Se anotan las dos cosas y no una sola con un booleano adentro: un término que
+ * aparece ocho veces y ocho sin resultados es un producto que la gente pide y la
+ * tienda no tiene, y eso se lee de una comparando las dos columnas.
+ */
+const termino = normalizarTermino(search);
+if (termino !== '') {
+  anotar(Astro.locals, 'search', url.pathname, { term: termino, results: result.total });
+  if (result.total === 0) {
+    anotar(Astro.locals, 'search_no_results', url.pathname, { term: termino });
+  }
+}
+
+/*
+ * Tramos de precio sobre el mínimo y el máximo del catálogo entero —no del
+ * resultado—, así no se mueven bajo el dedo al filtrar. Con un solo precio no
+ * hay nada que acotar y el control no se muestra.
+ */
+const { priceMin, priceMax } = result;
+const tramos =
+  priceMin === null || priceMax === null || priceMin >= priceMax
+    ? []
+    : Array.from({ length: TRAMOS }, (_, i) => {
+        const paso = Math.ceil((priceMax - priceMin) / TRAMOS);
+        const desde = priceMin + i * paso;
+        const hasta = i === TRAMOS - 1 ? priceMax : desde + paso - 1;
+        const moneda = tienda.currency as Parameters<typeof formatMoney>[0]['currency'];
+        return {
+          valor: `${desde}-${hasta}`,
+          etiqueta: `${formatMoney({ amount: desde, currency: moneda }, tienda.locale)} – ${formatMoney({ amount: hasta, currency: moneda }, tienda.locale)}`,
+        };
+      });
+
+const activeCount =
+  Object.values(filters).reduce((n, values) => n + values.length, 0) + (precioActivo ? 1 : 0);
+
+const jsonLd = itemListJsonLd(result.items, await contextoSeo(), 'Catálogo');
+
+/*
+ * Una combinación de filtros no es una página nueva: indexarlas multiplica
+ * URLs casi idénticas y dispersa la autoridad del catálogo. Se indexa el
+ * catálogo limpio y nada más; `follow` deja que los productos sigan
+ * descubriéndose desde acá.
+ */
+const noindex = activeCount > 0 || search !== '' || page > 1;
+---
+
+{
+  /*
+  ClientRouter sólo en esta ruta: intercepta el submit del form GET y los links
+  de paginación, así los filtros se resuelven en el servidor pero sin recarga
+  completa. El resto del sitio no paga esos ~5,6 KB.
+  El total va en el <title> porque el announcer del router lo lee al navegar.
+*/
+}
+<Base
+  title={`Catálogo (${result.total})`}
+  description="Catálogo completo: filtrá por marca, color y talle, con precios y disponibilidad."
+  noindex={noindex}
+>
+  <JsonLd slot="head" data={jsonLd} />
+  <ClientRouter />
+  <Container class="flex flex-col gap-6 py-10">
+    <div class="flex flex-col gap-3">
+      <h1 class="font-display text-2xl font-semibold tracking-tight">Catálogo</h1>
+      {
+        search !== '' && (
+          <p class="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
+            <span>
+              Resultados para <span class="text-fg font-medium">“{search}”</span>
+            </span>
+            <a href="/catalogo" class="underline hover:text-fg">
+              Quitar búsqueda
+            </a>
+          </p>
+        )
+      }
+    </div>
+
+    <div class="grid gap-8 md:grid-cols-[16rem_1fr]">
+      {
+        /*
+        Un solo form GET para facetas y orden: sin JavaScript el usuario pulsa
+        "Aplicar" y la consulta queda en la URL, compartible y recargable.
+        `page` queda fuera a propósito — cambiar un filtro vuelve a la 1.
+      */
+      }
+      {
+        /*
+        El form va vacío y los controles se asocian con `form="plp"`. Así el
+        mismo panel sirve de sidebar en desktop y de disclosure en mobile sin
+        duplicar inputs, que mandaría cada valor dos veces.
+        `page` queda fuera a propósito: cambiar un filtro vuelve a la página 1.
+      */
+      }
+      <form id="plp" method="get" action="/catalogo" class="hidden">
+        {
+          /* Sólo si hay búsqueda: si no, cada filtro dejaría un `?q=` vacío en
+            una URL que se comparte. */
+        }
+        {search !== '' && <input type="hidden" name="q" value={search} />}
+      </form>
+
+      {
+        /*
+        El mismo <dialog> es sidebar en desktop y sheet en mobile. CSS puede
+        mostrar un <dialog> cerrado —la regla del navegador es `display:none`,
+        que sí se sobreescribe—, a diferencia de <details>, que oculta su
+        contenido con content-visibility en un slot interno. Ver ADR-045 y 049.
+      */
+      }
+      <button
+        type="button"
+        id="plp-toggle"
+        aria-haspopup="dialog"
+        aria-controls="plp-panel"
+        aria-expanded="false"
+        class="mb-3 flex cursor-pointer items-center justify-between rounded-md border border-border px-4 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
+      >
+        <span>{activeCount > 0 ? `Filtros (${activeCount})` : 'Filtros'}</span>
+        <span aria-hidden="true">▾</span>
+      </button>
+
+      <dialog id="plp-panel" class="plp-panel" aria-label="Filtros" open>
+        <div class="flex items-center justify-between border-b border-border px-5 py-4 md:hidden">
+          <h2 class="text-base font-semibold">Filtros</h2>
+          <button
+            type="button"
+            id="plp-cerrar"
+            aria-label="Cerrar filtros"
+            class="cursor-pointer rounded-md px-2 py-1 text-sm hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            <span aria-hidden="true">✕</span>
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-1 overflow-y-auto px-5 py-2 md:px-0 md:py-0">
+          <div class="hidden items-center justify-between pb-2 md:flex">
+            <h2 class="text-sm font-semibold">Filtros</h2>
+            {
+              activeCount > 0 && (
+                <a href="/catalogo" class="text-xs text-fg-muted underline hover:text-fg">
+                  Limpiar ({activeCount})
+                </a>
+              )
+            }
+          </div>
+
+          {
+            declaradas.map(({ name, label }) => {
+              const facet = result.facets.find((f) => f.name === name);
+              // El RPC omite las facetas sin valores: un accordion vacío no
+              // ayuda a filtrar ni a deshacer nada. Ver ADR-055.
+              return facet ? <FacetAccordion facet={facet} form="plp" label={label} /> : null;
+            })
+          }
+
+          {
+            /* El precio va último: es el único control que no es una lista de
+              valores, y agruparlo con las facetas confundiría la lectura. */
+          }
+          {
+            tramos.length > 0 && (
+              <details open={precioActivo} class="border-b border-border">
+                <summary class="flex cursor-pointer list-none items-center justify-between py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent">
+                  <span>Precio</span>
+                  <span aria-hidden="true" class="text-fg-subtle transition-transform">
+                    ▾
+                  </span>
+                </summary>
+                <ul class="flex flex-col gap-1 pb-3">
+                  {[{ valor: '', etiqueta: 'Cualquiera' }, ...tramos].map((t) => (
+                    <li>
+                      {/* Radios y no checkboxes: dos tramos a la vez darían un
+                          rango contradictorio. */}
+                      <label class="flex cursor-pointer items-center gap-2 py-1 text-sm">
+                        <input
+                          form="plp"
+                          type="radio"
+                          name="precio"
+                          value={t.valor}
+                          checked={t.valor === (precioActivo ? precioCrudo : '')}
+                          class="size-4 cursor-pointer accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        />
+                        <span class="flex-1">{t.etiqueta}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )
+          }
+        </div>
+
+        {
+          /* El pie NO es md:hidden: sin JavaScript, "Aplicar" es la única forma
+            de enviar los filtros, también en desktop. */
+        }
+        <div class="flex flex-col gap-2 border-t border-border px-5 py-4 md:border-0 md:px-0">
+          {
+            activeCount > 0 && (
+              <a
+                href="/catalogo"
+                class="text-center text-xs text-fg-muted underline hover:text-fg md:hidden"
+              >
+                Limpiar filtros ({activeCount})
+              </a>
+            )
+          }
+          {
+            /*
+            "Aplicar" es para quien no tiene JavaScript: con JS los filtros se
+            aplican al tocarlos y el botón sobra, así que el script lo oculta y
+            muestra en su lugar uno que sólo cierra el sheet.
+          */
+          }
+          <button
+            form="plp"
+            type="submit"
+            id="plp-aplicar"
+            class="h-10 cursor-pointer rounded-md bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            Aplicar
+          </button>
+          <button
+            type="button"
+            id="plp-ver"
+            hidden
+            class="h-10 cursor-pointer rounded-md bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
+          >
+            {`Ver ${result.total} ${result.total === 1 ? 'producto' : 'productos'}`}
+          </button>
+        </div>
+      </dialog>
+
+      <div class="flex flex-col gap-6">
+        {
+          /* El orden vive en el PLP y no dentro del panel: es una decisión
+            frecuente y no debería exigir abrir un sheet. */
+        }
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm text-fg-muted" aria-live="polite">
+            {
+              result.total === 0
+                ? 'No encontramos productos con esos filtros'
+                : `${result.total} ${result.total === 1 ? 'producto' : 'productos'}`
+            }
+          </p>
+          <SortSelect value={sort} form="plp" />
+        </div>
+
+        {
+          /*
+          `aria-busy` mientras el router trae la página siguiente. No es un
+          skeleton de placeholders a propósito: la ruta es on-demand, así que en
+          la primera carga el HTML ya llega con productos y no hay nada que
+          rellenar. Lo que sí hay que señalar es el rato entre tocar un filtro y
+          ver el resultado nuevo, y ahí el contenido viejo sigue en pantalla.
+        */
+        }
+        <div id="plp-resultados">
+          {
+            result.total === 0 ? (
+              <div class="flex flex-col items-start gap-3 rounded-md border border-border p-6">
+                <p class="text-sm text-fg-muted">
+                  Probá quitar algún filtro o buscar con otras palabras.
+                </p>
+                <a href="/catalogo" class="text-sm underline">
+                  Ver todo el catálogo
+                </a>
+              </div>
+            ) : (
+              <ProductGrid>
+                {result.items.map((product, index) => {
+                  const variant = product.variants[0];
+                  if (!variant) return null;
+                  // Nada vendible, y no `=== 0`: el espejo del ERP puede venir
+                  // negativo, y un negativo tampoco se puede vender (ADR-056).
+                  // Va por `some(> 0)` porque un `<` suelto acá lo lee el parser
+                  // de Astro como la apertura de una etiqueta.
+                  const soldOut = !product.variants.some((v) => v.availableQuantity > 0);
+
+                  return (
+                    <ProductCard>
+                      <ProductCardMedia image={product.images[0]} priority={index < 4}>
+                        {soldOut && <Badge slot="badge">Sin stock</Badge>}
+                      </ProductCardMedia>
+                      <ProductCardBody>
+                        {product.brand && <p class="text-xs text-fg-subtle">{product.brand}</p>}
+                        <ProductCardTitle href={`/productos/${product.handle}`}>
+                          {product.title}
+                        </ProductCardTitle>
+                        <Price value={variant.price} compareAt={variant.compareAtPrice} />
+                      </ProductCardBody>
+                    </ProductCard>
+                  );
+                })}
+              </ProductGrid>
+            )
+          }
+        </div>
+
+        <Pagination page={result.page} pageCount={result.pageCount} url={url} />
+      </div>
+    </div>
+  </Container>
+</Base>
+
+<style>
+  /*
+   * El panel nace `open`. Sin JavaScript queda abierto y no-modal, o sea
+   * visible dentro del flujo: los filtros siguen alcanzables en mobile, donde
+   * el botón que los abriría no tendría handler.
+   *
+   * `:modal` distingue los dos estados. Ninguna regla declara `display` fuera
+   * de ellos: el navegador oculta un <dialog> cerrado y un `display` suelto le
+   * ganaría, dejando el sheet visible y tapando el botón que debe abrirlo.
+   */
+  .plp-panel {
+    border: 0;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+  }
+
+  /* Abierto en el flujo: sidebar en desktop, y el fallback sin JavaScript. */
+  .plp-panel[open]:not(:modal) {
+    display: flex;
+    flex-direction: column;
+    position: static;
+    margin: 0;
+    width: auto;
+    max-width: none;
+    max-height: none;
+    align-self: start;
+  }
+
+  /* Sheet desde abajo, sólo cuando se abre como modal. */
+  .plp-panel:modal {
+    display: flex;
+    flex-direction: column;
+    margin: auto auto 0;
+    width: 100%;
+    max-width: none;
+    max-height: 85dvh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--color-surface);
+    color: var(--color-fg);
+  }
+
+  .plp-panel::backdrop {
+    background: rgb(0 0 0 / 0.4);
+  }
+
+  /* Filtrando: el resultado viejo sigue visible pero se ve que ya no es el
+     bueno, y deja de aceptar clicks para que nadie navegue a lo que se va. */
+  #plp-resultados[aria-busy='true'] {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: opacity 150ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #plp-resultados[aria-busy='true'] {
+      transition: none;
+    }
+  }
+</style>
+
+<script is:inline>
+  /*
+   * Mejora progresiva. Sin este script el panel queda abierto y no-modal, así
+   * que los filtros se ven y "Aplicar" los envía. Con él, en mobile el panel
+   * pasa a ser un sheet que abre el botón.
+   *
+   * `astro:page-load` y no un listener suelto: ClientRouter reemplaza el DOM al
+   * filtrar, y los nodos capturados una sola vez dejarían de existir.
+   */
+  const CLAVE = 'plp:estado';
+
+  function inicializar() {
+    const panel = document.getElementById('plp-panel');
+    const toggle = document.getElementById('plp-toggle');
+    if (!panel || !toggle) return;
+
+    const mobile = window.matchMedia('(max-width: 767px)');
+    const esSheet = () => panel.open && panel.matches(':modal');
+
+    // Con JavaScript los filtros se aplican al tocarlos: "Aplicar" sobra, y en
+    // su lugar va uno que sólo cierra el sheet.
+    const aplicar = document.getElementById('plp-aplicar');
+    const ver = document.getElementById('plp-ver');
+    if (aplicar) aplicar.hidden = true;
+    if (ver) ver.hidden = false;
+
+    // Invariante: en mobile el panel sólo está abierto como sheet; en desktop
+    // siempre abierto y en el flujo.
+    function sincronizar() {
+      if (mobile.matches) {
+        if (panel.open && !panel.matches(':modal')) panel.close();
+      } else {
+        if (panel.open && panel.matches(':modal')) panel.close();
+        if (!panel.open) panel.show();
+      }
+      toggle.setAttribute('aria-expanded', String(esSheet()));
+    }
+
+    toggle.addEventListener('click', () => {
+      if (!panel.open) panel.showModal();
+      toggle.setAttribute('aria-expanded', 'true');
+    });
+
+    // Click en el backdrop: el evento llega al propio <dialog> y no a su
+    // contenido, así que comparar el target alcanza para distinguirlo.
+    panel.addEventListener('click', (event) => {
+      if (event.target === panel && panel.matches(':modal')) panel.close();
+    });
+
+    const cerrar = () => panel.open && panel.close();
+    document.getElementById('plp-cerrar')?.addEventListener('click', cerrar);
+    ver?.addEventListener('click', cerrar);
+    panel.addEventListener('close', sincronizar);
+    mobile.addEventListener('change', sincronizar);
+
+    sincronizar();
+
+    // ClientRouter reemplaza el DOM: sin esto, tocar un filtro cierra el sheet
+    // y manda el scroll y el foco al principio.
+    const crudo = sessionStorage.getItem(CLAVE);
+    if (crudo) {
+      sessionStorage.removeItem(CLAVE);
+      const estado = JSON.parse(crudo);
+      if (estado.sheet && mobile.matches && !panel.matches(':modal')) {
+        panel.close();
+        panel.showModal();
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+      window.scrollTo({ top: estado.y ?? 0, behavior: 'instant' });
+      // Sin preventScroll el foco vuelve a desplazar la página.
+      if (estado.id) document.getElementById(estado.id)?.focus({ preventScroll: true });
+    }
+  }
+
+  function alCambiarFiltro(event) {
+    const target = event.target;
+    if (!target || !target.form || target.form.id !== 'plp') return;
+    const panel = document.getElementById('plp-panel');
+    sessionStorage.setItem(
+      CLAVE,
+      JSON.stringify({
+        id: target.id,
+        y: window.scrollY,
+        sheet: Boolean(panel && panel.open && panel.matches(':modal')),
+      }),
+    );
+    target.form.requestSubmit();
+  }
+
+  document.addEventListener('astro:page-load', inicializar);
+  // Entre que se toca un filtro y llega la página nueva hay una espera sin
+  // ninguna señal. Marcarla es Definition of Done, no polish.
+  document.addEventListener('astro:before-preparation', () => {
+    document.getElementById('plp-resultados')?.setAttribute('aria-busy', 'true');
+  });
+
+  /*
+   * Y sacarla, que es la mitad que faltaba.
+   *
+   * Al filtrar no hacía falta: el router reemplaza el DOM y el HTML nuevo llega
+   * sin el atributo. Pero `astro:before-preparation` también se dispara al ir a
+   * un producto, y el PDP no monta el `ClientRouter` —vive sólo en esta ruta—,
+   * así que ahí no hay reemplazo: se navega la página entera con la PLP ya
+   * marcada, y el browser la guarda en el bfcache así.
+   *
+   * Al volver atrás la restaura tal cual: `opacity: .5` y `pointer-events: none`
+   * sobre `#plp-resultados`. Los filtros y el header quedan afuera del
+   * contenedor y siguen andando, así que no parece un estado de carga pegado
+   * sino una página rota.
+   *
+   * `pageshow` y no `astro:page-load`: una restauración del bfcache no vuelve a
+   * ejecutar los scripts ni dispara los eventos del router, y `pageshow` es el
+   * único que llega en ese caso. En una carga normal también se dispara, donde
+   * quitar un atributo que no está no cuesta nada.
+   */
+  addEventListener('pageshow', () => {
+    document.getElementById('plp-resultados')?.removeAttribute('aria-busy');
+  });
+  addEventListener('change', alCambiarFiltro);
+</script>

@@ -78,6 +78,10 @@
   --radius-lg: 0.5rem;
   --radius-full: 9999px;
 
+  /* El radio de los botones. Su propio token porque es lo que más distingue a
+   * una marca de otra: `--radius-full` los hace pastilla sin tocar las tarjetas. */
+  --radius-button: var(--radius-md);
+
   /* --- Layout --------------------------------------------------------------- */
   --container-content: 72rem;
   --container-wide: 90rem;

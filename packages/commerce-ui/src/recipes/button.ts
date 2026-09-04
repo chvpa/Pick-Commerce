@@ -4,7 +4,9 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const BASE =
-  'inline-flex cursor-pointer items-center justify-center gap-2 rounded-md font-medium ' +
+  // El radio sale de un token para que «botones redondos» sea preset y no una
+  // clase repetida en cada sitio de uso. Por defecto es el de siempre.
+  'inline-flex cursor-pointer items-center justify-center gap-2 rounded-(--radius-button) font-medium ' +
   'transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ' +
   'disabled:pointer-events-none disabled:opacity-60';
 

@@ -1,0 +1,124 @@
+---
+import Footer from '@pick/commerce-astro/layout/Footer.astro';
+import AnnouncementBar from '@pick/commerce-astro/content/AnnouncementBar.astro';
+import SeoHead from '@pick/commerce-astro/seo/SeoHead.astro';
+/* Las islands entran por subpath, no por el barrel: si entran por
+   `@pick/commerce-ui`, Vite las mete a todas en un solo chunk y cada página
+   descarga las que no usa. Ver ADR-040. */
+import { CartDrawer } from '@pick/commerce-ui/cart/CartDrawer';
+import Header from '../components/Header.astro';
+import { anuncio, contextoSeo } from '../lib/db.ts';
+import '../styles/global.css';
+
+interface Props {
+  /**
+   * La parte de esta página, sin el nombre de la tienda: el layout lo agrega.
+   * Sin título es la home, que queda con el nombre de la tienda solo.
+   */
+  title?: string;
+  description?: string;
+  /** Imagen para compartir. Sin ella el link sale sin miniatura. */
+  image?: string;
+  imageAlt?: string;
+  type?: 'website' | 'article' | 'product';
+  noindex?: boolean;
+  /**
+   * Header transparente encima del contenido. Es para la home, donde el hero
+   * ocupa la pantalla; en el resto de las páginas no hay foto detrás.
+   */
+  headerFlotante?: boolean;
+}
+
+const {
+  title,
+  description,
+  image,
+  imageAlt,
+  type,
+  noindex,
+  headerFlotante = false,
+} = Astro.props;
+
+/* El buscador conserva la consulta activa. */
+const consulta = Astro.url.searchParams.get('q') ?? '';
+
+/* Quién es la tienda sale de la base. Toda página que use este layout es
+   on-demand por eso: una prerenderizada se sirve sin ejecutar el Worker y
+   hornearía el nombre de la tienda que estuviera configurada al construir. */
+const seo = await contextoSeo();
+const STORE_NAME = seo.storeName;
+const ANUNCIO = await anuncio();
+const tituloCompleto = title ? `${title} · ${STORE_NAME}` : STORE_NAME;
+
+/*
+ * Los enlaces del header.
+ *
+ * Son las tres categorías con producto de verdad: «Ropa interior» existe en el
+ * catálogo pero no se pone en la navegación principal. Salen de acá y no de la
+ * base porque son una decisión de esta tienda; el día que el comercio quiera
+ * cambiarlos solo, esto pasa a `store_settings` y el Admin les da una pantalla.
+ */
+const ENLACES = [
+  { label: 'Prendas', href: '/catalogo?categoria=prendas' },
+  { label: 'Calzados', href: '/catalogo?categoria=calzados' },
+  { label: 'Accesorios', href: '/catalogo?categoria=accesorios' },
+  { label: 'Todo', href: '/catalogo' },
+] as const;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <SeoHead
+      title={tituloCompleto}
+      description={description}
+      siteUrl={seo.siteUrl}
+      storeName={STORE_NAME}
+      image={image}
+      imageAlt={imageAlt}
+      type={type}
+      noindex={noindex}
+    />
+    <slot name="head" />
+  </head>
+  <body class="flex min-h-dvh flex-col bg-surface text-fg antialiased">
+    {ANUNCIO && <AnnouncementBar href="/catalogo" tone="accent">{ANUNCIO}</AnnouncementBar>}
+
+    <Header enlaces={ENLACES} consulta={consulta} flotante={headerFlotante} />
+
+    <main class="flex-1">
+      <slot />
+    </main>
+
+    <Footer storeName={STORE_NAME}>
+      <nav aria-label="Enlaces del pie" class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+        <a href="/catalogo" class="cursor-pointer text-fg-muted hover:text-fg hover:underline">
+          Catálogo
+        </a>
+        <a
+          href="/preguntas-frecuentes"
+          class="cursor-pointer text-fg-muted hover:text-fg hover:underline"
+        >
+          Preguntas frecuentes
+        </a>
+        <a href="/politicas" class="cursor-pointer text-fg-muted hover:text-fg hover:underline">
+          Políticas
+        </a>
+      </nav>
+    </Footer>
+
+    {
+      /*
+      Vive en el layout, no en el PDP: se abre desde cualquier página.
+      `client:load` y no `idle`: el drawer es el receptor del evento de alta al
+      carrito, así que tiene que estar escuchando antes de que el botón de compra
+      pueda pulsarse. Con `idle` un alta que llega antes se pierde y el drawer
+      abre vacío.
+    */
+    }
+    <CartDrawer client:load />
+  </body>
+</html>

@@ -1,0 +1,92 @@
+---
+import Breadcrumb from '@pick/commerce-astro/navigation/Breadcrumb.astro';
+import JsonLd from '@pick/commerce-astro/seo/JsonLd.astro';
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import ProductGallery from '@pick/commerce-astro/product/ProductGallery.astro';
+import { ProductPurchase } from '@pick/commerce-ui/product/ProductPurchase';
+import { productJsonLd } from '@pick/commerce-core';
+
+import { catalogo, contextoSeo, tiendaActual } from '../../lib/db.ts';
+import { anotar } from '../../lib/analytics.ts';
+import Base from '../../layouts/Base.astro';
+
+/*
+ * On-demand y sin `getStaticPaths`: prerenderizar el catálogo obligaría a
+ * reconstruir el sitio con cada precio o cada cambio de stock, y en un catálogo
+ * grande el build crecería sin techo. Ver ADR-057.
+ */
+export const prerender = false;
+
+const tienda = await tiendaActual();
+const product = await catalogo().porHandle(tienda.storeId, Astro.params.handle!);
+
+if (!product) {
+  /*
+   * La página 404 del sitio, con el status que corresponde. Devolver una
+   * respuesta vacía daría el código correcto y una pantalla en blanco; dejar
+   * pasar un 200 con "no encontrado" haría que un buscador indexara la página
+   * de error como si fuera contenido.
+   */
+  const pagina = await Astro.rewrite('/404');
+  return new Response(pagina.body, { status: 404, headers: pagina.headers });
+}
+
+/*
+ * Se anota después del 404, no antes: un handle que no existe no es una vista de
+ * producto. El `Astro.rewrite` de arriba corre la cadena de middleware otra vez,
+ * así que anotar antes habría dado además una vista con el producto en null.
+ */
+anotar(Astro.locals, 'product_view', Astro.url.pathname, {
+  handle: product.handle,
+  productId: product.id,
+});
+
+/* Los swatches los aporta el storefront: el catálogo guarda "Azul", no un hex. */
+const COLOR_SWATCHES = { Azul: '#2f4858', Negro: '#26262b', Blanco: '#e8e6e1', Verde: '#3f5f46' };
+
+/* Una oferta por variante, con su precio y stock reales. Ver ADR-047. */
+const jsonLd = productJsonLd(product, await contextoSeo());
+---
+
+<Base
+  title={product.title}
+  description={product.description ??
+    `${product.title}${product.brand ? ` de ${product.brand}` : ''}. Comprá online con envío a todo el país.`}
+  image={product.images[0]?.url}
+  imageAlt={product.images[0]?.alt}
+  type="product"
+>
+  <JsonLd slot="head" data={jsonLd} />
+  <Container class="py-6">
+    <Breadcrumb items={[{ label: 'Catálogo', href: '/catalogo' }, { label: product.title }]} />
+  </Container>
+
+  <Container class="grid gap-10 pb-12 md:grid-cols-2 md:gap-16">
+    <ProductGallery images={product.images} title={product.title} id={product.handle} />
+
+    <div class="flex flex-col gap-6">
+      <div class="flex flex-col gap-2">
+        {product.brand && <p class="text-sm text-fg-subtle">{product.brand}</p>}
+        <h1 class="font-display text-2xl font-semibold tracking-tight">{product.title}</h1>
+      </div>
+
+      {
+        /*
+        Única island de la página. Contiene precio, selector y alta al carrito
+        porque los tres comparten estado, y Astro no lo pasa entre islands.
+
+        `client:load` y no `client:idle`: es la acción principal de la página.
+        Con `idle`, en un dispositivo ocupado el botón se ve pero todavía no
+        responde, y el click se pierde sin ninguna señal.
+      */
+      }
+      <ProductPurchase
+        client:load
+        productTitle={product.title}
+        imageUrl={product.images[0]?.url}
+        variants={product.variants}
+        swatches={COLOR_SWATCHES}
+      />
+    </div>
+  </Container>
+</Base>

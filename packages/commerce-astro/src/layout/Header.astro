@@ -29,11 +29,19 @@ const { storeName, homeHref = '/', class: className } = Astro.props;
   <Container
     class="flex flex-wrap items-center gap-x-6 gap-y-3 py-3 md:h-16 md:flex-nowrap md:py-0"
   >
+    {
+      /*
+       * El logo es un slot con el nombre de la tienda como respaldo. Antes era
+       * sólo texto, y un comercio con isologo no tenía dónde ponerlo sin
+       * forkear el componente. Quien no pase nada sigue viendo lo de siempre.
+       */
+    }
     <a
       href={homeHref}
-      class="order-1 font-display cursor-pointer text-base font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent md:order-none"
+      aria-label={storeName}
+      class="order-1 font-display flex cursor-pointer items-center text-base font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent md:order-none"
     >
-      {storeName}
+      <slot name="logo">{storeName}</slot>
     </a>
 
     {/* La navegación la aporta el storefront: el Core no impone categorías. */}

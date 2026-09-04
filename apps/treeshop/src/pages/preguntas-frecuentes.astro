@@ -1,0 +1,42 @@
+---
+/*
+ * On-demand, aunque su contenido no salga de la base.
+ *
+ * Con Workers Assets una página en disco se sirve **sin ejecutar el Worker**, y
+ * el encabezado y el pie llevan el nombre de la tienda, que sí sale de la base.
+ * Prerenderizada, hornearía el nombre de la que estuviera configurada al
+ * construir y se lo mostraría a todas.
+ */
+export const prerender = false;
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import JsonLd from '@pick/commerce-astro/seo/JsonLd.astro';
+import { faqJsonLd } from '@pick/commerce-core';
+import Base from '../layouts/Base.astro';
+import { PREGUNTAS } from '../lib/contenido.ts';
+---
+
+<Base
+  title="Preguntas frecuentes"
+  description="Envíos, plazos, medios de pago, cambios y disponibilidad de talles."
+>
+  {
+    /* Los pares pregunta/respuesta ya delimitados son lo que un motor
+      generativo puede citar sin inferir dónde termina la respuesta. */
+  }
+  <JsonLd slot="head" data={faqJsonLd(PREGUNTAS)} />
+
+  <Container class="flex max-w-3xl flex-col gap-8 py-12">
+    <h1 class="font-display text-2xl font-semibold tracking-tight">Preguntas frecuentes</h1>
+
+    <dl class="flex flex-col divide-y divide-border">
+      {
+        PREGUNTAS.map((p) => (
+          <div class="flex flex-col gap-2 py-5">
+            <dt class="font-medium">{p.pregunta}</dt>
+            <dd class="max-w-prose text-fg-muted">{p.respuesta}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </Container>
+</Base>

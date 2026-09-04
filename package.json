@@ -33,6 +33,8 @@
     "seed": "node scripts/seed-demo.ts",
     "seed:dummy": "node scripts/seed-dummy.ts",
     "erp:importar": "node scripts/erp-importar.ts",
+    "treeshop:home": "node scripts/treeshop-home.ts",
+    "camelot:importar": "node scripts/camelot-importar.ts",
     "erp:imagenes": "node scripts/erp-imagenes.ts",
     "tienda:crear": "node scripts/crear-tienda.ts",
     "admin:crear": "node scripts/crear-admin.ts"

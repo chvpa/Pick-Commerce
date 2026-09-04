@@ -1,0 +1,68 @@
+---
+import { anotar } from '../../lib/analytics.ts';
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import { CheckoutForm } from '@pick/commerce-ui/checkout/CheckoutForm';
+import Base from '../../layouts/Base.astro';
+import { pagos, tiendaEsDemo } from '../../lib/db.ts';
+
+/*
+ * On-demand: las formas de pago salen de la configuración de la tienda, y el
+ * comercio puede cambiarlas sin que nadie reconstruya el sitio.
+ */
+export const prerender = false;
+
+const ETIQUETAS: Record<string, string> = {
+  bank_transfer: 'Transferencia bancaria',
+  bancard: 'Tarjeta (Bancard)',
+  simulated_card: 'Tarjeta (pago de prueba)',
+};
+
+const formasDePago = await pagos();
+const esDemo = await tiendaEsDemo();
+const metodos = formasDePago.enabled.map((id) => ({ id, label: ETIQUETAS[id] ?? id }));
+
+/*
+ * Llegar al checkout es el paso del embudo, y se cuenta por sesión: recargar o
+ * volver con el botón atrás no son dos intenciones de comprar. La deduplicación
+ * la hace el `count(distinct session_id)` del RPC, no una clave — que alguien
+ * vuelva al checkout dos días después sí es otra intención.
+ */
+anotar(Astro.locals, 'begin_checkout', Astro.url.pathname);
+---
+
+<Base title="Checkout" description="Confirmá tu pedido." noindex>
+  <Container class="flex max-w-4xl flex-col gap-8 py-12">
+    <h1 class="font-display text-2xl font-semibold tracking-tight">Confirmá tu pedido</h1>
+
+    {
+      /*
+        En una tienda de demostración se avisa **antes** de confirmar, no
+        después: el pedido se crea de verdad —para que se lo pueda ver entrar al
+        Admin— y quien lo hace tiene que saber que no va a recibir nada.
+      */
+    }
+    {
+      esDemo && (
+        <p class="rounded-md border border-border bg-surface-sunken px-4 py-3 text-sm">
+          <strong>Esta es una tienda de demostración.</strong> El pedido se registra para que puedas
+          verlo, pero no se cobra nada, no se despacha nada y no vas a recibir ningún correo.
+        </p>
+      )
+    }
+
+    <noscript>
+      <p class="rounded-md border border-border bg-surface-muted px-4 py-3 text-sm">
+        Para confirmar un pedido hace falta JavaScript: tu carrito se guarda en este navegador y el
+        servidor no puede leerlo. Podés <a class="underline" href="/carrito">ver tu carrito</a> o escribirnos
+        para comprar por otro medio.
+      </p>
+    </noscript>
+
+    <CheckoutForm
+      client:load
+      metodos={metodos}
+      metodoPorDefecto={formasDePago.default}
+      locale="es-PY"
+    />
+  </Container>
+</Base>

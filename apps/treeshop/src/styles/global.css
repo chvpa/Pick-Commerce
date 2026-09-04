@@ -1,0 +1,55 @@
+@import 'tailwindcss';
+@import '@pick/commerce-ui/tokens.css';
+@import '@fontsource-variable/montserrat';
+
+/*
+ * El preset de Treeshop.
+ *
+ * Redefine variables, no clases: es lo que `tokens.css` pide de un preset y lo
+ * que hace que las mejoras de los componentes lleguen sin pelearse con la marca.
+ * Si algo de acá necesitara pisar una clase de un componente, el problema está
+ * en el componente y se arregla ahí con un prop.
+ *
+ * Tipografía Montserrat, self-hosted por fontsource: no hay pedido a Google
+ * Fonts, así que no aparece un dominio de terceros al que conectarse antes de
+ * poder dibujar el texto.
+ */
+@theme {
+  --font-sans:
+    'Montserrat Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: var(--font-sans);
+
+  /*
+   * El rojo sale del logo: #E43136, convertido a OKLCH para que el hover se
+   * calcule bajando luminosidad y no inventando un segundo color.
+   */
+  --color-accent: oklch(0.6 0.214 25.4);
+  --color-accent-hover: oklch(0.54 0.214 25.4);
+  --color-accent-fg: oklch(0.99 0 0);
+
+  /* La oferta se distingue del acento: con los dos rojos iguales, un precio
+   * rebajado y un botón primario se leen como la misma cosa. */
+  --color-sale: oklch(0.52 0.2 18);
+
+  /* Botones pastilla, tarjetas con radio amplio. */
+  --radius-button: var(--radius-full);
+  --radius-xl: 1rem;
+
+  /*
+   * Las fotos de Camelot vienen de proveedores distintos y sus proporciones no
+   * son consistentes, así que `contain` — el default del design system — es el
+   * único recorte que no destruye ninguna. Se pasa a `cover` el día que haya
+   * fotografía propia y pareja.
+   */
+  --aspect-product: 3 / 4;
+}
+
+/*
+ * Las tarjetas de producto, redondeadas.
+ *
+ * Va acá y no en el componente porque `--radius-xl` es una decisión de esta
+ * marca: el design system deja el radio contenido a propósito (ADR-027).
+ */
+@utility card-treeshop {
+  border-radius: var(--radius-xl);
+}
