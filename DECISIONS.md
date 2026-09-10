@@ -4363,7 +4363,7 @@ nada al proponerse, pero el operador la aplicaría creyendo que existe y el
 producto quedaría sin clasificar — peor que verlo vacío, porque parece resuelto.
 
 La comparación es por `slugify`, el mismo normalizador que ya usa el catálogo
-para el handle, así que «Calzado Deportivo» y «calzado  deportivo» son el mismo
+para el handle, así que «Calzado Deportivo» y «calzado deportivo» son el mismo
 nombre acá y allá.
 
 **El ERP conserva autoridad también frente a la IA**
@@ -4732,3 +4732,166 @@ El storefront no usa nada de esto. Su `<select>` de orden sigue siendo nativo:
 es una página que se resuelve en el servidor, sin JavaScript propio, y un
 desplegable de Base UI ahí costaría hidratación en el camino que tiene
 presupuesto de peso.
+
+---
+
+## ADR-110 — Un cliente es una app en el monorepo, no un fork ni un despliegue de la demo
+
+**Fecha:** 2026-09-02
+**Estado:** Accepted
+
+**Contexto**
+Llegó el primer cliente real, Treeshop. `ONBOARDING.md` asumía que un comercio
+nuevo era la misma `apps/demo` desplegada con otro `STOREFRONT_DOMAIN`, y eso
+alcanza para una tienda que se conforme con el diseño de la demo. Treeshop no:
+tipografía, color, header con enlaces al centro e íconos, hero a pantalla
+completa, pie propio. Nada de eso son datos, es disposición y estética.
+
+**Decisión**
+Cada cliente con diseño propio es **una app hermana en `apps/`**, en el mismo
+repositorio: `apps/treeshop/` al lado de `apps/demo/`. Comparte la base, el
+Admin y los paquetes `@pick/*`; tiene sus páginas, sus componentes de
+disposición, su preset de tokens y su Worker.
+
+Lo que decide qué va a cada lado:
+
+- **Estructura y comportamiento van al paquete.** El slot `logo` del `Header`,
+  el modo ícono de `CartButton`, el token `--radius-button`, `--color-media`, las
+  flechas de los carruseles: cosas que el próximo cliente también va a pedir, y
+  entran con el default igual para que la demo no cambie.
+- **Disposición y estética van a la app.** El header de Treeshop, su pie, su
+  hoja de estilos, su portada.
+- **Datos van a la base.** Categorías, secciones de la portada, envío, pagos.
+
+Y la regla que sostiene todo: **importar, nunca copiar.** Lo que se copie de
+`packages/` a la app deja de recibir mejoras. Si un componente del paquete no
+alcanza, se le agrega un prop o un slot; si lo que hace falta no existe, se
+escribe en la app. Al segundo cliente que pida lo mismo, sube al paquete
+(PROJECT.md §32).
+
+**Por qué no un fork ni otro repositorio**
+El repositorio pasó a privado justamente para esto. Un fork por cliente
+convierte cada mejora del Core en un merge a mano, que es lo que CLAUDE.md
+prohíbe desde el día uno. Y en otro repositorio se pierde lo que hace seguras
+las mejoras: los paquetes se consumen como fuente (ADR-029) y `pnpm typecheck`
+corre sobre todas las apps, así que un cambio incompatible rompe en la máquina
+de quien lo hace y no en la tienda del cliente.
+
+**Lo que sigue hardcodeado a la demo, y se sabe**
+`e2e/global-setup.ts`, `global-teardown.ts` y `playwright.config.ts` construyen
+y prueban `@pick/demo`. Treeshop se verificó a mano y con capturas; su e2e
+propio es deuda registrada. El latido de CI también apunta sólo a la demo.
+
+---
+
+## ADR-111 — El catálogo de Camelot entra por un script, no por el puerto ERP
+
+**Fecha:** 2026-09-02
+**Estado:** Accepted
+
+**Contexto**
+Los productos de Treeshop viven en el Supabase de Camelot, su ecommerce
+anterior: 21 tablas con productos, variantes, fotos, marcas, categorías y costos
+de envío por departamento. El repo tiene un puerto `ERPAdapter` con matriz de
+capacidades y un adapter para el Oracle de Estilo Sport.
+
+**Decisión**
+`scripts/camelot-importar.ts` lee el Supabase de Camelot por REST y escribe el
+catálogo de Pick. **No implementa `ERPAdapter`.** El puerto modela un feed de
+inventario: `ERPItem` lleva código, talla, stock y precio, y no tiene dónde
+llevar una imagen ni una marca. Pasar Camelot por ahí perdería la mitad de lo
+que se vino a buscar. Un puerto se justifica con dos implementaciones del mismo
+contrato, y ésta no lo es: es una migración de catálogo, idempotente y
+repetible, no un ERP en vivo. Si Camelot vuelve como fuente de stock en tiempo
+real, ahí sí entra por el puerto.
+
+**La conversión de moneda es la decisión de plata**
+Camelot tiene dos monedas en una columna que dice PYG: 424 productos en
+guaraníes y 3328 en dólares, con un hueco vacío entre 1000 y 20 000 que hace la
+separación verificable. Se convierte a **6100 Gs/USD**, decidido con el cliente,
+como constante con nombre. La moneda se decide **por producto** mirando su
+precio, y el costo la hereda: decidirla campo por campo habría multiplicado por
+6100 los costos de diez productos que ya estaban en guaraníes —el guard lo
+encontró en «Ropa Interior Lupo Blanco», precio 29 930 y costo 19 950—. Un
+precio que caiga en el hueco **aborta la corrida**: no se adivina un precio.
+
+**Lo que se aprendió corriéndolo dos veces**
+PostgREST corta en 1000 filas sin avisar, y paginar sin `order` no garantiza
+páginas disjuntas: la segunda corrida daba por nuevos productos que ya estaban
+y chocaba contra los índices únicos de `handle` y `sku`. Los dos están
+arreglados y la idempotencia se verificó con tres corridas seguidas que no
+crean nada. El daño lo evitaron las restricciones de la base, no el script.
+
+---
+
+## ADR-112 — Los productos sin stock salen del listado por defecto
+
+**Fecha:** 2026-09-09
+**Estado:** Accepted
+
+**Contexto**
+De los 3752 productos de Treeshop, 378 tienen todas sus variantes en cero. En
+el catálogo aparecían con la insignia «Sin stock», que es lo que la demo hace a
+propósito para enseñar la insignia. El cliente pidió que no aparezcan, con eso
+como default.
+
+**Decisión**
+`catalog_search` deja fuera del listado, la búsqueda, las facetas y las
+colecciones todo producto sin ninguna variante con stock, **salvo que la tienda
+pida mostrarlos** con `store_settings.settings.catalog.showOutOfStock = true`,
+que se administra desde Configuración → Catálogo. El default es ocultar.
+
+El filtro vive **dentro de la función**, leyendo la configuración como ya hace
+`create_order` con el envío y el modo demo, y no en un parámetro: el catálogo,
+la portada y el sitemap la llaman por tres caminos, y un parámetro que uno de
+ellos olvidara pasar sería un agotado apareciendo en un lugar y no en otro.
+
+**Con `p_handle` no filtra.** El PDP de un producto agotado sigue existiendo,
+con «Sin stock» a la vista: un enlace que ayer funcionaba no puede dar 404
+porque se vendió la última.
+
+**La demo lo enciende.** `pnpm seed` le pone `showOutOfStock: true` porque
+tiene una remera agotada para enseñar la insignia y el smoke del checkout la
+espera. Las tiendas que no lo tienen configurado —Estilo Sport— pasan a ocultar.
+
+**Medido:** el filtro no cambia el tiempo del catálogo (~345 ms con y ~365 ms
+sin, el mismo día; la diferencia con los 233 ms de la Fase 12 es del día, se
+midió la función anterior en las mismas condiciones). La suite de PGlite tiene
+el caso en las dos direcciones y sabotear el filtro la pone en rojo.
+
+---
+
+## ADR-113 — Los carruseles ganan flechas y auto-avance, opt-in y con JavaScript
+
+**Fecha:** 2026-09-09
+**Estado:** Accepted — extiende ADR-038, no lo revierte
+
+**Contexto**
+ADR-038 dejó los carruseles por scroll-snap sin JavaScript, y `HeroSlider`
+decía que el auto-avance «se agrega como island opt-in si un cliente lo pide».
+Treeshop lo pidió: flechas en el hero y en las filas de productos, y que el
+hero avance solo.
+
+**Decisión**
+Un solo script compartido, `commerce-astro/primitives/carrusel-controles.ts`,
+sin framework, y un componente `CarouselControls` que dibuja las flechas.
+`HeroSlider` y `ProductCarousel` lo montan sólo con `controles`; `autoplay`
+trae los milisegundos. El default sigue siendo el de ADR-038: sin JavaScript,
+por scroll nativo, y la demo no carga nada nuevo.
+
+Lo que el script garantiza, y por qué:
+
+- **Las flechas nacen `hidden`** y las muestra el script. Sin JavaScript no hay
+  flechas, no un botón que no hace nada.
+- **El auto-avance respeta `prefers-reduced-motion`** —no arranca— y **se
+  detiene** con el puntero encima, con el foco adentro y con la pestaña oculta.
+  Un carrusel que se mueve bajo el mouse de quien lee es un problema de
+  accesibilidad, no un efecto.
+- **Al final vuelve al principio**: un carrusel que se frena en la última
+  tarjeta parece roto.
+- Un script y no una island: no hay estado que hidratar, sólo dos botones y un
+  intervalo, y Astro lo agrupa una vez por página aunque haya tres carruseles.
+
+Verificado en el navegador con dos slides: siguiente mueve una pantalla,
+anterior vuelve, avanza solo a los seis segundos y no se mueve con el puntero
+encima.

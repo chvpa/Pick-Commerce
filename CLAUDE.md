@@ -6,7 +6,7 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-**v1 cerrada: fases 0 a 12.** Lo único que queda de la 12 es procesar el piloto real, que depende del cliente. El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+**v1 cerrada: fases 0 a 12.** Lo único que queda de la 12 es procesar el piloto real, que está **en curso con Treeshop** (ADR-110): `apps/treeshop/`, catálogo importado del Supabase de Camelot, portada administrable; faltan el envío por departamento, el arte del cliente y el despliegue en `sontres.shop`. El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
@@ -83,6 +83,8 @@ apps/
   admin/             React 19 + Vite 8 + Tailwind v4 + shadcn sobre Base UI
                      + `worker/`: las rutas /api/* que necesitan un secreto
   demo/              Astro 7 + Preact islands + Tailwind v4 + adapter Cloudflare
+  treeshop/          el primer cliente real, misma anatomía que demo; header, pie y
+                     preset propios (ADR-110). Corre en 4322 en local
 supabase/            migraciones y pruebas de aislamiento entre tenants
 e2e/                 Playwright: storefront, Admin y presupuesto de performance
 ```
@@ -106,6 +108,8 @@ pnpm seed           # siembra el catálogo de demostración; idempotente
 pnpm seed:dummy [n] # catálogo de prueba desde dummyjson (--limpiar para quitarlo)
 pnpm erp:importar --tienda <slug> [--limite 100] [--dry-run]   # catálogo desde el ERP
 pnpm erp:imagenes --tienda <slug>   # fotos, desde el proyecto actual del cliente
+pnpm camelot:importar --tienda <slug> [--limite N] [--dry-run] [--imagenes]   # catálogo desde el Supabase de Camelot (ADR-111)
+pnpm treeshop:home  # siembra las secciones de la portada de Treeshop; después se administran
 pnpm tienda:crear <slug> <nombre>      # provisiona organización, tienda, sucursal y settings
 pnpm admin:crear <email> <password> [rol] [org]   # usuario del Admin; sin org, la demo
 pnpm rls:verificar  # aislamiento entre comercios con sesiones reales; contra el proyecto remoto
@@ -256,6 +260,7 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
 - Los componentes de framework sólo reciben props serializables. JSX y render props como prop **no funcionan** desde `.astro`; los named slots en kebab-case sí llegan como props camelCase.
 - Una island Preact **no puede importar** componentes `.astro`. El contenido baja desde la página.
 - Un `<img>` crudo no recibe ningún procesamiento: usar `<Image />` de `astro:assets`.
+- Un **SVG** no gana nada con `<Image />` y en desarrollo llegaba roto por el endpoint `/_image`: se importa y se usa como componente (`import Logo from './logo.svg'` → `<Logo />`), que lo deja inline. De paso, un trazo con `fill="currentColor"` sigue al color del texto, que es lo que hace que un logo sirva sobre fondo claro y oscuro.
 - Las imágenes en `public/` nunca se optimizan.
 - Tailwind no escanea `node_modules`: cada paquete `@pick/*` con componentes necesita su `@source` en `tokens.css`, o sus clases no se generan y **nada falla** (ADR-044).
 - CSS **no** puede mostrar el contenido de un `<details>` cerrado, pero **sí** puede mostrar y ocultar un `<dialog>` en ambas direcciones: un `display` sin acotar a `[open]` o `:modal` lo deja visible estando cerrado (ADR-045, ADR-049).
@@ -289,7 +294,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..109 + decisiones pendientes P-001..005.
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..113 + decisiones pendientes P-001..005.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.
 5. [LIMITACIONES.md](LIMITACIONES.md) — qué **no** hace el sistema, con el motivo
    y qué lo desbloquea. Es lo que se le entrega a un piloto.

@@ -6,6 +6,7 @@ export * from './seo.ts';
 export * from './authorization.ts';
 export * from './tenant.ts';
 export * from './field-sources.ts';
+export * from './catalog-config.ts';
 export * from './currency-config.ts';
 export * from './checkout.ts';
 export * from './orders.ts';

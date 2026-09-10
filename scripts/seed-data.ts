@@ -457,6 +457,12 @@ export const CONFIGURACION = {
      * instrucciones sí son de la tienda: sin ellas, la pantalla de confirmación
      * no puede decirle al cliente dónde pagar.
      */
+    /*
+     * La demo muestra los productos sin stock, que es lo contrario del default:
+     * tiene una remera agotada a propósito para enseñar la insignia, y el smoke
+     * del checkout cuenta con verla. Una tienda real arranca ocultándolos.
+     */
+    catalog: { showOutOfStock: true },
     payments: {
       // La demo ofrece los dos para que se vea el flujo con pasarela. El
       // simulado no cobra nada y está declarado como prueba en toda la interfaz

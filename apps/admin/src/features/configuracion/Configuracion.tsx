@@ -6,6 +6,7 @@ import {
   MODELOS,
   MODELO_POR_DEFECTO,
   actualizarTasa,
+  configuracionDeCatalogo,
   configuracionDeEnvio,
   configuracionDeMoneda,
   configuracionDePagos,
@@ -126,6 +127,10 @@ export function Configuracion() {
         descripcion="Cuánto se cobra por despachar, y desde qué monto no se cobra."
       >
         <Envio settings={consulta.data} tienda={tienda} guardado={guardado} />
+      </Seccion>
+
+      <Seccion titulo="Catálogo" descripcion="Qué se lista en la tienda.">
+        <Catalogo settings={consulta.data} guardado={guardado} />
       </Seccion>
 
       <Seccion
@@ -706,6 +711,51 @@ function Envio({
  * y **no dispara correos**. Sin esto, cada prueba deja un pedido indistinguible
  * de uno real y le manda un aviso a quien haya escrito su dirección.
  */
+function Catalogo({ settings, guardado }: { settings: Settings; guardado: Guardado }) {
+  const [mostrar, setMostrar] = useState(configuracionDeCatalogo(settings).showOutOfStock);
+  const [listo, setListo] = useState(false);
+
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setListo(false);
+        guardado.guardar({ catalog: { showOutOfStock: mostrar } });
+        setListo(true);
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <Checkbox
+          id="mostrar-sin-stock"
+          checked={mostrar}
+          onCheckedChange={(v) => setMostrar(v === true)}
+        />
+        <div className="flex flex-col gap-0.5">
+          <Label htmlFor="mostrar-sin-stock" className="cursor-pointer">
+            Mostrar los productos sin stock
+          </Label>
+          <p className="text-muted-foreground text-xs">
+            Apagado, un producto con todas sus variantes en cero no aparece en el catálogo, la
+            búsqueda ni la portada. Su página sigue existiendo, con «Sin stock» a la vista.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Button type="submit" size="sm" disabled={guardado.guardando}>
+          {guardado.guardando ? 'Guardando…' : 'Guardar'}
+        </Button>
+        {listo && !guardado.guardando && (
+          <span className="text-muted-foreground text-sm" role="status">
+            Guardado.
+          </span>
+        )}
+      </div>
+    </form>
+  );
+}
+
 function ModoDemo({ settings, guardado }: { settings: Settings; guardado: Guardado }) {
   const [demo, setDemo] = useState(esTiendaDemo(settings));
   const [listo, setListo] = useState(false);

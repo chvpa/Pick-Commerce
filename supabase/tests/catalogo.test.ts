@@ -600,3 +600,61 @@ test('pedir cien mil productos por página devuelve el tope, no cien mil', async
   assert.equal(r.perPage, 200);
   assert.ok(r.items.length <= 200);
 });
+
+test('un producto sin stock no se lista, pero su página sigue existiendo', async () => {
+  /*
+   * El default es ocultar: quien entra a comprar no quiere ver lo que no puede
+   * comprar. La tienda que lo pida —la demo, para enseñar la insignia— lo
+   * enciende con `catalog.showOutOfStock`. Y por handle se sigue encontrando:
+   * un enlace que ayer funcionaba no puede dar 404 porque se vendió la última.
+   */
+  const listar = async () => {
+    const r = await db.query<{ j: CatalogResult }>(
+      `select catalog_search($1::uuid, '{}'::jsonb, '', 'relevance', 1, 50) as j`,
+      [STORE],
+    );
+    return r.rows[0]!.j;
+  };
+  const porHandle = async (h: string) => {
+    const r = await db.query<{ j: CatalogResult }>(
+      `select catalog_search($1::uuid, '{}'::jsonb, '', 'relevance', 1, 1, null, null, $2) as j`,
+      [STORE, h],
+    );
+    return r.rows[0]!.j.items.map((p) => p.handle);
+  };
+
+  const antes = await listar();
+  // Filas propias y no `insertarProductos`: ese helper deriva los ids del índice
+  // y volvería a insertar la categoría y el producto 0 del fixture.
+  const AGOTADO = 'd1ff0000-0000-4000-8000-000000000000';
+  const VARIANTE = 'e1ff0000-0000-4000-8000-000000000000';
+  await db.exec(
+    `insert into products (id, tenant_id, store_id, handle, title, brand, status)
+     values ('${AGOTADO}', '${TENANT}', '${STORE}', 'agotado', 'Gorra agotada', 'Norte', 'active');
+     insert into product_variants (id, tenant_id, product_id, sku, title, position, price, currency, attributes)
+     values ('${VARIANTE}', '${TENANT}', '${AGOTADO}', 'SKU-agotado', 'U', 0, 200, 'PYG', '{"size": "U"}'::jsonb);
+     insert into inventory_levels (tenant_id, variant_id, location_id, available)
+     values ('${TENANT}', '${VARIANTE}', '${LOCATION}', 0)`,
+  );
+  try {
+    const sin = await listar();
+    assert.ok(!sin.items.some((p) => p.handle === 'agotado'), 'el agotado se listó');
+    assert.equal(sin.total, antes.total, 'el agotado contó en el total');
+    assert.deepEqual(await porHandle('agotado'), ['agotado'], 'el PDP del agotado dejó de existir');
+
+    await db.exec(
+      `insert into store_settings (store_id, tenant_id, settings)
+       values ('${STORE}', '${TENANT}', '{"catalog": {"showOutOfStock": true}}'::jsonb)
+       on conflict (store_id) do update set settings = excluded.settings`,
+    );
+    const con = await listar();
+    assert.ok(
+      con.items.some((p) => p.handle === 'agotado'),
+      'con el ajuste, no se listó',
+    );
+    assert.equal(con.total, antes.total + 1);
+  } finally {
+    await db.exec(`delete from store_settings where store_id = '${STORE}'`);
+    await db.exec(`delete from products where id = '${AGOTADO}'`);
+  }
+});
