@@ -13,9 +13,16 @@ export interface ConfiguracionDeCatalogo {
    * insignia de «Sin stock» —la demo— lo enciende.
    */
   readonly showOutOfStock: boolean;
+  /**
+   * No listar los productos sin ninguna foto. Al revés que el stock, el
+   * default es mostrarlos: no tener stock es universal, no tener foto es
+   * merchandising, y una ferretería vende sin foto. Una tienda de ropa lo
+   * enciende.
+   */
+  readonly hideWithoutImage: boolean;
 }
 
-const POR_DEFECTO: ConfiguracionDeCatalogo = { showOutOfStock: false };
+const POR_DEFECTO: ConfiguracionDeCatalogo = { showOutOfStock: false, hideWithoutImage: false };
 
 /**
  * Lee la sección `catalog`. Ausente o mal escrita cae al default, que es
@@ -24,5 +31,6 @@ const POR_DEFECTO: ConfiguracionDeCatalogo = { showOutOfStock: false };
 export function configuracionDeCatalogo(settings: unknown): ConfiguracionDeCatalogo {
   const bruto = (settings as { catalog?: unknown } | null)?.catalog;
   if (!bruto || typeof bruto !== 'object') return POR_DEFECTO;
-  return { showOutOfStock: (bruto as { showOutOfStock?: unknown }).showOutOfStock === true };
+  const c = bruto as { showOutOfStock?: unknown; hideWithoutImage?: unknown };
+  return { showOutOfStock: c.showOutOfStock === true, hideWithoutImage: c.hideWithoutImage === true };
 }

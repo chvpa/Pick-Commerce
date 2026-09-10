@@ -658,3 +658,42 @@ test('un producto sin stock no se lista, pero su página sigue existiendo', asyn
     await db.exec(`delete from products where id = '${AGOTADO}'`);
   }
 });
+
+test('un producto sin foto se lista, salvo que la tienda pida ocultarlo', async () => {
+  /*
+   * Al revés que el stock: el default es mostrar. El fixture entero no tiene
+   * fotos, así que si el default fuera ocultar la paridad quedaría vacía — y
+   * una ferretería vende sin foto. Con el ajuste puesto, desaparece del listado
+   * y sigue teniendo página.
+   */
+  const listar = async () => {
+    const r = await db.query<{ j: CatalogResult }>(
+      `select catalog_search($1::uuid, '{}'::jsonb, '', 'relevance', 1, 50) as j`,
+      [STORE],
+    );
+    return r.rows[0]!.j;
+  };
+  const porHandle = async (h: string) => {
+    const r = await db.query<{ j: CatalogResult }>(
+      `select catalog_search($1::uuid, '{}'::jsonb, '', 'relevance', 1, 1, null, null, $2) as j`,
+      [STORE, h],
+    );
+    return r.rows[0]!.j.items.map((p) => p.handle);
+  };
+
+  const antes = await listar();
+  assert.ok(antes.total > 0, 'el fixture, todo sin foto, se lista por defecto');
+
+  await db.exec(
+    `insert into store_settings (store_id, tenant_id, settings)
+     values ('${STORE}', '${TENANT}', '{"catalog": {"hideWithoutImage": true}}'::jsonb)
+     on conflict (store_id) do update set settings = excluded.settings`,
+  );
+  try {
+    const con = await listar();
+    assert.equal(con.total, 0, 'con el ajuste, un fixture sin fotos tiene que quedar vacío');
+    assert.deepEqual(await porHandle('p3'), ['p3'], 'el PDP de un producto sin foto dejó de existir');
+  } finally {
+    await db.exec(`delete from store_settings where store_id = '${STORE}'`);
+  }
+});

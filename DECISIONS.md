@@ -4824,7 +4824,7 @@ crean nada. El daño lo evitaron las restricciones de la base, no el script.
 
 ---
 
-## ADR-112 — Los productos sin stock salen del listado por defecto
+## ADR-112 — Los productos sin stock salen del listado por defecto; los sin foto, si la tienda lo pide
 
 **Fecha:** 2026-09-09
 **Estado:** Accepted
@@ -4858,6 +4858,25 @@ espera. Las tiendas que no lo tienen configurado —Estilo Sport— pasan a ocul
 sin, el mismo día; la diferencia con los 233 ms de la Fase 12 es del día, se
 midió la función anterior en las mismas condiciones). La suite de PGlite tiene
 el caso en las dos direcciones y sabotear el filtro la pone en rojo.
+
+**Los sin foto, al revés: se muestran salvo que la tienda pida ocultarlos**
+(`catalog.hideWithoutImage`, 2026-09-10). Apareció al ordenar Treeshop por
+novedad: la tanda de agosto entró al Supabase de Camelot sin fotografiar
+—177 de los 200 más nuevos, 159 de ellos Puma— y era las primeras seis páginas
+de la tienda; la web oficial de Camelot no las muestra por lo mismo. El default
+es distinto del stock a propósito: que no haya stock es universal, no se vende
+lo que no hay; que no haya foto es merchandising, una ferretería vende sin foto,
+y el fixture entero de la suite de paridad no tiene ninguna. Treeshop lo
+enciende. Misma mecánica, mismo lector, misma tarjeta del Admin, mismo respeto
+por `p_handle`.
+
+**Y el orden por defecto de Treeshop es «Novedades».** «Relevancia» es el orden
+de alta, y en un catálogo que entró entero en una corrida eso era el uuid:
+azar, que es lo que ponía fotos horribles primero. El importador ahora conserva
+la fecha de alta de Camelot en `products.created_at`, «Novedades» existe como
+opción del `SortSelect` —la demo la acepta, con su default igual— y «En trendy»
+pasó de lista a mano a colección dinámica ordenada por novedad, que se mueve
+sola cuando Camelot carga mercadería.
 
 ---
 

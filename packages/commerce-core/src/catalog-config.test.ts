@@ -3,9 +3,18 @@ import { test } from 'node:test';
 import { configuracionDeCatalogo } from './catalog-config.ts';
 
 test('sin configurar, los productos sin stock no se listan', () => {
-  assert.deepEqual(configuracionDeCatalogo(undefined), { showOutOfStock: false });
-  assert.deepEqual(configuracionDeCatalogo({}), { showOutOfStock: false });
-  assert.deepEqual(configuracionDeCatalogo({ catalog: 'roto' }), { showOutOfStock: false });
+  const d = { showOutOfStock: false, hideWithoutImage: false };
+  assert.deepEqual(configuracionDeCatalogo(undefined), d);
+  assert.deepEqual(configuracionDeCatalogo({}), d);
+  assert.deepEqual(configuracionDeCatalogo({ catalog: 'roto' }), d);
+});
+
+test('los sin foto se muestran salvo que se pida ocultarlos', () => {
+  assert.equal(configuracionDeCatalogo({ catalog: {} }).hideWithoutImage, false);
+  assert.equal(
+    configuracionDeCatalogo({ catalog: { hideWithoutImage: true } }).hideWithoutImage,
+    true,
+  );
 });
 
 test('sólo un `true` de verdad los muestra', () => {

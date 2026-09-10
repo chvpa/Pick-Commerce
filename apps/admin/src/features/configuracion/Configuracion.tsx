@@ -712,7 +712,9 @@ function Envio({
  * de uno real y le manda un aviso a quien haya escrito su dirección.
  */
 function Catalogo({ settings, guardado }: { settings: Settings; guardado: Guardado }) {
-  const [mostrar, setMostrar] = useState(configuracionDeCatalogo(settings).showOutOfStock);
+  const inicial = configuracionDeCatalogo(settings);
+  const [mostrar, setMostrar] = useState(inicial.showOutOfStock);
+  const [sinFoto, setSinFoto] = useState(inicial.hideWithoutImage);
   const [listo, setListo] = useState(false);
 
   return (
@@ -721,7 +723,7 @@ function Catalogo({ settings, guardado }: { settings: Settings; guardado: Guarda
       onSubmit={(e) => {
         e.preventDefault();
         setListo(false);
-        guardado.guardar({ catalog: { showOutOfStock: mostrar } });
+        guardado.guardar({ catalog: { showOutOfStock: mostrar, hideWithoutImage: sinFoto } });
         setListo(true);
       }}
     >
@@ -738,6 +740,23 @@ function Catalogo({ settings, guardado }: { settings: Settings; guardado: Guarda
           <p className="text-muted-foreground text-xs">
             Apagado, un producto con todas sus variantes en cero no aparece en el catálogo, la
             búsqueda ni la portada. Su página sigue existiendo, con «Sin stock» a la vista.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-3">
+        <Checkbox
+          id="ocultar-sin-foto"
+          checked={sinFoto}
+          onCheckedChange={(v) => setSinFoto(v === true)}
+        />
+        <div className="flex flex-col gap-0.5">
+          <Label htmlFor="ocultar-sin-foto" className="cursor-pointer">
+            Ocultar los productos sin foto
+          </Label>
+          <p className="text-muted-foreground text-xs">
+            Un producto sin ninguna imagen no aparece en el catálogo, la búsqueda ni la portada
+            hasta que se le cargue una. Su página sigue existiendo.
           </p>
         </div>
       </div>

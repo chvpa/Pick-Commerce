@@ -30,7 +30,7 @@ import Base from '../layouts/Base.astro';
 export const prerender = false;
 
 const PER_PAGE = 12;
-const SORTS: readonly CatalogSort[] = ['relevance', 'price-asc', 'price-desc', 'title-asc'];
+const SORTS: readonly CatalogSort[] = ['relevance', 'newest', 'price-asc', 'price-desc', 'title-asc'];
 /** Cuántos tramos de precio ofrecer. Cuatro entran sin scroll y separan bien. */
 const TRAMOS = 4;
 
@@ -53,10 +53,16 @@ const declaradas = [...FIJAS, ...definiciones.map((d) => ({ name: d.name, label:
 
 const url = Astro.url;
 const search = url.searchParams.get('q') ?? '';
-const rawSort = url.searchParams.get('sort') ?? 'relevance';
+/*
+ * Novedades por defecto, no relevancia. «Relevancia» es el orden de alta, y en
+ * un catálogo que entró entero en una corrida eso era el uuid: azar. Lo último
+ * que Camelot cargó es lo que el comercio quiere mostrar primero — la fecha
+ * viene de Camelot, la conserva el importador.
+ */
+const rawSort = url.searchParams.get('sort') ?? 'newest';
 const sort: CatalogSort = SORTS.includes(rawSort as CatalogSort)
   ? (rawSort as CatalogSort)
-  : 'relevance';
+  : 'newest';
 const page = Number.parseInt(url.searchParams.get('page') ?? '1', 10) || 1;
 
 /* Sólo se aceptan las facetas declaradas: un parámetro cualquiera de la URL no

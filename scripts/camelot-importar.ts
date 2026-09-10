@@ -227,6 +227,7 @@ interface ProductoCamelot {
   cost: number | null;
   description: string | null;
   gender: string | null;
+  created_at: string;
 }
 interface VarianteCamelot {
   id: string;
@@ -309,7 +310,7 @@ async function main(): Promise<number> {
     traer<Nombrado>('silhouettes', 'id,name'),
     traer<ProductoCamelot>(
       'products',
-      'id,sku,name,brand_id,category_id,silhouette_id,price,cost,description,gender',
+      'id,sku,name,brand_id,category_id,silhouette_id,price,cost,description,gender,created_at',
       '&is_active=eq.true',
     ),
     traer<VarianteCamelot>(
@@ -492,6 +493,14 @@ async function main(): Promise<number> {
       category_id: p.category_id ? (idDeCategoria.get(p.category_id) ?? null) : null,
       status: 'active',
       sku: p.sku,
+      /*
+       * La fecha de alta es la de Camelot, no la de esta corrida. Sin esto los
+       * 3752 entraban con la misma fecha, «Novedades» no ordenaba nada y el
+       * orden por defecto de la tienda era el del uuid: azar. Con la de origen,
+       * lo que Camelot cargó ayer aparece primero acá, y una corrida futura no
+       * la pisa: el upsert la vuelve a escribir con el mismo valor.
+       */
+      created_at: p.created_at,
       // Declarar el dueño es lo que bloquea la edición local (PROJECT.md §10).
       field_sources: { price: 'ERP', stock: 'ERP' },
     });

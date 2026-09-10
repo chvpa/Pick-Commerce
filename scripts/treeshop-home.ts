@@ -71,9 +71,11 @@ async function main(): Promise<number> {
   // -------------------------------------------------------------------------
 
   /*
-   * «En trendy» es una colección **manual**: el comercio elige qué entra. Se
-   * arranca con los productos que Camelot ya tenía marcados como destacados —no
-   * inventamos un criterio— y el Admin puede cambiarlos sin tocar código.
+   * «En trendy» es una colección **dinámica** sin reglas —todo el catálogo—
+   * ordenada por novedad: el carrusel muestra lo último que Camelot cargó, y se
+   * mueve solo cada vez que entra mercadería. Antes era una lista a mano con los
+   * doce primeros por orden de importación, que no eran los últimos de nada.
+   * El comercio puede cambiarla desde el Admin, incluso volverla manual.
    */
   const { error: errorColeccion } = await db.from('collections').upsert({
     id: ID.trendyColeccion,
@@ -81,34 +83,15 @@ async function main(): Promise<number> {
     store_id: STORE,
     title: 'En trendy',
     handle: 'en-trendy',
-    subtitle: 'Lo que se está llevando ahora',
+    subtitle: 'Lo último que llegó',
     published: true,
-    sort: 'relevance',
+    rules: {},
+    sort: 'newest',
   });
   if (errorColeccion) throw new Error(`collections: ${errorColeccion.message}`);
-
-  // Los destacados que vinieron de Camelot. Si no hay ninguno, se toman los
-  // primeros con stock: un carrusel vacío es peor que uno con criterio flojo.
-  const { data: destacados } = await db
-    .from('products')
-    .select('id')
-    .eq('store_id', STORE)
-    .eq('status', 'active')
-    .limit(12);
-
-  const elegidos = destacados ?? [];
-  if (elegidos.length > 0) {
-    await db.from('collection_products').delete().eq('collection_id', ID.trendyColeccion);
-    const { error } = await db.from('collection_products').insert(
-      elegidos.map((p, i) => ({
-        tenant_id: TENANT,
-        collection_id: ID.trendyColeccion,
-        product_id: p.id,
-        position: i,
-      })),
-    );
-    if (error) throw new Error(`collection_products: ${error.message}`);
-  }
+  // La lista a mano de la versión anterior sobra en una colección dinámica.
+  await db.from('collection_products').delete().eq('collection_id', ID.trendyColeccion);
+  const elegidos: { id: string }[] = [];
 
   // -------------------------------------------------------------------------
   // Las categorías que van en la portada
@@ -189,7 +172,7 @@ async function main(): Promise<number> {
   console.log('Portada de Treeshop');
   console.log(`  hero          slider, sin piezas (esperando el arte)`);
   console.log(`  categorías    ${categoryIds.length}: prendas, calzados, accesorios`);
-  console.log(`  «En trendy»   ${elegidos.length} productos`);
+  console.log(`  «En trendy»   dinámica, por novedad (${elegidos.length} a mano)`);
   console.log(`  marcas        slider de 2, sin piezas (esperando el arte)`);
   console.log('\nLas dos secciones vacías se llenan desde el Admin → Contenido.');
   return 0;
