@@ -1,6 +1,7 @@
 ---
 import HeroSlider from '@pick/commerce-astro/content/HeroSlider.astro';
 import Banner from '@pick/commerce-astro/content/Banner.astro';
+import CarouselControls from '@pick/commerce-astro/primitives/CarouselControls.astro';
 import CategorySection from '@pick/commerce-astro/content/CategorySection.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import JsonLd from '@pick/commerce-astro/seo/JsonLd.astro';
@@ -96,16 +97,20 @@ const heroArriba =
         if (seccion.piezas.length === 0) return null;
         return (
           /*
-           * Sin `Container` y a la altura de la pantalla: el hero de Treeshop
-           * ocupa todo el ancho y el header va encima. El `-mt-16` compensa que
-           * el header flotante no ocupa lugar en el flujo, así que el primer
-           * slide arranca pegado al borde de arriba y no debajo de un hueco.
+           * Sin `Container`, a todo el ancho, y con el alto puesto en **cada
+           * slide**: ponerlo en la sección dejaba el slide a la altura de su
+           * texto y un hueco blanco debajo hasta completar la pantalla. Sin
+           * esquinas: el header flotante va encima y el borde redondeado
+           * asomaba por los costados.
            */
           <HeroSlider
             piezas={seccion.piezas}
             layout={seccion.layout}
             id={`hero-${seccion.id}`}
-            class="min-h-[80dvh] [&_img]:h-full [&_img]:object-cover"
+            class="rounded-none [&_#hero]:rounded-none"
+            slideClass="min-h-[85dvh] rounded-none"
+            controles
+            autoplay={6000}
           />
         );
       }
@@ -121,7 +126,14 @@ const heroArriba =
               </div>
             )}
             {seccion.layout === 'slider' ? (
+              <div class="relative">
+              <CarouselControls
+                pista={`pista-${seccion.id}`}
+                label={seccion.title ?? 'avisos'}
+                posicion="esquina"
+              />
               <div
+                id={`pista-${seccion.id}`}
                 role="group"
                 aria-label={seccion.title ? `Carrusel de ${seccion.title}` : 'Carrusel de avisos'}
                 tabindex="0"
@@ -137,6 +149,7 @@ const heroArriba =
                     priority={indice === 0 && i === 0}
                   />
                 ))}
+              </div>
               </div>
             ) : (
               <div class:list={['grid gap-6', GRILLA[seccion.columns]]}>
@@ -197,7 +210,7 @@ const heroArriba =
             {seccion.title && <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>}
             {seccion.subtitle && <p class="text-sm text-fg-muted">{seccion.subtitle}</p>}
           </div>
-          <ProductCarousel label={seccion.title ?? 'Productos'}>
+          <ProductCarousel label={seccion.title ?? 'Productos'} controles id={`pista-${seccion.id}`}>
             {seccion.productos.map((product) => {
               const variant = product.variants[0];
               if (!variant) return null;

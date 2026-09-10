@@ -1,0 +1,87 @@
+---
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import Isotipo from '../assets/isotipo.svg';
+
+interface Props {
+  storeName: string;
+  /** Los mismos enlaces del header: comprar por categoría. */
+  enlaces: readonly { label: string; href: string }[];
+  /** La línea del envío, si la tienda lo anuncia. */
+  anuncio?: string | null;
+}
+
+const { storeName, enlaces, anuncio } = Astro.props;
+const year = new Date().getFullYear();
+
+/*
+ * El pie de Treeshop. Es de esta marca —oscuro, con columnas, con el isotipo—
+ * así que vive en la app y no en el paquete, cuyo pie es deliberadamente
+ * neutro. Los enlaces salen de lo que ya existe: no se inventa una sección de
+ * «Nosotros» ni un formulario que no tenga a dónde ir.
+ */
+---
+
+<footer class="mt-24 bg-fg text-surface">
+  <Container class="grid gap-10 py-14 md:grid-cols-[1.4fr_1fr_1fr] md:gap-16">
+    <div class="flex flex-col gap-4">
+      <a
+        href="/"
+        aria-label={storeName}
+        class="inline-flex w-fit cursor-pointer items-center gap-3 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+      >
+        <Isotipo class="h-9 w-9" aria-hidden="true" />
+        <span class="font-display text-lg font-semibold tracking-tight">{storeName}</span>
+      </a>
+      <p class="max-w-xs text-sm text-surface/70">
+        Ropa y calzado deportivo de las marcas que querés, con envío a todo el país.
+      </p>
+      {anuncio && <p class="text-sm font-medium text-accent-fg/90">{anuncio}</p>}
+    </div>
+
+    <nav aria-label="Comprar" class="flex flex-col gap-3">
+      <h2 class="text-xs font-semibold tracking-widest text-surface/50 uppercase">Comprar</h2>
+      {
+        enlaces.map((e) => (
+          <a
+            href={e.href}
+            class="w-fit cursor-pointer text-sm text-surface/85 transition-colors hover:text-surface hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+          >
+            {e.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <nav aria-label="Ayuda" class="flex flex-col gap-3">
+      <h2 class="text-xs font-semibold tracking-widest text-surface/50 uppercase">Ayuda</h2>
+      <a
+        href="/preguntas-frecuentes"
+        class="w-fit cursor-pointer text-sm text-surface/85 transition-colors hover:text-surface hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+      >
+        Preguntas frecuentes
+      </a>
+      <a
+        href="/preguntas-frecuentes#pedido"
+        class="w-fit cursor-pointer text-sm text-surface/85 transition-colors hover:text-surface hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+      >
+        Seguir mi pedido
+      </a>
+      <a
+        href="/politicas"
+        class="w-fit cursor-pointer text-sm text-surface/85 transition-colors hover:text-surface hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+      >
+        Cambios y devoluciones
+      </a>
+    </nav>
+  </Container>
+
+  <div class="border-t border-surface/10">
+    <Container
+      class="flex flex-col gap-2 py-5 text-xs text-surface/50 sm:flex-row sm:items-center sm:justify-between"
+    >
+      {/* Una sola expresión: Astro colapsa el espacio entre dos adyacentes. */}
+      <p>{`© ${year} ${storeName}. Todos los derechos reservados.`}</p>
+      <p>Pago por transferencia bancaria · Envíos a todo el Paraguay</p>
+    </Container>
+  </div>
+</footer>

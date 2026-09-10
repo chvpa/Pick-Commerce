@@ -1,0 +1,90 @@
+---
+import { cn } from '@pick/commerce-ui';
+
+interface Props {
+  /** El `id` de la pista que desliza. */
+  pista: string;
+  /** Nombre del carrusel, para el lector de pantalla: «Anterior de Destacados». */
+  label: string;
+  /** Cada cuántos milisegundos avanza solo. Ausente o cero: no avanza. */
+  autoplay?: number;
+  /**
+   * `lados` pone una flecha en cada borde, encima del contenido; `esquina` las
+   * junta arriba a la derecha, fuera del contenido, como en una fila de
+   * tarjetas. El padre tiene que ser `relative`.
+   */
+  posicion?: 'lados' | 'esquina';
+  class?: string;
+}
+
+const { pista, label, autoplay, posicion = 'lados', class: className } = Astro.props;
+
+const BOTON =
+  'flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-surface text-fg shadow-md ' +
+  'transition-colors hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+---
+
+{
+  /*
+   * Las flechas de un carrusel. Nacen `hidden` y las muestra el script, que es
+   * quien las hace funcionar: sin JavaScript no hay flechas, y el carrusel
+   * sigue deslizando por scroll nativo (ADR-038). Con el script llega también
+   * el auto-avance, si se pidió, con las pausas que exige `prefers-reduced-motion`
+   * y la lectura: ver `carrusel-controles.ts`.
+   */
+}
+<div
+  data-carrusel={pista}
+  data-autoplay={autoplay && autoplay > 0 ? autoplay : undefined}
+  class={cn(
+    posicion === 'lados'
+      ? 'pointer-events-none absolute inset-y-0 right-0 left-0 flex items-center justify-between px-3'
+      : 'absolute -top-12 right-0 flex gap-2',
+    className,
+  )}
+>
+  <button
+    type="button"
+    data-carrusel-prev
+    hidden
+    aria-label={`Anterior de ${label}`}
+    class={cn(BOTON, posicion === 'lados' && 'pointer-events-auto')}
+  >
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="h-5 w-5"
+      aria-hidden="true"
+    >
+      <path d="m15 6-6 6 6 6"></path>
+    </svg>
+  </button>
+  <button
+    type="button"
+    data-carrusel-next
+    hidden
+    aria-label={`Siguiente de ${label}`}
+    class={cn(BOTON, posicion === 'lados' && 'pointer-events-auto')}
+  >
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="h-5 w-5"
+      aria-hidden="true"
+    >
+      <path d="m9 6 6 6-6 6"></path>
+    </svg>
+  </button>
+</div>
+
+<script>
+  import './carrusel-controles.ts';
+</script>

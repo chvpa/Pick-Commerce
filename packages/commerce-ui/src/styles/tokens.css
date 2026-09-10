@@ -40,6 +40,12 @@
   --color-border: oklch(0.91 0.004 260);
   --color-border-strong: oklch(0.82 0.006 260);
 
+  /* La caja que contiene una foto: tarjeta, galería, banner. Su propio token
+   * porque depende de la fotografía y no de la marca — un catálogo de packshots
+   * sobre blanco quiere blanco, uno de fotos con fondo quiere un gris que las
+   * separe del papel. Por defecto, el mismo gris de siempre. */
+  --color-media: var(--color-surface-sunken);
+
   --color-accent: oklch(0.53 0.13 258);
   --color-accent-hover: oklch(0.47 0.135 258);
   --color-accent-fg: oklch(0.99 0 0);

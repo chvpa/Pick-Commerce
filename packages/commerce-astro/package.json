@@ -16,6 +16,7 @@
     "./navigation/Breadcrumb.astro": "./src/navigation/Breadcrumb.astro",
     "./primitives/Button.astro": "./src/primitives/Button.astro",
     "./primitives/Badge.astro": "./src/primitives/Badge.astro",
+    "./primitives/CarouselControls.astro": "./src/primitives/CarouselControls.astro",
     "./product/ProductGallery.astro": "./src/product/ProductGallery.astro",
     "./content/Hero.astro": "./src/content/Hero.astro",
     "./content/Banner.astro": "./src/content/Banner.astro",

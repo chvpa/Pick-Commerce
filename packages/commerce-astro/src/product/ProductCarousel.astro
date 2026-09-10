@@ -1,24 +1,50 @@
 ---
 import { cn } from '@pick/commerce-ui';
+import CarouselControls from '../primitives/CarouselControls.astro';
 
 interface Props {
   /** Da contexto al lector de pantalla: "Carrusel de Más vendidos". */
   label: string;
+  /**
+   * Flechas arriba a la derecha, y auto-avance si `autoplay` trae milisegundos.
+   * Opt-in: sin esto el carrusel desliza por scroll nativo y no carga script.
+   */
+  controles?: boolean;
+  autoplay?: number;
+  /** El `id` de la pista. Sólo hace falta con `controles`; sin él se deriva. */
+  id?: string;
   class?: string;
 }
 
-const { label, class: className } = Astro.props;
+const { label, controles = false, autoplay, id, class: className } = Astro.props;
+
+const idPista =
+  id ??
+  `carrusel-${label
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')}`;
 ---
 
 {
   /*
   Carrusel por scroll-snap, sin JavaScript, igual que la galería (ADR-038).
   El scroll horizontal es nativo en touch y trackpad; con teclado el contenedor
-  es focusable y responde a las flechas. Unas flechas de navegación exigirían
-  una island y se agregan sólo si un preset las pide.
+  es focusable y responde a las flechas. Las flechas en pantalla son opt-in
+  (`controles`): un preset las pidió y entraron como script compartido, no como
+  island. Ver `primitives/carrusel-controles.ts`.
 */
 }
+{
+  controles && (
+    <div class="relative">
+      <CarouselControls pista={idPista} label={label} autoplay={autoplay} posicion="esquina" />
+    </div>
+  )
+}
 <div
+  id={controles ? idPista : undefined}
   role="group"
   aria-label={`Carrusel de ${label}`}
   tabindex="0"

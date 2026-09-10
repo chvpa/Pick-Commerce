@@ -42,6 +42,10 @@
    * fotografía propia y pareja.
    */
   --aspect-product: 3 / 4;
+
+  /* Las fotos de Camelot son packshots sobre blanco: dentro de una caja gris
+   * se ve el rectángulo blanco de cada una. Sobre blanco, se funden. */
+  --color-media: oklch(1 0 0);
 }
 
 /*
@@ -52,4 +56,79 @@
  */
 @utility card-treeshop {
   border-radius: var(--radius-xl);
+}
+
+/*
+ * Los controles del catálogo, con la forma de la marca.
+ *
+ * Es CSS de la app sobre elementos que dibuja el paquete —el `<select>` de
+ * orden y las casillas de los filtros—, que es lo que `tokens.css` pide evitar.
+ * Se hace igual, acotado al panel de filtros y a la fila de orden, porque son
+ * controles nativos cuya forma no es un token: para que fuera prop habría que
+ * inventar una API de «estilo de checkbox» para un solo cliente. Si aparece un
+ * segundo, esto sube al paquete como token.
+ *
+ * Sin `@layer`, a propósito: en Tailwind v4 las utilidades pesan más que
+ * `components`, y el `rounded-md` que trae el `<select>` le ganaba a la
+ * pastilla. Una regla sin capa le gana a cualquier capa.
+ */
+.plp #sort {
+  border-radius: var(--radius-full);
+  padding-inline: 1rem 2.25rem;
+  height: 2.5rem;
+  font-weight: 500;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23222' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+}
+
+.plp summary {
+  font-weight: 600;
+}
+
+.plp input[type='checkbox'],
+.plp input[type='radio'] {
+  appearance: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 0.375rem;
+  background: var(--color-surface);
+  display: grid;
+  place-content: center;
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out;
+}
+.plp input[type='radio'] {
+  border-radius: var(--radius-full);
+}
+.plp input[type='checkbox']:hover,
+.plp input[type='radio']:hover {
+  border-color: var(--color-fg);
+}
+.plp input[type='checkbox']:checked,
+.plp input[type='radio']:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.plp input[type='checkbox']:checked::before {
+  content: '';
+  width: 0.6rem;
+  height: 0.35rem;
+  border-left: 2px solid var(--color-accent-fg);
+  border-bottom: 2px solid var(--color-accent-fg);
+  transform: translateY(-1px) rotate(-45deg);
+}
+.plp input[type='radio']:checked::before {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-fg);
+}
+.plp input:disabled {
+  opacity: 0.4;
 }

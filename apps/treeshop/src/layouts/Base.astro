@@ -1,11 +1,11 @@
 ---
-import Footer from '@pick/commerce-astro/layout/Footer.astro';
 import AnnouncementBar from '@pick/commerce-astro/content/AnnouncementBar.astro';
 import SeoHead from '@pick/commerce-astro/seo/SeoHead.astro';
 /* Las islands entran por subpath, no por el barrel: si entran por
    `@pick/commerce-ui`, Vite las mete a todas en un solo chunk y cada página
    descarga las que no usa. Ver ADR-040. */
 import { CartDrawer } from '@pick/commerce-ui/cart/CartDrawer';
+import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
 import { anuncio, contextoSeo } from '../lib/db.ts';
 import '../styles/global.css';
@@ -93,22 +93,7 @@ const ENLACES = [
       <slot />
     </main>
 
-    <Footer storeName={STORE_NAME}>
-      <nav aria-label="Enlaces del pie" class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-        <a href="/catalogo" class="cursor-pointer text-fg-muted hover:text-fg hover:underline">
-          Catálogo
-        </a>
-        <a
-          href="/preguntas-frecuentes"
-          class="cursor-pointer text-fg-muted hover:text-fg hover:underline"
-        >
-          Preguntas frecuentes
-        </a>
-        <a href="/politicas" class="cursor-pointer text-fg-muted hover:text-fg hover:underline">
-          Políticas
-        </a>
-      </nav>
-    </Footer>
+    <Footer storeName={STORE_NAME} enlaces={ENLACES} anuncio={ANUNCIO} />
 
     {
       /*

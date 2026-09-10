@@ -2,6 +2,7 @@
 import { Image } from 'astro:assets';
 import type { Banner } from '@pick/commerce-core';
 import { buttonVariants, cn } from '@pick/commerce-ui';
+import CarouselControls from '../primitives/CarouselControls.astro';
 
 interface Props {
   piezas: readonly Banner[];
@@ -15,10 +16,25 @@ interface Props {
   layout: 'static' | 'slider';
   /** Para que los `id` de los slides no choquen si hay dos heros. */
   id: string;
+  /**
+   * Clases para cada slide. Es lo que decide su alto: por defecto el slide mide
+   * lo que mide su texto y la foto se recorta a eso; un hero a pantalla
+   * completa se pide desde acá con un `min-h`, y no desde `class`, que va en la
+   * sección y dejaría el hueco debajo del slide en vez de agrandarlo.
+   */
+  slideClass?: string;
+  /**
+   * Flechas a los lados, y auto-avance si `autoplay` trae milisegundos. Es
+   * opt-in y trae JavaScript: el hero sin esto sigue deslizando por scroll
+   * nativo, que es el default del paquete (ADR-038).
+   */
+  controles?: boolean;
+  autoplay?: number;
   class?: string;
 }
 
-const { piezas, layout, id, class: className } = Astro.props;
+const { piezas, layout, id, slideClass, controles = false, autoplay, class: className } =
+  Astro.props;
 
 /*
  * Con **una sola pieza** las dos opciones dan lo mismo, y esa pieza va a ancho
@@ -40,12 +56,12 @@ const esSlider = layout === 'slider' && !unaSola;
   trackpad, el contenedor es focusable para el teclado, y los puntos de abajo son
   anclas: `#slide-2` lleva al slide 2 sin una línea de script.
 
-  **No hay auto-avance, y es deliberado.** Exigiría una island en la home, que
-  hoy es la página más liviana del sitio y tiene su presupuesto medido; y un hero
-  que se mueve solo se lleva puesto a quien está leyendo, que es un problema de
-  accesibilidad conocido antes que una preferencia. Si un cliente lo pide, se
-  agrega como island opt-in respetando `prefers-reduced-motion`, que es lo que
-  manda el repo para todo lo que se mueve.
+  **El auto-avance y las flechas son opt-in** (`controles`, `autoplay`). Por
+  defecto no hay: exigen JavaScript en la home, que es la página más liviana del
+  sitio y tiene su presupuesto medido, y un hero que se mueve solo se lleva
+  puesto a quien está leyendo. Un cliente lo pidió, y entró como pidió el repo:
+  un script chico que respeta `prefers-reduced-motion` y se detiene mientras
+  alguien mira o toca. Ver `primitives/carrusel-controles.ts`.
 */
 }
 <section
@@ -53,6 +69,8 @@ const esSlider = layout === 'slider' && !unaSola;
   aria-roledescription={esSlider ? 'carrusel' : undefined}
   aria-label={esSlider ? 'Destacados de la tienda' : undefined}
 >
+  {/* El `relative` es para las flechas, que van encima de los slides. */}
+  <div class="relative">
   <div
     id={id}
     {...esSlider ? { role: 'group', tabindex: '0' } : {}}
@@ -75,8 +93,9 @@ const esSlider = layout === 'slider' && !unaSola;
         <article
           id={`${id}-${i}`}
           class={cn(
-            'relative isolate overflow-hidden rounded-lg bg-surface-sunken',
+            'relative isolate flex flex-col justify-end overflow-hidden rounded-lg bg-media',
             esSlider && 'w-full shrink-0 snap-center',
+            slideClass,
           )}
           aria-label={esSlider ? `${i + 1} de ${piezas.length}` : undefined}
         >
@@ -116,18 +135,32 @@ const esSlider = layout === 'slider' && !unaSola;
                 {pieza.ctaLabel}
               </a>
             )}
+            {
+              /*
+               * Sin texto de botón, el slide entero es el enlace y no se escribe
+               * nada encima: el arte del comercio ya dice lo suyo, y un «Ver
+               * más» genérico pegado abajo lo pisaba. El nombre queda para el
+               * lector de pantalla y el foco se ve en el borde del slide.
+               */
+            }
             {pieza.href && !pieza.ctaLabel && (
               <a
                 href={pieza.href}
-                class="text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                class="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white"
               >
-                Ver más
+                <span class="sr-only">{`Ver ${pieza.title}`}</span>
               </a>
             )}
           </div>
         </article>
       ))
     }
+  </div>
+  {
+    controles && esSlider && (
+      <CarouselControls pista={id} label="destacados" autoplay={autoplay} />
+    )
+  }
   </div>
 
   {

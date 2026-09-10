@@ -156,9 +156,11 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
 >
   <JsonLd slot="head" data={jsonLd} />
   <ClientRouter />
-  <Container class="flex flex-col gap-6 py-10">
+  <Container class="plp flex flex-col gap-6 py-8">
     <div class="flex flex-col gap-3">
-      <h1 class="font-display text-2xl font-semibold tracking-tight">Catálogo</h1>
+      {/* Fuera de la vista y no ausente: la página necesita su `h1` para el
+          lector de pantalla y para el buscador; el ojo ya sabe dónde está. */}
+      <h1 class="sr-only">Catálogo</h1>
       {
         search !== '' && (
           <p class="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
@@ -205,18 +207,6 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
         contenido con content-visibility en un slot interno. Ver ADR-045 y 049.
       */
       }
-      <button
-        type="button"
-        id="plp-toggle"
-        aria-haspopup="dialog"
-        aria-controls="plp-panel"
-        aria-expanded="false"
-        class="mb-3 flex cursor-pointer items-center justify-between rounded-md border border-border px-4 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
-      >
-        <span>{activeCount > 0 ? `Filtros (${activeCount})` : 'Filtros'}</span>
-        <span aria-hidden="true">▾</span>
-      </button>
-
       <dialog id="plp-panel" class="plp-panel" aria-label="Filtros" open>
         <div class="flex items-center justify-between border-b border-border px-5 py-4 md:hidden">
           <h2 class="text-base font-semibold">Filtros</h2>
@@ -224,7 +214,7 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
             type="button"
             id="plp-cerrar"
             aria-label="Cerrar filtros"
-            class="cursor-pointer rounded-md px-2 py-1 text-sm hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-sm hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <span aria-hidden="true">✕</span>
           </button>
@@ -314,7 +304,7 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
             form="plp"
             type="submit"
             id="plp-aplicar"
-            class="h-10 cursor-pointer rounded-md bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            class="h-11 cursor-pointer rounded-full bg-accent px-5 text-sm font-semibold text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             Aplicar
           </button>
@@ -322,7 +312,7 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
             type="button"
             id="plp-ver"
             hidden
-            class="h-10 cursor-pointer rounded-md bg-accent px-4 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
+            class="h-11 cursor-pointer rounded-full bg-accent px-5 text-sm font-semibold text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
           >
             {`Ver ${result.total} ${result.total === 1 ? 'producto' : 'productos'}`}
           </button>
@@ -342,7 +332,43 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
                 : `${result.total} ${result.total === 1 ? 'producto' : 'productos'}`
             }
           </p>
-          <SortSelect value={sort} form="plp" />
+          <div class="flex items-center gap-2">
+            {
+              /*
+               * El botón de filtros va en la misma fila que el orden y como
+               * ícono: arriba de la grilla ocupaba todo el ancho y empujaba los
+               * productos una fila entera hacia abajo en teléfono. El número
+               * de filtros activos sigue a la vista como insignia.
+               */
+            }
+            <button
+              type="button"
+              id="plp-toggle"
+              aria-haspopup="dialog"
+              aria-controls="plp-panel"
+              aria-expanded="false"
+              aria-label={activeCount > 0 ? `Filtros, ${activeCount} activos` : 'Filtros'}
+              class="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-border transition-colors hover:border-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                class="h-5 w-5"
+                aria-hidden="true"
+              >
+                <path d="M4 7h16M7 12h10M10 17h4"></path>
+              </svg>
+              {activeCount > 0 && (
+                <span class="absolute -top-1 -right-1 min-w-4 rounded-full bg-accent px-1 text-center text-2xs leading-4 font-medium text-accent-fg tabular-nums">
+                  {activeCount}
+                </span>
+              )}
+            </button>
+            <SortSelect value={sort} form="plp" />
+          </div>
         </div>
 
         {

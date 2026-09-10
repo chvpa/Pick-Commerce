@@ -34,7 +34,7 @@ const { images, title, id, class: className } = Astro.props;
   images.length === 0 ? (
     <div
       class={cn(
-        'flex items-center justify-center rounded-md bg-surface-sunken text-xs text-fg-subtle',
+        'flex items-center justify-center rounded-md bg-media text-xs text-fg-subtle',
         'aspect-(--aspect-product)',
         className,
       )}
@@ -50,7 +50,7 @@ const { images, title, id, class: className } = Astro.props;
         aria-label={`Imágenes de ${title}`}
         tabindex="0"
         class={cn(
-          'flex snap-x snap-mandatory overflow-x-auto rounded-md bg-surface-sunken',
+          'flex snap-x snap-mandatory overflow-x-auto rounded-md bg-media',
           'scroll-smooth motion-reduce:scroll-auto',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
           // Oculta la barra sin impedir el scroll por teclado o gesto.

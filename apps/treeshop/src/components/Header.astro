@@ -1,9 +1,8 @@
 ---
-import { Image } from 'astro:assets';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import { cn } from '@pick/commerce-ui';
 import { CartButton } from '@pick/commerce-ui/cart/CartButton';
-import logotipo from '../assets/logotipo.svg';
+import Logotipo from '../assets/logotipo.svg';
 import MenuMobile from './MenuMobile.astro';
 
 interface Props {
@@ -12,15 +11,25 @@ interface Props {
   /** La consulta activa, para que el buscador la conserve. */
   consulta?: string;
   /**
-   * Transparente y encima del contenido. Es para la home, donde el hero ocupa
-   * la pantalla y el header va sobre la foto; en el resto sería texto blanco
-   * sobre fondo blanco.
+   * Transparente y encima del contenido, hasta que se hace scroll. Es para la
+   * home, donde el hero ocupa la pantalla y el header va sobre la foto; en el
+   * resto sería texto blanco sobre fondo blanco.
    */
   flotante?: boolean;
   class?: string;
 }
 
 const { enlaces, consulta = '', flotante = false, class: className } = Astro.props;
+
+/*
+ * Un mismo estilo para los tres íconos y el del menú. El hover es un tinte del
+ * color actual y no un fondo fijo: sobre el hero el header es blanco y el fondo
+ * «hundido» del design system es casi blanco, así que el ícono desaparecía al
+ * pasar el mouse.
+ */
+const ICONO =
+  'flex h-10 w-10 cursor-pointer items-center justify-center rounded-full transition-colors ' +
+  'hover:bg-current/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 ---
 
 {
@@ -32,14 +41,25 @@ const { enlaces, consulta = '', flotante = false, class: className } = Astro.pro
    * disposición, que es lo que cambia de una marca a otra, así que vive en la
    * app. Lo que sí es estructural —el comportamiento del menú en teléfono— está
    * en `MenuMobile`, para que el próximo cliente no lo reescriba.
+   *
+   * Pegajoso siempre. Flotante arranca transparente sobre el hero y, al bajar,
+   * gana fondo: un header transparente sobre el catálogo sería ilegible. El
+   * cambio lo marca `data-scrolled`, que pone el script de abajo.
    */
 }
 <header
+  id="ts-header"
+  data-flotante={flotante ? '' : undefined}
   class={cn(
-    'z-30 w-full transition-colors',
+    'sticky top-0 z-30 w-full transition-colors duration-200',
     flotante
-      ? 'absolute top-0 left-0 text-white [--color-fg:currentColor]'
-      : 'relative border-b border-border bg-surface',
+      ? [
+          // El margen negativo mete el hero debajo: un `sticky` ocupa lugar en
+          // el flujo, y sin esto el hero arrancaría bajo una franja vacía.
+          '-mb-16 text-white md:-mb-20',
+          'data-scrolled:bg-surface data-scrolled:text-fg data-scrolled:shadow-sm',
+        ]
+      : 'border-b border-border bg-surface text-fg',
     className,
   )}
 >
@@ -50,17 +70,18 @@ const { enlaces, consulta = '', flotante = false, class: className } = Astro.pro
     <a
       href="/"
       aria-label="Treeshop"
-      class="flex shrink-0 cursor-pointer items-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+      class="flex shrink-0 cursor-pointer items-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
     >
       {
         /*
-         * El logotipo es un SVG por `astro:assets`: se sirve con hash y cache
-         * inmutable. Con `is:inline` heredaría el color del header, que es lo
-         * que haría falta si el logo fuera monocromo — no es el caso, el rojo
-         * de la marca tiene que ser el rojo de la marca sobre cualquier fondo.
+         * El logotipo va inline como componente SVG, no por `<Image>`. Un SVG
+         * no gana nada con el optimizador —no hay tamaños que generar— y por el
+         * endpoint `/_image` llegaba roto en desarrollo, con el texto
+         * alternativo a la vista. Inline no hay pedido, no hay parpadeo, y el
+         * rojo de la marca es el rojo de la marca sobre cualquier fondo.
          */
       }
-      <Image src={logotipo} alt="Treeshop" width={150} height={31} loading="eager" />
+      <Logotipo class="h-6 w-auto md:h-7" aria-hidden="true" />
     </a>
 
     {/* Los enlaces, centrados. `flex-1` a los dos lados los deja en el medio
@@ -73,7 +94,7 @@ const { enlaces, consulta = '', flotante = false, class: className } = Astro.pro
         enlaces.map((e) => (
           <a
             href={e.href}
-            class="cursor-pointer transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+            class="cursor-pointer rounded-sm transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
           >
             {e.label}
           </a>
@@ -87,7 +108,7 @@ const { enlaces, consulta = '', flotante = false, class: className } = Astro.pro
       <a
         href={`/catalogo${consulta ? `?q=${encodeURIComponent(consulta)}` : ''}`}
         aria-label="Buscar productos"
-        class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        class={ICONO}
       >
         <svg
           viewBox="0 0 24 24"
@@ -105,11 +126,7 @@ const { enlaces, consulta = '', flotante = false, class: className } = Astro.pro
 
       {/* Mi cuenta. Todavía no hay cuentas de comprador, así que lleva al
           seguimiento del pedido por correo, que es lo que sí existe. */}
-      <a
-        href="/preguntas-frecuentes#pedido"
-        aria-label="Mi cuenta"
-        class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
+      <a href="/preguntas-frecuentes#pedido" aria-label="Mi cuenta" class={ICONO}>
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -125,8 +142,28 @@ const { enlaces, consulta = '', flotante = false, class: className } = Astro.pro
         </svg>
       </a>
 
-      {/* `client:idle`: el contador no compite con el render inicial. */}
-      <CartButton icono client:idle />
+      {/* `client:idle`: el contador no compite con el render inicial. El
+          `className` pisa el hover del paquete por el mismo motivo que arriba. */}
+      <CartButton icono className="rounded-full hover:bg-current/10" client:idle />
     </div>
   </Container>
 </header>
+
+<script is:inline>
+  /*
+   * Marca el header cuando la página ya no está arriba de todo. Sólo importa en
+   * el flotante —es lo que le da fondo sobre el contenido—, pero el atributo se
+   * pone siempre y el CSS decide qué hacer con él.
+   *
+   * `passive`: el listener no cancela nada y así el scroll no lo espera.
+   */
+  (function () {
+    const header = document.getElementById('ts-header');
+    if (!header) return;
+    function marcar() {
+      header.toggleAttribute('data-scrolled', window.scrollY > 8);
+    }
+    marcar();
+    window.addEventListener('scroll', marcar, { passive: true });
+  })();
+</script>

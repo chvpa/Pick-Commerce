@@ -34,13 +34,15 @@ const tail = facet.values.slice(visible);
 }
 <details
   open={open || facet.values.some((v) => v.selected)}
-  class={cn('border-b border-border', className)}
+  class={cn('group border-b border-border', className)}
 >
   <summary
     class="flex cursor-pointer list-none items-center justify-between py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
   >
     <span class="capitalize">{label ?? facet.name}</span>
-    <span aria-hidden="true" class="text-fg-subtle transition-transform">▾</span>
+    <span aria-hidden="true" class="text-fg-subtle transition-transform group-open:rotate-180">
+      ▾
+    </span>
   </summary>
 
   <ul class="flex flex-col gap-1 pb-3">
