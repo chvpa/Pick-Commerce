@@ -3,7 +3,8 @@ import { anotar } from '../../lib/analytics.ts';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import { CheckoutForm } from '@pick/commerce-ui/checkout/CheckoutForm';
 import Base from '../../layouts/Base.astro';
-import { pagos, tiendaEsDemo } from '../../lib/db.ts';
+import { formatMoney } from '@pick/commerce-core';
+import { envio, pagos, tiendaActual, tiendaEsDemo } from '../../lib/db.ts';
 
 /*
  * On-demand: las formas de pago salen de la configuración de la tienda, y el
@@ -17,8 +18,21 @@ const ETIQUETAS: Record<string, string> = {
   simulated_card: 'Tarjeta (pago de prueba)',
 };
 
-const formasDePago = await pagos();
-const esDemo = await tiendaEsDemo();
+const [formasDePago, esDemo, configuracionEnvio, tienda] = await Promise.all([
+  pagos(),
+  tiendaEsDemo(),
+  envio(),
+  tiendaActual(),
+]);
+/*
+ * Las zonas de entrega con su tarifa ya escrita, para el selector del checkout.
+ * Se arman acá y no en la island: el formato de moneda es del servidor, que
+ * conoce la de la tienda; la island sólo muestra y manda el nombre.
+ */
+const zonas = (configuracionEnvio.zones ?? []).map((z) => ({
+  name: z.name,
+  label: `${z.name} · ${formatMoney({ amount: z.amount, currency: tienda.currency as 'PYG' }, tienda.locale)}`,
+}));
 const metodos = formasDePago.enabled.map((id) => ({ id, label: ETIQUETAS[id] ?? id }));
 
 /*
@@ -62,6 +76,7 @@ anotar(Astro.locals, 'begin_checkout', Astro.url.pathname);
       client:load
       metodos={metodos}
       metodoPorDefecto={formasDePago.default}
+      zonas={zonas}
       locale="es-PY"
     />
   </Container>

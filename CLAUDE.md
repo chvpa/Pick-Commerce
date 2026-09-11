@@ -56,8 +56,8 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 - **Fase 12** — endurecimiento del piloto. El storefront **dice el nombre de la
   tienda que sirve**, que estaba fijo en «Pick Demo» desde la Fase 1 y bloqueaba
   el piloto; el título lo compone el layout, así que la próxima página no puede
-  olvidarse. Existe el **costo de envío** —tarifa plana y umbral de gratis,
-  calculado en el servidor como el descuento (ADR-107)— y el **modo
+  olvidarse. Existe el **costo de envío** —tarifa plana o por zona, con umbral de
+  gratis, calculado en el servidor como el descuento (ADR-107, ADR-114)— y el **modo
   demostración**, donde el pedido se crea y se ve pero no le escribe a nadie
   (ADR-108). Las funciones paginadas tienen techo. `pnpm budget` se retiró: al
   volverse on-demand las últimas páginas prerenderizadas dejó de haber HTML que
@@ -294,7 +294,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..113 + decisiones pendientes P-001..005.
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..114 + decisiones pendientes P-001..005.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.
 5. [LIMITACIONES.md](LIMITACIONES.md) — qué **no** hace el sistema, con el motivo
    y qué lo desbloquea. Es lo que se le entrega a un piloto.

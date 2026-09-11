@@ -185,6 +185,8 @@ export interface OrderCustomer {
 export interface OrderAddress {
   readonly street: string;
   readonly city: string;
+  /** La zona de entrega —departamento, ciudad— cuando la tienda cobra por zona. */
+  readonly zone?: string;
   readonly reference?: string;
 }
 

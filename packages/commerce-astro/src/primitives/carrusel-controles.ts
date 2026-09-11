@@ -66,7 +66,7 @@ function iniciar(root: HTMLElement): void {
   const cada = Number(root.dataset.autoplay ?? 0);
   if (!(cada > 0) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  let reloj: number | undefined;
+  let reloj: ReturnType<typeof setInterval> | undefined;
   let pausado = false;
   const arrancar = () => {
     if (reloj !== undefined || pausado || document.hidden) return;

@@ -576,6 +576,8 @@ function InteligenciaArtificial({ tienda }: { tienda: TiendaResumen }) {
  * mínima, como todo importe del sistema. **El número que se cobra lo calcula el
  * servidor**: acá sólo se configura.
  */
+type ModoDeEnvio = 'none' | 'flat' | 'zones';
+
 function Envio({
   settings,
   tienda,
@@ -587,17 +589,13 @@ function Envio({
 }) {
   const inicial = configuracionDeEnvio(settings);
   const moneda = tienda.currency as 'PYG';
+  const mayor = (n: number) => String(toMajorUnits({ amount: n, currency: moneda }));
 
-  const [cobra, setCobra] = useState(inicial.mode === 'flat');
-  const [tarifa, setTarifa] = useState(
-    inicial.mode === 'flat'
-      ? String(toMajorUnits({ amount: inicial.amount, currency: moneda }))
-      : '',
-  );
-  const [desde, setDesde] = useState(
-    inicial.freeFrom === undefined
-      ? ''
-      : String(toMajorUnits({ amount: inicial.freeFrom, currency: moneda })),
+  const [modo, setModo] = useState<ModoDeEnvio>(inicial.mode);
+  const [tarifa, setTarifa] = useState(inicial.mode === 'none' ? '' : mayor(inicial.amount));
+  const [desde, setDesde] = useState(inicial.freeFrom === undefined ? '' : mayor(inicial.freeFrom));
+  const [zonas, setZonas] = useState<{ name: string; amount: string }[]>(
+    (inicial.zones ?? []).map((z) => ({ name: z.name, amount: mayor(z.amount) })),
   );
   const [listo, setListo] = useState(false);
   const [error, setError] = useState('');
@@ -605,6 +603,10 @@ function Envio({
   function numero(texto: string): number | null {
     const v = Number(texto.trim().replace(/\./g, ''));
     return texto.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : null;
+  }
+
+  function cambiarZona(i: number, campo: 'name' | 'amount', valor: string) {
+    setZonas((zs) => zs.map((z, j) => (j === i ? { ...z, [campo]: valor } : z)));
   }
 
   return (
@@ -615,7 +617,7 @@ function Envio({
         setListo(false);
         setError('');
 
-        if (!cobra) {
+        if (modo === 'none') {
           guardado.guardar({ shipping: { mode: 'none' } });
           setListo(true);
           return;
@@ -631,57 +633,135 @@ function Envio({
           setError('El monto de envío gratis tiene que ser un número.');
           return;
         }
+        const base = {
+          amount: money(importe, moneda).amount,
+          ...(umbral !== null && umbral > 0 ? { freeFrom: money(umbral, moneda).amount } : {}),
+        };
 
+        if (modo === 'flat') {
+          guardado.guardar({ shipping: { mode: 'flat', ...base } });
+          setListo(true);
+          return;
+        }
+
+        const filas = zonas.map((z) => ({ name: z.name.trim(), amount: numero(z.amount) }));
+        if (filas.length === 0) {
+          setError('Agregá al menos una zona.');
+          return;
+        }
+        if (filas.some((z) => z.name === '' || z.amount === null)) {
+          setError('Cada zona necesita un nombre y una tarifa numérica.');
+          return;
+        }
         guardado.guardar({
           shipping: {
-            mode: 'flat',
-            amount: money(importe, moneda).amount,
-            ...(umbral !== null && umbral > 0 ? { freeFrom: money(umbral, moneda).amount } : {}),
+            mode: 'zones',
+            ...base,
+            zones: filas.map((z) => ({ name: z.name, amount: money(z.amount!, moneda).amount })),
           },
         });
         setListo(true);
       }}
     >
-      <div className="flex items-start gap-3">
-        <Checkbox id="cobra-envio" checked={cobra} onCheckedChange={(v) => setCobra(v === true)} />
-        <div className="flex flex-col gap-0.5">
-          <Label htmlFor="cobra-envio" className="cursor-pointer">
-            Cobrar envío
-          </Label>
-          <p className="text-muted-foreground text-xs">
-            Sin esto el envío es cero: el comercio retira, o lo arregla aparte.
-          </p>
-        </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="modo-envio">Cómo se cobra</Label>
+        <Selector
+          id="modo-envio"
+          value={modo}
+          onValueChange={(v) => setModo(v as ModoDeEnvio)}
+          className="sm:max-w-xs"
+        >
+          <SelectItem value="none">No se cobra envío</SelectItem>
+          <SelectItem value="flat">Tarifa única</SelectItem>
+          <SelectItem value="zones">Por zona</SelectItem>
+        </Selector>
+        <p className="text-muted-foreground text-xs">
+          Sin cobrar, el envío es cero: el comercio retira, o lo arregla aparte. Por zona, el
+          comprador elige la suya en el checkout y paga la tarifa de esa zona.
+        </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="tarifa">Tarifa ({moneda})</Label>
-          <Input
-            id="tarifa"
-            inputMode="numeric"
-            value={tarifa}
-            disabled={!cobra}
-            onChange={(e) => setTarifa(e.currentTarget.value)}
-            placeholder="35000"
-          />
-        </div>
+      {modo !== 'none' && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="tarifa">
+              {modo === 'zones' ? `Tarifa para otras zonas (${moneda})` : `Tarifa (${moneda})`}
+            </Label>
+            <Input
+              id="tarifa"
+              inputMode="numeric"
+              value={tarifa}
+              onChange={(e) => setTarifa(e.currentTarget.value)}
+              placeholder="35000"
+            />
+            {modo === 'zones' && (
+              <p className="text-muted-foreground text-xs">
+                Lo que paga un destino que no está en la tabla. Nunca es gratis por omisión.
+              </p>
+            )}
+          </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="envio-gratis">Gratis desde ({moneda})</Label>
-          <Input
-            id="envio-gratis"
-            inputMode="numeric"
-            value={desde}
-            disabled={!cobra}
-            onChange={(e) => setDesde(e.currentTarget.value)}
-            placeholder="Opcional"
-          />
-          <p className="text-muted-foreground text-xs">
-            Se compara con el total ya descontado. Si lo cargás, la tienda lo anuncia sola.
-          </p>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="envio-gratis">Gratis desde ({moneda})</Label>
+            <Input
+              id="envio-gratis"
+              inputMode="numeric"
+              value={desde}
+              onChange={(e) => setDesde(e.currentTarget.value)}
+              placeholder="Opcional"
+            />
+            <p className="text-muted-foreground text-xs">
+              Se compara con el total ya descontado. Si lo cargás, la tienda lo anuncia sola.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
+
+      {modo === 'zones' && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <Label>Zonas</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setZonas((zs) => [...zs, { name: '', amount: tarifa }])}
+            >
+              Agregar zona
+            </Button>
+          </div>
+          {zonas.length === 0 && (
+            <p className="text-muted-foreground text-xs">
+              Sin zonas todavía. Cada una lleva su tarifa; la general de arriba cubre las que no
+              estén acá.
+            </p>
+          )}
+          {zonas.map((z, i) => (
+            <div key={i} className="grid grid-cols-[1fr_9rem_auto] items-center gap-2">
+              <Input
+                aria-label={`Zona ${i + 1}`}
+                value={z.name}
+                placeholder="Central"
+                onChange={(e) => cambiarZona(i, 'name', e.currentTarget.value)}
+              />
+              <Input
+                aria-label={`Tarifa de la zona ${i + 1}`}
+                inputMode="numeric"
+                value={z.amount}
+                onChange={(e) => cambiarZona(i, 'amount', e.currentTarget.value)}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setZonas((zs) => zs.filter((_, j) => j !== i))}
+              >
+                Quitar
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <Button type="submit" size="sm" disabled={guardado.guardando}>
@@ -702,15 +782,6 @@ function Envio({
     </form>
   );
 }
-
-/**
- * Modo demostración.
- *
- * Un pedido de una tienda demo se crea igual —el prospecto tiene que verlo
- * entrar acá, que es la mitad de lo que se le está mostrando— pero queda marcado
- * y **no dispara correos**. Sin esto, cada prueba deja un pedido indistinguible
- * de uno real y le manda un aviso a quien haya escrito su dirección.
- */
 function Catalogo({ settings, guardado }: { settings: Settings; guardado: Guardado }) {
   const inicial = configuracionDeCatalogo(settings);
   const [mostrar, setMostrar] = useState(inicial.showOutOfStock);

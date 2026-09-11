@@ -41,6 +41,11 @@ export interface CheckoutFormProps {
   /** Formas de pago habilitadas para la tienda, resueltas en el servidor. */
   metodos: readonly { id: string; label: string }[];
   metodoPorDefecto: string;
+  /**
+   * Las zonas de entrega cuando la tienda cobra por zona, con su etiqueta ya
+   * armada en el servidor («Central · Gs. 30.000»). Vacío: no se pregunta.
+   */
+  zonas?: readonly { name: string; label: string }[];
   locale?: string;
   catalogHref?: string;
   confirmacionHref?: string;
@@ -83,6 +88,7 @@ const CAMPOS = [
  *   y sería enumerable.
  */
 export function CheckoutForm({
+  zonas = [],
   metodos,
   metodoPorDefecto,
   locale,
@@ -117,6 +123,8 @@ export function CheckoutForm({
   /** El código viaja por ref además de por estado: `revalidar` se llama desde
    * una suscripción que capturó el render viejo. */
   const codigoActual = useRef<string | null>(null);
+  /** La zona elegida, para que la revalidación cotice el envío con ella. */
+  const zonaActual = useRef<string>('');
 
   if (clave.current === '') clave.current = crypto.randomUUID();
 
@@ -140,6 +148,7 @@ export function CheckoutForm({
       body: JSON.stringify({
         lines: guardadas.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
         ...(codigoActual.current ? { couponCode: codigoActual.current } : {}),
+        ...(zonaActual.current ? { zone: zonaActual.current } : {}),
       }),
     });
 
@@ -271,7 +280,12 @@ export function CheckoutForm({
         taxId: datos.taxId,
         taxName: datos.taxName,
       },
-      address: { street: datos.street, city: datos.city, reference: datos.reference },
+      address: {
+        street: datos.street,
+        city: datos.city,
+        zone: datos.zone,
+        reference: datos.reference,
+      },
       paymentMethod: metodo,
       notes: datos.notes,
     };
@@ -436,6 +450,44 @@ export function CheckoutForm({
               ) : null}
             </label>
           ))}
+
+          {zonas.length > 0 ? (
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm">Departamento de entrega</span>
+              {/*
+                El importe del envío lo cotiza el servidor con la zona elegida:
+                cambiarla vuelve a validar, así el resumen muestra el número que
+                se va a cobrar y no una aproximación.
+              */}
+              <select
+                name="zone"
+                required
+                aria-invalid={errores.zone ? 'true' : undefined}
+                aria-describedby={errores.zone ? 'error-zone' : undefined}
+                onChange={(evento) => {
+                  zonaActual.current = evento.currentTarget.value;
+                  if (!enVuelo.current) revalidar().catch(() => undefined);
+                }}
+                class={cn(
+                  'cursor-pointer rounded-sm border border-border bg-surface px-3 py-2 text-sm',
+                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                  errores.zone && 'border-danger',
+                )}
+              >
+                <option value="">Elegí el departamento</option>
+                {zonas.map((z) => (
+                  <option key={z.name} value={z.name}>
+                    {z.label}
+                  </option>
+                ))}
+              </select>
+              {errores.zone ? (
+                <span id="error-zone" class="text-xs text-danger">
+                  {errores.zone}
+                </span>
+              ) : null}
+            </label>
+          ) : null}
 
           <label class="flex flex-col gap-1.5">
             <span class="text-sm">

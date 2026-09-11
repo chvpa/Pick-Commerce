@@ -191,6 +191,9 @@ export function validarDatosDeCheckout(entrada: unknown): {
   const taxId = texto(cliente.taxId);
   const taxName = texto(cliente.taxName);
   const reference = texto(direccion.reference);
+  // La zona se valida contra la tabla de la tienda en el servidor, que es
+  // quien la conoce; acá sólo se limpia y se deja pasar.
+  const zone = texto(direccion.zone);
   const notes = texto(bruto.notes);
 
   return {
@@ -205,7 +208,7 @@ export function validarDatosDeCheckout(entrada: unknown): {
         ...(taxId ? { taxId } : {}),
         ...(taxName ? { taxName } : {}),
       },
-      address: { street, city, ...(reference ? { reference } : {}) },
+      address: { street, city, ...(zone ? { zone } : {}), ...(reference ? { reference } : {}) },
       paymentMethod,
       ...(notes ? { notes } : {}),
     },

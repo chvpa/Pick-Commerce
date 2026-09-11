@@ -329,7 +329,11 @@ export function DetallePedido({ id }: DetallePedidoProps) {
             <TituloDeTarjeta>Entrega</TituloDeTarjeta>
             <div className="text-muted-foreground flex flex-col gap-1 p-4 text-sm">
               <p>{order.address.street}</p>
-              <p>{order.address.city}</p>
+              <p>
+                {order.address.zone
+                  ? `${order.address.city}, ${order.address.zone}`
+                  : order.address.city}
+              </p>
               {order.address.reference ? (
                 <p className="text-xs">{order.address.reference}</p>
               ) : null}

@@ -72,7 +72,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
      * midieran contra cosas distintas, el checkout prometería un envío gratis
      * que la caja después cobraría.
      */
-    const costoDeEnvio = calcularEnvio(await envio(), dinero.total);
+    // La zona viaja con el carrito sólo para cotizar; la que cuenta es la que
+    // `create_order` lee de la dirección al confirmar.
+    const zona = (cuerpo as { zone?: unknown } | undefined)?.zone;
+    const costoDeEnvio = calcularEnvio(
+      await envio(),
+      dinero.total,
+      typeof zona === 'string' ? zona : undefined,
+    );
 
     /*
      * Los dos eventos de este endpoint.

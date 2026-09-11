@@ -68,7 +68,6 @@ function liberarPuerto(puerto: number): void {
   );
 }
 
-
 export default function setup(): void {
   if (existsSync('.env')) process.loadEnvFile('.env');
 
@@ -111,7 +110,13 @@ export default function setup(): void {
 
   // El CI ya construyó para medir el presupuesto; construir de nuevo son varios
   // minutos por nada.
-  if (process.env.PLAYWRIGHT_SKIP_BUILD !== '1') {
+  if (process.env.PLAYWRIGHT_SKIP_BUILD === '1') {
+    // Dicho en voz alta: con la bandera, la suite prueba el build de la corrida
+    // anterior, y un cambio de interfaz da fallos que no tienen sentido.
+    console.log(
+      '  PLAYWRIGHT_SKIP_BUILD=1: sirviendo el build ANTERIOR del storefront y del Admin',
+    );
+  } else {
     execSync('pnpm --filter @pick/demo run build', { stdio: 'inherit' });
   }
 

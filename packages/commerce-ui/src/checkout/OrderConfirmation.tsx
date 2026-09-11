@@ -139,7 +139,9 @@ export function OrderConfirmation({
       <section class="flex flex-col gap-1 text-sm text-fg-muted">
         <h2 class="text-sm font-medium text-fg">Entrega</h2>
         <p>{order.address.street}</p>
-        <p>{order.address.city}</p>
+        <p>
+          {order.address.zone ? `${order.address.city}, ${order.address.zone}` : order.address.city}
+        </p>
         {order.address.reference ? <p class="text-fg-subtle">{order.address.reference}</p> : null}
       </section>
 

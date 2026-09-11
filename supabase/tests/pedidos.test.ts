@@ -86,11 +86,16 @@ async function crear(
     tienda?: string;
     cliente?: Record<string, string>;
     notas?: string;
+    zona?: string;
   } = {},
 ): Promise<Respuesta> {
   const payload = {
     customer: opciones.cliente ?? CLIENTE,
-    address: { street: 'Avda. Siempre Viva 742', city: 'Asunción' },
+    address: {
+      street: 'Avda. Siempre Viva 742',
+      city: 'Asunción',
+      ...(opciones.zona ? { zone: opciones.zona } : {}),
+    },
     paymentMethod: 'bank_transfer',
     lines: lineas,
     ...(opciones.notas ? { notes: opciones.notas } : {}),
@@ -836,6 +841,58 @@ test('un envío mandado en el payload se ignora', async () => {
 
   assert.equal(p.shipping.amount, 35000, 'el payload dijo 0 y la tienda cobra 35.000');
   assert.equal(p.total.amount, 135000);
+});
+
+const POR_ZONA = {
+  shipping: {
+    mode: 'zones',
+    amount: 50000,
+    freeFrom: 500000,
+    zones: [
+      { name: 'Central', amount: 30000 },
+      { name: 'Itapúa', amount: 45000 },
+    ],
+  },
+};
+
+test('por zona, el envío es el de la zona elegida, sin distinguir mayúsculas', async () => {
+  await conAjustes(POR_ZONA, async () => {
+    const central = pedido(await crear([{ variantId: V_ENVIO, quantity: 1 }], { zona: 'Central' }));
+    assert.equal(central.shipping.amount, 30000);
+    assert.equal(central.total.amount, 130000);
+
+    const itapua = pedido(await crear([{ variantId: V_ENVIO, quantity: 1 }], { zona: ' itapúa ' }));
+    assert.equal(itapua.shipping.amount, 45000, 'la zona se encuentra como la escriba la persona');
+  });
+});
+
+test('una zona desconocida, o ninguna, cobra la tarifa general y nunca cero', async () => {
+  await conAjustes(POR_ZONA, async () => {
+    const marte = pedido(await crear([{ variantId: V_ENVIO, quantity: 1 }], { zona: 'Marte' }));
+    assert.equal(marte.shipping.amount, 50000, 'un destino fuera de la tabla no sale gratis');
+
+    const sinZona = pedido(await crear([{ variantId: V_ENVIO, quantity: 1 }]));
+    assert.equal(sinZona.shipping.amount, 50000, 'sin zona tampoco');
+  });
+});
+
+test('por zona, desde el umbral es gratis', async () => {
+  await conAjustes(POR_ZONA, async () => {
+    const p = pedido(await crear([{ variantId: V_ENVIO, quantity: 5 }], { zona: 'Itapúa' }));
+    assert.equal(p.shipping.amount, 0);
+    assert.equal(p.total.amount, 500000);
+  });
+});
+
+test('la zona queda guardada en la dirección del pedido', async () => {
+  await conAjustes(POR_ZONA, async () => {
+    const r = await crear([{ variantId: V_ENVIO, quantity: 1 }], { zona: 'Central' });
+    const filas = await comoServicio<{ zona: string | null }>(
+      db,
+      `select address->>'zone' as zona from orders where id = '${pedido(r).id}'`,
+    );
+    assert.equal(filas[0]?.zona, 'Central');
+  });
 });
 
 test('una configuración de envío mal escrita no cobra ni rompe el pedido', async () => {

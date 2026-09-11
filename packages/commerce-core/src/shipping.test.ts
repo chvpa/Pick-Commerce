@@ -5,6 +5,7 @@ import {
   calcularEnvio,
   configuracionDeEnvio,
   esTiendaDemo,
+  zonaDeEnvio,
   type ConfiguracionDeEnvio,
 } from './shipping.ts';
 import { money } from './money.ts';
@@ -106,4 +107,62 @@ test('el modo demo se activa sólo con el booleano', () => {
   for (const settings of [{ demo: 'true' }, { demo: 1 }, {}, null]) {
     assert.equal(esTiendaDemo(settings), false);
   }
+});
+
+// --- Por zona ----------------------------------------------------------------
+
+const POR_ZONA = {
+  shipping: {
+    mode: 'zones',
+    amount: 50000,
+    freeFrom: 500000,
+    zones: [
+      { name: 'Central', amount: 30000 },
+      { name: ' Itapúa ', amount: 45000 },
+      { name: '', amount: 10 },
+      { name: 'Rota', amount: -5 },
+      { name: 'Sin importe' },
+    ],
+  },
+};
+
+test('por zona: se leen las zonas válidas y se descartan las rotas, no la configuración', () => {
+  const c = configuracionDeEnvio(POR_ZONA);
+  assert.equal(c.mode, 'zones');
+  assert.equal(c.amount, 50000, 'la tarifa general es la de zona desconocida');
+  assert.deepEqual(c.zones, [
+    { name: 'Central', amount: 30000 },
+    { name: 'Itapúa', amount: 45000 },
+  ]);
+  assert.equal(c.freeFrom, 500000);
+});
+
+test('por zona sin ninguna zona válida cae a «sin envío»', () => {
+  assert.deepEqual(configuracionDeEnvio({ shipping: { mode: 'zones', amount: 1000, zones: [] } }), {
+    mode: 'none',
+    amount: 0,
+  });
+});
+
+test('la zona se encuentra sin distinguir mayúsculas ni espacios', () => {
+  const c = configuracionDeEnvio(POR_ZONA);
+  assert.equal(zonaDeEnvio(c, 'central')?.amount, 30000);
+  assert.equal(zonaDeEnvio(c, '  ITAPÚA ')?.amount, 45000);
+  assert.equal(zonaDeEnvio(c, 'Marte'), undefined);
+  assert.equal(zonaDeEnvio(c, undefined), undefined);
+});
+
+test('por zona se cobra la tarifa de la zona, y la general si no está', () => {
+  const c = configuracionDeEnvio(POR_ZONA);
+  assert.equal(calcularEnvio(c, money(100000, PYG), 'Central').amount, 30000);
+  assert.equal(calcularEnvio(c, money(100000, PYG), 'itapúa').amount, 45000);
+  // Un destino que no está en la tabla —o ninguno— nunca sale gratis.
+  assert.equal(calcularEnvio(c, money(100000, PYG), 'Marte').amount, 50000);
+  assert.equal(calcularEnvio(c, money(100000, PYG)).amount, 50000);
+});
+
+test('por zona, desde el umbral es gratis para cualquier zona', () => {
+  const c = configuracionDeEnvio(POR_ZONA);
+  assert.equal(calcularEnvio(c, money(500000, PYG), 'Itapúa').amount, 0);
+  assert.equal(calcularEnvio(c, money(500000, PYG), 'Marte').amount, 0);
 });

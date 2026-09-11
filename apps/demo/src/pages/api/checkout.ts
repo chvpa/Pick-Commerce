@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
-import { validarDatosDeCheckout } from '@pick/commerce-core';
-import { checkout, pagos, tiendaActual } from '../../lib/db.ts';
+import { validarDatosDeCheckout, zonaDeEnvio } from '@pick/commerce-core';
+import { checkout, envio, pagos, tiendaActual } from '../../lib/db.ts';
 import { drenarNotificaciones, enSegundoPlano } from '../../lib/notificaciones.ts';
 import { anotar } from '../../lib/analytics.ts';
 import { proveedorDePago } from '../../lib/proveedor-de-pago.ts';
@@ -64,6 +64,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
           error: 'invalid_data',
           errores: { paymentMethod: 'Esa forma de pago no está disponible.' },
         },
+        400,
+      );
+    }
+
+    // Con envío por zona, la zona tiene que ser una de la tabla: `create_order`
+    // cobraría la tarifa general a un destino inventado, y eso sería un error
+    // silencioso del comprador convertido en un cobro. Mejor decirlo acá.
+    const configuracionEnvio = await envio();
+    if (
+      configuracionEnvio.mode === 'zones' &&
+      !zonaDeEnvio(configuracionEnvio, datos.address.zone)
+    ) {
+      return json(
+        { error: 'invalid_data', errores: { zone: 'Elegí el departamento de entrega.' } },
         400,
       );
     }

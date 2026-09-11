@@ -4914,3 +4914,44 @@ Lo que el script garantiza, y por qué:
 Verificado en el navegador con dos slides: siguiente mueve una pantalla,
 anterior vuelve, avanza solo a los seis segundos y no se mueve con el puntero
 encima.
+
+---
+
+## ADR-114 — El envío se cobra por zona, y una zona desconocida nunca es gratis
+
+**Fecha:** 2026-09-11
+**Estado:** Accepted — extiende ADR-107
+
+**Contexto**
+ADR-107 dejó el envío como tarifa plana con umbral de gratis, y difirió las
+zonas. Treeshop trae de Camelot dieciocho departamentos con costo —hoy todos a
+30 000, pero el cliente quiere poder diferenciarlos sin tocar código—.
+
+**Decisión**
+`settings.shipping` gana `mode: 'zones'`: una tabla `zones: [{ name, amount }]`
+y la tarifa general `amount`, que en este modo es **lo que paga una zona que no
+está en la tabla**. `freeFrom` vale igual en los dos modos.
+
+El comprador elige la zona en el checkout —un `<select>` que la página arma con
+la tarifa escrita— y el importe se calcula donde siempre: `/api/cart/validate`
+lo cotiza para el resumen y `create_order` lo cobra al confirmar, buscando la
+zona por nombre sin distinguir mayúsculas ni espacios. La misma comparación vive
+en `zonaDeEnvio` del core, que es lo que el endpoint del checkout usa para
+rechazar una zona que no esté en la tabla antes de crear el pedido.
+
+**La regla que importa: una zona desconocida, o ninguna, cobra la general y
+nunca cero.** En el envío plano el silencio era un comercio que no configuró, y
+se resolvía no cobrando. Acá el silencio es un comprador que no eligió, y
+resolverlo regalando el envío sería un cobro decidido por quien paga — lo mismo
+que ya se impide con el precio y con el descuento.
+
+La zona queda guardada en `orders.address.zone` y se muestra en la confirmación,
+el correo y el Admin.
+
+**Lo que no entró**: zonas anidadas, tarifas por peso, transportistas y retiro
+en sucursal. Pickup sigue en v2.
+
+**Verificado**: 17 unitarios del core y 4 casos en PGlite —zona elegida, sin
+distinguir mayúsculas, desconocida, ninguna, umbral, y que la zona se guarda—;
+sabotear la rama de zona en `create_order` pone la suite en rojo. Treeshop
+quedó sembrado con los dieciocho departamentos desde `delivery_costs`.

@@ -42,14 +42,12 @@ Fuera del core, y va a seguir estando: facturación, notas de crédito,
 devoluciones y contabilidad. Pick Commerce vende y orquesta pedidos; la factura
 la emite otro sistema.
 
-### Envíos: una tarifa y nada más
+### Envíos: una tarifa, o una por zona, y nada más
 
-Hay una tarifa plana por tienda y un umbral de envío gratis. **No** hay zonas,
-transportistas, cálculo por peso ni retiro en sucursal. El pedido guarda lo que
-se cobró, que es lo que faltaba.
-
-**Qué lo desbloquea:** el retiro por sucursal está en la Fase 0 de v2, junto con
-el resto de multi-sucursal.
+Una tarifa plana con umbral de gratis, o una tabla de zonas —departamentos,
+ciudades— con su tarifa y una general para las que no estén (ADR-107, ADR-114).
+El comprador elige la zona en el checkout y el servidor cobra. No hay tarifas
+por peso, transportistas ni retiro en sucursal: pickup está en v2.
 
 ### El ERP entra, y nada sale
 
@@ -140,17 +138,17 @@ segundos con 5000 productos y casi 4 en la página 100. Ahora es plano. Medido c
 `explain analyze` en el proyecto de desarrollo, con 5006 productos, 5010
 variantes y 12175 imágenes:
 
-| Consulta | Antes | Ahora |
-| --- | ---: | ---: |
-| Listado del catálogo (PLP), primera página | 2287 ms | **233 ms** |
-| Listado del catálogo, página 100 | 3886 ms | **229 ms** |
-| Listado del catálogo, última página (209) | — | **223 ms** |
-| Catálogo con búsqueda | 2191 ms | **194 ms** |
-| Catálogo ordenado por precio | — | **254 ms** |
-| Producto por handle (PDP) | 31 ms | **37 ms** |
-| Admin: productos | 135 ms | sin cambios |
-| Admin: resumen | 91 ms | sin cambios |
-| Admin: ventas por producto | 122 ms | sin cambios |
+| Consulta                                   |   Antes |       Ahora |
+| ------------------------------------------ | ------: | ----------: |
+| Listado del catálogo (PLP), primera página | 2287 ms |  **233 ms** |
+| Listado del catálogo, página 100           | 3886 ms |  **229 ms** |
+| Listado del catálogo, última página (209)  |       — |  **223 ms** |
+| Catálogo con búsqueda                      | 2191 ms |  **194 ms** |
+| Catálogo ordenado por precio               |       — |  **254 ms** |
+| Producto por handle (PDP)                  |   31 ms |   **37 ms** |
+| Admin: productos                           |  135 ms | sin cambios |
+| Admin: resumen                             |   91 ms | sin cambios |
+| Admin: ventas por producto                 |  122 ms | sin cambios |
 
 Sobre la red, la página del catálogo entera sale en 0,4 s con ese catálogo.
 

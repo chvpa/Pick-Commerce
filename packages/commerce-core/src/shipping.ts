@@ -18,13 +18,28 @@ import type { CurrencyCode, Money } from '@pick/commerce-types';
  * cuánto se cobra, elegido por quien paga.
  */
 
-export interface ConfiguracionDeEnvio {
-  /** `none` es una tienda que no cobra envío: retira, o lo arregla aparte. */
-  readonly mode: 'none' | 'flat';
-  /** En la unidad mínima de la moneda, como todo importe del sistema. */
+/** Una zona de entrega —un departamento, una ciudad— con su tarifa. */
+export interface ZonaDeEnvio {
+  readonly name: string;
   readonly amount: number;
-  /** Desde cuánto el envío es gratis. Ausente = nunca. */
+}
+
+export interface ConfiguracionDeEnvio {
+  /**
+   * `none` es una tienda que no cobra envío: retira, o lo arregla aparte.
+   * `flat` cobra lo mismo a todos. `zones` cobra según a dónde va.
+   */
+  readonly mode: 'none' | 'flat' | 'zones';
+  /**
+   * En la unidad mínima de la moneda, como todo importe del sistema. En `flat`
+   * es la tarifa; en `zones` es **la tarifa de una zona que no está en la
+   * tabla**, para que un destino desconocido nunca salga gratis por error.
+   */
+  readonly amount: number;
+  /** Desde cuánto el envío es gratis. Ausente = nunca. Vale en los dos modos. */
   readonly freeFrom?: number;
+  /** Sólo en `zones`, y nunca vacío: sin zonas válidas la configuración cae a `none`. */
+  readonly zones?: readonly ZonaDeEnvio[];
 }
 
 const SIN_ENVIO: ConfiguracionDeEnvio = { mode: 'none', amount: 0 };
@@ -47,19 +62,51 @@ export function configuracionDeEnvio(settings: unknown): ConfiguracionDeEnvio {
   if (!bruto || typeof bruto !== 'object') return SIN_ENVIO;
 
   const shipping = bruto as Record<string, unknown>;
-  if (shipping.mode !== 'flat') return SIN_ENVIO;
+  if (shipping.mode !== 'flat' && shipping.mode !== 'zones') return SIN_ENVIO;
 
   const amount = importe(shipping.amount);
   if (amount === undefined) return SIN_ENVIO;
 
   const freeFrom = importe(shipping.freeFrom);
+  // Un umbral de cero sería «siempre gratis», que se escribe con `none`.
+  const umbral = freeFrom !== undefined && freeFrom > 0 ? { freeFrom } : {};
 
-  return {
-    mode: 'flat',
-    amount,
-    // Un umbral de cero sería «siempre gratis», que se escribe con `none`.
-    ...(freeFrom !== undefined && freeFrom > 0 ? { freeFrom } : {}),
-  };
+  if (shipping.mode === 'flat') return { mode: 'flat', amount, ...umbral };
+
+  /*
+   * Las zonas se leen una por una y se descartan las rotas —sin nombre, o con un
+   * importe que no es un entero no negativo— en vez de tirar la configuración
+   * entera: una zona mal escrita en el Admin no puede dejar sin envío a las
+   * otras diecisiete. Si no queda ninguna, sí cae a `none`: un modo por zonas
+   * sin zonas no es una configuración.
+   */
+  const zones = (Array.isArray(shipping.zones) ? shipping.zones : [])
+    .map((z): ZonaDeEnvio | undefined => {
+      const zona = z as Record<string, unknown> | null;
+      const name = typeof zona?.name === 'string' ? zona.name.trim() : '';
+      const monto = importe(zona?.amount);
+      return name !== '' && monto !== undefined ? { name, amount: monto } : undefined;
+    })
+    .filter((z): z is ZonaDeEnvio => z !== undefined);
+  if (zones.length === 0) return SIN_ENVIO;
+
+  return { mode: 'zones', amount, zones, ...umbral };
+}
+
+/**
+ * La zona de la tabla a la que corresponde un nombre, o nada.
+ *
+ * Sin distinguir mayúsculas ni espacios de más: «central» y «Central » son la
+ * misma. Es la misma comparación que hace `create_order`, y por eso vive acá:
+ * el checkout tiene que rechazar exactamente lo que la base no va a encontrar.
+ */
+export function zonaDeEnvio(
+  config: ConfiguracionDeEnvio,
+  nombre: string | undefined,
+): ZonaDeEnvio | undefined {
+  if (config.mode !== 'zones' || !nombre) return undefined;
+  const buscado = nombre.trim().toLowerCase();
+  return config.zones?.find((z) => z.name.toLowerCase() === buscado);
 }
 
 /**
@@ -73,12 +120,20 @@ export function configuracionDeEnvio(settings: unknown): ConfiguracionDeEnvio {
  * Es la misma cuenta que hace `create_order`, y por eso vive acá: el checkout
  * tiene que poder mostrar el número que se va a cobrar, no una aproximación.
  */
-export function calcularEnvio(config: ConfiguracionDeEnvio, subtotalConDescuento: Money): Money {
+export function calcularEnvio(
+  config: ConfiguracionDeEnvio,
+  subtotalConDescuento: Money,
+  zona?: string,
+): Money {
   if (config.mode === 'none') return money(0, subtotalConDescuento.currency);
   if (config.freeFrom !== undefined && subtotalConDescuento.amount >= config.freeFrom) {
     return money(0, subtotalConDescuento.currency);
   }
-  return { amount: config.amount, currency: subtotalConDescuento.currency };
+  // Por zona: la de la tabla si está; si no —o si el comprador todavía no
+  // eligió—, la tarifa general. Nunca cero por no saber a dónde va.
+  const tarifa =
+    config.mode === 'zones' ? (zonaDeEnvio(config, zona)?.amount ?? config.amount) : config.amount;
+  return { amount: tarifa, currency: subtotalConDescuento.currency };
 }
 
 /**

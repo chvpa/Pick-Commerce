@@ -137,7 +137,12 @@ export function plantillaDeCorreo(
    * comprador escribiría para preguntar por qué.
    */
   const envio = order.shipping.amount > 0 ? formatMoney(order.shipping, locale) : null;
-  const direccion = [order.address.street, order.address.city, order.address.reference]
+  const direccion = [
+    order.address.street,
+    order.address.city,
+    order.address.zone,
+    order.address.reference,
+  ]
     .filter(Boolean)
     .join(', ');
 
