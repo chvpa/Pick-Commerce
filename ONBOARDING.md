@@ -72,9 +72,12 @@ Hay dos caminos, y el primero que hay que decidir es cuál:
 
 - [ ] **Conectar el dominio.** La zona tiene que vivir en Cloudflare: agregar
       el sitio, apuntar los nameservers del registrador a los que Cloudflare
-      asigna, y esperar a que la zona pase de `pending` a activa. Después,
-      atar `dominio`, `www.dominio` al Worker del storefront y
-      `admin.dominio` a `pick-admin` (panel o API; ver INFRAESTRUCTURA §4).
+      asigna, y **esperar a que la zona pase de `pending` a activa** —atar
+      antes deja una entrada que no sirve—. Recién entonces atar `dominio`,
+      `www.dominio` al Worker del storefront y `admin.dominio` a `pick-admin`
+      (panel o API; ver INFRAESTRUCTURA §4), una sola vez, y esperar el
+      certificado. La zona queda **sin rutas de Workers**: una ruta le gana al
+      dominio propio.
 
 - [ ] **Agregar `https://admin.<dominio>/**` a las Redirect URLs de Supabase
       Auth**, o el enlace de recuperación de contraseña del Admin no vuelve.

@@ -213,7 +213,28 @@ el caso de Treeshop— apunta sus nameservers a los dos que Cloudflare asigna, y
 hasta que el DNS público no los muestre la zona queda `pending` y nada se
 enruta. Los dominios se atan al Worker con *Domains & Routes* del panel o por
 API (`PUT /accounts/{cuenta}/workers/domains`), y Cloudflare crea el registro
-DNS solo. Se pueden atar con la zona todavía pendiente.
+DNS solo.
+
+**Tres cosas que costaron una tarde con Treeshop, y no hay que repetir:**
+
+- **Atar recién con la zona activa.** La API acepta el alta con la zona
+  `pending`, pero esa entrada nunca llega a servir: al activarse la zona hay
+  que borrarla y recrearla. Y cada recreación reemite el certificado del
+  hostname —minutos a una hora hasta que el edge lo tiene—, así que se hace
+  **una** vez y se espera; recrear para «apurar» reinicia el reloj.
+- **La zona queda sin rutas de Workers.** Una ruta de zona (`*dominio/*`) le
+  gana al dominio propio: con una que apunte al storefront, `admin.dominio`
+  sirve la tienda. Los dominios propios no necesitan rutas.
+- **El síntoma de «no hay Worker detrás» es TLS, no enrutamiento.** Sin
+  certificado en el edge el navegador no negocia la conexión; `openssl
+  s_client` da *alert 40, no peer certificate* y `/cdn-cgi/trace` no responde.
+  Para saber qué Worker sirve un hostname sin adivinar por el título:
+  `POST /api/ia/probar` existe sólo en el Admin.
+
+El token de `.env` puede atar Workers pero **no** leer el DNS, las rutas ni el
+estado SSL de la zona: para operar un dominio de cliente entero hacen falta
+`Zone → DNS → Edit`, `Zone → Workers Routes → Edit` y
+`Zone → SSL and Certificates → Read` sobre esa zona.
 
 Lo que se ató para Treeshop:
 
@@ -222,6 +243,9 @@ Lo que se ató para Treeshop:
 | `sontres.shop`       | `treeshop`   |
 | `www.sontres.shop`   | `treeshop`   |
 | `admin.sontres.shop` | `pick-admin` |
+
+Los tres en línea desde el 2026-09-11, verificados con la compra completa sobre
+`https://sontres.shop` y el Admin respondiendo en su subdominio.
 
 El `www` no necesita redirección: `resolverTenant` normaliza el host y las dos
 formas sirven la misma tienda. `stores.domain` y el secreto `STOREFRONT_DOMAIN`
