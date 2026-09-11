@@ -585,6 +585,10 @@ pegan directo contra la base real y no esperan a ningún push.
   automatizarlo hace falta un segundo proyecto con `VITE_SUPABASE_URL` y
   `VITE_SUPABASE_PUBLISHABLE_KEY` como variables de **build**, porque el Admin
   las hornea al construir — y ahora además sus tres secretos de runtime.
+  Cada deploy cambia los hashes de los chunks y Workers Assets deja de servir
+  los viejos: una pestaña abierta desde antes pide un archivo que ya no existe
+  al abrir la primera pantalla que no tenía cargada. Se recarga sola una vez
+  (`apps/admin/src/lib/pantalla.ts`); si vuelve a fallar, muestra el error.
 - **El CI no bloquea el deploy** (§4).
 - **No hay gateway de pago real.** El contrato existe y hay una pasarela simulada
   declarada como tal; falta elegir proveedor y conseguir credenciales (P-001).

@@ -1,4 +1,4 @@
-import { Suspense, lazy, type FunctionComponent, type ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import {
   createRootRoute,
   createRoute,
@@ -17,6 +17,7 @@ import { Migas, migasDe } from '@/features/navegacion/Migas';
 import { useSesion } from '@/features/auth/SesionContext';
 import { usePuede } from '@/features/auth/usePuede';
 import { ProveedorTienda, useTienda } from '@/features/tienda/TiendaContext';
+import { pantalla } from '@/lib/pantalla';
 
 /**
  * Rutas del Admin, declaradas en código.
@@ -28,16 +29,9 @@ import { ProveedorTienda, useTienda } from '@/features/tienda/TiendaContext';
  * la cáscara —esto, la sesión y el contexto de tienda— es lo único del bundle
  * inicial. Se usa `lazy` y no `lazyRouteComponent` del router porque dos de las
  * pantallas reciben props del parámetro de la ruta, y el componente de ruta no
- * las recibe. Un solo mecanismo para todas es más fácil de seguir que dos.
+ * las recibe. Un solo mecanismo para todas es más fácil de seguir que dos, y
+ * `pantalla` es además donde se recarga la pestaña cuando un chunk quedó viejo.
  */
-
-/** `React.lazy` para un módulo que exporta su componente con nombre. */
-function pantalla<P extends object>(
-  carga: () => Promise<Record<string, unknown>>,
-  nombre: string,
-): FunctionComponent<P> {
-  return lazy(async () => ({ default: (await carga())[nombre] as FunctionComponent<P> }));
-}
 
 const Dashboard = pantalla(() => import('@/features/dashboard/Dashboard'), 'Dashboard');
 const Analytics = pantalla(() => import('@/features/analytics/Analytics'), 'Analytics');
