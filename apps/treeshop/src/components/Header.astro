@@ -3,6 +3,7 @@ import Container from '@pick/commerce-astro/layout/Container.astro';
 import { cn } from '@pick/commerce-ui';
 import { CartButton } from '@pick/commerce-ui/cart/CartButton';
 import Logotipo from '../assets/logotipo.svg';
+import Buscador from './Buscador.astro';
 import MenuMobile from './MenuMobile.astro';
 
 interface Props {
@@ -103,26 +104,9 @@ const ICONO =
     </nav>
 
     <div class="ml-auto flex items-center gap-1 md:ml-0">
-      {/* Buscar. Es un enlace al catálogo y no un campo: en el header ocuparía
-          el espacio de los enlaces, y la PLP ya tiene el buscador de verdad. */}
-      <a
-        href={`/catalogo${consulta ? `?q=${encodeURIComponent(consulta)}` : ''}`}
-        aria-label="Buscar productos"
-        class={ICONO}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          class="h-5 w-5"
-          aria-hidden="true"
-        >
-          <circle cx="11" cy="11" r="7"></circle>
-          <path d="m20 20-3.5-3.5"></path>
-        </svg>
-      </a>
+      {/* Buscar: el ícono abre el formulario en un diálogo. Sin JavaScript
+          lleva al catálogo, que tiene el mismo formulario a la vista. */}
+      <Buscador consulta={consulta} class={ICONO} />
 
       {
         /*

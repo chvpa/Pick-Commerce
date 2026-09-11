@@ -10,6 +10,7 @@ import ProductCardBody from '@pick/commerce-astro/product/ProductCardBody.astro'
 import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astro';
 import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
 import ProductGrid from '@pick/commerce-astro/product/ProductGrid.astro';
+import SearchInput from '@pick/commerce-astro/catalog/SearchInput.astro';
 import SortSelect from '@pick/commerce-astro/catalog/SortSelect.astro';
 import {
   formatMoney,
@@ -167,6 +168,9 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
       {/* Fuera de la vista y no ausente: la página necesita su `h1` para el
           lector de pantalla y para el buscador; el ojo ya sabe dónde está. */}
       <h1 class="sr-only">Catálogo</h1>
+      {/* El buscador de la página. El del header abre el mismo formulario en un
+          diálogo; sin JavaScript su ícono trae acá, al ancla. */}
+      <SearchInput id="buscar" value={search} class="max-w-xl" />
       {
         search !== '' && (
           <p class="flex flex-wrap items-center gap-2 text-sm text-fg-muted">

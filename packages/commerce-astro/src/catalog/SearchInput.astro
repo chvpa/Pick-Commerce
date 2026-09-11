@@ -5,6 +5,12 @@ interface Props {
   action?: string;
   value?: string;
   placeholder?: string;
+  /**
+   * `id` del campo. Configurable porque una página puede tener dos —el del
+   * header en un diálogo y el del catálogo a la vista— y dos `id="q"` en el
+   * mismo documento dejan al segundo sin etiqueta.
+   */
+  id?: string;
   class?: string;
 }
 
@@ -12,6 +18,7 @@ const {
   action = '/catalogo',
   value = '',
   placeholder = 'Buscar productos',
+  id = 'q',
   class: className,
 } = Astro.props;
 ---
@@ -23,9 +30,9 @@ const {
 */
 }
 <form method="get" action={action} role="search" class={cn('flex gap-2', className)}>
-  <label class="sr-only" for="q">Buscar productos</label>
+  <label class="sr-only" for={id}>Buscar productos</label>
   <input
-    id="q"
+    id={id}
     type="search"
     name="q"
     value={value}

@@ -1,0 +1,144 @@
+---
+import SearchInput from '@pick/commerce-astro/catalog/SearchInput.astro';
+
+interface Props {
+  /** La consulta activa, para que el campo la conserve. */
+  consulta?: string;
+  class?: string;
+}
+
+const { consulta = '', class: className } = Astro.props;
+---
+
+{
+  /*
+   * El buscador del header, detrás de un ícono.
+   *
+   * Un campo permanente en el header ocuparía el lugar de los enlaces, así que
+   * el ícono abre un `<dialog>` con el formulario. Mismo patrón que el menú en
+   * teléfono: el browser regala el foco, Escape y el backdrop.
+   *
+   * Mejora progresiva: sin JavaScript el ícono es un enlace a `/catalogo#buscar`,
+   * donde el catálogo tiene el mismo formulario a la vista. Con JavaScript abre
+   * el diálogo y deja el foco en el campo. Nunca es un control muerto — que es
+   * exactamente lo que fue durante una semana, cuando era sólo el enlace.
+   *
+   * ADR-045 y ADR-049: el `display` va acotado a `:modal`.
+   */
+}
+<a
+  id="ts-buscar-abrir"
+  href="/catalogo#buscar"
+  aria-label="Buscar productos"
+  aria-expanded="false"
+  aria-controls="ts-buscar"
+  class={className}
+>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    class="h-5 w-5"
+    aria-hidden="true"
+  >
+    <circle cx="11" cy="11" r="7"></circle>
+    <path d="m20 20-3.5-3.5"></path>
+  </svg>
+</a>
+
+<dialog id="ts-buscar" aria-label="Buscar productos" class="ts-buscar">
+  <div class="flex flex-col gap-3 bg-surface p-4 text-fg sm:p-6">
+    <div class="flex items-center justify-between">
+      <span class="font-display text-base font-semibold">¿Qué estás buscando?</span>
+      <button
+        id="ts-buscar-cerrar"
+        type="button"
+        aria-label="Cerrar el buscador"
+        class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full hover:bg-current/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          class="h-5 w-5"
+          aria-hidden="true"
+        >
+          <path d="M6 6l12 12"></path>
+          <path d="M18 6 6 18"></path>
+        </svg>
+      </button>
+    </div>
+    {/* `id` propio: en el catálogo convive con el formulario de la página. */}
+    <SearchInput id="q-header" value={consulta} placeholder="Marca, modelo, talle…" />
+  </div>
+</dialog>
+
+<style>
+  .ts-buscar {
+    display: none;
+  }
+
+  .ts-buscar:modal {
+    display: block;
+    margin: 0 auto;
+    /* Arriba, como una barra que baja del header, no en el medio de la pantalla. */
+    margin-top: 5rem;
+    width: min(40rem, calc(100vw - 2rem));
+    max-height: none;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 20px 60px rgb(0 0 0 / 0.2);
+  }
+
+  .ts-buscar::backdrop {
+    background: rgb(0 0 0 / 0.4);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .ts-buscar:modal {
+      animation: ts-buscar-entra 140ms ease-out;
+    }
+    @keyframes ts-buscar-entra {
+      from {
+        opacity: 0;
+        transform: translateY(-0.5rem);
+      }
+    }
+  }
+</style>
+
+<script is:inline>
+  function iniciarBuscador() {
+    const panel = document.getElementById('ts-buscar');
+    const abrir = document.getElementById('ts-buscar-abrir');
+    if (!panel || !abrir || abrir.dataset.listo) return;
+    abrir.dataset.listo = '';
+
+    abrir.addEventListener('click', (evento) => {
+      if (evento.metaKey || evento.ctrlKey || evento.shiftKey) return;
+      evento.preventDefault();
+      panel.showModal();
+      abrir.setAttribute('aria-expanded', 'true');
+      const campo = panel.querySelector('input[type="search"]');
+      if (campo) {
+        campo.focus();
+        campo.select();
+      }
+    });
+
+    panel.addEventListener('click', (evento) => {
+      if (evento.target === panel) panel.close();
+    });
+    document.getElementById('ts-buscar-cerrar')?.addEventListener('click', () => panel.close());
+    panel.addEventListener('close', () => abrir.setAttribute('aria-expanded', 'false'));
+  }
+
+  document.addEventListener('astro:page-load', iniciarBuscador);
+  if (document.readyState !== 'loading') iniciarBuscador();
+  else document.addEventListener('DOMContentLoaded', iniciarBuscador);
+</script>
