@@ -124,24 +124,13 @@ const ICONO =
         </svg>
       </a>
 
-      {/* Mi cuenta. Todavía no hay cuentas de comprador, así que lleva al
-          seguimiento del pedido por correo, que es lo que sí existe. */}
-      <a href="/preguntas-frecuentes#pedido" aria-label="Mi cuenta" class={ICONO}>
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="h-5 w-5"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="8" r="4"></circle>
-          <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"></path>
-        </svg>
-      </a>
-
+      {
+        /*
+         * Sin «Mi cuenta» hasta que haya cuentas de comprador. Estuvo un tiempo
+         * llevando a las preguntas frecuentes: un ícono que promete algo que no
+         * existe es peor que no tenerlo. El login de compradores es v2.
+         */
+      }
       {/* `client:idle`: el contador no compite con el render inicial. El
           `className` pisa el hover del paquete por el mismo motivo que arriba. */}
       <CartButton icono className="rounded-full hover:bg-current/10" client:idle />

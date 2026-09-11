@@ -43,9 +43,20 @@ qué comprobar en cada paso. Si algo falla, la respuesta está allá.
 
 ## 2. El storefront en Cloudflare
 
-- [ ] **Crear el proyecto de Workers Builds** apuntando al repositorio.
-      El Admin **no** se despliega por cliente: es uno solo para todos
-      (ADR-062, ADR-072).
+Hay dos caminos, y el primero que hay que decidir es cuál:
+
+- **La demo con otro dominio**, si el comercio acepta el diseño de la demo:
+  el mismo `apps/demo` desplegado como otro Worker con otro `STOREFRONT_DOMAIN`.
+- **Una app propia**, si el comercio tiene diseño: `apps/<cliente>/` copiada de
+  `apps/demo`, con sus cinco valores de identidad —dirección pública, puerto,
+  nombre del Worker, dominio con el que resuelve su tienda y `SITE_URL`— y su
+  header, pie y preset. Es lo que hizo Treeshop (ADR-110). Comparte la base,
+  el Admin y los paquetes; lo que mejore en el Core le llega solo.
+
+- [ ] **Crear el Worker.** Con Workers Builds apuntando al repositorio, o a
+      mano desde tu máquina con `pnpm --filter @pick/<cliente> run deploy`, que
+      además crea solo el KV de sesiones en el primer deploy. El Admin **no** se
+      despliega por cliente: es uno solo para todos (ADR-062, ADR-072).
 
 - [ ] **Cargar las variables.** De build, `SITE_URL` con la dirección pública —de
       ahí salen el canonical, el `og:url` y el sitemap—. De runtime:
@@ -59,7 +70,17 @@ qué comprobar en cada paso. Si algo falla, la respuesta está allá.
   | `EMAIL_FROM` | De qué dirección salen |
   | `PAYMENT_WEBHOOK_SECRET` | Sólo si se habilita la pasarela simulada |
 
-- [ ] **Conectar el dominio** al Worker desde el panel.
+- [ ] **Conectar el dominio.** La zona tiene que vivir en Cloudflare: agregar
+      el sitio, apuntar los nameservers del registrador a los que Cloudflare
+      asigna, y esperar a que la zona pase de `pending` a activa. Después,
+      atar `dominio`, `www.dominio` al Worker del storefront y
+      `admin.dominio` a `pick-admin` (panel o API; ver INFRAESTRUCTURA §4).
+
+- [ ] **Agregar `https://admin.<dominio>/**` a las Redirect URLs de Supabase
+      Auth**, o el enlace de recuperación de contraseña del Admin no vuelve.
+
+- [ ] **Verificar el dominio en Resend** y poner `EMAIL_FROM` en esa dirección.
+      Sin dominio verificado los correos a compradores reales devuelven 403.
 
 - [ ] **Comprobar el primer deploy:** que la home cargue, que el encabezado diga
       **el nombre del comercio** —no «Pick Demo»— y que `/robots.txt` apunte al
@@ -81,9 +102,10 @@ qué comprobar en cada paso. Si algo falla, la respuesta está allá.
 
 - [ ] **Marcar los atributos filtrables** para que la PLP tenga facetas.
 
-> Con más de mil productos, leer la primera sección de
-> [LIMITACIONES.md](LIMITACIONES.md): el listado del catálogo se pone lento y hay
-> que resolverlo antes de abrir al público.
+> El catálogo está medido hasta 5006 productos con tiempos planos de la primera
+> página a la última; el detalle está en [LIMITACIONES.md](LIMITACIONES.md).
+> Dos ajustes en Configuración → Catálogo deciden qué se lista: los productos
+> sin stock se ocultan por defecto, y los sin foto se ocultan si se pide.
 
 ---
 

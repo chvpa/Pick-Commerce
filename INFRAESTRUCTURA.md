@@ -146,12 +146,18 @@ hay servidor encendido esperando: arranca, responde y desaparece. Por eso no
 tiene disco, ni `process.env`, ni Node completo —de ahí el
 `compatibility_flags: ["nodejs_compat"]` en la config—.
 
-### Los dos Workers de este proyecto
+### Los tres Workers de este proyecto
 
-| Worker          | App          | Qué sirve                                                                       | Estado                                                     |
-| --------------- | ------------ | ------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `pick-commerce` | `apps/demo`  | El storefront. Mezcla páginas estáticas y páginas que se arman en cada petición | En línea: https://pick-commerce.chvpa-contacto.workers.dev |
-| `pick-admin`    | `apps/admin` | El Admin: una SPA de archivos estáticos **más** un Worker que atiende `/api/*` | En línea: https://pick-admin.chvpa-contacto.workers.dev    |
+| Worker          | App             | Qué sirve                                                                       | Estado                                                                    |
+| --------------- | --------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `pick-commerce` | `apps/demo`     | El storefront de la demo. Mezcla páginas estáticas y páginas on-demand           | En línea: https://pick-commerce.chvpa-contacto.workers.dev                |
+| `treeshop`      | `apps/treeshop` | El storefront de Treeshop, el primer cliente (ADR-110)                          | En línea: https://treeshop.chvpa-contacto.workers.dev → **sontres.shop** |
+| `pick-admin`    | `apps/admin`    | El Admin: una SPA de archivos estáticos **más** un Worker que atiende `/api/*` | En línea: https://pick-admin.chvpa-contacto.workers.dev → **admin.sontres.shop** |
+
+**Un Worker por storefront, un solo Admin.** Cada cliente con app propia tiene
+su Worker, con su `wrangler.jsonc` y su KV de sesiones —Wrangler lo crea solo
+en el primer deploy, `treeshop-session`—. El Admin es uno para todos los
+comercios y se sirve además bajo el dominio de cada cliente como subdominio.
 
 El nombre lo declara `wrangler.jsonc` de cada app y **tiene que coincidir con el
 Worker que ya existe** en Cloudflare. Con otro nombre, un deploy no actualiza el
@@ -182,16 +188,55 @@ porque cada uno corre su propio comando:
 | Build command  | `pnpm --filter @pick/demo run build`  | `pnpm --filter @pick/admin run build`  |
 | Deploy command | `pnpm --filter @pick/demo run deploy` | `pnpm --filter @pick/admin run deploy` |
 
-**Manual — desde tu máquina**, con `wrangler login` hecho una vez:
+**Manual — desde tu máquina**, con `wrangler login` hecho una vez, o con
+`CLOUDFLARE_API_TOKEN` cargado desde `.env`:
 
 ```bash
-pnpm deploy:demo     # construye y publica el storefront
+pnpm deploy:demo     # construye y publica el storefront de la demo
 pnpm deploy:admin    # ídem el Admin
+SITE_URL=https://sontres.shop pnpm --filter @pick/treeshop run deploy   # Treeshop
 ```
+
+Treeshop **no tiene Workers Builds**: se despliega a mano, como el Admin. Y el
+`SITE_URL` va explícito en la línea porque `.env` trae el de la demo, y sin
+sobreescribirlo el canonical y el sitemap de Treeshop apuntarían a la demo.
 
 El `run` no es opcional: `deploy` es un comando propio de pnpm, y sin `run`
 falla con `ERR_PNPM_INVALID_DEPLOY_TARGET` sin llegar nunca al script del
 paquete.
+
+### Dominios propios
+
+Un Worker recibe un dominio propio sólo si la zona vive en Cloudflare: el
+dominio se agrega como sitio (plan Free alcanza), el registrador —Namecheap, en
+el caso de Treeshop— apunta sus nameservers a los dos que Cloudflare asigna, y
+hasta que el DNS público no los muestre la zona queda `pending` y nada se
+enruta. Los dominios se atan al Worker con *Domains & Routes* del panel o por
+API (`PUT /accounts/{cuenta}/workers/domains`), y Cloudflare crea el registro
+DNS solo. Se pueden atar con la zona todavía pendiente.
+
+Lo que se ató para Treeshop:
+
+| Hostname             | Worker       |
+| -------------------- | ------------ |
+| `sontres.shop`       | `treeshop`   |
+| `www.sontres.shop`   | `treeshop`   |
+| `admin.sontres.shop` | `pick-admin` |
+
+El `www` no necesita redirección: `resolverTenant` normaliza el host y las dos
+formas sirven la misma tienda. `stores.domain` y el secreto `STOREFRONT_DOMAIN`
+llevan el dominio sin `www`.
+
+Dos cosas que un dominio nuevo rompe si nadie las toca:
+
+- **Supabase Auth → URL Configuration → Redirect URLs** tiene que incluir el
+  dominio del Admin (`https://admin.sontres.shop/**`), o el enlace de
+  recuperación de contraseña vuelve al dominio viejo. Se cambia por la API de
+  Management (`PATCH /v1/projects/{ref}/config/auth`, campo `uri_allow_list`).
+- **Resend** tiene que verificar el dominio del que salen los correos
+  (`EMAIL_FROM`). La clave de `.env` es **de sólo envío** y no puede dar de alta
+  dominios: se hace desde el panel de Resend, que entrega los registros DNS, y
+  esos registros se cargan en la zona de Cloudflare.
 
 ### ⚠ El CI no bloquea el deploy
 

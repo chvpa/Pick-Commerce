@@ -121,10 +121,13 @@ completa, así que el tiempo de recuperación es desconocido.
 
 **Qué lo desbloquea:** ejercitar un restore sobre un proyecto nuevo y cronometrarlo.
 
-### Los dominios propios no están montados
+### Un dominio propio exige mover el DNS a Cloudflare
 
-El modelo está decidido (ADR-062) y sin ejecutar. Hoy cada storefront se sirve
-desde su URL de `workers.dev`.
+El modelo de ADR-062 está ejecutado con Treeshop: `sontres.shop` y `www` van al
+Worker del storefront, `admin.sontres.shop` al Admin único. Lo que no se puede
+evitar es la condición: la zona DNS del dominio tiene que vivir en Cloudflare,
+o sea cambiar los nameservers en el registrador. Un comercio que no quiera o no
+pueda hacerlo se sirve desde su URL de `workers.dev`.
 
 ---
 
