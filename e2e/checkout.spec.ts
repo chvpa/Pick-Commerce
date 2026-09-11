@@ -229,8 +229,21 @@ test('el envío se muestra en el checkout y entra en el total', async ({ page })
    * de que alguien llegue al banco con una cifra distinta de la que vio.
    */
   await sembrarCarrito(page, 1);
+  let validaciones = 0;
+  page.on('response', (res) => {
+    if (res.url().endsWith('/api/cart/validate')) validaciones += 1;
+  });
   await page.goto('/checkout');
   await expect(page.getByRole('button', { name: /confirmar pedido/i })).toBeEnabled();
+
+  /*
+   * Una validación al montar, y ninguna más: el formulario corrige el espejo
+   * del carrito con lo que el servidor respondió, y esa escritura no puede
+   * volver a disparar la validación. Lo hacía —en bucle, una petición por
+   * respuesta mientras el checkout estuviera abierto— y se vio en producción.
+   */
+  await page.waitForTimeout(1500);
+  expect(validaciones).toBe(1);
 
   /*
    * `exact`: «Envío» suelto también aparece en la barra de anuncio —«Envío
