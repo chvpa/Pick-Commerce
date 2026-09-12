@@ -836,13 +836,19 @@ numeración es secuencial y sería enumerable—.
 
 ---
 
-## Fase 2 — Wishlist y vistos recientemente
+## Fase 2 — El sustrato de preferencias, que la wishlist estrena
 
 **Avance: 0%**
 
-Objetivo: guardar un producto y encontrarlo desde otro dispositivo, y que el
-sitio recuerde qué se estuvo mirando. Es lo primero que paga la identidad, y es
-chica a propósito: sirve de prueba de que la Fase 1 quedó bien.
+Objetivo: que cada cosa que un visitante hace quede atada a algo que dura más
+que media hora, porque **el dato que no se captura se pierde para siempre**:
+cada sesión que pasa sin identidad atada es una sesión de la que nunca se va a
+poder aprender. Los algoritmos que lo usan son la Fase 4; acá se construye de
+qué van a comer.
+
+La wishlist va en esta fase y no en otra porque es el primer consumidor del
+sustrato y la prueba más barata de que quedó bien: si guardar un corazón sin
+sesión y encontrarlo después de entrar funciona, la identidad funciona.
 
 - [ ] `wishlist_items (tenant_id, store_id, customer_id, product_id, created_at)`
       con `unique (store_id, customer_id, product_id)` y políticas por
@@ -868,9 +874,31 @@ chica a propósito: sirve de prueba de que la Fase 1 quedó bien.
       los `product_view` de un visitante es hoy un scan sobre la tabla que más
       crece del esquema, en la portada y en la PLP. Es el patrón que ya produjo
       los 2,3 segundos del catálogo.
-- [ ] «Vistos recientemente» derivado de `store_events.product_view`, que ya se
-      registra del lado del servidor sin una línea de JavaScript, cruzado por
-      `session_identities`. Cero tracking nuevo.
+- [ ] «Vistos recientemente», derivado de `store_events.product_view` cruzado por
+      `session_identities`. **No es una feature, es el checkpoint del sustrato**:
+      es una consulta sobre la misma tabla que van a leer las preferencias, así
+      que si esto sale bien el resto tiene de dónde comer, y si sale mal se sabe
+      antes de construir la Fase 4 encima. Cero tracking nuevo: el evento ya se
+      registra del lado del servidor sin una línea de JavaScript.
+- [ ] **El perfil es anónimo por dispositivo y se fusiona con la cuenta al
+      iniciar sesión.** Decidido así y no «sólo para quien tenga cuenta»: casi
+      nadie se registra antes de comprar, y un perfil que arranca en el registro
+      llega tarde a todo el tráfico. Implica tres cosas, y las tres van en esta
+      fase porque son la condición de que el resto sea defendible: - **No se agrega ninguna cookie nueva.** El perfil se cuelga de `pick_sid`,
+      que ya existe. Lo que cambia es cuánto dura —hoy 30 minutos deslizantes,
+      que es el techo de lo que el sitio puede recordar— y qué se guarda del
+      lado del servidor contra ese id. - **Un interruptor, no un aviso de cookies.** En el pie y en la página de
+      privacidad: «Personalizamos lo que ves. Desactivar». Un banner lo
+      descarta todo el mundo sin leerlo y no da una elección real; un
+      interruptor sí, y deja la personalización cayendo a tendencia. El aviso
+      de cookies es una obligación europea y no hay un equivalente paraguayo
+      que lo exija hoy — **confirmarlo con asesoría local antes de usarlo como
+      argumento de venta**, y revisarlo de nuevo cuando entre el pixel de Meta
+      o de Google (Fase 7), que es cuando los datos salen hacia un tercero. - **El texto de privacidad se corrige**, porque va a tener tres frases
+      falsas: «no usamos servicios de terceros» —que **ya es falsa hoy**, por
+      el beacon de Cloudflare Web Analytics que la zona inyecta en el HTML—,
+      «esa cookie no se cruza con tus datos de cliente» y «se borra sola a la
+      media hora». Está en `apps/*/src/lib/contenido.ts`.
 - [ ] La pantalla de wishlist muestra lo no disponible en vez de esconderlo: un
       producto guardado puede quedar fuera del catálogo por archivado, sin stock o
       sin foto, y desaparecerlo en silencio parece un bug de la wishlist.
@@ -1002,14 +1030,42 @@ distinción se construía dos veces lo mismo.
       pueden explicar cuando el comercio pregunte por qué aparece algo. Con este
       volumen no hay forma de evaluar un modelo y sí de explicar un peso, y no hay
       dos implementaciones reales que justifiquen un adapter.
-- [ ] La fuente de cada sección, en los ajustes de `home_sections`:
-      `collection | recommended | recently_viewed | best_sellers`. Cero migración
-      de esquema y el vocabulario de ADR-094 intacto. Obliga a relajar
-      `home_sections_coleccion_coherente`, que es
-      `check ((type = 'products') = (collection_id is not null))` — **ese check es
-      literalmente lo que bloquea un carrusel personalizado**, y está puesto a
-      propósito para que el Admin, el storefront y el importador no repitan la
-      regla: cambiarlo es cambiar la regla en un solo lugar.
+- [ ] **Dos órdenes nuevos en la colección, y nada más.** Una colección ya es
+      `rules` —qué entra al pozo— más `sort` —en qué orden—, y ya se combinan:
+      «Best sellers» de Treeshop es `rules: {brand, color, categoria}` con
+      `sort: best-selling`. El desplegable que el Admin ya muestra tiene seis
+      órdenes —catálogo, novedades, más vendidos, precio en los dos sentidos y
+      alfabético— y alcanza con agregarle dos, bajo un separador que diga que se
+      arman solas según la gente: **Tendencia**, «lo que se está moviendo ahora»,
+      y **Preferencias**, «se adapta a cada visitante».
+
+      Entonces «una sección de Nike ordenada por preferencias» es
+          `rules: {brand:['Nike']}` con `sort: 'preferencias'`: dos desplegables que
+          el comercio ya sabe usar, y cero conceptos nuevos. **Se descartó** ponerlo
+          como fuente de la sección —`collection | recommended | recently_viewed`—
+          porque una fuente aparte necesitaría sus propios filtros el primer día y
+          terminaría duplicando `rules`; y de paso, como la sección sigue apuntando a
+          una colección, `home_sections_coleccion_coherente` no hay que tocarlo.
+
+- [ ] **La cascada por sección, que es lo que hace la promesa honesta.** El
+      comercio elige «Preferencias» y el storefront resuelve en orden: visitante
+      con señal → orden personalizado; visitante sin señal → **tendencia**;
+      tienda sin tráfico suficiente → el orden de respaldo que el comercio
+      eligió. Nunca vacía y nunca aleatoria, y el Admin lo dice en una línea
+      debajo del desplegable para que nadie se sorprenda. `Tendencia` se entrega
+      **antes** que `Preferencias`: funciona con cientos de sesiones, no necesita
+      identidad, no tiene costo de privacidad y es el respaldo de la otra.
+- [ ] **Tres anclas, una sola tabla.** Portada y PLP se anclan al **visitante**;
+      el PDP se ancla al **producto** —«quien vio esto vio», «suele comprarse
+      con»— y recién encima se reordena por las preferencias de quien mira; el
+      carrito se ancla al **carrito**. Es `product_affinity` leída con tres
+      claves distintas. Si no se nombran por separado, «recomendados» suena a una
+      cosa y son tres.
+- [ ] **El perfil se reduce a un bucket de afinidad** —sus dos o tres marcas y
+      categorías— y el orden se precomputa por bucket. Un orden por persona
+      calculado en cada petición mata el caché y reabre la consulta del catálogo
+      que ya costó cuatro migraciones: el storefront hace un _lookup_ y lo entra a
+      `catalog_search` como `p_ids`.
 - [ ] Arranque en frío por un solo camino de código, obligatorio: sin señal
       suficiente —una tienda sin historia, un visitante nuevo, un crawler— se sirve
       **siempre** la misma portada determinista, con su `h1` y su hero. La mitad de
@@ -1021,8 +1077,10 @@ distinción se construía dos veces lo mismo.
 - [ ] Todo lo que salga de acá pasa por `catalog_search`, que ya esconde sin stock
       y opcionalmente sin foto (ADR-112): recomendar lo que no hay es el modo de
       falla por defecto de esta fase.
-- [ ] En el Admin: elegir la fuente por sección y **poder ver qué se le muestra a
-      un visitante nuevo**, que es el caso que nadie prueba y el que ve Google.
+- [ ] En el Admin: **poder ver qué se le muestra a un visitante nuevo**, que es
+      el caso que nadie prueba y el que ve Google. Y una línea de resultado por
+      sección —cuántos clics, cuánto vendió—: sin eso el comercio no puede saber
+      si la sección funciona y va a asumir que no.
 
 **Definition of Done**
 
@@ -1030,6 +1088,9 @@ distinción se construía dos veces lo mismo.
 - [ ] ninguna lista recomendada muestra un producto que el catálogo esconde
 - [ ] `product_affinity` no cruza tiendas, con su test de aislamiento
 - [ ] el recálculo corre solo y su `computed_at` se puede ver en el Admin
+- [ ] una sección con `sort: preferencias` se ve llena para un visitante nuevo,
+      para uno con perfil y para una tienda sin tráfico, por los tres caminos de
+      la cascada
 
 ---
 
