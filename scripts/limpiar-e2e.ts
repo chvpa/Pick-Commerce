@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { clienteDeServidor } from '@pick/adapter-supabase';
 import { ADMIN_E2E, TIENDA_E2E } from './datos-admin-e2e.ts';
+import { CONFIGURACION, TIENDA } from './seed-data.ts';
 
 /**
  * Borra lo que una corrida de e2e dejó en el proyecto de desarrollo.
@@ -90,6 +91,36 @@ if (url && secretKey) {
     if (admin) await db.auth.admin.deleteUser(admin.id);
 
     console.log(`  tienda y usuario del smoke del Admin: borrados`);
+
+    /*
+     * Y lo que el smoke le cambió a la tienda de la demo, que no es suya.
+     *
+     * `preparar-storefront-e2e.ts` la renombra a «Pick Demo (smoke)» y le pisa
+     * `settings.shipping` para ejercitar el costo de envío. Nada lo revertía, y
+     * el storefront de la demo estuvo en producción titulado «Pick Demo
+     * (smoke)»: material de venta con el nombre de una corrida de test, y
+     * INFRAESTRUCTURA §1 prometiendo que eso no podía pasar.
+     *
+     * Se restituye al estado que siembra el seed, que es la única fuente de la
+     * demo: su nombre, y el `shipping` que el seed declare — hoy ninguno, así
+     * que la clave se va. El resto de los ajustes no se toca.
+     */
+    const semilla = (CONFIGURACION.settings as Record<string, unknown>).shipping;
+    const { data: fila } = await db
+      .from('store_settings')
+      .select('settings')
+      .eq('store_id', TIENDA.id)
+      .maybeSingle();
+    const ajustes = { ...((fila?.settings as Record<string, unknown>) ?? {}) };
+    if (semilla === undefined) delete ajustes.shipping;
+    else ajustes.shipping = semilla;
+
+    await db.from('stores').update({ name: TIENDA.name }).eq('id', TIENDA.id);
+    await db
+      .from('store_settings')
+      .upsert({ store_id: TIENDA.id, tenant_id: TIENDA.tenant_id, settings: ajustes });
+
+    console.log(`  tienda de la demo restituida: «${TIENDA.name}», sin el envío del smoke`);
   } catch (error) {
     // Una limpieza fallida no puede tumbar una corrida que ya pasó: lo peor que
     // deja es basura en un entorno de desarrollo.
