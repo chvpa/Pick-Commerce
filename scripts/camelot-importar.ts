@@ -47,9 +47,7 @@ const dryRun = args.includes('--dry-run');
 const conImagenes = args.includes('--imagenes');
 
 if (!slugTienda || !Number.isFinite(limite) || limite < 0) {
-  console.error(
-    'Uso: pnpm camelot:importar --tienda <slug> [--limite N] [--dry-run] [--imagenes]',
-  );
+  console.error('Uso: pnpm camelot:importar --tienda <slug> [--limite N] [--dry-run] [--imagenes]');
   process.exit(1);
 }
 
@@ -182,7 +180,10 @@ async function traerLocal<T>(
   for (let desde = 0; ; desde += 1000) {
     // @ts-expect-error — el importador lee tablas genéricas, como los seeds.
     const consulta = filtro(db.from(tabla).select(columnas).order('id')) as {
-      range: (a: number, b: number) => Promise<{ data: T[] | null; error: { message: string } | null }>;
+      range: (
+        a: number,
+        b: number,
+      ) => Promise<{ data: T[] | null; error: { message: string } | null }>;
     };
     const { data, error } = await consulta.range(desde, desde + 999);
     if (error) throw new Error(`No se pudo leer ${tabla}: ${error.message}`);
@@ -365,9 +366,19 @@ async function main(): Promise<number> {
   // Lo que ya está en la tienda
   // -------------------------------------------------------------------------
 
-  const localesProductos = await traerLocal<{ id: string; sku: string | null; handle: string }>(
+  const localesProductos = await traerLocal<{
+    id: string;
+    sku: string | null;
+    handle: string;
+    title: string;
+    description: string | null;
+    brand: string | null;
+    category_id: string | null;
+    status: string;
+    field_sources: Record<string, string> | null;
+  }>(
     'products',
-    'id, sku, handle',
+    'id, sku, handle, title, description, brand, category_id, status, field_sources',
     (q) => (q as { eq: (c: string, v: string) => unknown }).eq('store_id', STORE),
   );
   const porSku = new Map(localesProductos.map((p) => [p.sku ?? '', p]));
@@ -395,7 +406,6 @@ async function main(): Promise<number> {
     (q) => (q as { eq: (c: string, v: string) => unknown }).eq('store_id', STORE),
   );
   const categoriaPorSlug = new Map(localesCategorias.map((c) => [c.slug, c]));
-
 
   // -------------------------------------------------------------------------
   // Armar lo que se va a escribir
@@ -481,17 +491,50 @@ async function main(): Promise<number> {
     const marca = p.brand_id ? (nombreDeMarca.get(p.brand_id) ?? null) : null;
     const silueta = p.silhouette_id ? nombreDeSilueta.get(p.silhouette_id) : undefined;
 
+    /*
+     * Lo que el origen manda, y lo que no vuelve a pisar. ADR-117.
+     *
+     * `field_sources` declara el dueño de cada campo (PROJECT.md §10), y hasta
+     * acá el importador lo declaraba y lo desobedecía: reescribía `title`,
+     * `description`, `brand`, `category_id` y `status` en **cada** corrida,
+     * aunque el dueño de esos cinco sea local. El enriquecimiento de la Fase 11
+     * escribe exactamente esos campos (ADR-104) y una sesión de fotos cambia el
+     * resto, así que la siguiente corrida lo revertía en silencio: sin fallar,
+     * sin aparecer en el typecheck, y sin que nadie se enterara hasta ver
+     * títulos de origen en la vitrina.
+     *
+     * Un producto nuevo se escribe entero, que es la única forma de crearlo.
+     * Uno que ya existe conserva lo suyo y sólo acepta del origen los campos
+     * que su propia declaración le cede: para que los títulos vuelvan a seguir
+     * a Camelot, se agrega `title: 'ERP'` a su `field_sources` y este
+     * importador los reescribe.
+     */
+    const deOrigen = {
+      title: p.name,
+      description: p.description,
+      brand: marca,
+      category_id: p.category_id ? (idDeCategoria.get(p.category_id) ?? null) : null,
+      status: 'active',
+    };
+    const campos = local
+      ? {
+          title: local.field_sources?.title === 'ERP' ? deOrigen.title : local.title,
+          description:
+            local.field_sources?.description === 'ERP' ? deOrigen.description : local.description,
+          brand: local.field_sources?.brand === 'ERP' ? deOrigen.brand : local.brand,
+          category_id:
+            local.field_sources?.category_id === 'ERP' ? deOrigen.category_id : local.category_id,
+          status: local.field_sources?.status === 'ERP' ? deOrigen.status : local.status,
+        }
+      : deOrigen;
+
     filasProductos.push({
       id: productId,
       tenant_id: TENANT,
       store_id: STORE,
       // El handle de un producto ya publicado no se toca: cambiarlo rompe su URL.
       handle: local?.handle ?? handleDe(p),
-      title: p.name,
-      description: p.description,
-      brand: marca,
-      category_id: p.category_id ? (idDeCategoria.get(p.category_id) ?? null) : null,
-      status: 'active',
+      ...campos,
       sku: p.sku,
       /*
        * La fecha de alta es la de Camelot, no la de esta corrida. Sin esto los
@@ -501,14 +544,20 @@ async function main(): Promise<number> {
        * la pisa: el upsert la vuelve a escribir con el mismo valor.
        */
       created_at: p.created_at,
-      // Declarar el dueño es lo que bloquea la edición local (PROJECT.md §10).
-      field_sources: { price: 'ERP', stock: 'ERP' },
+      /*
+       * Declarar el dueño es lo que bloquea la edición local (PROJECT.md §10) y
+       * lo que decide, arriba, qué reescribe este importador. La declaración de
+       * un producto que ya existe no se pisa: si la tienda le cedió un campo
+       * más al origen, esa decisión es suya.
+       */
+      field_sources: local?.field_sources ?? { price: 'ERP', stock: 'ERP' },
     });
 
     for (const [i, v] of (porProducto.get(p.id) ?? []).entries()) {
       const ic = codigo(v.internal_code);
       const skuVariante = ic ?? `${p.sku}-${i}`;
-      const localV = (ic ? variantePorCodigo.get(ic) : undefined) ?? variantePorSku.get(skuVariante);
+      const localV =
+        (ic ? variantePorCodigo.get(ic) : undefined) ?? variantePorSku.get(skuVariante);
       const variantId = localV?.id ?? randomUUID();
       if (localV) variantesExistentes++;
       else variantesNuevas++;
@@ -661,9 +710,18 @@ async function main(): Promise<number> {
 
     async function guardarTanda(): Promise<void> {
       if (tocados.length === 0) return;
-      // Reemplazo entero y no upsert: si el origen ahora trae menos fotos, un
-      // upsert dejaría las viejas colgando.
-      const { error } = await db.from('product_media').delete().in('product_id', tocados);
+      /*
+       * Reemplazo y no upsert: si el origen ahora trae menos fotos, un upsert
+       * dejaría las viejas colgando. Pero el reemplazo se acota a **las fotos
+       * de este importador**, que viven todas bajo `<tenant>/camelot/` en el
+       * bucket: un `delete` por `product_id` también borraba las que subió la
+       * tienda, y nada las traía de vuelta. ADR-117.
+       */
+      const { error } = await db
+        .from('product_media')
+        .delete()
+        .in('product_id', tocados)
+        .like('url', '%/camelot/%');
       if (error) throw new Error(`No se pudieron limpiar las fotos: ${error.message}`);
       await upsert('product_media', filasMedia);
       filasMedia = [];
