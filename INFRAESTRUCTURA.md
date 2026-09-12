@@ -69,24 +69,44 @@ push a `main` y con cada pull request.
 | 1   | `checkout` + `pnpm install --frozen-lockfile` | Clon limpio con las versiones exactas del lockfile                                             | El `pnpm-lock.yaml` no coincide con los `package.json` |
 | 2   | `pnpm lint`                                   | ESLint en todo el workspace                                                                    | Código que no cumple las reglas                        |
 | 3   | `pnpm typecheck`                              | `tsc` y `astro check`                                                                          | Tipos rotos                                            |
-| 4   | `pnpm test`                                   | Unitarios + aislamiento entre tenants sobre **PGlite** (Postgres compilado a WASM, sin Docker) | Un test detectó una regresión                          |
-| 5   | `supabase start`                              | Levanta Postgres, Auth y API de verdad en el runner y aplica las migraciones                   | Una migración no aplica desde cero                     |
-| 6   | Exportar credenciales                         | Toma la URL y las claves del stack recién levantado y las mete en el entorno                   | Cambió el nombre de las claves en el CLI               |
-| 7   | `pnpm build`                                  | Construye admin y storefront                                                                   | El build se rompió                                     |
-| 9   | `playwright install chromium`                 | Baja el navegador                                                                              | Red                                                    |
-| 10  | `pnpm e2e`                                    | Navegación real, desktop y mobile, contra el build servido por workerd                         | Un critical path se rompió                             |
+| 4   | `pnpm format:check`                           | Prettier sobre todo el repo                                                                    | Un archivo sin formatear                               |
+| 5   | `pnpm docs:check`                             | Las contradicciones mecánicas de los documentos                                                | Un comando, una ruta o un ADR citado que no existe     |
+| 6   | `pnpm test`                                   | Unitarios + aislamiento entre tenants sobre **PGlite** (Postgres compilado a WASM, sin Docker) | Un test detectó una regresión                          |
+| 7   | `supabase start`                              | Levanta Postgres, Auth y API de verdad en el runner y aplica las migraciones                   | Una migración no aplica desde cero                     |
+| 8   | Exportar credenciales                         | Toma la URL y las claves del stack recién levantado y las mete en el entorno                   | Cambió el nombre de las claves en el CLI               |
+| 9   | `pnpm build`                                  | Construye admin y storefront                                                                   | El build se rompió                                     |
+| 10  | `playwright install chromium`                 | Baja el navegador                                                                              | Red                                                    |
+| 11  | `pnpm e2e`                                    | Navegación real, desktop y mobile, contra el build servido por workerd                         | Un critical path se rompió                             |
 
-Los pasos 1 a 4 no necesitan base. Recién del 5 en adelante hace falta, porque
+Los pasos 1 a 6 no necesitan base. Recién del 7 en adelante hace falta, porque
 desde la Fase 4 el storefront lee el catálogo de Postgres en cada petición.
+
+Los pasos 4 y 5 son del 2026-09-12. `format:check` existía desde la Fase 0 y el
+CI nunca lo invocaba: cuando por fin se corrió estaba en rojo con 26 archivos, y
+nadie se había enterado. `docs:check` es nuevo —`scripts/docs-check.mjs`— y
+corta lo que en un documento es mecánico: un `pnpm <algo>` que ningún
+`package.json` tiene, una ruta que ya no está en el disco, un `ADR-NNN`
+inventado, un avance declarado fuera del ROADMAP. Que un documento diga la
+verdad no lo puede comprobar un script; que no se contradiga con el repo, sí.
 
 ### Lo importante: no hay ningún secreto en el CI
 
-Ni en el repo ni en la configuración de GitHub. El paso 5 **fabrica** una base
-desde cero con las migraciones del repo, y el 6 lee las credenciales que esa base
+Ni en el repo ni en la configuración de GitHub. El paso 7 **fabrica** una base
+desde cero con las migraciones del repo, y el 8 lee las credenciales que esa base
 acaba de imprimir. Consecuencias:
 
 - Nadie puede filtrar una clave desde el CI, porque no hay ninguna.
-- Una corrida no puede ensuciar ni romper el proyecto Supabase real.
+- Una corrida **del CI** no puede ensuciar ni romper el proyecto Supabase real,
+  porque no lo ve. **Un `pnpm e2e` en tu máquina sí le escribe**: lee el `.env` de
+  la raíz, y `scripts/preparar-storefront-e2e.ts` le cambia el nombre a la tienda
+  de la demo —«Pick Demo (smoke)»— y le pisa `settings.shipping` para ejercitar el
+  costo de envío. Esta promesa estaba escrita sin acotar y era falsa de ese lado:
+  el storefront público estuvo en producción titulado «Pick Demo (smoke)», que es
+  material de venta con el nombre de una corrida de test. Desde el 2026-09-12
+  `scripts/limpiar-e2e.ts` lo restituye al estado que siembra el seed, en el
+  teardown de Playwright. O sea: en el CI la promesa es de la arquitectura; en tu
+  máquina depende de que el teardown corra, así que una corrida interrumpida a
+  mano puede dejar la tienda renombrada.
 - El CI prueba que **las migraciones aplican desde cero**, que es distinto de que
   el proyecto remoto funcione: el remoto podría estar funcionando por algo que
   alguien tocó a mano y no quedó en una migración.
@@ -96,15 +116,14 @@ Esto es ADR-058.
 **Cuánto tarda, medido en una corrida completa en verde** (`a30f795`,
 26/08/2026): **3m 37s de punta a punta**. El reparto:
 
-| Paso                                      | Tiempo               |
-| ----------------------------------------- | -------------------- |
-| `supabase start`                          | 1m 45s               |
-| `playwright install`                      | 26s                  |
-| `pnpm typecheck`                          | 16s                  |
-| `pnpm install`                            | 11s                  |
-| `pnpm test` + `lint` + `build`            | 16s entre los tres   |
-| `pnpm rls:verificar`                      | ~10s, contra el proyecto remoto |
-| `pnpm e2e`                                | 29s                  |
+| Paso                           | Tiempo             |
+| ------------------------------ | ------------------ |
+| `supabase start`               | 1m 45s             |
+| `playwright install`           | 26s                |
+| `pnpm typecheck`               | 16s                |
+| `pnpm install`                 | 11s                |
+| `pnpm test` + `lint` + `build` | 16s entre los tres |
+| `pnpm e2e`                     | 29s                |
 
 Casi todo el tiempo es levantar Postgres y bajar Chromium; lo que el repo tiene
 que verificar de verdad se hace en menos de un minuto. Una corrida sana no pasa
@@ -148,10 +167,10 @@ tiene disco, ni `process.env`, ni Node completo —de ahí el
 
 ### Los tres Workers de este proyecto
 
-| Worker          | App             | Qué sirve                                                                       | Estado                                                                    |
-| --------------- | --------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `pick-commerce` | `apps/demo`     | El storefront de la demo. Mezcla páginas estáticas y páginas on-demand           | En línea: https://pick-commerce.chvpa-contacto.workers.dev                |
-| `treeshop`      | `apps/treeshop` | El storefront de Treeshop, el primer cliente (ADR-110)                          | En línea: https://treeshop.chvpa-contacto.workers.dev → **sontres.shop** |
+| Worker          | App             | Qué sirve                                                                      | Estado                                                                           |
+| --------------- | --------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `pick-commerce` | `apps/demo`     | El storefront de la demo. Mezcla páginas estáticas y páginas on-demand         | En línea: https://pick-commerce.chvpa-contacto.workers.dev                       |
+| `treeshop`      | `apps/treeshop` | El storefront de Treeshop, el primer cliente (ADR-110)                         | En línea: https://treeshop.chvpa-contacto.workers.dev → **sontres.shop**         |
 | `pick-admin`    | `apps/admin`    | El Admin: una SPA de archivos estáticos **más** un Worker que atiende `/api/*` | En línea: https://pick-admin.chvpa-contacto.workers.dev → **admin.sontres.shop** |
 
 **Un Worker por storefront, un solo Admin.** Cada cliente con app propia tiene
@@ -168,9 +187,14 @@ anterior. Ya pasó acá.
 
 Astro genera las dos cosas en el mismo build:
 
-- **Estáticas** (HTML ya escrito en disco): 404, políticas, FAQ, carrito, robots.
-- **On-demand** (`export const prerender = false`): home, catálogo y ficha de
-  producto, más el sitemap y el `llms.txt`.
+- **Estáticas** (escritas en disco al construir): sólo `robots.txt` y
+  `sitemap-index.xml`, las dos cosas que no dependen de ningún dato.
+- **On-demand** (`export const prerender = false`): todo lo demás. Home,
+  catálogo, ficha de producto, checkout, 404, políticas, FAQ, el `llms.txt` y el
+  `sitemap-0.xml`. Y `/carrito`, que no lee la base y va on-demand igual: con
+  Workers Assets una página prerenderizada **se sirve desde el disco sin ejecutar
+  el Worker**, así que no corre el middleware. Y en `astro dev` y `astro preview`
+  todo es SSR, o sea que la diferencia aparece recién al desplegar (ADR-099).
 
 La regla es simple: si el contenido sale de la base, va on-demand. Si fuera
 estático, cada producto que cargás en el Admin exigiría un redeploy para
@@ -179,14 +203,20 @@ runtime, y no sólo al construir.
 
 ### Los dos caminos para desplegar
 
-**Automático — Workers Builds.** Cloudflare está conectado al repo de GitHub y
-en cada push a `main` clona, construye y publica. Son dos proyectos, uno por app,
-porque cada uno corre su propio comando:
+**Automático — Workers Builds.** Un solo proyecto, el del storefront de la
+demo: Cloudflare está conectado al repo de GitHub y en cada push a `main` clona,
+construye y publica.
 
-| Ajuste         | `pick-commerce`                       | `pick-admin`                           |
-| -------------- | ------------------------------------- | -------------------------------------- |
-| Build command  | `pnpm --filter @pick/demo run build`  | `pnpm --filter @pick/admin run build`  |
-| Deploy command | `pnpm --filter @pick/demo run deploy` | `pnpm --filter @pick/admin run deploy` |
+| Ajuste         | `pick-commerce`                       |
+| -------------- | ------------------------------------- |
+| Build command  | `pnpm --filter @pick/demo run build`  |
+| Deploy command | `pnpm --filter @pick/demo run deploy` |
+
+**El Admin y Treeshop se despliegan a mano; sólo el storefront de la demo tiene
+Workers Builds.** Para el Admin es lo que dice §10, y vale repetirlo acá porque
+es la trampa: una pantalla nueva del Admin con el build, el typecheck y el
+Playwright en verde **no existe** para quien la va a usar hasta que alguien
+corra el deploy.
 
 **Manual — desde tu máquina**, con `wrangler login` hecho una vez, o con
 `CLOUDFLARE_API_TOKEN` cargado desde `.env`:
@@ -197,9 +227,9 @@ pnpm deploy:admin    # ídem el Admin
 SITE_URL=https://sontres.shop pnpm --filter @pick/treeshop run deploy   # Treeshop
 ```
 
-Treeshop **no tiene Workers Builds**: se despliega a mano, como el Admin. Y el
-`SITE_URL` va explícito en la línea porque `.env` trae el de la demo, y sin
-sobreescribirlo el canonical y el sitemap de Treeshop apuntarían a la demo.
+El `SITE_URL` de Treeshop va explícito en la línea porque `.env` trae el de la
+demo, y sin sobreescribirlo el canonical y el sitemap de Treeshop apuntarían a
+la demo.
 
 El `run` no es opcional: `deploy` es un comando propio de pnpm, y sin `run`
 falla con `ERR_PNPM_INVALID_DEPLOY_TARGET` sin llegar nunca al script del
@@ -211,7 +241,7 @@ Un Worker recibe un dominio propio sólo si la zona vive en Cloudflare: el
 dominio se agrega como sitio (plan Free alcanza), el registrador —Namecheap, en
 el caso de Treeshop— apunta sus nameservers a los dos que Cloudflare asigna, y
 hasta que el DNS público no los muestre la zona queda `pending` y nada se
-enruta. Los dominios se atan al Worker con *Domains & Routes* del panel o por
+enruta. Los dominios se atan al Worker con _Domains & Routes_ del panel o por
 API (`PUT /accounts/{cuenta}/workers/domains`), y Cloudflare crea el registro
 DNS solo.
 
@@ -227,7 +257,7 @@ DNS solo.
   sirve la tienda. Los dominios propios no necesitan rutas.
 - **El síntoma de «no hay Worker detrás» es TLS, no enrutamiento.** Sin
   certificado en el edge el navegador no negocia la conexión; `openssl
-  s_client` da *alert 40, no peer certificate* y `/cdn-cgi/trace` no responde.
+s_client` da _alert 40, no peer certificate_ y `/cdn-cgi/trace` no responde.
   Para saber qué Worker sirve un hostname sin adivinar por el título:
   `POST /api/ia/probar` existe sólo en el Admin.
 
@@ -250,6 +280,17 @@ Los tres en línea desde el 2026-09-11, verificados con la compra completa sobre
 El `www` no necesita redirección: `resolverTenant` normaliza el host y las dos
 formas sirven la misma tienda. `stores.domain` y el secreto `STOREFRONT_DOMAIN`
 llevan el dominio sin `www`.
+
+**El `robots.txt` que sale por el dominio propio no es sólo el del repo.**
+Cloudflare le antepone su bloque _Managed content_, y eso cambia la política sin
+que nadie la haya escrito acá: `curl -s https://sontres.shop/robots.txt` trae
+`Content-Signal: search=yes,ai-train=no,use=reference` y un `Disallow: /` para
+GPTBot, ClaudeBot, CCBot, Google-Extended, Amazonbot, Applebot-Extended,
+Bytespider y meta-externalagent, y sólo después el bloque de
+`apps/treeshop/src/pages/robots.txt.ts`. Vale saberlo porque el capítulo de GEO
+se apoya en que lo que se indexa es el HTML del servidor: la regla de zona deja
+pasar a los buscadores y corta a los crawlers de IA. Si eso no es lo que se
+quiere, se desactiva en la zona de Cloudflare, no en el repo.
 
 Dos cosas que un dominio nuevo rompe si nadie las toca:
 
@@ -340,6 +381,35 @@ Dos que se confunden todo el tiempo y no son lo mismo:
 Hoy son distintas y está bien. Cuando la demo tenga dominio propio se cambian las
 dos.
 
+### Las que sólo necesita un script
+
+Ninguna de éstas la lee una app: las lee un comando del repo, desde el `.env` de
+la raíz. Van aparte porque **`.env.example` no las declara**, y un clon nuevo que
+lo copie arranca sin poder desplegar a mano ni importar un catálogo, sin que nada
+se lo diga hasta que el comando falla.
+
+| Variable                                                     | Quién la lee                     | Para qué                                                                           |
+| ------------------------------------------------------------ | -------------------------------- | ---------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`                                       | `wrangler`                       | Desplegar sin `wrangler login`. También ata dominios al Worker, nada más           |
+| `RESEND_API_KEY`                                             | El storefront                    | En producción es un **secreto del Worker**; en el `.env` sirve para `pnpm dev`     |
+| `CAMELOT_SUPABASE_URL` + `CAMELOT_SUPABASE_SERVICE_ROLE_KEY` | `pnpm camelot:importar`          | Leer el Supabase del ecommerce anterior del cliente. Sólo lectura, sólo del origen |
+| `LINODE_PROXY_URL` + `LINODE_PROXY_SECRET`                   | `pnpm erp:importar`              | Llegar al Oracle ORDS del ERP a través del proxy (ADR-085)                         |
+| `TEST_SUPABASE_URL` + `TEST_SUPABASE_ANON_KEY`               | `pnpm erp:imagenes`              | El proyecto de origen del que se copian las fotos                                  |
+| `PICK_AI_MASTER_KEY`                                         | El Worker del Admin y `pnpm dev` | Cifra las credenciales de IA. Está en §6, con lo que implica rotarla               |
+
+Con eso, los caminos para cargar un catálogo son cuatro y cada uno tiene su
+credencial: el CRUD del Admin y el CSV no necesitan ninguna, `pnpm erp:importar`
+necesita el proxy del ERP, y `pnpm camelot:importar` necesita el Supabase de
+origen: es el que usó Treeshop, que trajo su catálogo entero de un ecommerce
+anterior (ADR-111). El paso a paso de cada uno vive en
+[ONBOARDING.md](ONBOARDING.md).
+
+`.env` tiene además `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_S3_API_ENDPOINT`,
+`CLOUDFLARE_ACCESS_KEY_ID` y `CLOUDFLARE_SECRET_ACCESS_KEY`. **Ningún archivo del
+repo las lee** —comprobado por `grep` sobre todo el árbol—, así que ningún comando
+las necesita. Dos son credenciales de un almacenamiento S3, y una credencial que
+nada usa es sólo superficie de ataque: lo correcto es sacarlas del `.env`.
+
 ### La secret key, en una línea
 
 Saltea RLS: con ella se ven los datos de **todos** los comercios. Por eso vive
@@ -370,6 +440,22 @@ poder correr en orden sobre una base vacía.
 El script renombra el archivo local para que su versión coincida con la que
 asignó el servidor. Si no, local y remoto divergen y el CLI empieza a mentir.
 
+**Hoy hay una escrita y sin aplicar**:
+`supabase/migrations/20260912183012_revocar_consume_promotion_de_public.sql`. Es
+la segunda mitad de un arreglo que necesitó dos: `20260912173244` le quitó a
+`authenticated` el permiso de ejecutar `app.consume_promotion` —una función
+`security definer` que recibe un uuid arbitrario y no comprueba ni tenant ni
+permiso— y **no alcanzó**, porque Postgres le da `execute` a `PUBLIC` a toda
+función al crearla y ese grant sobrevive a revocarle a un rol puntual. La
+primera está aplicada; la segunda espera su `pnpm db:apply`.
+
+Es el caso que muestra el riesgo de esta sección entera: **el CI aplica las
+migraciones desde cero y pasa, así que nada avisa de que el proyecto remoto no
+las tiene**. Una migración en el repo no es una migración aplicada. Para
+comprobar un grant contra el remoto, la consulta es
+`select grantee, privilege_type from information_schema.routine_privileges
+where routine_name = '<función>'`.
+
 ### Datos de demostración
 
 ```bash
@@ -390,8 +476,9 @@ Dos capas, y la del frontend no cuenta:
    usa la secret key —el storefront—, donde RLS no aplica porque esa clave la
    saltea.
 
-Lo verifican 12 tests que levantan Postgres en proceso con PGlite, aplican las
-migraciones reales y comprueban que un miembro de A no ve nada de B. Se comprobó
+Lo verifican 274 tests en 13 archivos que levantan Postgres en proceso con
+PGlite, aplican las migraciones reales y comprueban que un miembro de A no ve
+nada de B —`pnpm test:rls`, 9 segundos—. Se comprobó
 que **fallan** al romper las políticas a propósito, que es la única forma de
 saber que un test sirve.
 
@@ -460,11 +547,11 @@ fallback a `index.html` que necesita el router del SPA.
 Existe por una sola razón: BYOK. La clave de OpenAI de cada comercio se guarda
 cifrada, y descifrarla en el navegador sería no cifrarla.
 
-| Variable                   | Qué es                                                     |
-| -------------------------- | ---------------------------------------------------------- |
-| `SUPABASE_URL`             | La misma del storefront. La usa para llamar a los RPC.     |
-| `SUPABASE_PUBLISHABLE_KEY` | La pública. **No** lleva la secret key: no la necesita.    |
-| `PICK_AI_MASTER_KEY`       | 32 bytes en base64. Con lo que cifra las credenciales.     |
+| Variable                   | Qué es                                                  |
+| -------------------------- | ------------------------------------------------------- |
+| `SUPABASE_URL`             | La misma del storefront. La usa para llamar a los RPC.  |
+| `SUPABASE_PUBLISHABLE_KEY` | La pública. **No** lleva la secret key: no la necesita. |
+| `PICK_AI_MASTER_KEY`       | 32 bytes en base64. Con lo que cifra las credenciales.  |
 
 Los tres son de **runtime**, no de build. Sin alguno, las rutas `/api/*`
 responden 503 nombrando cuál falta y el resto del Admin funciona igual: sin IA,
@@ -495,8 +582,9 @@ cuenta**. Comprobado: un pedido con el correo de otro comprador devuelve un 403
 que lo dice con todas las letras. El pipeline funciona igual —la fila queda en la
 cola y cuenta el intento— pero el comprador no recibe nada.
 
-Antes del piloto: verificar un dominio en `resend.com/domains`, y cargar
-`EMAIL_FROM` con una dirección de ese dominio.
+Sigue así, y es un diferido a propósito, no un olvido: verificar un dominio en
+`resend.com/domains` y cargar `EMAIL_FROM` con una dirección de ese dominio es
+lo que lo destraba, y está registrado en [LIMITACIONES.md](LIMITACIONES.md).
 
 ### Que el correo de recuperación salga por Resend
 
@@ -595,16 +683,25 @@ pegan directo contra la base real y no esperan a ningún push.
 - **Los correos sólo llegan a la casilla del dueño de la cuenta de Resend**
   mientras no haya un dominio verificado.
 - **La alerta de caída tiene quince minutos de resolución.** El workflow
-  `latido.yml` pide el storefront y el Admin cada quince minutos y abre un issue
-  —uno solo, con comentarios— si alguno no responde; lo cierra cuando vuelve. No
-  mide latencia, no avisa fuera de GitHub y no distingue «lento» de «caído».
+  `latido.yml` pide seis URLs cada quince minutos —la demo, su catálogo y el
+  Admin en `workers.dev`, y `sontres.shop`, su catálogo y `admin.sontres.shop`—
+  y abre un issue —uno solo, con comentarios— si alguna no responde; lo cierra
+  cuando vuelven. De cada storefront pide también el catálogo porque `/` puede
+  devolver 200 con la base caída y la tienda igual no funciona. Los dominios
+  propios van **además** de los `workers.dev` y no en su lugar: se sirven por un
+  camino distinto —zona de Cloudflare, dominio propio del Worker, certificado
+  del edge— y ese camino ya se rompió una vez (§4), así que si falla sólo
+  `sontres.shop` y el `workers.dev` responde, el problema es el dominio y no la
+  tienda. Lo que falta para que eso valga también para Treeshop es su
+  `workers.dev`, que no está en la lista. No mide latencia, no avisa fuera de
+  GitHub y no distingue «lento» de «caído».
 - **Un solo entorno.** No hay staging: lo que se pushea a `main` es producción.
-- **Los dominios propios de cada cliente** todavía no están montados. El modelo
-  está decidido en ADR-062; falta ejecutarlo.
 - **El restore de un backup no se ejerció nunca.** Los automáticos del proyecto
   existen, con la retención del plan contratado. Nadie restauró uno, así que el
   tiempo de recuperación es una suposición.
-- **El listado del catálogo tarda 2,3 s con 5000 productos** (`LIMITACIONES.md`).
+- **Una migración escrita no es una migración aplicada.** Nada compara el repo
+  con el schema remoto, así que un archivo que nadie aplicó pasa el CI en verde.
+  Hoy hay uno, y está en §6.
 
 La lista completa de lo que el sistema no hace, con el motivo y qué lo
 desbloquea, está en [LIMITACIONES.md](LIMITACIONES.md); dar de alta un comercio,
