@@ -657,15 +657,15 @@ lo sostenga. Es requisito de la Fase 1 y no tiene salida visible, que es justo
 por lo que se saltea.
 
 - [x] `app.consume_promotion` sale del alcance de los roles de cliente. Es
-      `security definer`, recibe un uuid arbitrario y **no comprueba ni tenant ni
-      permiso**; su único llamador es `create_order`, ya revocada de `public,
-    anon, authenticated`, así que el grant nunca hizo falta. Fueron dos
-      migraciones: revocarle a `authenticated` no alcanzó, porque sobrevive el
-      `execute` que Postgres le da a `PUBLIC` al crear la función. La primera
-      está aplicada; la segunda —`20260912183012`— **queda pendiente** de
-      `pnpm db:apply`. No era alcanzable desde internet: PostgREST expone sólo
-      el schema `public` y `anon` no tiene `usage` sobre `app`. El revoke va
-      igual porque la Fase 1 convierte `authenticated` en un rol público.
+      `security definer`, recibe un uuid arbitrario y **no comprueba ni tenant
+      ni permiso**; su único llamador ya está revocado de los roles de cliente,
+      así que el grant nunca hizo falta. Fueron dos migraciones: revocarle a
+      `authenticated` no alcanzó, porque sobrevive el `execute` que Postgres le
+      da a `PUBLIC` al crear la función. La primera está aplicada; la segunda
+      —`20260912183012`— **queda pendiente** de `pnpm db:apply`. No era
+      alcanzable desde internet: PostgREST expone sólo el schema `public` y
+      `anon` no tiene `usage` sobre `app`. El revoke va igual porque la Fase 1
+      convierte `authenticated` en un rol público.
 - [ ] Un test de aislamiento en `supabase/tests/`: un usuario de `auth.users` con
       cero filas en `memberships` recorre las 34 funciones con `grant execute` a
       `authenticated`, más las tablas `customers`, `orders` y `order_items`, y

@@ -53,22 +53,24 @@ Hay dos caminos, y el primero que hay que decidir es cuál:
   header, pie y preset. Es lo que hizo Treeshop (ADR-110). Comparte la base,
   el Admin y los paquetes; lo que mejore en el Core le llega solo.
 
-- [ ] **Crear el Worker.** Con Workers Builds apuntando al repositorio, o a
-      mano desde tu máquina con `pnpm --filter @pick/<cliente> run deploy`, que
-      además crea solo el KV de sesiones en el primer deploy. El Admin **no** se
-      despliega por cliente: es uno solo para todos (ADR-062, ADR-072).
+- [ ] **Crear el Worker.** Con `pnpm --filter @pick/<cliente> run deploy`, que
+      además crea solo el KV de sesiones en el primer deploy. Workers Builds hoy
+      lo tiene sólo la demo, así que una app propia se despliega **a mano con
+      cada cambio**, y con `SITE_URL` en la misma línea porque el `.env` trae el
+      de la demo (INFRAESTRUCTURA §4). El Admin **no** se despliega por cliente:
+      es uno solo para todos (ADR-062, ADR-072).
 
 - [ ] **Cargar las variables.** De build, `SITE_URL` con la dirección pública —de
       ahí salen el canonical, el `og:url` y el sitemap—. De runtime:
 
-  | Variable | Qué es |
-  | --- | --- |
-  | `SUPABASE_URL` | El proyecto |
-  | `SUPABASE_SECRET_KEY` | Saltea RLS. **Sólo servidor** |
-  | `STOREFRONT_DOMAIN` | Qué tienda sirve este deploy |
-  | `RESEND_API_KEY` | Sin ella no sale ningún correo, y la cola espera |
-  | `EMAIL_FROM` | De qué dirección salen |
-  | `PAYMENT_WEBHOOK_SECRET` | Sólo si se habilita la pasarela simulada |
+  | Variable                 | Qué es                                           |
+  | ------------------------ | ------------------------------------------------ |
+  | `SUPABASE_URL`           | El proyecto                                      |
+  | `SUPABASE_SECRET_KEY`    | Saltea RLS. **Sólo servidor**                    |
+  | `STOREFRONT_DOMAIN`      | Qué tienda sirve este deploy                     |
+  | `RESEND_API_KEY`         | Sin ella no sale ningún correo, y la cola espera |
+  | `EMAIL_FROM`             | De qué dirección salen                           |
+  | `PAYMENT_WEBHOOK_SECRET` | Sólo si se habilita la pasarela simulada         |
 
 - [ ] **Conectar el dominio.** La zona tiene que vivir en Cloudflare: agregar
       el sitio, apuntar los nameservers del registrador a los que Cloudflare
@@ -93,10 +95,16 @@ Hay dos caminos, y el primero que hay que decidir es cuál:
 
 ## 3. El catálogo
 
-- [ ] **Cargarlo.** Tres caminos, por orden de preferencia:
+- [ ] **Cargarlo.** Cuatro caminos, por orden de preferencia:
 
   - **Desde el ERP**, si lo tiene: `pnpm erp:importar --tienda <slug> --dry-run`
     primero, siempre. Después sin `--dry-run`, y `pnpm erp:imagenes --tienda <slug>`.
+  - **Desde el Supabase de su ecommerce anterior**, si es el de Camelot:
+    `pnpm camelot:importar --tienda <slug> --dry-run` primero, después sin él, y
+    una tercera corrida con `--imagenes`, que es la larga. Necesita
+    `CAMELOT_SUPABASE_URL` y `CAMELOT_SUPABASE_SERVICE_ROLE_KEY` en el `.env`.
+    Es el camino con el que se cargó Treeshop; el script lee **ese** esquema, así
+    que otro sistema necesita el suyo (ADR-111).
   - **Por CSV**, desde Productos → Importar en el Admin.
   - **A mano**, para un catálogo chico.
 
@@ -106,7 +114,9 @@ Hay dos caminos, y el primero que hay que decidir es cuál:
 - [ ] **Marcar los atributos filtrables** para que la PLP tenga facetas.
 
 > El catálogo está medido hasta 5006 productos con tiempos planos de la primera
-> página a la última; el detalle está en [LIMITACIONES.md](LIMITACIONES.md).
+> página a la última; el detalle está en [LIMITACIONES.md](LIMITACIONES.md). El
+> más grande que hay en producción es el de Treeshop —3752 productos importados,
+> 2096 listables—, o sea por debajo de lo medido.
 > Dos ajustes en Configuración → Catálogo deciden qué se lista: los productos
 > sin stock se ocultan por defecto, y los sin foto se ocultan si se pide.
 
@@ -120,9 +130,13 @@ En el Admin, en Configuración:
       instrucciones —cuenta, banco, titular, a dónde mandar el comprobante—
       porque son las que ve el comprador en el checkout y en el correo.
 - [ ] **Moneda**, si opera con más de una.
-- [ ] **Envío**: la tarifa y, si corresponde, desde qué monto es gratis. Si no
-      cobra envío, dejarlo apagado — el pedido queda con envío cero y la tienda
-      no anuncia nada.
+- [ ] **Envío**: tres modos. **Apagado** —el pedido queda con envío cero y la
+      tienda no anuncia nada—, **tarifa única**, o **por zona**, con una tabla
+      de zonas editable donde cada una lleva la suya y la tarifa general pasa a
+      ser lo que paga un destino que no esté en la tabla: nunca cero (ADR-114).
+      El umbral de «gratis desde» vale en los dos modos que cobran y se compara
+      con el total ya descontado. Por zona es el modo que corre Treeshop, con
+      los dieciocho departamentos.
 - [ ] **Inteligencia artificial**, opcional: la clave de OpenAI del comercio. Sin
       ella todo funciona igual, sin sugerencias.
 - [ ] **Portada**: secciones, banner y colecciones destacadas, en Contenido.
@@ -132,11 +146,9 @@ En el Admin, en Configuración:
 ## 5. Correos
 
 - [ ] **Verificar el dominio** en `resend.com/domains` y cargar `EMAIL_FROM` con
-      una dirección de ese dominio.
-
-      **Sin esto los correos sólo llegan a la casilla del dueño de la cuenta de
-      Resend.** El pedido se crea igual y el aviso queda en la cola contando
-      intentos; el comprador no recibe nada.
+      una dirección de ese dominio. **Sin esto los correos sólo llegan a la
+      casilla del dueño de la cuenta de Resend.** El pedido se crea igual y el
+      aviso queda en la cola contando intentos; el comprador no recibe nada.
 
 - [ ] **Comprobarlo de punta a punta**: hacer un pedido de prueba con un correo
       propio y ver que llega.
@@ -156,6 +168,10 @@ En el Admin, en Configuración:
 
 - [ ] **Revisar el equipo**: que cada persona tenga el rol que le corresponde y
       no más. `staff` no toca configuración ni promociones.
+- [ ] **Agregar el dominio al latido**, en `.github/workflows/latido.yml`: la
+      home, el catálogo y el Admin del dominio nuevo. Es lo único que avisa si
+      el sitio se cayó, y no vigila un dominio que nadie le cargó
+      ([INFRAESTRUCTURA.md](INFRAESTRUCTURA.md)).
 - [ ] **Entregar [LIMITACIONES.md](LIMITACIONES.md)** al comercio. Lo que está
       ahí escrito no sorprende a nadie; lo que no, sí.
 

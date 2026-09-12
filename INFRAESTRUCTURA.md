@@ -404,11 +404,17 @@ origen: es el que usó Treeshop, que trajo su catálogo entero de un ecommerce
 anterior (ADR-111). El paso a paso de cada uno vive en
 [ONBOARDING.md](ONBOARDING.md).
 
-`.env` tiene además `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_S3_API_ENDPOINT`,
-`CLOUDFLARE_ACCESS_KEY_ID` y `CLOUDFLARE_SECRET_ACCESS_KEY`. **Ningún archivo del
-repo las lee** —comprobado por `grep` sobre todo el árbol—, así que ningún comando
-las necesita. Dos son credenciales de un almacenamiento S3, y una credencial que
-nada usa es sólo superficie de ataque: lo correcto es sacarlas del `.env`.
+`CLOUDFLARE_ACCOUNT_ID` no la lee ningún archivo del repo, pero sí la lee
+`wrangler` del entorno, y hace falta: ningún `wrangler.jsonc` declara
+`account_id`, así que sin ella un deploy a mano contra una cuenta ambigua no
+sabe a dónde ir. Va declarada en `.env.example` junto al token.
+
+Las otras tres —`CLOUDFLARE_S3_API_ENDPOINT`, `CLOUDFLARE_ACCESS_KEY_ID` y
+`CLOUDFLARE_SECRET_ACCESS_KEY`— **no las lee nada**: ni un archivo del repo ni
+una herramienta, comprobado por `grep` sobre todo el árbol. Son credenciales de
+un almacenamiento S3 que este proyecto no usa —los medios van a Supabase
+Storage, P-002 resuelta en ADR-082— y una credencial que nada usa es sólo
+superficie de ataque: lo correcto es sacarlas del `.env` y revocarlas.
 
 ### La secret key, en una línea
 
