@@ -29,6 +29,17 @@ jobs:
 
       - run: pnpm typecheck
 
+      # `format:check` existía desde la Fase 0 y el CI nunca lo invocaba: quedó
+      # en rojo con 26 archivos sin que nada avisara. Un gate que no se corre no
+      # es un gate.
+      - run: pnpm format:check
+
+      # Los documentos son autoridad en este repo y eran lo único sin compuerta.
+      # Comprueba lo que es mecánico —rutas y comandos que no existen, ADR
+      # inventados, un avance declarado fuera del ROADMAP— y nada más: que un
+      # documento diga la verdad no se puede automatizar.
+      - run: pnpm docs:check
+
       # Incluye las pruebas de aislamiento entre tenants, que corren sobre
       # Postgres en proceso (PGlite) y no necesitan Docker ni un Supabase real.
       - run: pnpm test
