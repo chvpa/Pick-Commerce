@@ -6,33 +6,40 @@ resuelven con presets, feature flags, atributos y adapters.
 
 ## Estado
 
-Fases 0 a 7 cerradas: monorepo y CI, design system, storefront con PLP facetada
-server-side y SEO, multitenancy con RLS aplicado a Supabase, catálogo en Postgres
-con CRUD e import/export en el Admin, pedidos con checkout guest e idempotencia,
-un Admin con resumen, clientes, equipo, configuración y acciones en lote, y cobro
-por pasarela con correos transaccionales.
-**Fase 8 (ERP Adapter) es la siguiente.**
+En construcción, y todavía sin ningún comercio que pague. El Core ya cubre el
+recorrido completo —catálogo, carrito, checkout, pedidos, promociones, costo de
+envío, analytics y un Admin multitenant— y se está validando contra una tienda
+real: **Treeshop** (`apps/treeshop`), la tienda del dueño del proyecto, tratada
+como si fuera un cliente para recorrer el alta de punta a punta. Está en línea
+en https://sontres.shop desde el 2026-09-11, con su catálogo importado y el
+Admin en `admin.sontres.shop` (ADR-110).
 
-El avance detallado está en [ROADMAP.md](ROADMAP.md), que es la fuente de verdad.
+Qué fase está cerrada, qué falta y qué apareció en el camino lo declara
+[ROADMAP.md](ROADMAP.md), y sólo ese documento. Lo que el sistema **no** hace,
+con el motivo y qué lo desbloquea, está en [LIMITACIONES.md](LIMITACIONES.md).
 
 ## Documentación
 
 La documentación es fuente de verdad, no notas. Leer en este orden antes de
 tocar código:
 
-| Archivo                                          | Qué responde                                                    |
-| ------------------------------------------------ | --------------------------------------------------------------- |
-| [PROJECT.md](PROJECT.md)                         | Qué es Pick Commerce, stack aprobado, arquitectura, scope de v1 |
-| [ROADMAP.md](ROADMAP.md)                         | Qué está hecho, qué falta, en qué fase estamos                  |
-| [DECISIONS.md](DECISIONS.md)                     | Por qué se decidió cada cosa (ADRs)                             |
-| [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) | Cómo desarrollar, testear y cerrar una tarea                    |
-| [CLAUDE.md](CLAUDE.md)                           | Protocolo de trabajo asistido por IA                            |
-| [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md)         | Cómo corre esto: CI, Workers, entornos y credenciales           |
+| Archivo                                          | Qué responde                                                                       |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| [PROJECT.md](PROJECT.md)                         | Qué es Pick Commerce, stack aprobado, arquitectura, scope de v1                    |
+| [ROADMAP.md](ROADMAP.md)                         | Qué está hecho, qué falta, en qué fase estamos                                     |
+| [DECISIONS.md](DECISIONS.md)                     | Por qué se decidió cada cosa (ADRs)                                                |
+| [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) | Cómo desarrollar, testear y cerrar una tarea                                       |
+| [CLAUDE.md](CLAUDE.md)                           | Protocolo de trabajo con IA, restricciones no negociables y reglas Core vs cliente |
+| [LIMITACIONES.md](LIMITACIONES.md)               | Qué **no** hace el sistema, por qué, y qué lo desbloquea                           |
+| [ONBOARDING.md](ONBOARDING.md)                   | Dar de alta un comercio de punta a punta                                           |
+| [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md)         | Cómo corre esto: CI, Workers, entornos y credenciales                              |
 
 ## Ramas
 
-`main` es la rama estable y debe quedar siempre desplegable. El trabajo va en
-ramas cortas (`feat/`, `fix/`, `chore/`) que se integran por PR con CI en verde.
+Hay una sola rama, `main`, y el trabajo va directo ahí: no hay ramas de feature
+ni PRs. Tampoco hay staging, así que lo que entra a `main` es producción y el CI
+no lo frena —corre en paralelo al deploy—. Los límites de este modelo están en
+[LIMITACIONES.md](LIMITACIONES.md).
 
 ## Trabajar en otra máquina
 
@@ -54,8 +61,7 @@ tests de base corren sobre Postgres en proceso. Lo que no anda es todo lo que
 consulta el catálogo real —`pnpm dev`, `pnpm seed`, `pnpm e2e` y los comandos de
 base—. Sin los navegadores de Playwright falla `pnpm e2e`, no el resto.
 
-Para desplegar desde local hace falta además `wrangler login`. No es necesario
-para el deploy automático, que corre en Workers Builds al hacer push.
+Para desplegar desde local hace falta además `wrangler login`.
 
 ## Requisitos
 
@@ -67,15 +73,17 @@ para el deploy automático, que corre en Workers Builds al hacer push.
 
 ```bash
 pnpm install
-pnpm dev            # admin + storefront demo en paralelo
+pnpm dev            # las tres apps en paralelo
 ```
 
-| App           | URL local             | Stack                                |
-| ------------- | --------------------- | ------------------------------------ |
-| `@pick/demo`  | http://localhost:4321 | Astro + Preact islands + Tailwind v4 |
-| `@pick/admin` | http://localhost:5273 | React + Vite + Tailwind v4           |
+| App              | URL local             | Stack                                  |
+| ---------------- | --------------------- | -------------------------------------- |
+| `@pick/demo`     | http://localhost:4321 | Astro + Preact islands + Tailwind v4   |
+| `@pick/treeshop` | http://localhost:4322 | ídem, con header, pie y preset propios |
+| `@pick/admin`    | http://localhost:5273 | React + Vite + Tailwind v4             |
 
-También `pnpm dev:demo` / `pnpm dev:admin` por separado.
+También `pnpm dev:demo` / `pnpm dev:admin` por separado, y
+`pnpm --filter @pick/treeshop dev` para la tienda del cliente.
 
 ## Comandos
 
@@ -91,6 +99,19 @@ pnpm format        # Prettier
 `pnpm e2e` construye el storefront y lo sirve con workerd antes de correr: prueba
 el artefacto que se despliega, no el dev server. Falla ante cualquier error de
 consola o respuesta HTTP >= 400 durante la navegación.
+
+Un clon recién instalado no tiene catálogo ni usuario, así que no hay con qué
+entrar al Admin: el mock in-memory no existe más y todo sale de la base.
+
+```bash
+pnpm seed                          # siembra el catálogo de la demo; idempotente
+pnpm admin:crear <email> <pass>    # usuario del Admin
+pnpm tienda:crear <slug> <nombre>  # organización, tienda, sucursal y settings
+pnpm camelot:importar --tienda <slug>   # catálogo real desde el Supabase de Camelot
+```
+
+El alta completa de un comercio, con el orden y lo que hay que cargar en cada
+paso, está en [ONBOARDING.md](ONBOARDING.md).
 
 `pnpm test` incluye las pruebas de aislamiento entre tenants, que corren sobre
 Postgres en proceso (PGlite) aplicando las migraciones reales. No necesitan
@@ -122,9 +143,14 @@ packages/
   commerce-ui/       tokens de diseño, recetas de clases e islands Preact
   commerce-astro/    componentes .astro de presentación estática
   adapter-supabase/  clientes, repositorios y sesión
+  adapter-resend/    correos transaccionales
+  adapter-payment-simulated/  pasarela de prueba; el contrato vive en el core
+  adapter-erp-estilosport/    Oracle ORDS; corre en Node, no en el Worker
+  adapter-openai/    Responses API por fetch, sin SDK
 apps/
-  admin/             Admin multitenant (SPA)
+  admin/             Admin multitenant (SPA) + el Worker de sus rutas /api/*
   demo/              storefront demo
+  treeshop/          el storefront del primer cliente; misma anatomía que demo
 supabase/            migraciones y pruebas de aislamiento entre tenants
 e2e/                 Playwright: navegación y presupuesto de performance
 ```
@@ -143,57 +169,11 @@ promociones y migraciones. Ver ENGINEERING_HARNESS.md §5–6.
 
 ## Deploy
 
-Lo que sigue es la referencia mínima; el recorrido completo —qué hace el CI, qué
-despliega Cloudflare, y por qué son independientes— está en
-[INFRAESTRUCTURA.md](INFRAESTRUCTURA.md).
+Tres Workers en Cloudflare, uno por app: `pick-commerce` sirve el storefront de
+la demo, `treeshop` el del cliente y `pick-admin` el Admin. **Sólo
+`pick-commerce` tiene Workers Builds** y sale con cada push a `main`; Treeshop y
+el Admin se despliegan a mano.
 
-Ambas apps corren sobre Cloudflare Workers, cada una con su propio Worker. El
-monorepo tiene dos apps, así que **hacen falta dos proyectos de Workers Builds**,
-y cada uno debe apuntar sólo a su app: el comando de deploy no puede correr en la
-raíz, donde no hay `wrangler.jsonc` ni el binario de wrangler.
-
-Configuración de cada proyecto en el dashboard de Cloudflare:
-
-| Ajuste         | `pick-commerce` (storefront)          | `pick-admin`                           |
-| -------------- | ------------------------------------- | -------------------------------------- |
-| Root directory | `/`                                   | `/`                                    |
-| Build command  | `pnpm --filter @pick/demo run build`  | `pnpm --filter @pick/admin run build`  |
-| Deploy command | `pnpm --filter @pick/demo run deploy` | `pnpm --filter @pick/admin run deploy` |
-
-El storefront se despliega en el Worker **`pick-commerce`**, que es el nombre que
-declara `apps/demo/wrangler.jsonc`. El nombre del archivo y el del Worker tienen
-que coincidir: si no, un deploy desde local crea un Worker nuevo en vez de
-actualizar el que sirve el sitio. Hoy el Admin todavía no está desplegado.
-
-El `run` no es opcional: `deploy` es un comando built-in de pnpm, así que
-`pnpm --filter <app> deploy` falla con `ERR_PNPM_INVALID_DEPLOY_TARGET` sin
-llegar nunca al script del paquete.
-
-Desde local, con `wrangler login` hecho:
-
-```bash
-pnpm deploy:demo     # construye y despliega el storefront
-pnpm deploy:admin    # construye y despliega el Admin
-```
-
-Para validar la configuración sin publicar nada:
-
-```bash
-pnpm --filter @pick/demo run deploy --dry-run
-```
-
-### KV de sesiones
-
-`@astrojs/cloudflare` declara siempre un binding `SESSION` sobre KV. El
-storefront todavía no usa sesiones, pero el binding viaja en la config, así que
-el primer deploy necesita que el namespace exista:
-
-```bash
-pnpm --filter @pick/demo exec wrangler kv namespace create SESSION
-```
-
-Ese comando devuelve un id. Agregarlo a `apps/demo/wrangler.jsonc`:
-
-```jsonc
-"kv_namespaces": [{ "binding": "SESSION", "id": "<id devuelto>" }]
-```
+Los comandos, la configuración de cada proyecto en Cloudflare, los dominios y
+las variables de runtime están en [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md) —§4
+el deploy, §5 las variables—, que es su única casa.
