@@ -1,7 +1,18 @@
 # Pick Commerce — PROJECT.md
 
 > Fuente de verdad funcional y arquitectónica del proyecto.  
-> Antes de desarrollar o modificar una funcionalidad, leer este archivo junto con `ROADMAP.md`, `DECISIONS.md` y `ENGINEERING_HARNESS.md`.
+> Antes de desarrollar o modificar una funcionalidad, leer el orden completo que
+> fija [CLAUDE.md](CLAUDE.md): éste,
+> [ROADMAP.md](ROADMAP.md), [DECISIONS.md](DECISIONS.md),
+> [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md),
+> [LIMITACIONES.md](LIMITACIONES.md), [ONBOARDING.md](ONBOARDING.md) e
+> [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md).
+
+Este documento dice **qué** debe ser Pick Commerce y por qué. **Qué está
+construido** lo declaran `CLAUDE.md` § «Estado actual» y
+[ROADMAP.md](ROADMAP.md), y no se repite acá: un avance escrito en dos lugares
+deja de coincidir. Varias secciones de abajo son diseño de producto todavía sin
+implementar y llevan el aviso que lo dice.
 
 ## 1. Visión
 
@@ -56,41 +67,45 @@ La plataforma debe ser dueña de la experiencia de venta, pero **no intentar con
 
 ---
 
-## 3. Arquitectura objetivo
+## 3. Arquitectura
 
 ```text
-                            CLIENTE
-                               │
-              ┌────────────────┴────────────────┐
-              │                                 │
-          STOREFRONT                         ADMIN
-            Astro                         React/Vite
-         Preact islands                      SPA
-              │                                 │
-              └──────────────┬──────────────────┘
-                             │
-                        COMMERCE API
-                             │
-       ┌────────────┬────────┼────────┬─────────────┐
-       │            │        │        │             │
-    Catalog      Orders   Customers Promotions Analytics
-       │            │
-       └────────────┼─────────────────────────────┐
-                    │                             │
-                ADAPTERS                      AI SERVICE
-                    │                             │
-       ┌────────────┼────────────┐             OpenAI API
-       │            │            │
-      ERP        Payment       Resend
-       │
-  SOURCE OF TRUTH
-
-                     COMMERCE API
-                          │
-                       MCP SERVER
-                          │
-                       ChatGPT
+            COMPRADOR                              OPERADOR
+                │                                      │
+          STOREFRONT                                ADMIN
+        Astro + Preact islands                  React/Vite SPA
+        sobre Cloudflare Workers                sobre Workers Assets
+                │                                      │
+        /api/* propio: carrito,                 worker/ en /api/*: sólo
+        checkout, webhooks                      donde hace falta la clave
+                │                               maestra de cifrado
+                │                                      │
+                └──────────────────┬───────────────────┘
+                                   │
+                        SUPABASE / POSTGRESQL
+                  funciones RPC + RLS + Supabase Auth
+             catálogo, pedidos, clientes, promociones,
+                     contenido, eventos, medios
+                                   │
+            ┌──────────┬───────────┼───────────┬───────────┐
+            │          │           │           │           │
+           ERP      Payment      Resend      OpenAI     Storage
+        entra y    simulado +    cola de     BYOK por    bucket
+        nada sale  transferencia correos     tenant     product-media
+            │
+      SOURCE OF TRUTH
 ```
+
+Dos aclaraciones sobre lo que el diagrama **no** tiene, porque versiones
+anteriores lo dibujaban:
+
+- **No existe un servicio «Commerce API» aparte.** El contrato de datos son las
+  funciones RPC de Postgres, con RLS como piso de autorización y los paquetes
+  `@pick/*` como dominio compartido. El único servidor propio es el Worker del
+  Admin, que atiende `/api/*` y existe **sólo** donde hace falta un secreto que
+  no puede estar en el navegador (ADR-103).
+- **No existe un servidor MCP.** Es v3 ([ROADMAP.md](ROADMAP.md)); las reglas
+  con que tendrá que operar están en §26 y se escribieron antes que él.
 
 ---
 
@@ -105,7 +120,9 @@ La plataforma debe ser dueña de la experiencia de venta, pero **no intentar con
 - componentes propios de Commerce
 - Cloudflare Workers
 - Cloudflare CDN
-- Cloudflare R2 para media cuando corresponda
+- Supabase Storage para media, bucket `product-media` (P-002 resuelta en
+  ADR-082). R2 queda como salida si alguna vez pesa el egress, y entrar ahí pide
+  su propio ADR
 
 ### Admin
 
@@ -147,31 +164,34 @@ La plataforma debe ser dueña de la experiencia de venta, pero **no intentar con
 
 ## 5. Repositorios y paquetes
 
-Estructura conceptual:
+Lo que hay en el disco. `CLAUDE.md` describe qué hace cada uno.
 
 ```text
 packages/
-  commerce-core/
   commerce-types/
-  commerce-api/
+  commerce-core/
   commerce-ui/
   commerce-astro/
-  commerce-search/
-  commerce-seo/
-  commerce-analytics/
   adapter-supabase/
   adapter-resend/
+  adapter-payment-simulated/
+  adapter-erp-estilosport/
   adapter-openai/
-  adapter-erp-*/
-  adapter-payment-*/
 
 apps/
   admin/
-  demo-fashion/
-  demo-sport/
-  demo-wholesale/
-  client-storefronts/
+  demo/
+  treeshop/
 ```
+
+Buscar, SEO y analytics **no** son paquetes propios: viven como módulos del
+core (`packages/commerce-core/src/seo.ts`, `analytics.ts`) porque son lógica de
+dominio sin framework y no había un segundo consumidor que justificara
+separarlos. Un paquete nuevo pide ADR.
+
+Un cliente es una app más del monorepo, no un fork ni un repo aparte: misma
+anatomía que `apps/demo`, header, pie y preset propios, y los paquetes `@pick/*`
+como fuente (ADR-110, ADR-029).
 
 Los storefronts no deben copiar el core.
 
@@ -179,10 +199,9 @@ Ejemplo de consumo:
 
 ```text
 @pick/commerce-core
+@pick/commerce-types
 @pick/commerce-ui
 @pick/commerce-astro
-@pick/commerce-search
-@pick/commerce-seo
 ```
 
 ---
@@ -210,9 +229,12 @@ Flujo esperado:
 11. Conectar dominio.
 12. Hacer primer deploy.
 
-El Admin y Commerce API no se despliegan por cliente.
+El Admin no se despliega por cliente: es uno, multitenant.
 
-Cada storefront sí puede tener un despliegue independiente.
+Cada storefront sí tiene su despliegue independiente.
+
+El alta real de un comercio, paso por paso y con los comandos que hoy existen,
+vive en [ONBOARDING.md](ONBOARDING.md).
 
 ---
 
@@ -505,6 +527,30 @@ El detalle del pedido debe conservar:
 - timeline
 - notas internas
 
+### Costo de envío
+
+El envío es una capacidad del Core, no un arreglo por fuera del sistema: sin
+él el pedido decía que se pagó menos de lo que se pagó.
+
+Tres modos por tienda:
+
+```text
+none   la tienda no cobra envío
+flat   la misma tarifa para todos
+zones  una tabla de zonas —departamento, ciudad— con su tarifa
+```
+
+En los dos que cobran hay un umbral opcional de envío gratis. En `zones`, una
+zona que no está en la tabla paga la tarifa por defecto: **un destino
+desconocido nunca sale gratis por error** (ADR-114).
+
+El importe **se calcula siempre en el servidor**, igual que el descuento:
+`create_order` lee la zona de `address.zone` y resuelve la tarifa contra la
+configuración de la tienda. El carrito no manda un costo de envío ni podría —
+sería el número que decide cuánto se cobra, elegido por quien paga (ADR-107).
+
+Transportistas, cotización en vivo y retiro en sucursal quedan fuera.
+
 ### Fuera del scope inicial
 
 - facturación
@@ -614,14 +660,21 @@ Páginas base:
 - Home
 - Collection/PLP
 - Product/PDP
-- Search
 - Cart
 - Checkout
-- Account
-- Orders
 - Policies
 - FAQ
 - 404
+
+Tres de la lista original no existen y no es un olvido:
+
+- **Search** como página propia. Buscar es un parámetro del PLP —`?q=`, con las
+  facetas y la paginación del catálogo—, así que una página aparte duplicaría la
+  misma consulta. Se agrega si la búsqueda gana algo que el PLP no pueda
+  mostrar.
+- **Account** y **Orders** del comprador. El checkout es guest: no hay cuentas
+  de comprador, así que no hay nada que mostrar detrás de un login. Lo que las
+  desbloquea es la cuenta de cliente, que es v2 ([ROADMAP.md](ROADMAP.md)).
 
 Componentes esperados:
 
@@ -664,6 +717,13 @@ Evitar componentes con decenas de props booleanas cuando composition/variants re
 
 ## 18. Presets y Feature Flags
 
+> **Diseño de producto, no estado del sistema.** Lo construido lo declaran
+> `CLAUDE.md` § «Estado actual» y [ROADMAP.md](ROADMAP.md). Hoy un preset es un
+> archivo de variables CSS que redefine los tokens —el de Treeshop está en
+> `apps/treeshop/src/styles/global.css`, ADR-110— y la tabla `feature_flags`
+> existe desde la Fase 3 sin ningún lector: ninguno de los flags de abajo
+> gobierna nada todavía.
+
 Presets iniciales posibles:
 
 - Blank
@@ -704,8 +764,13 @@ Módulos v1:
 - Contenido/CMS
 - Equipo
 - Analytics básico
-- Integraciones
 - Configuración
+
+«Integraciones» no es un módulo propio: lo que sería su contenido —medios de
+pago, moneda, envío, catálogo, modo demostración y la clave de OpenAI— vive como
+secciones de Configuración, y el import del ERP es un script de Node y no una
+pantalla (ADR-085). Un módulo aparte se justifica cuando haya una integración
+que se conecte y se diagnostique desde el Admin.
 
 Módulos posteriores:
 
@@ -719,6 +784,15 @@ Módulos posteriores:
 ---
 
 ## 20. AI Product Studio
+
+> **Diseño de producto, no estado del sistema.** Lo construido lo declaran
+> `CLAUDE.md` § «Estado actual» y [ROADMAP.md](ROADMAP.md). Lo que existe es el
+> enriquecimiento de un producto que ya está cargado: propone **cinco** campos
+> —título, descripción, marca, categoría y atributos—, mirando también las
+> fotos, no escribe nada y cada campo se aplica a mano (ADR-104). La cámara, el
+> OCR de etiqueta y la generación de imágenes no existen; tags, SEO y metadata
+> tampoco, porque el esquema de la respuesta no los declara y por eso la API no
+> los puede devolver (`packages/commerce-core/src/ai.ts`).
 
 Flujo objetivo:
 
@@ -767,6 +841,13 @@ AI no debe inventar silenciosamente:
 
 ## 21. Search
 
+> **Diseño de producto, no estado del sistema.** Lo construido lo declaran
+> `CLAUDE.md` § «Estado actual» y [ROADMAP.md](ROADMAP.md). Hoy buscar es un
+> `?q=` del PLP que exige que todos los términos aparezcan en el texto del
+> producto, resuelto en Postgres con `position()` sobre un campo normalizado:
+> sin entendimiento de intención, sin vectores y sin ranking más allá del orden
+> del catálogo. La búsqueda con LLM quedó explícitamente afuera de la Fase 11.
+
 No usar un LLM completo para cada búsqueda.
 
 Arquitectura objetivo:
@@ -803,11 +884,18 @@ Eventos mínimos:
 - search
 - search_no_results
 - add_to_cart
-- remove_from_cart
 - begin_checkout
 - checkout_completed
 - coupon_applied
-- wishlist_add
+
+Dos más de la lista original quedaron **sin emitir**, cada uno por su motivo, y
+el core los deja escritos para que nadie los reponga con JavaScript en el
+navegador (`packages/commerce-core/src/analytics.ts`):
+
+- `wishlist_add` no tiene feature que lo emita: la wishlist es v2.
+- `remove_from_cart` es el único sin momento de servidor — quitar una línea del
+  carrito no habla con nadie—. Registrarlo costaría el único script que este
+  diseño evita (ADR-099).
 
 No acoplar analytics a tablas OLTP de forma que impida migrar posteriormente a ClickHouse, BigQuery, Analytics Engine u otra solución.
 
@@ -869,16 +957,27 @@ ResendProvider
 
 Eventos:
 
-- welcome
 - order_received
 - order_confirmed
-- order_preparing
 - order_shipped
 - order_delivered
-- password_reset
-- back_in_stock cuando exista
+
+Cuatro y no los ocho de la lista original: `welcome` y `back_in_stock` exigen
+cuentas de comprador y suscripciones que no existen, y `order_preparing` es
+ruido —al comprador le importa que salió, no que lo están empacando—. Se
+agregan cuando haya a quién mandárselos
+(`packages/commerce-core/src/notifications.ts`).
+
+El reset de contraseña es del Admin y no de esta cola: lo hace Supabase Auth con
+su propio correo, no código propio (ADR-083).
+
+Las plantillas son funciones puras del core y no del adapter del proveedor: se
+prueban sin red, y el día que haya un segundo proveedor no hay que reescribirlas.
 
 Mantener `NotificationProvider` extensible.
+
+Los límites de entrega del proveedor —dominio verificado, remitente— son
+límites del sistema y su casa es [LIMITACIONES.md](LIMITACIONES.md), no ésta.
 
 ---
 
@@ -904,7 +1003,9 @@ Modelo BYOK:
 
 ### MCP
 
-Se usa cuando el usuario opera Pick Commerce desde ChatGPT.
+Se usará cuando el usuario opere Pick Commerce desde ChatGPT. El servidor MCP es
+v3 y no existe todavía ([ROADMAP.md](ROADMAP.md)); lo de abajo es el alcance
+previsto, y §26 sus reglas.
 
 Ejemplos:
 
@@ -983,6 +1084,13 @@ analyze
 
 ## 27. Demos comerciales
 
+> **Diseño de producto, no estado del sistema.** Lo construido lo declaran
+> `CLAUDE.md` § «Estado actual» y [ROADMAP.md](ROADMAP.md). De todo esto existen
+> dos piezas: `apps/demo`, una sola tienda de demostración con el catálogo que
+> siembra `scripts/seed-data.ts`, y el **modo demostración**, un interruptor por
+> tienda donde el pedido se crea y se ve pero no le escribe a nadie (ADR-108).
+> Los presets por vertical y el subdominio por prospecto no existen.
+
 Las demos deben usar producción real.
 
 Presets sugeridos:
@@ -1016,41 +1124,39 @@ Regla:
 
 ---
 
-## 28. Camelot como caso piloto de ERP
+## 28. El piloto de ERP
 
-Camelot puede usarse como caso real para validar el adapter architecture.
+El piloto de ERP es **Estilo Sport**, no Camelot: Camelot está apagado y no hay
+fecha, mientras Estilo Sport tiene un Oracle ORDS en producción, con acceso,
+con documentación de integración escrita y con una historia de incidentes
+pagados —stock por lote pisándose, pedidos enviados al ERP antes de cobrarlos—.
+Cada regla de ese documento vale más que una abstracción inventada, porque cada
+una costó un incidente (ADR-084, que supersede a ADR-018).
 
-Objetivo:
+El adapter vive en `packages/adapter-erp-estilosport/` y es el único adapter de
+ERP del repo. Corre en Node y **no** en el Worker: el `fetch()` de un Worker
+descarta el puerto no estándar y bloquea las IPs crudas, así que el importador
+es un script (ADR-085).
 
-- no reemplazar inicialmente su ecommerce/ERP actual
-- clonar/sincronizar datos en modo controlado
-- comparar catálogo, stock, precios y estructura
-- detectar diferencias
-- validar mappings
-- probar rendimiento con catálogo grande
-- evitar writes hacia ERP durante las primeras etapas
+**Una sola dirección: el ERP entra y nada sale.** La Etapa B —empujar pedidos al
+ERP— no está diferida, está **descartada para este cliente**: Estilo Sport no da
+permiso de escritura sobre su Oracle ni contra un entorno de prueba, así que ni
+el payload se puede validar, y su tienda actual ya le manda pedidos al mismo
+Oracle, que no deduplica. El contrato queda definido y el adapter declara
+`supportsOrderPush`, pero nada lo cablea (ADR-086).
 
-Primera etapa recomendada:
+Lo que esto deja sin probar hay que decirlo al vender el piloto: la arquitectura
+de adapters se validó contra un ERP real **de entrada**, que es el lado difícil
+—interpretar datos ajenos—, y el ida y vuelta completo no está validado.
 
-```text
-ERP Camelot
-   ↓ read only
-Adapter
-   ↓
-Normalizer
-   ↓
-Pick Commerce shadow catalog
-```
-
-Luego:
-
-```text
-diff
-reconciliation
-test orders
-```
-
-Sólo después evaluar writes reales.
+Camelot no desapareció, pero **no es un ERP en este sistema**: hoy es el
+Supabase de la tienda anterior de Treeshop, y su catálogo entró por
+`scripts/camelot-importar.ts`, que no implementa `ERPAdapter`. El puerto modela
+un feed de inventario —código, talla, stock, precio— y no tiene dónde llevar una
+imagen ni una marca, así que pasar una migración de catálogo por ahí perdería la
+mitad de lo que se vino a buscar. Si Camelot vuelve como fuente de stock en
+vivo, ahí sí entra por el puerto y recién ahí es el segundo ERP que prueba si el
+contrato abstrae (ADR-111).
 
 ---
 
@@ -1067,10 +1173,17 @@ Se considera listo cuando un retailer piloto puede:
 5. validar stock
 6. pagar
 7. crear pedido
-8. enviar pedido al ERP cuando corresponda
+8. traer el catálogo del ERP y mantenerlo sincronizado
 9. recibir email
 10. administrar pedido
 11. operar sin inconsistencias críticas
+
+El punto 8 decía «enviar pedido al ERP cuando corresponda», y hay que decir que
+**v1 se cierra sin eso**. No es una tarea que falte: es una decisión registrada.
+El único ERP del piloto no da permiso de escritura ni contra un entorno de
+prueba, así que el pedido de salida no se puede ni validar, y la Etapa B quedó
+descartada para este cliente (ADR-086, §28). Lo que desbloquea el punto original
+es un ERP que dé escritura, y ese será el que lo pruebe.
 
 Objetivo de robustez:
 
@@ -1426,6 +1539,14 @@ Toda query debe contemplar:
 ---
 
 ## 39. Color linking y familias de producto
+
+> **Diseño de producto, no estado del sistema.** Lo construido lo declaran
+> `CLAUDE.md` § «Estado actual» y [ROADMAP.md](ROADMAP.md). De lo de abajo hay
+> dos mitades y sólo una está hecha: el color **como variante** funciona —la PDP
+> muestra swatches y el storefront aporta el hex, porque el catálogo guarda
+> «Azul» y no un color—. La familia entre Products hermanos tiene su tabla
+> (`product_groups`, desde la Fase 4) y nada la usa: no hay flag `linkedColors`,
+> ni swatches en el Product Card, ni navegación al hermano.
 
 El sistema debe poder representar productos relacionados por color u otra dimensión comercial.
 
