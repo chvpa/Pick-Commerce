@@ -18,11 +18,11 @@
 
 # Resumen
 
-| Versión | Objetivo                                    |      Estado | Avance |
-| ------- | ------------------------------------------- | ----------: | -----: |
-| v1      | Commerce Core vendible + primer piloto real | IN PROGRESS |    98% |
-| v2      | Operación avanzada, AI Commerce y escala    |        TODO |     0% |
-| v3      | MCP, intelligence layer y expansión LATAM   |        TODO |     0% |
+| Versión | Objetivo                                    | Estado | Avance |
+| ------- | ------------------------------------------- | -----: | -----: |
+| v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
+| v2      | Operación avanzada, AI Commerce y escala    |   TODO |     0% |
+| v3      | MCP, intelligence layer y expansión LATAM   |   TODO |     0% |
 
 ---
 
@@ -129,8 +129,8 @@ Objetivo: storefront Astro funcional y rápido.
 - [x] Implementar paginación/incremental loading del PLP.
 - [x] Evitar full page reload al filtrar/ordenar. ClientRouter acotado a la PLP.
 - [x] Implementar Cart. Drawer y página `/carrito`, con el mismo contenido compartido.
-- [-] Implementar Checkout shell. Diferido a Fase 5: necesita los contratos de customer, address y order, que hoy habría que inventar.
-- [-] Implementar Account shell. Diferido a Fase 5, no a Fase 3: el Auth de Fase 3 es para usuarios del Admin, y la cuenta del storefront necesita el modelo de customer.
+- [x] Implementar Checkout shell. Se difirió a Fase 5 por los contratos de customer, address y order, y ahí se hizo: `apps/demo/src/pages/checkout/index.astro` y su gemelo en Treeshop.
+- [-] Implementar Account shell. Se difirió a Fase 5 y la Fase 5 cerró sin él: no hay ninguna ruta de cuenta en ninguno de los dos storefronts. **Pasa a la Fase 1 de v2**, que es donde vive la identidad del comprador.
 - [x] Implementar Policies/FAQ. El FAQ emite `FAQPage`.
 - [x] Implementar 404.
 - [x] Implementar metadata SEO. Canonical absoluto, Open Graph y Twitter Card.
@@ -257,14 +257,17 @@ Objetivo: operación diaria sin tocar base de datos.
 - [x] Productos.
 - [x] Pedidos.
 - [x] Clientes. Listado paginado con agregados de compra y ficha con sus pedidos.
-- [-] Promociones básicas. Diferido a Fase 9: lo desbloquea el `Promotion model`, que es de esa fase.
-- [-] CMS/Banners. Diferido a Fase 9, por lo mismo: la fase se llama «Promotions y CMS v1».
+- [x] Promociones básicas. Se difirió a Fase 9 por el `Promotion model` y ahí se hizo: `/promociones` con su alta, edición y preview de alcance.
+- [x] CMS/Banners. Ídem: las rutas `/contenido/*` existen desde la Fase 9.
 - [x] Equipo. Ver miembros, cambiar rol y quitar. El alta sigue por `pnpm admin:crear` (ADR-068).
 - [x] Roles predeterminados. Cableados en la interfaz con `usePuede`; RLS sigue siendo la autorización.
 - [x] Configuración.
 - [x] Configuración de métodos de pago habilitados.
 - [x] Configuración de moneda/tipo de cambio. Con auditoría en la misma transacción (ADR-069).
-- [-] Integraciones. Diferido a Fase 7/8: lo desbloquea el primer provider real. Hoy no hay ninguno que listar.
+- [-] Integraciones. Ya hay dos providers reales —el ERP de Estilo Sport y
+  OpenAI— y la credencial de OpenAI se administra dentro de Configuración, así
+  que no falta qué listar: falta decidir si una pantalla propia aporta algo
+  sobre eso.
 - [x] Analytics básico. Derivado de los pedidos; el seguimiento de eventos es Fase 10 (ADR-067).
 - [x] Búsqueda/filtros.
 - [x] Bulk actions prioritarias. Selección múltiple y archivar/desarchivar en lote (ADR-070).
@@ -366,8 +369,11 @@ equivocada y la medición a escala, los dos a la espera de que el Oracle respond
 - [-] Medir tiempos con catálogo grande. El bulk entero son 9032 filas en 5,4 s,
   pero sólo se escribieron 100 productos: falta medir la escritura completa.
   Se intentó el 2026-08-29 con un `--dry-run` sin límite y no se pudo: el
-  Oracle estaba caído detrás del proxy. Queda en el backlog, y la Fase 12 ya
-  tiene su propio «pruebas con catálogo grande» que lo vuelve a pedir.
+  Oracle estaba caído detrás del proxy. Queda en el backlog. Lo que la Fase 12
+  midió es la **lectura** del catálogo, no la escritura del ERP: la única
+  escritura de catálogo completo medida —3752 productos— pasó por
+  `scripts/camelot-importar.ts`, que no comparte código de escritura con
+  `scripts/erp-importar.ts`.
 - [-] Probar delta sync. **No existe en este ERP**: no hay consulta por fecha de
   cambio, así que cada sync trae el catálogo entero.
 - [x] Documentar limitaciones del ERP.
@@ -408,10 +414,11 @@ B no**. La A está cerrada; la B es el CMS.
 - [x] fixed amount.
 - [x] minimum cart.
 - [x] minimum quantity.
-- [-] free shipping. **No hay qué descontar**: verificado contra el schema, no
-  existe ningún costo de envío en el sistema —`orders` sólo tiene
-  `total_amount`—. Presupone una feature de envíos —zonas, tarifas,
-  métodos— que no está en ninguna fase. Se retoma cuando exista.
+- [-] free shipping. El costo de envío existe desde el 2026-08-30
+  —`orders.shipping_amount`, ADR-107— y desde el 2026-09-10 tiene modo por
+  zona (ADR-114), así que ya hay qué descontar. Lo que falta es el tipo de
+  promoción: `promotions.discount_type` sigue siendo
+  `check (discount_type in ('percentage', 'fixed'))`.
 - [x] coupon. Con tope de uso consumido dentro de la transacción del pedido, que
       es lo que impide que dos compras simultáneas usen el último.
 - [x] start/end date. Inicio inclusivo, fin exclusivo, con test en los dos bordes.
@@ -547,18 +554,25 @@ Objetivo: AI útil sin volverla requisito del ecommerce.
 
 ## Fase 12 — Demo + Pilot Hardening
 
-**Avance: 90%**
+**Avance: 100% — cerrada**
 
 Objetivo: vender y operar el primer piloto.
+
+Se cierra con el piloto procesando una compra completa sobre el dominio real el
+2026-09-11, que es la Definition of Done de la fase. Lo que queda abierto es del
+cliente y no del sistema —el arte del hero y de las marcas—, así que está en el
+backlog con la etiqueta Treeshop.
 
 - [-] Crear preset Blank.
 - [-] Crear preset Fashion.
 - [-] Crear preset Sport o Wholesale.
-  Los tres se difieren a v1.1 por decisión de scope. Los tokens ya están
-  construidos para recibirlos —un preset redefine variables, no clases— así
-  que la deuda es de diseño y no de arquitectura. Un preset que falta es una
-  demo que se ve como la actual, que está diseñada a propósito (ADR-027); lo
-  que sí bloqueaba plata era el envío, y ése entró.
+  Los tres se difieren por decisión de scope y **pasan a la Fase 7 de v2**:
+  el segundo cliente real es el que dice qué es un preset y qué es un
+  override. Los tokens ya están construidos para recibirlos —un preset
+  redefine variables, no clases, como quedó probado con el de Treeshop
+  (ADR-110)— así que la deuda es de diseño y no de arquitectura. Un preset
+  que falta es una demo que se ve como la actual, que está diseñada a
+  propósito (ADR-027); lo que sí bloqueaba plata era el envío, y ése entró.
 - [x] Crear demo real. Corre en producción con `pnpm seed`, y desde esta fase
       **se anuncia con el nombre de su tienda** y no con una constante (ADR-106).
 - [x] Crear seed data. `pnpm seed` y `pnpm seed:dummy`, que ahora sintetiza por
@@ -566,14 +580,15 @@ Objetivo: vender y operar el primer piloto.
 - [x] Crear modo checkout demo. El pedido se crea y se ve en el Admin, marcado, y
       no dispara correos (ADR-108).
 - [x] Crear checklist de onboarding. `ONBOARDING.md`.
-- [x] Crear observability básica. Los dos Workers tienen `observability`, y un
+- [x] Crear observability básica. Los tres Workers tienen `observability`, y un
       workflow pide el sitio cada 15 minutos y abre un issue si no responde.
 - [-] Crear error tracking. Sentry es un proveedor fuera del stack cerrado y su
   SDK de navegador solo supera el presupuesto entero del storefront. Lo que
   cubriría del lado del servidor ya lo da la observabilidad de Cloudflare.
-- [~] Crear backups/restore procedure. Los backups automáticos del proyecto
+- [-] Crear backups/restore procedure. Los backups automáticos del proyecto
   existen; **el restore no se ejerció nunca**, así que el tiempo de
-  recuperación es desconocido. Anotado en `LIMITACIONES.md`.
+  recuperación es desconocido. El ensayo queda en el backlog como v1.1 y está
+  anotado en [LIMITACIONES.md](LIMITACIONES.md).
 - [x] Revisar RLS. `pnpm rls:verificar` lo automatiza con **sesiones reales**, que
       es la capa que la suite de PGlite no toca. Cierra el ítem del backlog que
       decía que esa verificación era manual.
@@ -586,11 +601,11 @@ Objetivo: vender y operar el primer piloto.
       primera página y 229 en la 100, o sea plano. El diagnóstico anotado al
       cerrar la fase cubría la mitad del problema; quedó corregido en el backlog.
 - [x] Registrar known limitations. `LIMITACIONES.md`.
-- [~] Procesar piloto real. **En curso con Treeshop**: la app existe, el
-  catálogo de Camelot está importado y la portada se administra desde el
-  Admin. Falta el envío por departamento, el arte del hero y de las marcas,
-  y el despliegue en `sontres.shop`. El detalle vive en el backlog con la
-  etiqueta Treeshop.
+- [x] Procesar piloto real. **Treeshop**: `apps/treeshop/`, catálogo de Camelot
+      importado, portada administrable, envío por zona con los 18 departamentos
+      (ADR-114, 2026-09-10) y los tres hostnames en línea, con la compra completa
+      corrida sobre el dominio real el 2026-09-11. Queda el arte del hero y de las
+      marcas, que es del cliente: está en el backlog con la etiqueta Treeshop.
 
 **Definition of Done**
 
@@ -601,95 +616,572 @@ Objetivo: vender y operar el primer piloto.
 
 ---
 
-# v2 — Operación avanzada y AI Commerce
+# v2 — Identidad del comprador, descubrimiento y personalización
 
-## Fase 0 — Multi-location avanzado
+Reordenada respecto de la lista original por ADR-118. Las seis fases escritas no
+se descartan: **Multi-location avanzado**, **Wholesale/B2B**, **Loyalty** y lo
+que faltaba de **Advanced Analytics** se corren a la Fase 7, detrás de lo que las
+habilita; **AI Product Studio** se recorta y pasa a la Fase 5; y «Search
+avanzado» se parte en tres, porque tenía tres consecuencias de las cuentas de
+comprador —recomendaciones, vistos recientemente, recomendaciones de carrito—
+listadas como si fueran búsqueda.
+
+El orden no sale del valor percibido de cada fase, sale de tres fronteras
+técnicas que se cruzan una sola vez: `app.current_tenants()` lee `memberships`,
+así que hoy `authenticated` significa «alguien del equipo de un comercio» y hay
+34 `grant execute` escritos bajo esa premisa; wishlist, vistos recientemente,
+preferencias y recomendaciones son la misma fila de datos vista de cuatro
+maneras, y definir el customer de la sesión una vez evita reabrir las políticas
+de tres fases; y `catalog_search` se opera una sola vez, porque el ranking de la
+Fase 3 le cambia el criterio de orden y las recomendaciones de la Fase 4 le
+agregan `p_ids`.
+
+**El cobro en línea no es una fase de v2.** Sigue siendo P-001 y sigue en el
+track paralelo Payment — Paraguay, porque depende de credenciales que consigue
+el comercio: una fase que espera a un tercero deja el roadmap rehén.
+
+**Sobre lo diferido de v1.** La Fase 0 absorbe sólo los diferidos que bloquean
+algo de v2. Los demás —el `healthCheck` del ERP, la Etapa B del ERP, los
+presets, el `remove_from_cart`, los tres arreglos de stock por sucursal y el
+resto— **no se cierran antes de empezar**: cada uno va en la fase que lo
+necesita, y varios esperan a un tercero, así que juntarlos en una fase previa no
+los desbloquea. Están todos en `Backlog / Retroactividad` con su fase destino.
+
+## Fase 0 — Cerrar `authenticated` antes de abrirlo
 
 **Avance: 0%**
 
-- [ ] inventory allocation
-- [ ] pickup por sucursal
-- [ ] fulfillment routing
-- [ ] stock visibility rules
-- [ ] capability-based ERP reservations
-- [ ] inventory reconciliation avanzado
+Objetivo: que existir como usuario autenticado sin ser miembro de ningún comercio
+no dé acceso a nada, y con un test que lo afirme en vez de una coincidencia que
+lo sostenga. Es requisito de la Fase 1 y no tiene salida visible, que es justo
+por lo que se saltea.
+
+- [x] `app.consume_promotion` sale del alcance de los roles de cliente. Es
+      `security definer`, recibe un uuid arbitrario y **no comprueba ni tenant ni
+      permiso**; su único llamador es `create_order`, ya revocada de `public,
+    anon, authenticated`, así que el grant nunca hizo falta. Fueron dos
+      migraciones: revocarle a `authenticated` no alcanzó, porque sobrevive el
+      `execute` que Postgres le da a `PUBLIC` al crear la función. La primera
+      está aplicada; la segunda —`20260912183012`— **queda pendiente** de
+      `pnpm db:apply`. No era alcanzable desde internet: PostgREST expone sólo
+      el schema `public` y `anon` no tiene `usage` sobre `app`. El revoke va
+      igual porque la Fase 1 convierte `authenticated` en un rol público.
+- [ ] Un test de aislamiento en `supabase/tests/`: un usuario de `auth.users` con
+      cero filas en `memberships` recorre las 34 funciones con `grant execute` a
+      `authenticated`, más las tablas `customers`, `orders` y `order_items`, y
+      todo devuelve cero filas o excepción. **La razón real por la que hoy aguanta no
+      es RLS**: siete de esas funciones son `security definer` —RLS salteada por
+      construcción— y lo que corta es un `app.has_permission` escrito a mano
+      adentro de cada una; una de ellas devuelve el ciphertext de la credencial
+      de OpenAI. El harness ya sabe hacerlo con `set local role authenticated`.
+- [ ] `store_settings` deja de ser legible por cualquier miembro de la
+      organización. Su política de lectura acota por `app.current_tenants()` y
+      no pide ningún permiso, al contrario de la política de escritura que está
+      dos líneas más abajo en la misma migración. Se arregla antes de meter ahí los
+      interruptores de v2, porque ahí viven las zonas de envío y la
+      configuración de pagos y de catálogo.
+- [ ] Rate limiting en las rutas POST públicas del storefront: hoy
+      `api/checkout.ts` y `api/cart/validate.ts` no tienen ninguno, y el login
+      de la Fase 1 es la superficie de credential stuffing. Es una regla de
+      Cloudflare sobre la ruta del Worker: configuración e INFRAESTRUCTURA, no
+      código.
+- [ ] ADR del mecanismo de sesión del comprador, **antes** de escribirlo. Dos
+      caminos reales: Supabase Auth en el browser con la publishable key y RLS
+      por `auth.uid()`, o la sesión en cookie httpOnly del Worker con la
+      autorización en el RPC. El segundo es el patrón que ya usa todo el
+      storefront, y su costo hay que escribirlo: el Worker pasa a ser capa de
+      autorización, así que todo RPC de comprador toma el customer id **de la
+      sesión y nunca del cuerpo del pedido**.
+- [ ] Verificar `sontres.shop` en Resend y poner `EMAIL_FROM` de ese dominio.
+      Hoy cae a `onboarding@resend.dev` y sin dominio verificado Resend entrega
+      sólo a la casilla del dueño de la cuenta. Es un diferido conocido, y es del
+      usuario: la clave del `.env` es de sólo envío y no da de alta dominios.
+- [ ] ADR: por dónde salen los correos de Supabase Auth. El mailer propio de
+      Supabase tiene límite por hora y no es apto para producción; apuntarlo a
+      Resend por SMTP da un remitente **para todo el proyecto**, o sea el mismo
+      «de» para todos los comercios; el hook de envío de email de Auth contra un
+      endpoint propio da remitente por tienda. Confirmar el hook contra la doc de
+      Supabase antes de elegir. **Éste es el que desbloquea la verificación de
+      email de las cuentas, no el `EMAIL_FROM` de arriba**: son dos canales.
+- [x] El importador de Camelot deja de pisar lo que la tienda editó: respeta
+      `field_sources` para `title`, `description`, `brand`, `category_id` y
+      `status`, y el borrado de fotos se acota a las suyas (ADR-117). Sin esto,
+      lo que el enriquecimiento de ADR-104 escriba y las fotos de la Fase 5 los
+      revierte en silencio el próximo `pnpm camelot:importar`.
+- [ ] e2e parametrizable por app, con suite de Treeshop. `playwright.config.ts`
+      fija `baseURL` en la demo y `grep treeshop e2e/` da cero: el único
+      storefront en producción es el único que no se prueba.
+- [x] Una corrida local de `pnpm e2e` deja de ensuciar el proyecto real.
+      `scripts/preparar-storefront-e2e.ts` le ponía «Pick Demo (smoke)» a la
+      tienda de la demo y le pisaba el envío; `scripts/limpiar-e2e.ts` la
+      restituye.
+- [x] El latido vigila el piloto: `.github/workflows/latido.yml` pide también
+      `sontres.shop`, su catálogo y `admin.sontres.shop`. Antes sólo miraba la
+      demo, así que la tienda del cliente podía estar caída sin que nadie se
+      enterara.
+- [ ] La transferencia bancaria pasa de hueco a método de primera clase:
+      instrucciones en el checkout, comprobante subido a Supabase Storage
+      (ADR-082, ya en el stack) y visible en el pedido del Admin. Es con lo que
+      se cobra hoy y lo va a seguir usando quien no tenga tarjeta.
+- [ ] Medir la fuga de la transferencia con lo que ya existe: **no** sirve
+      `begin_checkout` contra `checkout_completed` —ningún evento guarda el
+      método de pago, y con transferencia `checkout_completed` dispara después de
+      que `create_order` creó el pedido—. El dato es la antigüedad de
+      `orders.payment_status = 'pending'`. Es una consulta, y decide el peso del
+      track de Payment.
+- [ ] El texto de privacidad deja de prometer lo que v2 va a hacer:
+      `apps/treeshop/src/lib/contenido.ts` publica «esa cookie no se cruza con
+      tus datos de cliente», y la sesión de comprador y el perfil de preferencias
+      cruzan exactamente eso. Se corrige acá, no después.
+- [ ] Paginación de colecciones en el Admin. `contenido.ts:107-118` trae la tabla
+      entera sin `.range()` ni `.limit()`, contra la restricción no negociable de
+      paginación. (`secciones()` también, y eso está bien: una portada acota su
+      propio tamaño.)
+- [x] `pnpm format:check` en verde y en el CI, junto con `pnpm docs:check`.
+      Estaba en rojo y el CI no lo invocaba: era el único gate del repo que
+      mentía.
+
+**Definition of Done**
+
+- [ ] un usuario autenticado sin membresía no llega a ninguna fila ni a ninguna
+      función, y hay un test que lo comprueba rompiéndolo a propósito
+- [ ] un correo de prueba llega a una dirección que no es la del dueño de la
+      cuenta de Resend, verificado leyendo las cabeceras
+- [ ] `pnpm e2e` corre contra Treeshop y no deja rastro en el proyecto real
+- [ ] el comercio puede ver el comprobante de una transferencia en el pedido
 
 ---
 
-## Fase 1 — Wholesale / B2B
+## Fase 1 — Identidad del comprador
 
 **Avance: 0%**
 
-- [ ] MOQ.
-- [ ] case packs.
-- [ ] quantity breaks.
-- [ ] customer-specific pricing.
-- [ ] wholesale customer groups.
-- [ ] bulk ordering.
-- [ ] minimum order rules.
+Objetivo: una persona crea cuenta, entra, ve sus pedidos —incluidos los que hizo
+como invitada con ese mismo email— y no vuelve a tipear su dirección. Hoy el
+storefront no tiene **ningún** lookup de pedidos: quien compró no puede volver a
+ver lo que compró, y el motivo está escrito en `confirmacion.astro` —la
+numeración es secuencial y sería enumerable—.
+
+- [ ] ADR: `auth.users` es **uno solo por proyecto** y lo comparten todos los
+      tenants, porque hay un solo Supabase; la pertenencia a una tienda vive en
+      `customer_accounts (user_id, tenant_id, store_id, customer_id)` con
+      `unique (store_id, user_id)` y `unique (store_id, customer_id)`. Es el
+      punto donde el diseño se arruina sin que nada falle en el typecheck.
+      Ningún mensaje de la interfaz revela si un email ya existe: con un pool
+      compartido, eso es enumeración de clientes entre comercios.
+- [ ] Entrar con código por email (OTP), sin contraseña: es login y verificación
+      a la vez, no hay hash que guardar ni flujo de reset propio, y la
+      verificación —requisito del vínculo de más abajo— sale gratis.
+- [ ] `app.current_customer(p_store uuid)`, `security definer` con `search_path`
+      fijo, que resuelve `auth.uid()` a `customer_accounts.customer_id`. **Las
+      políticas de comprador nunca usan `app.current_tenants()`**: esa función lee
+      `memberships` y significa «staff del comercio»; copiar el patrón de staff
+      le daría a un comprador la tienda entera.
+- [ ] Políticas `for select` de comprador en `orders`, `order_items` y
+      `order_events`, por `customer_id = app.current_customer(store_id)`. Con eso
+      `public.order_json` sirve «mi pedido» **sin escribir una función nueva**:
+      es `language sql stable` y security invoker, así que lo filtra RLS.
+- [ ] `customer_orders(p_store_id, p_page, p_per_page)` para el **listado**:
+      paginado y con techo, como todo listado del repo —`order_json` devuelve un
+      pedido, no una página—. Y nunca búsqueda por `order_number`.
+- [ ] `customers.user_id` no existe como columna nueva si alcanza
+      `customer_accounts`; si se agrega, va `add column` sin default y el índice
+      por separado. **`create index concurrently` no se puede usar acá**:
+      `pnpm db:apply` postea el archivo como un `query` a la API de Management, o
+      sea dentro de una transacción, y el harness de PGlite aplica cada `.sql`
+      con `db.exec`, que también lo es. Sobre 3752 filas un `create index` común
+      tarda milisegundos.
+- [ ] La sesión del comprador en cookie httpOnly desde el middleware, con
+      refresh del lado del servidor, y las lecturas con el cliente del usuario y
+      no con `clienteDeServidor`, que saltea RLS. **Es el único camino del
+      storefront donde RLS protege de verdad.** El storefront no manda
+      supabase-js al navegador y eso sigue así: nada de una island de auth con la
+      publishable key.
+- [ ] Todas las páginas de cuenta on-demand, ninguna prerenderizada: con Workers
+      Assets una prerenderizada se sirve del disco sin ejecutar el Worker, así
+      que una página con sesión se vería bien en `astro dev` y saldría igual para
+      todos al desplegar (ADR-099).
+- [ ] Vincular el historial de invitado: al verificar el email,
+      `customer_accounts` apunta al `customers` que ya existe, porque la tabla
+      tiene `unique (store_id, email)` y `create_order` hace upsert por email
+      desde la Fase 5. **`create_order` no se toca en toda la fase.** El vínculo
+      exige el email verificado antes: si no, registrarse con el correo de otro
+      entrega sus pedidos.
+- [ ] Checkout con sesión: email prellenado y fijo. Si el comprador escribe otro,
+      el pedido se cuelga de otro `customers` y no aparece en su cuenta; es el
+      único agujero funcional del diseño y se cierra en el formulario. **El
+      checkout guest no se toca**, ni se pide cuenta para comprar.
+- [ ] `customer_addresses` por cuenta, con la misma forma de dirección que ya
+      consume el envío por zona —`create_order` lee `address.zone` (ADR-114)—:
+      volver a tipear el departamento en cada compra es la fricción real. El
+      pedido sigue guardando su snapshot en `orders.address`.
+- [ ] Entrada «Mi cuenta» en el header. En `Header.astro` hay un comentario
+      explicando por qué no está: un ícono que promete algo que no existe es peor
+      que no tenerlo.
+- [ ] Tests: la suite de `supabase/tests/` ya finge `auth.uid()` y crea los roles
+      en `harness.ts`, así que «un comprador de A no ve pedidos de B» y «no ve los
+      de otro comprador de A» entran sin infraestructura nueva. Más
+      `pnpm rls:verificar` con un JWT de comprador real, que es el único que
+      prueba el proyecto remoto, y e2e adversarial y no sólo el camino feliz.
+- [ ] Interruptor por tienda en `store_settings`. **No en `feature_flags`**: esa
+      tabla existe desde la Fase 3 y nada en el código la lee, mientras
+      `store_settings` ya se memoiza una vez por request.
+
+**Definition of Done**
+
+- [ ] un comprador entra con su email, ve sus pedidos anteriores y sólo los suyos
+- [ ] el pedido que hizo como invitada aparece en la cuenta que creó después
+- [ ] un comercio puede vender con las cuentas apagadas, sin cambiar nada
+- [ ] `pnpm rls:verificar` con un JWT de comprador, en verde y con la evidencia
 
 ---
 
-## Fase 2 — AI Product Studio
+## Fase 2 — Wishlist y vistos recientemente
 
 **Avance: 0%**
 
-- [ ] mobile camera flow.
-- [ ] multi-angle upload.
-- [ ] label capture.
-- [ ] barcode/OCR.
-- [ ] product draft.
-- [ ] batch image generation.
-- [ ] background presets.
-- [ ] shadow/no-shadow.
-- [ ] model/editorial outputs.
-- [ ] review/approve/regenerate.
-- [ ] publish flow.
+Objetivo: guardar un producto y encontrarlo desde otro dispositivo, y que el
+sitio recuerde qué se estuvo mirando. Es lo primero que paga la identidad, y es
+chica a propósito: sirve de prueba de que la Fase 1 quedó bien.
+
+- [ ] `wishlist_items (tenant_id, store_id, customer_id, product_id, created_at)`
+      con `unique (store_id, customer_id, product_id)` y políticas por
+      `app.current_customer`. Producto y no variante: el corazón vive en la
+      tarjeta del catálogo, que no elige talle.
+- [ ] Sin sesión la wishlist vive en `localStorage` —mismo patrón que el carrito,
+      ADR-039— y se fusiona al entrar; el `unique` hace la fusión idempotente por
+      construcción. Un corazón que exige registrarse para funcionar es la razón
+      por la que nadie lo toca.
+- [ ] Emitir `wishlist_add`, que cierra el ítem diferido de la Fase 10. Es uno de
+      los diez eventos de PROJECT.md §22 y **no** está en `TIPOS_DE_EVENTO`: hay
+      que sumarlo ahí y encontrarle su momento de servidor, como a los otros
+      ocho. El motivo por el que falta está escrito en
+      `packages/commerce-core/src/analytics.ts`.
+- [ ] `session_identities`, con la sesión, el tenant, la tienda, el customer y
+      la fecha del vínculo: es la tabla que `store_events` dejó prometida en su
+      comentario —«se asocia a una persona sólo si algún día hay un evento de
+      identificación legítimo, y eso es otra tabla»— y que PROJECT.md §23 exige
+      separada del log anónimo. Es lo que hace que la sesión de media hora rodante
+      deje de ser el techo de lo que el sitio pueda recordar.
+- [ ] Un índice de `store_events` por sesión. Los dos que hay son
+      `(store_id, occurred_at desc)` y `(store_id, type, occurred_at desc)`: leer
+      los `product_view` de un visitante es hoy un scan sobre la tabla que más
+      crece del esquema, en la portada y en la PLP. Es el patrón que ya produjo
+      los 2,3 segundos del catálogo.
+- [ ] «Vistos recientemente» derivado de `store_events.product_view`, que ya se
+      registra del lado del servidor sin una línea de JavaScript, cruzado por
+      `session_identities`. Cero tracking nuevo.
+- [ ] La pantalla de wishlist muestra lo no disponible en vez de esconderlo: un
+      producto guardado puede quedar fuera del catálogo por archivado, sin stock o
+      sin foto, y desaparecerlo en silencio parece un bug de la wishlist.
+
+**Definition of Done**
+
+- [ ] un producto guardado sin sesión sigue guardado después de entrar, una sola vez
+- [ ] la wishlist de un comprador no es visible para otro, con su test de aislamiento
+- [ ] `wishlist_add` aparece en `store_events` y suma en el panel de analytics
 
 ---
 
-## Fase 3 — Search avanzado
+## Fase 3 — El buscador que encuentra
 
 **Avance: 0%**
 
-- [ ] hybrid keyword + vector search.
-- [ ] ranking.
-- [ ] typo handling.
-- [ ] semantic fallback.
-- [ ] recommendations.
-- [ ] recently viewed.
-- [ ] cart recommendations.
-- [ ] image search prototype.
+Objetivo: escribir «zapatila» encuentra zapatillas, buscar con acento o sin
+acento da lo mismo, y los resultados vienen ordenados por relevancia. Sin IA, sin
+costo por consulta, y con cobertura real en CI.
+
+- [ ] El punto de partida, medido y no supuesto: `catalog_search` arma el heno
+      como `lower(title || brand || string_agg(skus))` **para cada producto activo
+      de la tienda en cada petición** y compara con `position()`. No hay índice
+      que pueda servir eso mientras se calcule ahí. El trabajo de 2287 a 233 ms
+      arregló la paginación y la serialización, no el predicado: sigue entero.
+- [ ] ADR: el documento de búsqueda se **materializa**, y cómo. Una columna
+      generada sólo puede leer columnas de su propia fila, así que título, marca y
+      descripción entran pero los SKU (`product_variants`) y la categoría
+      (`categories`) no: o es una columna mantenida por trigger sobre tres tablas
+      —editar un SKU tiene que ensuciar la fila del padre— o es una tabla lateral.
+      Es un valor derivado con alguien que tiene que acordarse de actualizarlo,
+      que es lo que el comentario de `vendidas` rechaza cinco líneas más arriba:
+      hay que decir por qué acá sí.
+- [ ] El acento se pliega con `translate()` dentro de esa expresión, **no** con
+      `unaccent`. No es que falte —está en el build de PGlite que usa la suite—:
+      es que `unaccent(text)` es STABLE y no IMMUTABLE, así que es ilegal en una
+      columna generada y en un índice de expresión sin envolverla en una función
+      propia marcada immutable a mano, una mentira que habría que asumir y
+      registrar. `translate()` es core, immutable, indexable y se testea sin base.
+- [ ] Índice GIN de trigramas, con `pg_trgm` cargado en `supabase/tests/harness.ts`,
+      que hoy construye `new PGlite()` sin extensiones. La extensión **está** en el
+      build, así que son tres líneas y el buscador nuevo queda cubierto por
+      Postgres real en CI. Sin eso el índice no existe en los tests y se probaría
+      un plan que no es el de producción.
+- [ ] Ranking con `similarity()` y tolerancia a tipeo con el operador `%`, más
+      prefijo para quien todavía está escribiendo. Hoy `sort=relevance` con
+      término de búsqueda ordena por `created_at`, o sea por orden de carga. Sin
+      ranking, tolerar tipeos empeora el resultado: trae ruido sin ordenarlo, así
+      que el ranking no es opcional dentro de la fase.
+- [ ] Los SKU van por coincidencia exacta o por prefijo, aparte del score difuso.
+      Un SKU no es difuso: meterlo en los trigramas hace que «A12» traiga medio
+      catálogo, y las consultas por código son buena parte del tráfico real.
+- [ ] ADR que enmienda **ADR-055**, que fija el contrato literal
+      `catalog_search(tienda, q) ≡ queryCatalog(activos(tienda), q)` con 24 casos
+      por los dos caminos y dice «nada de `pg_trgm`». Cambiar el predicado deja
+      eso inexpresable en TypeScript: hay que elegir entre portar la matemática de
+      trigramas al core —duplicar lógica difícil— o acotar la paridad a todo lo
+      que no es el término de búsqueda. Recomendado lo segundo, dicho por escrito:
+      la paridad es la única defensa del repo contra fallos silenciosos de facetas
+      (ADR-050).
+- [ ] Cero resultados deja de ser una página vacía: sugerencia más lo más vendido.
+      `search_no_results` ya se registra y ya hay panel, así que el acierto de
+      esta línea se mide con datos propios.
+- [ ] Sugerencias mientras se escribe: un RPC chico sobre el mismo índice, con
+      tope y debounce. El diálogo del buscador ya existe y hoy envía a ciegas a
+      `/catalogo?q=`.
+- [ ] El corte de página sigue yendo antes de armar el documento, y se mide la
+      página 100 y no la 1: Postgres 17 empuja sólo el límite superior del
+      `row_number()`. Y se mide con los 2096 productos de Treeshop, no con la
+      demo: el problema del catálogo grande apareció recién con volumen.
+- [ ] El test adversarial que el backlog dice que faltó: el camino de búsqueda
+      nuevo contra datos de otra tienda. `p_store_id` es un parámetro más y
+      olvidarlo no rompe nada visible — ni el typecheck, ni el e2e, ni la pantalla.
+
+**Definition of Done**
+
+- [ ] «zapatila» y «café» sin acento encuentran lo que tienen que encontrar
+- [ ] la primera página y la 100 siguen planas con el catálogo grande, con `explain analyze` a la vista
+- [ ] la suite de aislamiento arranca y cubre el camino nuevo con `pg_trgm` cargado
+- [ ] cero resultados nunca devuelve una página vacía
 
 ---
 
-## Fase 4 — Loyalty
+## Fase 4 — Recomendaciones y portada por visitante
 
 **Avance: 0%**
 
-- [ ] points ledger.
-- [ ] earn rules.
-- [ ] redemption rules.
-- [ ] tiers.
-- [ ] birthday rewards.
-- [ ] coupons/rewards.
-- [ ] enable/disable per tenant.
+Objetivo: «quien vio esto vio» y «suele comprarse con» donde está la intención
+—el PDP y el carrito— y sólo después una portada que cambia según quién la mira.
+La portada **ya varía por comercio** desde ADR-094, que la compone por secciones
+administrables; lo que falta es que varíe por **quién la mira**. Sin esa
+distinción se construía dos veces lo mismo.
+
+- [ ] `p_ids uuid[]` en `catalog_search`. Hoy no hay forma de pedir «estos
+      productos, en este orden», y sin eso ninguna lista recomendada se renderiza
+      con la misma tarjeta, las mismas promociones, el mismo stock y las mismas
+      reglas de publicación: aparecerían dos serializaciones divergentes del
+      producto. Es el cambio más chico que habilita las cuatro pantallas. **Y el
+      que mueve la autorización**: el storefront llama con la secret key, que
+      saltea RLS, y los ids salen de las preferencias privadas de un comprador —la
+      garantía de que son de _ese_ comprador la da el Worker, y eso se dice en el
+      ADR de sesión de la Fase 0.
+- [ ] Item-a-item primero, que **no necesita identidad**: co-vistas y co-compras
+      agregadas desde `store_events` y `order_items` a una tabla
+      `product_affinity` con tenant, tienda, producto, relacionado, score y
+      `computed_at`. Cubre
+      PDP, carrito y visitante anónimo, que es la mayoría del tráfico, y se puede
+      entregar con las cuentas apagadas. **Con `tenant_id` y `store_id`**: una
+      tabla de afinidad sin store scope recomienda productos de un comercio dentro
+      de otro.
+- [ ] El recálculo va donde ya va la purga, **no en un cron nuevo**. No hay
+      scheduler en el repo: ningún `triggers`/`crons` en ningún `wrangler.jsonc`,
+      ningún `pg_cron` en las migraciones, y lo único agendado es el latido, que
+      hace GETs de uptime. El patrón que el repo ya usa para trabajo periódico es
+      `purgar()` disparada oportunísticamente desde el middleware con `waitUntil`.
+      `pg_cron` no está en PGlite y dejaría la suite de aislamiento sin arrancar,
+      que es la cuarta repetición de la misma trampa.
+- [ ] Recomendaciones en el PDP y en el carrito, en ese orden, **antes** que la
+      portada: la portada es una impresión, el PDP y el carrito están en el momento
+      de la intención, y ahí una recomendación se convierte en la segunda línea del
+      pedido.
+- [ ] Perfil por cuenta: `customer_preferences` con pesos por categoría, marca y
+      rango de precio, derivado de `product_view`, `add_to_cart`, `wishlist_add` y
+      `orders`. **Materializado, no calculado por request**: `store_events` es la
+      tabla de más volumen y se purga a los 180 días, así que el perfil tiene que
+      sobrevivir a la purga y el cálculo no puede estar en el camino de la
+      respuesta.
+- [ ] Contar, no entrenar. Pesos explícitos en `commerce-core` con tests, que se
+      pueden explicar cuando el comercio pregunte por qué aparece algo. Con este
+      volumen no hay forma de evaluar un modelo y sí de explicar un peso, y no hay
+      dos implementaciones reales que justifiquen un adapter.
+- [ ] La fuente de cada sección, en los ajustes de `home_sections`:
+      `collection | recommended | recently_viewed | best_sellers`. Cero migración
+      de esquema y el vocabulario de ADR-094 intacto. Obliga a relajar
+      `home_sections_coleccion_coherente`, que es
+      `check ((type = 'products') = (collection_id is not null))` — **ese check es
+      literalmente lo que bloquea un carrusel personalizado**, y está puesto a
+      propósito para que el Admin, el storefront y el importador no repitan la
+      regla: cambiarlo es cambiar la regla en un solo lugar.
+- [ ] Arranque en frío por un solo camino de código, obligatorio: sin señal
+      suficiente —una tienda sin historia, un visitante nuevo, un crawler— se sirve
+      **siempre** la misma portada determinista, con su `h1` y su hero. La mitad de
+      los visitantes va a caer ahí, y un carrusel de recomendados vacío es peor que
+      no tenerlo. Ya pasó una vez al sacar el hero fijo.
+- [ ] Caché: una portada por persona no puede tener `cache-control: public`, y las
+      precargas del `ClientRouter` se descartan por `Sec-Purpose` y `X-moz` como ya
+      hace analytics — si no, cada hover cuenta como visita y contamina la señal.
+- [ ] Todo lo que salga de acá pasa por `catalog_search`, que ya esconde sin stock
+      y opcionalmente sin foto (ADR-112): recomendar lo que no hay es el modo de
+      falla por defecto de esta fase.
+- [ ] En el Admin: elegir la fuente por sección y **poder ver qué se le muestra a
+      un visitante nuevo**, que es el caso que nadie prueba y el que ve Google.
+
+**Definition of Done**
+
+- [ ] un visitante nuevo y un crawler ven una portada completa y estable, con `h1`
+- [ ] ninguna lista recomendada muestra un producto que el catálogo esconde
+- [ ] `product_affinity` no cruza tiendas, con su test de aislamiento
+- [ ] el recálculo corre solo y su `computed_at` se puede ver en el Admin
 
 ---
 
-## Fase 5 — Advanced Analytics
+## Fase 5 — Devolver a la vitrina lo que no se ve
 
 **Avance: 0%**
 
-- [ ] contribution margin.
-- [ ] cohort analysis.
-- [ ] RFM.
-- [ ] product profitability.
-- [ ] inventory aging.
-- [ ] Meta Ads integration.
-- [ ] Google Ads integration.
-- [ ] ROAS/MER.
-- [ ] AI business summary.
+Objetivo: recuperar como vendible alrededor de un tercio del catálogo del piloto.
+De 3752 productos importados el listado sirve 2096: 378 por falta de stock y el
+resto oculto por no tener foto (ADR-111, ADR-112). Ningún trabajo de búsqueda,
+cuenta ni recomendación puede vender un producto que la vitrina no muestra. Es el
+«AI Product Studio» del v2 escrito, recortado de once ítems a cinco.
+
+- [ ] **Antes de escribir código, pedir las fotos que faltan** a Camelot o al
+      proveedor. Si las entrega, esta fase no existe: es la opción más barata y hay
+      que agotarla primero. La tanda de agosto entró sin fotografiar y la web
+      oficial tampoco la muestra, así que probablemente no existan — pero eso se
+      pregunta antes de construir.
+- [ ] ADR: dónde corre el lote y dónde vive la clave. `PICK_AI_MASTER_KEY` vive
+      **sólo** en el Worker del Admin (ADR-103, ADR-105), y ADR-085 estableció lo
+      contrario para el trabajo por lotes: el importador del ERP es un script de
+      Node porque un Worker no sirve para eso. Mil trescientas ediciones de imagen
+      no caben en la pared de tiempo ni de subrequests de un isolate, y el script
+      de Node que sería la salida natural no tiene camino a la clave. Ese choque se
+      resuelve por ADR antes de la primera línea: es lo que frena la fase el primer
+      día.
+- [ ] Captura desde el teléfono en el Admin: el producto sin foto se fotografía y
+      sube a Supabase Storage, que ya está en el stack (ADR-082).
+- [ ] **Sólo limpieza de fondo y recorte, nunca invención.** Una imagen generada de
+      un SKU real que el modelo nunca vio es una foto falsa de un producto que
+      alguien va a recibir: eso es una devolución y un problema legal, no un
+      feature. Misma regla que ADR-104: la IA propone, la persona aplica y publica.
+- [ ] Revisar, regenerar, aprobar y publicar **en lote** sobre la lista de
+      productos sin foto: es una tanda de mil trescientos, no uno por uno. Y la
+      publicación respeta ADR-117: una reimportación no borra lo publicado.
+
+Queda fuera, del «AI Product Studio» original: lo editorial, los modelos, la
+generación en lote de variantes, el multi-ángulo, el OCR y el código de barras.
+
+**Definition of Done**
+
+- [ ] el comercio fotografía y publica un producto oculto desde el teléfono, sin ayuda
+- [ ] una tanda de cien productos se revisa y publica en una sesión
+- [ ] la cuenta de productos listables sube, y se puede decir cuánto
+
+---
+
+## Fase 6 — Búsqueda semántica y el resto de la IA, con el gasto acotado
+
+**Avance: 0%**
+
+Objetivo: buscar «algo para correr en invierno» devuelve algo razonable, el
+comercio ve cuánto le costó y hay un techo que no puede pasar. Un comercio sin
+clave de OpenAI sigue teniendo el buscador de la Fase 3, completo.
+
+- [ ] Va última por una razón medible: `vector` **no está** en el build de PGlite
+      que usa la suite de aislamiento —hay 37 extensiones y ésa no—, así que los
+      embeddings sólo se pueden verificar contra el proyecto remoto, que es la
+      validación más débil que este repo acepta. Todo lo que se puede demostrar
+      offline va antes.
+- [ ] **El control de costo es el diseño, no un seguimiento.** Los embeddings se
+      guardan por product id con un **hash del texto embebido**, y sólo se
+      recalcula lo que cambió de hash. `scripts/camelot-importar.ts` hace upsert
+      con ids estables, así que una reimportación que reescribe 3752 filas con los
+      mismos títulos no reembebe nada. Sin el hash, cada `pnpm camelot:importar` es
+      un reembedding completo del catálogo en la clave del comercio, disparado por
+      una tarea de mantenimiento que nadie asoció con un gasto.
+- [ ] Techo por tienda y contador visible, aplicados en el Worker del Admin, que es
+      el único lugar con la clave maestra y por lo tanto el único donde un
+      presupuesto se puede hacer cumplir. BYOK significa que paga el comercio: un
+      bucle descontrolado es su factura.
+- [ ] Los embeddings se calculan en un script de Node, no en el Worker, por el
+      mismo motivo que el importador del ERP (ADR-085) y con el ADR de la Fase 5 ya
+      resuelto sobre dónde vive la clave. Con `--dry-run` diciendo cuántos
+      productos y cuánto costaría **antes** de gastar.
+- [ ] Híbrido: el score léxico de la Fase 3 fusionado con similitud vectorial, con
+      pesos explícitos, y **prefiriendo lo léxico cuando la consulta parece un
+      código**. **Degrada a la Fase 3** si no hay clave, si no hay embeddings, si
+      la API falla o si tarda: la búsqueda de una tienda no puede depender de que
+      OpenAI esté arriba. El precedente es ADR-104, donde un bucket que se vuelve
+      privado hace que OpenAI reciba un 403 y la sugerencia empeore sin que nadie
+      se entere.
+- [ ] Aislamiento en el camino vectorial: el `store_id` va en el `where` y no se
+      confía en que el ranking no cruce. Un vecino más cercano no sabe de qué
+      tienda es, así que «devolvió el catálogo de otro comercio» acá es el modo de
+      falla por defecto.
+- [ ] Entran también los dos ítems que la Fase 11 de v1 difirió, que son la misma
+      forma —una llamada acotada, con esquema estricto, detrás de la clave del
+      comercio— y comparten este techo: `search query understanding` y el resumen
+      del negocio con IA.
+- [ ] Fuera de esta fase y de v2: búsqueda por imagen. Otro modelo, otro pipeline
+      de embeddings y una interfaz de cámara, sin un pedido real detrás.
+
+**Definition of Done**
+
+- [ ] un comercio sin clave de OpenAI busca igual, y se ve que es el camino léxico
+- [ ] un `--dry-run` dice cuántos productos y cuánto cuesta antes de gastar un centavo
+- [ ] una reimportación completa del catálogo no reembebe nada
+- [ ] se dice explícitamente qué se probó contra el remoto y qué no cubre la suite
+
+---
+
+## Fase 7 — Operación avanzada: lo que quedaba del v2 escrito
+
+**Avance: 0%**
+
+Objetivo: lo que el v2 original tenía adelante y que ahora sí se puede apoyar en
+algo. No es una fase que se tome entera: se toma de a un bloque, con un cliente
+real que lo pida.
+
+- [ ] **Loyalty** —ledger de puntos, reglas de acumulación y canje, niveles,
+      cumpleaños, habilitable por tenant—: recién acá. Un ledger sin sesión es un
+      ledger con clave email, y cualquiera que sepa el correo reclama los puntos.
+      En el v2 escrito estaba en la Fase 4, dos fases antes de que existiera
+      cualquier identidad de comprador. Mientras tanto, lo que un comercio quiere
+      hacer con puntos lo hace con los cupones de la Fase 9.
+- [ ] **Wholesale / B2B** —MOQ, case packs, quantity breaks, precio por cliente,
+      grupos de cliente, bulk ordering, pedido mínimo—: los grupos necesitan la
+      cuenta de la Fase 1, y el precio por cliente tiene que calcularse en el
+      servidor por el mismo camino que ya calculan el descuento y el envío
+      (`cart_promotions` y `create_order`, ADR-107 y ADR-114), extendiendo
+      `promotions.target` al grupo. No un tercer lugar donde se decide un importe.
+      **No se construye antes de que haya un cliente mayorista**: hoy es una
+      apuesta.
+- [ ] **Multi-location avanzado** —allocation, pickup por sucursal, fulfillment
+      routing, stock visibility rules, reservas del ERP por capability,
+      reconciliación avanzada—: bloqueado por el ERP real y no por prioridad. El
+      único cliente con ERP no da escritura ni contra entorno de prueba (ADR-086),
+      así que `supportsReservations` no se puede prometer ni probar, y prometerlo es
+      overselling. Y arranca por los tres arreglos del backlog y no por las
+      features: el Admin tiene un solo campo de stock por variante y lo escribe en
+      la primera sucursal de la tienda, así que construir allocation sobre eso es
+      construir sobre un bug.
+- [ ] **Advanced Analytics**, sólo lo que faltaba: cohortes y RFM, que necesitan
+      identidad de cliente entre pedidos para significar algo y son adivinanza antes
+      de la Fase 1; y envejecimiento de inventario, que sale de `inventory_levels` y
+      las fechas de los pedidos. `contribution margin` y `product profitability`
+      **ya están hechos** desde la Fase 10 Etapa B —`order_items` guarda el costo y
+      el margen no se muestra sin su cobertura, ADR-101—, así que dejan de ser ítems
+      de v2. `Meta Ads`, `Google Ads` y `ROAS/MER` salen de v2: una integración de
+      plataforma publicitaria trae su propio almacén de credenciales por tenant y su
+      propia conciliación, y eso es forma de v3.
+- [ ] Los tres presets que v1 dejó abiertos —`Blank`, `Fashion`, `Sport`—. Van acá
+      porque el segundo cliente real es el que dice qué es un preset y qué es un
+      override; hasta que exista, un preset es una conjetura con forma de código. El
+      mecanismo ya está probado con uno real: el preset de Treeshop redefine
+      variables y no pisa una sola clase de componente (ADR-110).
+
+**Definition of Done**
+
+- [ ] ningún bloque de esta fase se empieza sin un cliente real que lo pida
+- [ ] nada de acá promete una capacidad que el proveedor de abajo no tiene
 
 ---
 
@@ -785,13 +1277,16 @@ caso que prueba de verdad si el contrato abstrae (ADR-084).
 
 ## Payment — Paraguay
 
-**Avance: 0%**
+**Avance: 20%**
 
 - [ ] Bancard.
 - [ ] uPay.
 - [ ] Pagopar.
 - [ ] Dinelco.
-- [ ] transferencia.
+- [x] transferencia. Es el único medio con el que se cobra hoy: una persona mira
+      el comprobante y marca el pedido como pagado en el Admin
+      (`admin_set_payment_status`, ADR-077). Los cuatro gateways siguen esperando
+      credenciales de sandbox (P-001).
 
 ## Demos
 
@@ -843,7 +1338,7 @@ caso que prueba de verdad si el contrato abstrae (ADR-084).
 | 2026-08-29 | El `healthCheck` del adapter mira la vida del proxy, no la del ERP                             | `healthCheck()` pregunta por `/health`, la única ruta sin auth del proxy, que responde por sí misma y no toca Oracle. El 2026-08-29 devolvió 200 mientras una consulta real de stock daba 503 `ECONNABORTED` en el mismo minuto. Un sync programado lo consultaría, lo vería verde y saldría a sincronizar contra un ERP caído                                                                                                                                                                                    | Que la comprobación recorra el camino real —una consulta de stock por artículo, con timeout corto— y que el resultado distinga las dos capas en vez de colapsarlas en un booleano. Verificarlo exige el Oracle arriba: hoy sólo se puede comprobar la mitad negativa                                                            | Fase 8       | Pendiente |
 | 2026-08-29 | El Admin no tenía un idioma visual común                                                       | Cada pantalla se armó por su cuenta: el título vivía en la barra de arriba mientras el contenido empezaba sin contexto, la acción principal aparecía donde le quedara a cada una, la paginación estaba escrita cuatro veces —una ya con otro espaciado—, el mismo `<select>` existía con tres alturas y la caja de error estaba copiada en diez lugares                                                                                                                                                           | Resuelto: `components/pagina.tsx` con la distribución de Shopify, y las piezas repetidas unificadas (ADR-097)                                                                                                                                                                                                                   | Fase 9       | Resuelto  |
 | 2026-08-29 | Dos componentes `Campo` distintos en el Admin                                                  | El compartido pide `id` y usa `htmlFor`; el del formulario de producto envuelve el control en el `<label>` porque sus campos vienen de `register()` sin id. Tipográficamente ya son idénticos, así que la duplicación no se ve — pero es un lugar donde el próximo arreglo de accesibilidad puede no llegar                                                                                                                                                                                                       | Unificar cuando haya que tocar la accesibilidad de los formularios: exige inventar un id por campo en `FormularioProducto` para no cambiar nada de lo que se ve hoy                                                                                                                                                             | v1.1         | Pendiente |
-| 2026-08-29 | El smoke del carrito vacío falló una vez y no se pudo reproducir                               | Tras confirmar un pedido, `/carrito` debe decir «Tu carrito está vacío». En una corrida completa falló dos veces —en tests distintos— y en aislamiento pasa 3/3, igual que la corrida completa siguiente. `clear()` es una escritura síncrona a `localStorage` anterior al `location.assign`, así que la hipótesis obvia no explica la intermitencia                                                                                                                                                              | Instrumentar el test para volcar el `localStorage` al fallar, en vez de adivinar. Es un camino de dinero: la falla del test puede estar señalando un carrito que no se vacía                                                                                                                                                    | v1.1         | Pendiente |
+| 2026-08-29 | El smoke del carrito vacío falló una vez y no se pudo reproducir                               | Tras confirmar un pedido, `/carrito` debe decir «Tu carrito está vacío». En una corrida completa falló dos veces —en tests distintos— y en aislamiento pasa 3/3, igual que la corrida completa siguiente. `clear()` es una escritura síncrona a `localStorage` anterior al `location.assign`, así que la hipótesis obvia no explica la intermitencia                                                                                                                                                              | Resuelto el 2026-08-30 (ADR-100): la causa era una revalidación en vuelo que reescribía el carrito después del `clear()`, y `replaceLines` dejó de escribir sobre un carrito vacío (`packages/commerce-ui/src/cart/store.ts`). Mismo síntoma, mismo camino y misma intermitencia. No hay nada que instrumentar                  | v1.1         | Resuelto  |
 | 2026-08-29 | `abrirSidebar` del smoke se colgaba con el sheet ya abierto                                    | Daba por hecho que en mobile el menú estaba cerrado y esperaba a que desapareciera. Era cierto mientras toda entrada del sidebar navegaba; con «Contenido» como disclosure dejó de serlo y siete tests de mobile se quedaron esperando 30 s. La suposición estaba escrita en un comentario, no en una aserción                                                                                                                                                                                                    | Resuelto: distingue abierto de cerrándose por `data-ending-style`, el atributo que Base UI marca mientras el panel se va (ADR-098)                                                                                                                                                                                              | Fase 9       | Resuelto  |
 | 2026-08-29 | El compilador de React no está activo, y hay comentarios que dan a entender que sí             | `@vitejs/plugin-react` 6.1.0 trae `compiler` en `false` por defecto y `apps/admin/vite.config.ts` lo usa pelado; `oxc-transform-react` ni siquiera está instalado, así que no podría correr aunque se prendiera el flag. Verificado sobre el artefacto: cero ocurrencias de `compiler-runtime` y del idiom `c[0]!==` en los 69 chunks del build. Lo que sí está activo es el **lint** `react-hooks` v7, que avisa igual y hace parecer que el compilador corre. El comentario de `ListaProductos` lo da por hecho | Decidir: o se activa —y entonces medir— o se corrigen los comentarios que lo suponen. Mientras tanto, no omitir `useMemo`/`useCallback` confiando en él                                                                                                                                                                         | v1.1         | Pendiente |
 | 2026-08-29 | Colapsar la barra con el foco dentro del submenú deja el foco en el `body`                     | Ctrl/Cmd+B con el foco en «Colecciones»: el `<ul>` pasa a `display:none` y el navegador suelta el foco. Medido en Chromium: **no** es un fallo de orden de foco —el siguiente Tab va a «Clientes», que es donde correspondía— pero se pierde el anillo de foco hasta ese Tab. La APG devuelve el foco al botón del grupo                                                                                                                                                                                          | Devolver el foco al disparador cuando el submenú deja de verse, si alguna vez molesta. No se hizo ahora: es una pérdida transitoria sobre un elemento que la persona acaba de pedir ocultar, y el arreglo mete un ref y un efecto por eso solo                                                                                  | v1.1         | Pendiente |
@@ -865,7 +1360,7 @@ caso que prueba de verdad si el contrato abstrae (ADR-084).
 | 2026-08-26 | El drawer del carrito abrió vacío una vez en 3 corridas del smoke                              | Un cliente agregaba al carrito y no veía lo que agregó                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Causa encontrada el 27/08: `ADD_TO_CART_EVENT` es fire-and-forget y las dos islands hidratan por separado; si el clic llegaba antes de que el drawer montara, el evento se perdía. Ahora la apertura se pide en el módulo compartido y el drawer la consume al montar                                                           | Fase 5       | Resuelto  |
 | 2026-08-26 | El deploy de Cloudflare no espera al CI                                                        | Los dos salen del mismo push y corren en paralelo: un commit que rompe los tests llega a producción igual, y antes de que la corrida termine                                                                                                                                                                                                                                                                                                                                                                      | Desplegar desde el propio CI, como último paso después del e2e, y desconectar Workers Builds                                                                                                                                                                                                                                    | Fase 12      | Pendiente |
 | 2026-08-26 | El e2e sólo funcionaba porque lo corría un agente de código                                    | La primera corrida real del CI quedó colgada una hora en `pnpm e2e`: `astro preview` sólo se demoniza con `--background` o cuando detecta un agente, y el runner no lo es                                                                                                                                                                                                                                                                                                                                         | Bandera `--background` en `e2e/global-setup.ts`. Comprobado sin las variables del agente: sin la bandera el comando no vuelve, con ella sí. CI en verde de punta a punta en 3m 37s                                                                                                                                              | Fase 4       | Resuelto  |
-| 2026-08-26 | `pnpm format:check` está en rojo en `main`, con 50 archivos                                    | Nadie lo nota: el CI corre lint pero no el formato, así que la deuda crece en silencio                                                                                                                                                                                                                                                                                                                                                                                                                            | Correr `pnpm format` en un commit propio y agregar el paso al workflow                                                                                                                                                                                                                                                          | Fase 5       | Pendiente |
+| 2026-08-26 | `pnpm format:check` está en rojo en `main`, con 27 archivos                                    | Nadie lo nota: el CI corre lint pero no el formato, así que la deuda crece en silencio                                                                                                                                                                                                                                                                                                                                                                                                                            | Resuelto el 2026-09-12: se corrió el formateo —medido, eran 27 archivos y no 50— y el paso entró al CI junto con `pnpm docs:check`. Era el único gate del repo en rojo que nadie miraba                                                                                                                                         | Fase 5       | Resuelto  |
 | 2026-08-27 | Un comercio podía escribir stock, imágenes y variantes sobre el catálogo de otro               | Reproducido: el storefront de la víctima pasó de 30 a 10029 unidades, y su propio Admin seguía viendo 30. RLS valida la columna `tenant_id`, no de quién es el padre al que la fila apunta                                                                                                                                                                                                                                                                                                                        | Claves foráneas compuestas que llevan el tenant, en las 18 hijas. ADR-063, con 7 tests que fallan si se quita la migración                                                                                                                                                                                                      | Fase 5       | Resuelto  |
 | 2026-08-27 | `anon` conservaba `EXECUTE` sobre todas las funciones pese al `revoke ... from public`         | No explotable con funciones `security invoker`, pero la primera `security definer` —crear un pedido— habría quedado invocable desde cualquier browser                                                                                                                                                                                                                                                                                                                                                             | `revoke ... from anon` explícito. ADR-064. PGlite no puede detectarlo: se verifica contra el proyecto real                                                                                                                                                                                                                      | Fase 5       | Resuelto  |
 | 2026-08-27 | `catalog_search` nunca se probó contra datos de otra tienda                                    | El fixture creaba la tienda ajena y no le ponía productos: borrar el filtro de tienda dejaba la suite en 36/36 verde                                                                                                                                                                                                                                                                                                                                                                                              | Producto ajeno en el fixture + dos casos sobre el camino de la secret key. Con ellos, el mismo sabotaje da 17 fallos                                                                                                                                                                                                            | Fase 5       | Resuelto  |
@@ -943,86 +1438,101 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-02 | Un servidor de otra corrida en 4321 o 4322 hacía que el e2e probara **ese** build | Misma familia que la fila de abajo, pero peor porque no hay bandera que lo avise. El setup mataba el 4322 con `kill-port` y no comprobaba el resultado, y del 4321 no se ocupaba nadie: si el kill fallaba, el `wait-on` encontraba respondiendo al servidor viejo y la suite corría contra él. Dio 2 fallos en `ia.spec.ts` que no reproducían en aislamiento y no tenían relación con lo que se había tocado | Resuelto: `liberarPuerto()` comprueba si el puerto contesta, lo libera y **vuelve a comprobar**; si sigue ocupado aborta nombrando el puerto y el motivo, en vez de probar un artefacto viejo. Se aplica a 4321 y 4322. Verificado ocupando el 4321 a propósito: la suite lo detecta, lo libera y da 99/99 | v1.1 | Resuelto |
 | 2026-09-09 | El e2e está cableado a `@pick/demo`; Treeshop no tiene suite propia | `global-setup`, `global-teardown` y `playwright.config` construyen y sirven la demo. Treeshop se verificó a mano y con capturas de Playwright en cada cambio, que no es lo mismo que una suite que corra sola | Parametrizar el setup por app, o un segundo proyecto de Playwright con su `baseURL` y su build. Es lo que desbloquea que el CI pruebe al cliente | Treeshop | Pendiente |
 | 2026-09-09 | El carrusel de la portada muestra 8 productos y el cliente pidió 10 | `PRODUCTOS_POR_SECCION` es una constante del Core. Cambiarla afecta a todas las tiendas | Pasarlo a `settings.limit` de la sección, con la constante como default. Es un retoque de presentación: va al jsonb, no a una migración | Treeshop | Pendiente |
-| 2026-09-09 | Envío por departamento (Etapa 3 de Treeshop) | Camelot cobra 30 000 a los 18 departamentos, o sea que hoy es una tarifa plana. El cliente quiere la tabla editable. Toca `create_order` por cuarta vez, `OrderAddress`, el checkout y la tarjeta Envío del Admin | Resuelto el 2026-09-11 (ADR-114): `mode: 'zones'` con tabla y tarifa general para zona desconocida —nunca cero—, selector en el checkout, importe cotizado y cobrado en el servidor, editor en el Admin. Treeshop sembrado con los 18 departamentos. 4 casos en PGlite y sabotaje | Treeshop | Resuelto |
+| 2026-09-09 | Envío por departamento (Etapa 3 de Treeshop) | Camelot cobra 30 000 a los 18 departamentos, o sea que hoy es una tarifa plana. El cliente quiere la tabla editable. Toca `create_order` por cuarta vez, `OrderAddress`, el checkout y la tarjeta Envío del Admin | Resuelto el 2026-09-10 (ADR-114): `mode: 'zones'` con tabla y tarifa general para zona desconocida —nunca cero—, selector en el checkout, importe cotizado y cobrado en el servidor, editor en el Admin. Treeshop sembrado con los 18 departamentos. 4 casos en PGlite y sabotaje | Treeshop | Resuelto |
 | 2026-09-09 | `sontres.shop` no está desplegado | La app corría sólo en local. Faltaban el Worker, los secretos de runtime y el dominio, y `INFRAESTRUCTURA.md` y `ONBOARDING.md` describían un solo storefront | Resuelto el 2026-09-10: Worker `treeshop` desplegado a mano con sus secretos y `SITE_URL`, KV de sesiones creado solo, y los tres hostnames atados por API —`sontres.shop` y `www` al storefront, `admin.sontres.shop` al Admin—. Supabase Auth acepta el dominio del Admin. Los documentos describen los dos caminos de alta. Queda la propagación del DNS, que es del registrador | Treeshop | Resuelto |
 | 2026-09-10 | Resend no tiene verificado `sontres.shop` | La clave de Resend en `.env` es **de sólo envío**: no puede dar de alta dominios ni leerlos. Sin dominio verificado, los correos a compradores reales devuelven 403 | Dar de alta el dominio en el panel de Resend y cargar sus registros DNS en la zona de Cloudflare. Es del usuario; con los registros a mano, cargarlos es un minuto | Treeshop | Pendiente |
+| 2026-09-02 | La tipografía del Admin pasó de Geist a Onest sin quedar registrada | Geist se desinstaló y la familia nueva entró por el mismo camino —paquete de fontsource servido desde el propio Worker, sin pedido a Google Fonts—. Ningún documento lo menciona: `grep -i onest` sobre los ocho da cero | Anotado acá. `--font-heading` ya apuntaba a `--font-sans`, así que títulos y cuerpo cambiaron juntos sin tocar nada más (commit 21342ce) | v1.1 | Resuelto |
+| 2026-09-02 | Volver de un producto dejaba la grilla de la PLP atenuada y sin clicks | `astro:before-preparation` marcaba `#plp-resultados` con `aria-busy` —que lo atenúa y le quita los clicks— y nada lo desmarcaba. Al filtrar no hacía falta porque el router reemplaza el DOM, pero el PDP no monta el ClientRouter. No parecía un estado de carga pegado sino una página rota | Resuelto (commit 24be4ca): el atributo se limpia al volver. La restauración real del bfcache no es reproducible bajo Playwright —Chromium vuelve a pedir la página— así que el test afirma sobre el camino que sí se puede provocar, y cae en desktop y mobile si se sabotea el arreglo | v1.1 | Resuelto |
+| 2026-09-10 | El ícono de buscar de Treeshop llevaba al catálogo y no había dónde escribir | Al armar el header propio se sacó el campo de búsqueda sin poner otro: durante una semana el ícono era un control muerto. Lo reportó el cliente como «el buscador no funciona», que es el tipo de hallazgo que el harness manda al backlog | Resuelto (commit 6c9beac): el ícono abre un `<dialog>` nativo con el formulario y el catálogo lo tiene a la vista; sin JavaScript el ícono es un enlace al ancla de ese formulario. `SearchInput` acepta `id`, porque dos `id="q"` en la misma página dejaban al segundo sin etiqueta | Treeshop | Resuelto |
+| 2026-09-11 | El checkout revalidaba el carrito en bucle, desde la Fase 5 | Su propia escritura del espejo disparaba la suscripción que vuelve a validar: una petición por respuesta mientras la pantalla estuviera abierta. Medido en producción: 20 validaciones en cinco segundos. Vivió dos semanas y sólo quedó escrito dentro de una fila del changelog | Resuelto (ADR-115): una bandera corta el ciclo y el e2e cuenta las validaciones, que tienen que ser una | Fase 12 | Resuelto |
+| 2026-09-12 | El listado de colecciones del Admin trae la tabla entera | `packages/adapter-supabase/src/contenido.ts` pide `collections` sin `.range()` ni `.limit()`, y `apps/admin/src/features/contenido/Colecciones.tsx` lo consume sin paginar. Contradice la restricción no negociable de paginación, y el bloque «Data loading / Pagination» acota su alcance a «las tres listas del Admin», así que las colecciones no tenían fila | Paginarlo como las otras tres. (`secciones()` tampoco pagina y eso está bien: una portada acota su propio tamaño) | v2 Fase 0 | Pendiente |
+| 2026-09-12 | El hero y los avisos de marca de Treeshop siguen sin arte | Es lo único que queda abierto del piloto y es del cliente, no del sistema: la portada se administra desde el Admin y las piezas existen esperando la imagen | Pedirle el arte al cliente y cargarlo desde el Admin. No bloquea nada: la portada sirve igual con las secciones que ya tiene | Treeshop | Pendiente |
 
 # Changelog de avance
 
-| Fecha      | Cambio                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Fase     | Avance antes | Avance después |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | -----------: | -------------: |
-| —          | Roadmap inicial                                                                                                                                                                                                                                                                                                                                                                                                                                                     | —        |           0% |             0% |
-| 2026-08-23 | Fase 0: monorepo pnpm, TypeScript/ESLint/Prettier, Tailwind v4, paquetes `@pick/commerce-types` y `@pick/commerce-core`, apps `admin` y `demo`, CI y estructura de migraciones Supabase                                                                                                                                                                                                                                                                             | Fase 0   |           0% |            85% |
-| 2026-08-23 | Fase 0 cerrada: deploy a Cloudflare Workers por push y proyecto Supabase de desarrollo verificado                                                                                                                                                                                                                                                                                                                                                                   | Fase 0   |          85% |           100% |
-| 2026-08-23 | Fase 1: tokens de diseño, `@pick/commerce-astro` con Product Card/Price/Grid y PLP demo con catálogo mock                                                                                                                                                                                                                                                                                                                                                           | Fase 1   |           0% |            20% |
-| 2026-08-23 | Fase 1: layout (Container/Header/Footer), primeras islands (Quantity, Add to Cart) y PDP demo                                                                                                                                                                                                                                                                                                                                                                       | Fase 1   |          20% |            40% |
-| 2026-08-23 | Fase 1: Variant Selector con swatches, derivación de opciones en el core con tests, y Breadcrumb con JSON-LD                                                                                                                                                                                                                                                                                                                                                        | Fase 1   |          40% |            55% |
-| 2026-08-23 | Fase 1: recetas de clases compartidas, primitives Button/Badge y Product Gallery sin JavaScript                                                                                                                                                                                                                                                                                                                                                                     | Fase 1   |          55% |            65% |
-| 2026-08-23 | Fase 1: Hero/Banner/Categorías/Carrusel, Cart Drawer con store persistido y separación de chunks por island                                                                                                                                                                                                                                                                                                                                                         | Fase 1   |          65% |            80% |
-| 2026-08-23 | Fase 1: catálogo facetado server-side sobre ruta on-demand, con búsqueda, orden y paginación                                                                                                                                                                                                                                                                                                                                                                        | Fase 1   |          80% |            88% |
-| 2026-08-23 | Fase 1: PLP sin full reload con ClientRouter acotado, drawer mobile sin JS, y JS del storefront reducido 27%                                                                                                                                                                                                                                                                                                                                                        | Fase 1   |          88% |            92% |
-| 2026-08-23 | Fase 1 cerrada: shadcn sobre Base UI en el Admin, contrato de customización fijado con test, y regresión de tokens corregida                                                                                                                                                                                                                                                                                                                                        | Fase 1   |          92% |           100% |
-| 2026-08-24 | Smoke de navegación con Playwright en CI; corregido el panel de filtros invisible en desktop                                                                                                                                                                                                                                                                                                                                                                        | Fase 1   |         100% |           100% |
-| 2026-08-24 | Fase 2: SEO y GEO (canonical, Open Graph, JSON-LD, sitemap, robots, llms.txt), 404, políticas, FAQ y página de carrito                                                                                                                                                                                                                                                                                                                                              | Fase 2   |           0% |            80% |
-| 2026-08-24 | Correcciones de UX de la demo: sheet de filtros en mobile, orden en el PLP, "Aplicar" sólo sin JavaScript                                                                                                                                                                                                                                                                                                                                                           | Fase 2   |          80% |            85% |
-| 2026-08-24 | Fase 2 cerrada: buscador y orden del header, presupuesto de performance en CI, baseline de CWV                                                                                                                                                                                                                                                                                                                                                                      | Fase 2   |          85% |           100% |
-| 2026-08-24 | Fase 3: schema multitenant, RLS y pruebas de aislamiento sobre Postgres en proceso                                                                                                                                                                                                                                                                                                                                                                                  | Fase 3   |           0% |            55% |
-| 2026-08-24 | Migración aplicada al proyecto Supabase y aislamiento verificado con JWTs reales                                                                                                                                                                                                                                                                                                                                                                                    | Fase 3   |          55% |            65% |
-| 2026-08-24 | Fase 3 cerrada: adapter de Supabase, resolución de tenant y Auth en el Admin                                                                                                                                                                                                                                                                                                                                                                                        | Fase 3   |          65% |           100% |
-| 2026-08-26 | Fase 4: schema de catálogo, `catalog_search` con paridad verificada contra el core, y seed reproducible                                                                                                                                                                                                                                                                                                                                                             | Fase 4   |           0% |            55% |
-| 2026-08-26 | Fase 4: el storefront lee el catálogo de Postgres on-demand, sitemap dinámico, facetas declaradas por la tienda y tramos de precio                                                                                                                                                                                                                                                                                                                                  | Fase 4   |          55% |            80% |
-| 2026-08-26 | Fase 4: CRUD de productos en el Admin, con listado paginado, búsqueda por SKU y guardado atómico                                                                                                                                                                                                                                                                                                                                                                    | Fase 4   |          80% |            90% |
-| 2026-08-26 | Fase 4 cerrada: import y export de catálogo por CSV, con preview que no escribe y reporte por producto                                                                                                                                                                                                                                                                                                                                                              | Fase 4   |          90% |           100% |
-| 2026-08-26 | Storefront en línea: secretos del Worker, dirección pública corregida y falla legible cuando falta configuración                                                                                                                                                                                                                                                                                                                                                    | Fase 4   |         100% |           100% |
-| 2026-08-26 | Primera corrida real del CI: valida ADR-058 y destapa que el e2e colgaba fuera de un agente; documentada la infraestructura en INFRAESTRUCTURA.md                                                                                                                                                                                                                                                                                                                   | Fase 4   |         100% |           100% |
-| 2026-08-27 | Revisión adversarial: cerrado el agujero cross-tenant de las claves foráneas, el `EXECUTE` de `anon` y el dominio horneado en el build                                                                                                                                                                                                                                                                                                                              | Fase 5   |           0% |           100% |
-| 2026-08-27 | Fase 5 T1: schema de pedidos y `create_order` idempotente con revalidación y descuento de stock                                                                                                                                                                                                                                                                                                                                                                     | Fase 5   |          35% |           100% |
-| 2026-08-27 | Fase 5 T2 y T3: cart service, checkout, confirmación y vista de pedidos del Admin                                                                                                                                                                                                                                                                                                                                                                                   | Fase 5   |         100% |           100% |
-| 2026-08-28 | Fase 6 T1: `admin_dashboard`, `admin_customers`, `admin_team` y `admin_save_settings`, con el invariante del último owner en un trigger                                                                                                                                                                                                                                                                                                                             | Fase 6   |           0% |            40% |
-| 2026-08-28 | Fase 6 T2 y T3: resumen, clientes, equipo y configuración, con gating por rol y una pantalla por chunk                                                                                                                                                                                                                                                                                                                                                              | Fase 6   |          40% |            85% |
-| 2026-08-28 | Fase 6 cerrada: acciones en lote con TanStack Table, provisionamiento por CLI y limpieza de los pedidos que dejaba el e2e                                                                                                                                                                                                                                                                                                                                           | Fase 6   |          85% |           100% |
-| 2026-08-28 | Correcciones de uso del Admin: buscar por «#número», marcar pagado, publicar y archivar con un interruptor, y navegación con sidebar                                                                                                                                                                                                                                                                                                                                | Fase 6   |         100% |           100% |
-| 2026-08-28 | `pnpm seed:dummy`: catálogo de prueba desde dummyjson para ejercitar paginación, búsqueda y lotes; medido de paso que ninguna imagen se optimiza                                                                                                                                                                                                                                                                                                                    | Fase 6   |         100% |           100% |
-| 2026-08-29 | Fase 7 T1 y T2: `record_payment` idempotente, cola de correos por trigger, y los puertos `PaymentProvider` y `NotificationProvider` con sus adapters                                                                                                                                                                                                                                                                                                                | Fase 7   |           0% |            55% |
-| 2026-08-29 | Fase 7 T3: pasarela simulada de punta a punta, correos por Resend, medios en Supabase Storage con optimización efectiva y reset de contraseña                                                                                                                                                                                                                                                                                                                       | Fase 7   |          55% |            90% |
-| 2026-08-29 | Fase 7 cerrada: smoke del pago aprobado, rechazado y del webhook repetido; P-002 resuelta y P-001 acotada                                                                                                                                                                                                                                                                                                                                                           | Fase 7   |          90% |           100% |
-| 2026-08-29 | Fase 8: el piloto de ERP pasa de Camelot a Estilo Sport, con el puerto `ERPAdapter` en el core, el adapter del ORDS y el importador acotado. 100 productos y 194 variantes reales en la base, idempotente en la segunda corrida                                                                                                                                                                                                                                     | Fase 8   |           0% |            70% |
-| 2026-08-29 | El sidebar del Admin volvió a funcionar —los dos menús lanzaban una excepción de Base UI al abrirse— y el Admin ganó su primer smoke: 6 tests entre desktop y mobile que cubren login, menús, cambio de tienda, navegación y cierre de sesión                                                                                                                                                                                                                       | Fase 8   |          70% |            75% |
-| 2026-08-29 | Los tres códigos de un producto separados —SKU del modelo, interno del ERP, de barra del proveedor—, con el hallazgo de 7 variantes que el ERP duplica y a las que se les sumaba el stock. Fotos sin recortar y breadcrumb corregido                                                                                                                                                                                                                                | Fase 8   |          75% |            85% |
-| 2026-08-29 | Imágenes del catálogo de Estilo Sport migradas desde el proyecto del cliente al bucket propio: 129 fotos en 75 de los 100 productos, optimizadas por `/_image`, con RLS del origen verificada antes de usar su clave                                                                                                                                                                                                                                                | Fase 8   |          75% |            85% |
-| 2026-08-29 | T2 de la Etapa A: lint, typecheck, 189 unitarios, build y 59 tests de Playwright en verde. Al intentar medir a escala apareció que el `healthCheck` da verde con el ERP caído, así que vuelve a abrirse                                                                                                                                                                                                                                                             | Fase 8   |          85% |            82% |
-| 2026-08-29 | Fase 8 cerrada con la Etapa A completa. La B se descarta para este cliente, que no da escritura sobre su ERP ni contra un entorno de prueba; el `healthCheck` y la medición a escala pasan al backlog                                                                                                                                                                                                                                                               | Fase 8   |          82% |           100% |
-| 2026-08-29 | Fase 9 Etapa A: motor de promociones en el core como especificación ejecutable, tabla con su RLS y el permiso `promotion.write`, y `create_order` calculando el descuento dentro de su transacción. ADR-091 y ADR-092                                                                                                                                                                                                                                               | Fase 9   |           0% |            35% |
-| 2026-08-29 | El catálogo muestra el precio efectivo —incluido `lowest`, que gobierna el filtro y el orden por precio— y el carrito y el checkout toman el dinero de la misma función que el pedido, con desglose y campo de cupón                                                                                                                                                                                                                                                | Fase 9   |          35% |            50% |
-| 2026-08-29 | Etapa A cerrada: el Admin crea campañas sin código, con preview de alcance y gating por `promotion.write`. Verificado de punta a punta contra la tienda de Estilo Sport                                                                                                                                                                                                                                                                                             | Fase 9   |          50% |            60% |
-| 2026-08-29 | Fase 9 cerrada. Etapa B: las secciones de la home son colecciones —manual o dinámica, que es una consulta guardada—, más banners y la pantalla de categorías. `newest` y `best-selling` en las dos implementaciones. ADR-093                                                                                                                                                                                                                                        | Fase 9   |          60% |           100% |
-| 2026-08-29 | La portada pasa a componerse por **secciones** con tipo y layout: banner principal con slides, avisos, carruseles y categorías, todo ordenable. Corrige el modelo de ADR-093, que sólo servía para los carruseles. ADR-094                                                                                                                                                                                                                                          | Fase 9   |         100% |           100% |
-| 2026-08-29 | Dieciséis mejoras de uso en el Admin: confirmación en todo borrado, orden por flechas, migas de pan, íconos de acción, validación que se ve y acciones desde las listas. ADR-096                                                                                                                                                                                                                                                                                    | Fase 9   |         100% |           100% |
-| 2026-08-29 | Fase 9: el Admin se reorganiza con la distribución de Shopify —encabezado con ícono y acción principal, contenido en tarjetas, filtros y paginación adentro— y se unifican paginación, desplegables, estados vacíos y de error (ADR-097)                                                                                                                                                                                                                            |
-| 2026-08-29 | Contenido deja de ser una pantalla con pestañas: el sidebar despliega Secciones, Colecciones y Categorías, que pasan a ser rutas reales. Se va el parámetro `?tab=` y sus doce call sites sin tipar (ADR-098)                                                                                                                                                                                                                                                       |
-| 2026-08-30 | Fase 10 Etapa A: la tubería de eventos. Captura del lado del servidor —cero JavaScript nuevo—, sesión anónima sin banner, `store_events` con RLS, puerto `AnalyticsDestination` que cierra P-003, y la pantalla de Analytics en el Admin. La conversión sale de `orders` y sólo cuenta el tramo medido (ADR-099)                                                                                                                                                    |
-| 2026-08-30 | Fase 10 cerrada. Etapa B: `order_items` guarda el costo, así que hay margen —siempre con su cobertura, porque un margen parcial no es un margen—. «Lo más vendido» pasa a ser «Ventas por producto»: tabla paginada con dos modos, margen y export CSV. Y un aviso que no salió se ve en el pedido (ADR-101, ADR-102)                                                                                                                                               |
-| 2026-08-30 | Después de comprar, el carrito podía volver a llenarse: una revalidación en vuelo lo reescribía tras vaciarlo. `replaceLines` deja de resucitar un carrito vacío (ADR-100)                                                                                                                                                                                                                                                                                          |
-| 2026-08-30 | Fase 11 cerrada: BYOK con la credencial cifrada, el Worker propio del Admin y el enriquecimiento de producto que propone sin escribir                                                                                                                                                                                                                                                                                                                               | Fase 11  |           0% |           100% |
-| 2026-08-30 | Fase 12: el storefront dice el nombre de su tienda, existe el costo de envío y el modo demostración, las funciones paginadas tienen techo y v1 queda cerrada salvo el piloto                                                                                                                                                                                                                                                                                        | Fase 12  |           0% |            90% |
-| 2026-08-31 | Repaso de interfaz del Admin: panel de edición, barra de acciones al pie, desplegables de shadcn, íconos de Hugeicons, zona de arrastre, anchos de tabla, borrado y paginación de categorías, selección de categorías por sección y filtro de tiempo en clientes                                                                                                                                                                                                    | v1.1     |          98% |            98% |
-| 2026-09-01 | El listado del catálogo pasa de 2287 a 233 ms en la primera página y de 3886 a 229 en la 100, con 5006 productos: `lowest` era una subconsulta correlacionada contra un CTE, y el corte de página iba después de serializar. Eran dos costos, no uno                                                                                                                                                                                                                | v1.1     |          98% |            98% |
-| 2026-09-02 | **Treeshop**, el primer cliente real: `apps/treeshop/` como app hermana en el monorepo (ADR-110), tienda `sontres.shop` provisionada, y el catálogo de Camelot importado con `pnpm camelot:importar` —3752 productos, 10 241 variantes, 4054 fotos— con la conversión de dólares a guaraníes por producto (ADR-111). Portada sembrada con `pnpm treeshop:home`; hero y avisos de marca esperan el arte del cliente                                                  | Treeshop |           0% |            60% |
-| 2026-09-11 | Una pestaña del Admin abierta desde antes de un deploy —o sin certificado en el edge, como hubo al reatar `admin.sontres.shop`— fallaba al abrir una pantalla nueva con «Failed to fetch dynamically imported module» y quedaba ahí. `pantalla`, el único punto por donde entran las pantallas, recarga la pestaña una vez si el chunk no viene y deja el error a la vista si vuelve a fallar. Verificado sobre admin.sontres.shop cortando a propósito la primera petición del chunk de Analytics: una recarga, la pantalla aparece | Admin |          78% |            85% |
-| 2026-09-11 | **sontres.shop en línea**: los tres hostnames sirven —la tienda en el apex y `www`, el Admin en `admin.`— y la compra completa corrió sobre el dominio real. Esa corrida destapó que el checkout revalidaba el carrito **en bucle** desde la Fase 5: su propia escritura del espejo disparaba la suscripción que vuelve a validar, una petición por respuesta mientras la pantalla estuviera abierta (20 en cinco segundos, medido en producción). Una bandera lo corta y el e2e cuenta las validaciones: una | Treeshop |          78% |            85% |
-| 2026-09-11 | El envío se cobra por zona (ADR-114): tabla de zonas con tarifa general para las desconocidas, selector en el checkout, editor en el Admin; Treeshop con los 18 departamentos. Cierra la Etapa 3 del cliente. De paso, la auditoría del backlog de v1: seis filas ya estaban resueltas en código sin marcar                                                                                                                                                         | Treeshop |          78% |            85% |
-| 2026-09-10 | Treeshop abre por novedad: el importador conserva la fecha de alta de Camelot, «Novedades» es opción y default de la PLP, y «En trendy» es una colección dinámica por novedad. Al ordenar así, la tanda de agosto —sin fotografiar en Camelot— pasaba a ser las primeras seis páginas: los productos sin foto se ocultan a pedido de la tienda, con la misma mecánica que el stock y el default al revés (ADR-112)                                                  | Treeshop |          75% |            78% |
-| 2026-09-09 | Treeshop, primera ronda de correcciones del cliente sobre la tienda en local: logo inline, header pegajoso y transparente sobre el hero, pie propio, PLP con filtros como ícono y controles pastilla. En los paquetes, con default igual: slot `logo`, `CartButton` ícono, `--radius-button`, `--color-media`, flechas y auto-avance opt-in en los carruseles (ADR-113). Los productos sin stock salen del listado por defecto, con el ajuste en el Admin (ADR-112) | Treeshop |          60% |            75% |
+| Fecha      | Cambio                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Fase    | Avance antes | Avance después |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -----------: | -------------: |
+| —          | Roadmap inicial                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | —       |           0% |             0% |
+| 2026-08-23 | Fase 0: monorepo pnpm, TypeScript/ESLint/Prettier, Tailwind v4, paquetes `@pick/commerce-types` y `@pick/commerce-core`, apps `admin` y `demo`, CI y estructura de migraciones Supabase                                                                                                                                                                                                                                                                                                                                                                                                                             | Fase 0  |           0% |            85% |
+| 2026-08-23 | Fase 0 cerrada: deploy a Cloudflare Workers por push y proyecto Supabase de desarrollo verificado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Fase 0  |          85% |           100% |
+| 2026-08-23 | Fase 1: tokens de diseño, `@pick/commerce-astro` con Product Card/Price/Grid y PLP demo con catálogo mock                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Fase 1  |           0% |            20% |
+| 2026-08-23 | Fase 1: layout (Container/Header/Footer), primeras islands (Quantity, Add to Cart) y PDP demo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Fase 1  |          20% |            40% |
+| 2026-08-23 | Fase 1: Variant Selector con swatches, derivación de opciones en el core con tests, y Breadcrumb con JSON-LD                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Fase 1  |          40% |            55% |
+| 2026-08-23 | Fase 1: recetas de clases compartidas, primitives Button/Badge y Product Gallery sin JavaScript                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Fase 1  |          55% |            65% |
+| 2026-08-23 | Fase 1: Hero/Banner/Categorías/Carrusel, Cart Drawer con store persistido y separación de chunks por island                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Fase 1  |          65% |            80% |
+| 2026-08-23 | Fase 1: catálogo facetado server-side sobre ruta on-demand, con búsqueda, orden y paginación                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Fase 1  |          80% |            88% |
+| 2026-08-23 | Fase 1: PLP sin full reload con ClientRouter acotado, drawer mobile sin JS, y JS del storefront reducido 27%                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Fase 1  |          88% |            92% |
+| 2026-08-23 | Fase 1 cerrada: shadcn sobre Base UI en el Admin, contrato de customización fijado con test, y regresión de tokens corregida                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Fase 1  |          92% |           100% |
+| 2026-08-24 | Smoke de navegación con Playwright en CI; corregido el panel de filtros invisible en desktop                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Fase 1  |         100% |           100% |
+| 2026-08-24 | Fase 2: SEO y GEO (canonical, Open Graph, JSON-LD, sitemap, robots, llms.txt), 404, políticas, FAQ y página de carrito                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Fase 2  |           0% |            80% |
+| 2026-08-24 | Correcciones de UX de la demo: sheet de filtros en mobile, orden en el PLP, "Aplicar" sólo sin JavaScript                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Fase 2  |          80% |            85% |
+| 2026-08-24 | Fase 2 cerrada: buscador y orden del header, presupuesto de performance en CI, baseline de CWV                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Fase 2  |          85% |           100% |
+| 2026-08-24 | Fase 3: schema multitenant, RLS y pruebas de aislamiento sobre Postgres en proceso                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Fase 3  |           0% |            55% |
+| 2026-08-24 | Migración aplicada al proyecto Supabase y aislamiento verificado con JWTs reales                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Fase 3  |          55% |            65% |
+| 2026-08-24 | Fase 3 cerrada: adapter de Supabase, resolución de tenant y Auth en el Admin                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Fase 3  |          65% |           100% |
+| 2026-08-26 | Fase 4: schema de catálogo, `catalog_search` con paridad verificada contra el core, y seed reproducible                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Fase 4  |           0% |            55% |
+| 2026-08-26 | Fase 4: el storefront lee el catálogo de Postgres on-demand, sitemap dinámico, facetas declaradas por la tienda y tramos de precio                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Fase 4  |          55% |            80% |
+| 2026-08-26 | Fase 4: CRUD de productos en el Admin, con listado paginado, búsqueda por SKU y guardado atómico                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Fase 4  |          80% |            90% |
+| 2026-08-26 | Fase 4 cerrada: import y export de catálogo por CSV, con preview que no escribe y reporte por producto                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Fase 4  |          90% |           100% |
+| 2026-08-26 | Storefront en línea: secretos del Worker, dirección pública corregida y falla legible cuando falta configuración                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Fase 4  |         100% |           100% |
+| 2026-08-26 | Primera corrida real del CI: valida ADR-058 y destapa que el e2e colgaba fuera de un agente; documentada la infraestructura en INFRAESTRUCTURA.md                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Fase 4  |         100% |           100% |
+| 2026-08-27 | Revisión adversarial: cerrado el agujero cross-tenant de las claves foráneas, el `EXECUTE` de `anon` y el dominio horneado en el build                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Fase 5  |           0% |           100% |
+| 2026-08-27 | Fase 5 T1: schema de pedidos y `create_order` idempotente con revalidación y descuento de stock                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Fase 5  |          35% |           100% |
+| 2026-08-27 | Fase 5 T2 y T3: cart service, checkout, confirmación y vista de pedidos del Admin                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Fase 5  |         100% |           100% |
+| 2026-08-28 | Fase 6 T1: `admin_dashboard`, `admin_customers`, `admin_team` y `admin_save_settings`, con el invariante del último owner en un trigger                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Fase 6  |           0% |            40% |
+| 2026-08-28 | Fase 6 T2 y T3: resumen, clientes, equipo y configuración, con gating por rol y una pantalla por chunk                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Fase 6  |          40% |            85% |
+| 2026-08-28 | Fase 6 cerrada: acciones en lote con TanStack Table, provisionamiento por CLI y limpieza de los pedidos que dejaba el e2e                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Fase 6  |          85% |           100% |
+| 2026-08-28 | Correcciones de uso del Admin: buscar por «#número», marcar pagado, publicar y archivar con un interruptor, y navegación con sidebar                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Fase 6  |         100% |           100% |
+| 2026-08-28 | `pnpm seed:dummy`: catálogo de prueba desde dummyjson para ejercitar paginación, búsqueda y lotes; medido de paso que ninguna imagen se optimiza                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Fase 6  |         100% |           100% |
+| 2026-08-29 | Fase 7 T1 y T2: `record_payment` idempotente, cola de correos por trigger, y los puertos `PaymentProvider` y `NotificationProvider` con sus adapters                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Fase 7  |           0% |            55% |
+| 2026-08-29 | Fase 7 T3: pasarela simulada de punta a punta, correos por Resend, medios en Supabase Storage con optimización efectiva y reset de contraseña                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Fase 7  |          55% |            90% |
+| 2026-08-29 | Fase 7 cerrada: smoke del pago aprobado, rechazado y del webhook repetido; P-002 resuelta y P-001 acotada                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Fase 7  |          90% |           100% |
+| 2026-08-29 | Fase 8: el piloto de ERP pasa de Camelot a Estilo Sport, con el puerto `ERPAdapter` en el core, el adapter del ORDS y el importador acotado. 100 productos y 194 variantes reales en la base, idempotente en la segunda corrida                                                                                                                                                                                                                                                                                                                                                                                     | Fase 8  |           0% |            70% |
+| 2026-08-29 | El sidebar del Admin volvió a funcionar —los dos menús lanzaban una excepción de Base UI al abrirse— y el Admin ganó su primer smoke: 6 tests entre desktop y mobile que cubren login, menús, cambio de tienda, navegación y cierre de sesión                                                                                                                                                                                                                                                                                                                                                                       | Fase 8  |          70% |            75% |
+| 2026-08-29 | Los tres códigos de un producto separados —SKU del modelo, interno del ERP, de barra del proveedor—, con el hallazgo de 7 variantes que el ERP duplica y a las que se les sumaba el stock. Fotos sin recortar y breadcrumb corregido                                                                                                                                                                                                                                                                                                                                                                                | Fase 8  |          75% |            85% |
+| 2026-08-29 | Imágenes del catálogo de Estilo Sport migradas desde el proyecto del cliente al bucket propio: 129 fotos en 75 de los 100 productos, optimizadas por `/_image`, con RLS del origen verificada antes de usar su clave                                                                                                                                                                                                                                                                                                                                                                                                | Fase 8  |          75% |            85% |
+| 2026-08-29 | T2 de la Etapa A: lint, typecheck, 189 unitarios, build y 59 tests de Playwright en verde. Al intentar medir a escala apareció que el `healthCheck` da verde con el ERP caído, así que vuelve a abrirse                                                                                                                                                                                                                                                                                                                                                                                                             | Fase 8  |          85% |            82% |
+| 2026-08-29 | Fase 8 cerrada con la Etapa A completa. La B se descarta para este cliente, que no da escritura sobre su ERP ni contra un entorno de prueba; el `healthCheck` y la medición a escala pasan al backlog                                                                                                                                                                                                                                                                                                                                                                                                               | Fase 8  |          82% |           100% |
+| 2026-08-29 | Fase 9 Etapa A: motor de promociones en el core como especificación ejecutable, tabla con su RLS y el permiso `promotion.write`, y `create_order` calculando el descuento dentro de su transacción. ADR-091 y ADR-092                                                                                                                                                                                                                                                                                                                                                                                               | Fase 9  |           0% |            35% |
+| 2026-08-29 | El catálogo muestra el precio efectivo —incluido `lowest`, que gobierna el filtro y el orden por precio— y el carrito y el checkout toman el dinero de la misma función que el pedido, con desglose y campo de cupón                                                                                                                                                                                                                                                                                                                                                                                                | Fase 9  |          35% |            50% |
+| 2026-08-29 | Etapa A cerrada: el Admin crea campañas sin código, con preview de alcance y gating por `promotion.write`. Verificado de punta a punta contra la tienda de Estilo Sport                                                                                                                                                                                                                                                                                                                                                                                                                                             | Fase 9  |          50% |            60% |
+| 2026-08-29 | Fase 9 cerrada. Etapa B: las secciones de la home son colecciones —manual o dinámica, que es una consulta guardada—, más banners y la pantalla de categorías. `newest` y `best-selling` en las dos implementaciones. ADR-093                                                                                                                                                                                                                                                                                                                                                                                        | Fase 9  |          60% |           100% |
+| 2026-08-29 | La portada pasa a componerse por **secciones** con tipo y layout: banner principal con slides, avisos, carruseles y categorías, todo ordenable. Corrige el modelo de ADR-093, que sólo servía para los carruseles. ADR-094                                                                                                                                                                                                                                                                                                                                                                                          | Fase 9  |         100% |           100% |
+| 2026-08-29 | Dieciséis mejoras de uso en el Admin: confirmación en todo borrado, orden por flechas, migas de pan, íconos de acción, validación que se ve y acciones desde las listas. ADR-096                                                                                                                                                                                                                                                                                                                                                                                                                                    | Fase 9  |         100% |           100% |
+| 2026-08-29 | Fase 9: el Admin se reorganiza con la distribución de Shopify —encabezado con ícono y acción principal, contenido en tarjetas, filtros y paginación adentro— y se unifican paginación, desplegables, estados vacíos y de error (ADR-097)                                                                                                                                                                                                                                                                                                                                                                            |
+| 2026-08-29 | Contenido deja de ser una pantalla con pestañas: el sidebar despliega Secciones, Colecciones y Categorías, que pasan a ser rutas reales. Se va el parámetro `?tab=` y sus doce call sites sin tipar (ADR-098)                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 2026-08-30 | Fase 10 Etapa A: la tubería de eventos. Captura del lado del servidor —cero JavaScript nuevo—, sesión anónima sin banner, `store_events` con RLS, puerto `AnalyticsDestination` que cierra P-003, y la pantalla de Analytics en el Admin. La conversión sale de `orders` y sólo cuenta el tramo medido (ADR-099)                                                                                                                                                                                                                                                                                                    |
+| 2026-08-30 | Fase 10 cerrada. Etapa B: `order_items` guarda el costo, así que hay margen —siempre con su cobertura, porque un margen parcial no es un margen—. «Lo más vendido» pasa a ser «Ventas por producto»: tabla paginada con dos modos, margen y export CSV. Y un aviso que no salió se ve en el pedido (ADR-101, ADR-102)                                                                                                                                                                                                                                                                                               |
+| 2026-08-30 | Después de comprar, el carrito podía volver a llenarse: una revalidación en vuelo lo reescribía tras vaciarlo. `replaceLines` deja de resucitar un carrito vacío (ADR-100)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 2026-08-30 | Fase 11 cerrada: BYOK con la credencial cifrada, el Worker propio del Admin y el enriquecimiento de producto que propone sin escribir                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Fase 11 |           0% |           100% |
+| 2026-08-30 | Fase 12: el storefront dice el nombre de su tienda, existe el costo de envío y el modo demostración, las funciones paginadas tienen techo y v1 queda cerrada salvo el piloto                                                                                                                                                                                                                                                                                                                                                                                                                                        | Fase 12 |           0% |            90% |
+| 2026-08-31 | Repaso de interfaz del Admin: panel de edición, barra de acciones al pie, desplegables de shadcn, íconos de Hugeicons, zona de arrastre, anchos de tabla, borrado y paginación de categorías, selección de categorías por sección y filtro de tiempo en clientes                                                                                                                                                                                                                                                                                                                                                    | v1.1    |          98% |            98% |
+| 2026-09-01 | El listado del catálogo pasa de 2287 a 233 ms en la primera página y de 3886 a 229 en la 100, con 5006 productos: `lowest` era una subconsulta correlacionada contra un CTE, y el corte de página iba después de serializar. Eran dos costos, no uno                                                                                                                                                                                                                                                                                                                                                                | v1.1    |          98% |            98% |
+| 2026-09-03 | **Treeshop**, el primer cliente real: `apps/treeshop/` como app hermana en el monorepo (ADR-110), tienda `sontres.shop` provisionada, y el catálogo de Camelot importado con `pnpm camelot:importar` —3752 productos, 10 241 variantes, 4054 fotos— con la conversión de dólares a guaraníes por producto (ADR-111). Portada sembrada con `pnpm treeshop:home`; hero y avisos de marca esperan el arte del cliente                                                                                                                                                                                                  | Fase 12 |          90% |            90% |
+| 2026-09-09 | Treeshop, primera ronda de correcciones del cliente sobre la tienda en local: logo inline, header pegajoso y transparente sobre el hero, pie propio, PLP con filtros como ícono y controles pastilla. En los paquetes, con default igual: slot `logo`, `CartButton` ícono, `--radius-button`, `--color-media`, flechas y auto-avance opt-in en los carruseles (ADR-113).                                                                                                                                                                                                                                            | Fase 12 |          90% |            90% |
+| 2026-09-10 | Treeshop abre por novedad: el importador conserva la fecha de alta de Camelot, «Novedades» es opción y default de la PLP, y «En trendy» es una colección dinámica por novedad. Al ordenar así, la tanda de agosto —sin fotografiar en Camelot— pasaba a ser las primeras seis páginas: los productos sin foto se ocultan a pedido de la tienda, con la misma mecánica que el stock y el default al revés (ADR-112). Y los productos sin stock salen del listado por defecto, con el ajuste en el Admin (ADR-112)                                                                                                    | Fase 12 |          90% |            90% |
+| 2026-09-10 | El envío se cobra por zona (ADR-114): tabla de zonas con tarifa general para las desconocidas, selector en el checkout, editor en el Admin; Treeshop con los 18 departamentos. Cierra la Etapa 3 del cliente. De paso, la auditoría del backlog de v1: seis filas ya estaban resueltas en código sin marcar                                                                                                                                                                                                                                                                                                         | Fase 12 |          90% |            90% |
+| 2026-09-11 | **sontres.shop en línea**: los tres hostnames sirven —la tienda en el apex y `www`, el Admin en `admin.`— y la compra completa corrió sobre el dominio real. Esa corrida destapó que el checkout revalidaba el carrito **en bucle** desde la Fase 5: su propia escritura del espejo disparaba la suscripción que vuelve a validar, una petición por respuesta mientras la pantalla estuviera abierta (20 en cinco segundos, medido en producción). Una bandera lo corta y el e2e cuenta las validaciones: una                                                                                                       | Fase 12 |          90% |            90% |
+| 2026-09-11 | Una pestaña del Admin abierta desde antes de un deploy —o sin certificado en el edge, como hubo al reatar `admin.sontres.shop`— fallaba al abrir una pantalla nueva con «Failed to fetch dynamically imported module» y quedaba ahí. `pantalla`, el único punto por donde entran las pantallas, recarga la pestaña una vez si el chunk no viene y deja el error a la vista si vuelve a fallar. Verificado sobre admin.sontres.shop cortando a propósito la primera petición del chunk de Analytics: una recarga, la pantalla aparece                                                                                | v1.1    |            — |              — |
+| 2026-09-12 | Endurecimiento de la tanda: `app.consume_promotion` sale del alcance de los roles de cliente en dos migraciones —revocarle a `authenticated` no alcanza: sobrevive el `execute` que Postgres le da a `PUBLIC`—, y de paso queda escrito que no era alcanzable desde internet, que fue la primera hipótesis y era más grave que el hecho, el importador de Camelot respeta `field_sources` y no borra fotos ajenas (ADR-117), `scripts/limpiar-e2e.ts` restituye la tienda de la demo que el smoke renombraba, el latido vigila los tres hostnames del piloto, y el CI corre `pnpm docs:check` y `pnpm format:check` | Fase 12 |          90% |            90% |
+| 2026-09-12 | **v1 cerrada al 100%**: el piloto procesó una compra completa sobre el dominio real el 2026-09-11, que es la Definition of Done de la Fase 12. Queda el arte del hero y de las marcas, que es del cliente, en el backlog. Y v2 se reordena alrededor de las cuentas de comprador, que era lo que le faltaba (ADR-118)                                                                                                                                                                                                                                                                                               | Fase 12 |         100% |           100% |
 
 ---
 
 # Próximo paso recomendado
 
-1. Fase 0 — Foundation.
-2. Fase 1 — Design System.
-3. Fase 3 — Multitenancy/Domain Model en paralelo con Fase 2.
-4. Crear temprano el Track Camelot en modo read-only si existe acceso.
-5. No esperar a terminar todo v1 para crear la primera demo real.
+v1 está cerrada, así que lo que sigue es la Fase 0 de v2 — y no las features de
+v2, que empiezan en la Fase 1.
+
+1. Aplicar la segunda migración del revoke de `app.consume_promotion` con
+   `pnpm db:apply`: la primera está aplicada y no alcanzó, porque el `execute`
+   que Postgres le da a `PUBLIC` sobrevive a revocarle a un rol puntual.
+2. El test de aislamiento de `authenticated` sin membresía, y cerrar la lectura
+   de `store_settings`. Las dos cosas son requisito de las cuentas de comprador.
+3. El ADR del mecanismo de sesión del comprador, **antes** de escribir la Fase 1.
+4. Verificar `sontres.shop` en Resend y cargar `EMAIL_FROM`. Es del usuario.
+5. En paralelo, sin dependencias: el e2e parametrizado con suite de Treeshop, y
+   pedirle a Camelot las fotos que faltan antes de construir la Fase 5.
 
 ---
 
@@ -1032,7 +1542,7 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 
 ## UX / Interaction
 
-**Avance: 94%**
+**Avance: 100%**
 
 - [x] Definir loading/pending/error/success states para acciones asíncronas. En Add to Cart y en el login del Admin.
 - [x] Add to Cart con feedback inmediato y prevención de doble submit. El bloqueo va con un ref, no con estado: dos clicks en el mismo tick pasarían ambos.
@@ -1045,16 +1555,18 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 
 ## Data loading / Pagination
 
-**Avance: 75%**
+**Avance: 81%**
 
 - [x] Paginación PLP. Con ventana de páginas y `rel=prev/next`.
 - [x] Server-side filters/sort. Ruta on-demand; nunca se filtra en el browser (ADR-024).
 - [x] Paginación Admin Products. En el servidor, con búsqueda por título, marca y SKU.
 - [x] Paginación Admin Orders. En el servidor, con búsqueda por número, nombre, correo y teléfono, y filtro por estado.
 - [x] Paginación Admin Customers. En el servidor, con búsqueda por nombre, correo y teléfono.
-- [ ] Paginación Promotions/Discounts.
+- [x] Paginación Promotions/Discounts. En el servidor desde el 2026-08-29, con `count: 'exact'` y `range()`: el listado del Admin pide una página y dibuja su paginador.
 - [ ] Paginación Audit/Sync logs.
-- [x] Evitar fetch de datasets completos. En el storefront y en las tres listas del Admin.
+- [~] Evitar fetch de datasets completos. En el storefront y en las cuatro
+  listas paginadas del Admin. Queda una excepción: el listado de colecciones
+  trae la tabla entera, y está en el backlog con destino v2 Fase 0.
 
 ## PLP Facets
 
@@ -1065,7 +1577,10 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 - [~] Género. Declarado en `attribute_definitions` y filtrable; la faceta aparece cuando un producto lo use.
 - [x] Marca.
 - [x] Color.
-- [~] Categoría/subcategoría. Categoría lista como faceta de producto; la subcategoría espera la taxonomía de Fase 4.
+- [~] Categoría/subcategoría. Categoría lista como faceta de producto. La
+  taxonomía existe desde el 2026-08-26 —`categories.parent_id` con su
+  índice—; lo que falta es el campo padre en la pantalla de categorías del
+  Admin y el rollup del árbol en la faceta, que hoy se arma con la hoja sola.
 - [x] Precio. Cuatro tramos sobre el mínimo y el máximo del catálogo, con radios: dos tramos a la vez darían un rango contradictorio.
 - [x] Atributos dinámicos. Las facetas se proyectan desde los atributos reales de las variantes.
 - [x] Counts. Cada faceta ignora su propia selección al contar, o sus otras opciones darían cero.
@@ -1099,10 +1614,16 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 
 ## Premium Motion
 
-**Avance: 0%**
+**Avance: 40%**
 
-- [ ] Extension pattern para GSAP/Motion.
+- [ ] Extension pattern para GSAP/Motion. Ninguna librería de motion está
+      instalada: `grep` de gsap, ScrollTrigger y framer-motion sobre los
+      `package.json` no devuelve nada.
 - [ ] Carga lazy/selectiva.
 - [ ] ScrollTrigger demo.
-- [ ] Reduced motion.
-- [ ] Performance budget.
+- [x] Reduced motion. Ya cubierto — ver el bloque UX / Interaction: el
+      auto-avance de los carruseles consulta
+      `matchMedia('(prefers-reduced-motion: reduce)')` y hay `motion-reduce:` en
+      banner, categorías, hero, galería, tarjeta y carrusel de producto.
+- [x] Performance budget. Vive en `e2e/performance.spec.ts`, que lo mide sobre la
+      red y en más páginas que el presupuesto anterior (ADR-106).
