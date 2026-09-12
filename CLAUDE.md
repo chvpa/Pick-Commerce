@@ -6,7 +6,19 @@ Este repo usa IA como parte activa del desarrollo. La continuidad arquitectónic
 
 ## Estado actual
 
-**v1 cerrada: fases 0 a 12.** Lo único que queda de la 12 es procesar el piloto real, que está **en curso con Treeshop** (ADR-110): `apps/treeshop/`, catálogo importado del Supabase de Camelot, portada administrable; faltan el envío por departamento, el arte del cliente y el despliegue en `sontres.shop`. El avance real siempre está en `ROADMAP.md`; esto es sólo la orientación de arranque.
+Las fases, sus porcentajes y el estado de v1 los declara
+[ROADMAP.md](ROADMAP.md), y sólo ese documento. Acá va la orientación de
+arranque: de qué está hecho el sistema, no cuánto falta.
+
+El primer cliente es **Treeshop** (ADR-110): `apps/treeshop/`, en línea desde el
+2026-09-11 en https://sontres.shop —el apex y `www` al Worker `treeshop`, el
+Admin en `admin.sontres.shop`—, con el catálogo importado del Supabase de
+Camelot, la portada administrable y el envío por zona entregado (ADR-114). Queda
+el arte del hero y de las marcas, que es del cliente. Es la tienda personal del
+dueño del proyecto tratada como cliente para validar el producto de punta a
+punta: todavía no hay ningún comercio que pague, y lo que falta —el remitente
+propio del correo, una pasarela real— está diferido a propósito y registrado en
+[LIMITACIONES.md](LIMITACIONES.md).
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.
@@ -86,7 +98,9 @@ apps/
   treeshop/          el primer cliente real, misma anatomía que demo; header, pie y
                      preset propios (ADR-110). Corre en 4322 en local
 supabase/            migraciones y pruebas de aislamiento entre tenants
-e2e/                 Playwright: storefront, Admin y presupuesto de performance
+e2e/                 Playwright: el storefront de la demo (4321), el Admin y el
+                     presupuesto de performance. Treeshop no tiene suite: el
+                     único storefront en producción es el que no se prueba
 ```
 
 Los paquetes se consumen como fuente (`exports` → `src/`), sin build propio. Ver ADR-029.
@@ -94,9 +108,11 @@ Los paquetes se consumen como fuente (`exports` → `src/`), sin build propio. V
 ## Comandos
 
 ```bash
-pnpm dev            # admin (5273) + demo (4321)
+pnpm dev            # admin (5273) + demo (4321) + treeshop (4322)
 pnpm lint           # ESLint en todo el workspace
 pnpm typecheck      # tsc / astro check por paquete
+pnpm format:check   # Prettier sobre todo el repo; `pnpm format` escribe
+pnpm docs:check     # la compuerta de los documentos; scripts/docs-check.mjs
 pnpm test           # unitarios + aislamiento de tenants; node:test, sin runner externo
 pnpm e2e            # Playwright, desktop y mobile, contra el build de producción;
                     # incluye el presupuesto de peso por página, en gzip
@@ -106,14 +122,19 @@ pnpm db:apply <sql> # aplica una migración al proyecto remoto
 pnpm db:types       # regenera los tipos desde el schema remoto
 pnpm seed           # siembra el catálogo de demostración; idempotente
 pnpm seed:dummy [n] # catálogo de prueba desde dummyjson (--limpiar para quitarlo)
-pnpm erp:importar --tienda <slug> [--limite 100] [--dry-run]   # catálogo desde el ERP
-pnpm erp:imagenes --tienda <slug>   # fotos, desde el proyecto actual del cliente
+pnpm erp:importar --tienda <slug> [--limite 100] [--dry-run] [--desde captura.json]   # catálogo desde el ERP
+pnpm erp:imagenes --tienda <slug> [--limite N]   # fotos, desde el proyecto actual del cliente
 pnpm camelot:importar --tienda <slug> [--limite N] [--dry-run] [--imagenes]   # catálogo desde el Supabase de Camelot (ADR-111)
 pnpm treeshop:home  # siembra las secciones de la portada de Treeshop; después se administran
-pnpm tienda:crear <slug> <nombre>      # provisiona organización, tienda, sucursal y settings
+pnpm tienda:crear <slug> <nombre> [dominio] [moneda] [locale]   # provisiona organización, tienda, sucursal y settings;
+                    # el dominio no es cosmético: es la llave con la que el Worker encuentra la tienda
 pnpm admin:crear <email> <password> [rol] [org]   # usuario del Admin; sin org, la demo
 pnpm rls:verificar  # aislamiento entre comercios con sesiones reales; contra el proyecto remoto
 ```
+
+**El 4322 está pedido dos veces**: es el `astro dev` de Treeshop y, durante el
+e2e, el Worker del Admin —que además le hace `kill-port`—. No correr `pnpm e2e`
+con `pnpm dev` abierto; el propio error de `e2e/global-setup.ts` ya lo nombra.
 
 Deploy: `pnpm --filter <app> run deploy`. El `run` **no es opcional** — `deploy` es un comando built-in de pnpm y sin `run` nunca llega al script del paquete.
 
@@ -153,6 +174,11 @@ Implementar la mínima solución completa. No duplicar lógica, no hardcodear cl
 | **T2** | al cerrar una fase   | `pnpm lint`/`typecheck`/`build` + Playwright de los critical paths modificados   |
 | **T3** | pre-release / piloto | suite crítica completa, RLS, webhooks/idempotency, migraciones, smoke en staging |
 
+Dos compuertas más corren en el CI junto con `lint` y `typecheck`, y van en T1,
+no al final: `pnpm format:check`, que falla por un archivo sin formatear, y
+`pnpm docs:check`, que falla por un documento que cita un comando, una ruta, un
+enlace o un ADR que no existe —o que declara un avance, que es del ROADMAP—.
+
 Priorizar correctness de: orders, stock, payments, tenants, permissions, ERP, promotions, migrations. Baja prioridad: componentes visuales, copy, spacing.
 
 Si una tarea simple lleva más tiempo testeándose que desarrollándose, revisar el enfoque.
@@ -172,12 +198,50 @@ Fallo → causa raíz → mínimo arreglo seguro → volver a correr el test rel
 
 **Una unidad de trabajo no está terminada hasta que los documentos dicen la verdad.** No es un extra ni se deja para después: un documento desactualizado es peor que uno inexistente, porque se le cree.
 
-Al cerrar cualquier implementación:
+### Buscar el hecho antes de escribirlo
+
+«Actualizar los documentos» no alcanzó, y se sabe por qué falló: lleva a
+corregir el párrafo que se está mirando y a dejar mintiendo al otro párrafo que
+habla del mismo hecho. El commit `fa9a996` tocó **este** archivo, corrigió que
+el envío se cobra por zona y dejó intacta la frase de arranque, que seguía
+diciendo «faltan el envío por departamento»: el mismo archivo, el mismo commit,
+las dos frases sobre el mismo hecho.
+
+La regla que sí funciona: **antes de escribir un hecho, buscarlo con grep en los
+diez documentos**, y después corregirlo en todos los lugares donde aparezca — o
+mejor, borrarlo de todos menos uno.
+
+```bash
+git grep -ni "envío por zona" -- '*.md'
+```
+
+Para que ese grep tenga una sola respuesta, **cada hecho tiene un dueño y los
+demás documentos enlazan en vez de repetir**: una frase corta y un enlace
+relativo, nunca un resumen que después haya que mantener.
+
+| El hecho                                                 | Su única casa                                                                    |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Avance de las fases, porcentajes, estado de v1           | [ROADMAP.md](ROADMAP.md)                                                         |
+| Decisiones de arquitectura y su motivo                   | [DECISIONS.md](DECISIONS.md), citadas como `ADR-NNN`                             |
+| Workers, deploy, dominios, secretos, CI, diagnóstico     | [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md)                                         |
+| Qué **no** hace el sistema y qué lo desbloquea           | [LIMITACIONES.md](LIMITACIONES.md)                                               |
+| Dar de alta un comercio, paso por paso                   | [ONBOARDING.md](ONBOARDING.md)                                                   |
+| Visión, principios, scope y stack aprobado del producto  | [PROJECT.md](PROJECT.md)                                                         |
+| Cómo trabaja la IA acá: harness, restricciones, arranque | [CLAUDE.md](CLAUDE.md)                                                           |
+| El harness en extenso                                    | [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md)                                 |
+| La puerta de entrada para quien llega al repo            | [README.md](README.md)                                                           |
+| Cómo se escribe y se aplica una migración                | [supabase/migrations/README.md](supabase/migrations/README.md)                   |
+| Los comandos que existen                                 | `package.json` — `CLAUDE.md` los lista y `pnpm docs:check` comprueba que existan |
+
+### Qué tocar al cerrar una implementación
 
 - `ROADMAP.md` — marcar el checkbox, actualizar el porcentaje de la fase **y el de los bloques transversales que la tarea tocó**, agregar la fila al changelog.
 - `DECISIONS.md` (ADR-XXX) — cuando cambia arquitectura, se adopta o descarta una dependencia, aparece un tradeoff, cambia el scope o una integración obliga a modificar un contrato.
-- `CLAUDE.md` — cuando cambia el estado de las fases, aparece un paquete o un comando nuevo, o se descubre una restricción que condiciona el diseño.
-- `PROJECT.md` — sólo si cambia la fuente de verdad del producto.
+- `CLAUDE.md` — cuando aparece un paquete o un comando nuevo, cambia el árbol, o se descubre una restricción que condiciona el diseño.
+- `PROJECT.md` — cuando cambia el producto: el scope, un principio, una regla de negocio o el stack aprobado. No hay puerta de escape: la que había —«sólo si cambia la fuente de verdad del producto»— lo dejó dieciocho días sin tocar mientras el producto cambiaba.
+- `README.md`, `INFRAESTRUCTURA.md`, `LIMITACIONES.md`, `ONBOARDING.md`, `ENGINEERING_HARNESS.md` y `supabase/migrations/README.md` — cuando la tarea tocó lo que cada uno posee en la tabla de arriba. Los cinco primeros son los que más se desactualizaron, y el motivo es que no estaban en esta lista.
+
+Al terminar, correr `pnpm docs:check`. Corta las formas mecánicas de mentir —un comando retirado, una ruta que ya no existe, un enlace roto, un ADR que nadie escribió, un avance declarado fuera del ROADMAP—, y ninguna de las otras: que un párrafo diga la verdad no se puede automatizar.
 
 También va al `ROADMAP.md` lo que aparece y no estaba previsto: un bloqueo, o una tarea retroactiva que descubrió el trabajo. Si no bloquea la fase actual, va a `Backlog / Retroactividad` en vez de interrumpirla — **y ese backlog vacío es una señal de que no se está registrando, no de que no haya hallazgos**.
 
@@ -231,7 +295,7 @@ Cada regla sale de un fallo real cometido en este repo, y cada una costó un cic
 
 # Documentación de terceros
 
-El conocimiento previo del modelo está desactualizado respecto de este repo: cuando se creó, el ecosistema ya iba en Astro 7, Vite 8 y TypeScript 7. **No decidir sobre comportamiento de terceros desde memoria.**
+El conocimiento previo del modelo está desactualizado respecto de este repo: cuando se creó, el ecosistema ya iba en Astro 7, Vite 8 y TypeScript 6. **No decidir sobre comportamiento de terceros desde memoria.**
 
 Ir a la documentación oficial cuando:
 
@@ -285,6 +349,28 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
   para descartar `b - a`. Por eso el corte de página va antes de armar el
   documento, y por eso medir sólo la primera página no prueba nada.
 - El `ClientRouter` **precarga todos los enlaces** al pasar el mouse por encima, y no hay que declarar nada para que pase: cada precarga es un GET real al Worker. Lo que cuente peticiones tiene que descartarlas por `Sec-Purpose` y `X-moz`.
+- **PostgREST corta en 1000 filas y no avisa que hay más**, y paginar sin
+  `order` no garantiza que dos páginas sean disjuntas: la segunda corrida de un
+  importador da por nuevos productos que ya estaban, y con las variantes falla
+  una de cada dos veces. El daño lo evitaron los índices únicos de `handle` y
+  `sku`, no el script (ADR-111).
+- Con un cliente de Supabase todavía abierto, `process.exit()` dispara una
+  aserción de libuv en Windows y tumba el proceso que lo invocó. Salir por
+  `process.exitCode`, como hacen todos los scripts de `scripts/`.
+- Una suscripción a un store **no distingue la escritura propia de la ajena**:
+  un suscriptor que escribe se llama a sí mismo en bucle —el checkout hacía una
+  revalidación por respuesta desde la Fase 5, 20 en cinco segundos, medido en
+  producción—. La guarda va en el llamador (ADR-115, que corrige la lectura de
+  ADR-100).
+- Una pestaña del Admin abierta desde antes de un deploy **pierde sus chunks** y
+  muere con «Failed to fetch dynamically imported module» al abrir la primera
+  pantalla que no tenía cargada. No falla al compilar ni en local: aparece
+  recién con un despliegue encima de una sesión abierta (ADR-116).
+- Un importador que reimporta **pisa lo que la tienda editó** si no mira el
+  dueño de cada campo: `field_sources` declara el origen y sólo los campos
+  marcados como del ERP se sobreescriben. Y el borrado de medios se acota a los
+  propios —los de Camelot viven bajo `<tenant>/camelot/`—, porque «borrar y
+  volver a subir» se lleva también las fotos que subió la tienda (ADR-117).
 
 ---
 
@@ -294,17 +380,28 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..114 + decisiones pendientes P-001..005.
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..119 y dos decisiones pendientes:
+   P-001 (primer gateway real) y P-005 (CLI/provisioner). P-002, P-003 y P-004
+   están resueltas.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.
 5. [LIMITACIONES.md](LIMITACIONES.md) — qué **no** hace el sistema, con el motivo
    y qué lo desbloquea. Es lo que se le entrega a un piloto.
 6. [ONBOARDING.md](ONBOARDING.md) — dar de alta un comercio de punta a punta.
 7. [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md) — cómo corre el proyecto: CI, Workers,
    entornos, credenciales y diagnóstico.
+8. [README.md](README.md) — la puerta de entrada del repo, para quien llega sin
+   contexto.
+9. [supabase/migrations/README.md](supabase/migrations/README.md) — cómo se
+   escribe y se aplica una migración.
+
+Son los diez documentos versionados del repo, contando a este: son los que
+`pnpm docs:check` recorre y los que hay que grepear antes de escribir un hecho.
 
 El protocolo de trabajo con IA, las reglas Core vs cliente y las de UX viven en
-**este** archivo. Hubo un `AGENTS.md` con esa parte y se disolvió acá: tener dos
-documentos sobre lo mismo garantizaba que uno de los dos quedara viejo.
+**este** archivo. Hubo un `AGENTS.md` con esa parte —una copia byte a byte con
+«Codex» en lugar de «Claude», congelada en ADR-109 mientras este archivo seguía
+cambiando— y se borró: tener dos documentos sobre lo mismo garantizaba que uno
+de los dos quedara viejo, y ahora `docs:check` falla si reaparece.
 
 Si el código contradice un documento, no asumir que el código gana: identificar si es bug, deuda o decisión nueva, y registrarlo.
 
@@ -315,6 +412,7 @@ Si el código contradice un documento, no asumir que el código gana: identifica
 Rompen la arquitectura si se violan, y no son obvias desde el código:
 
 - **Un solo Commerce Core.** Nada de forks por industria o cliente (`Pick Fashion`, etc.). Las diferencias van en presets, feature flags, attributes y adapters. No hardcodear nombres de clientes en el Core.
+  - De esas cuatro patas, **feature flags no está construida**: `feature_flags` es una tabla con RLS y cero lectores. Lo que existe hoy como interruptor por tienda es `store_settings.settings`, que además se memoiza una vez por request. Un interruptor nuevo va ahí, no a un lector de `feature_flags` escrito desde cero.
 - **Stack cerrado.** Storefront: Astro + Preact islands + Tailwind v4 + Cloudflare. Admin: React + Vite + TanStack (Router/Query/Table) + shadcn/Base UI + Hugeicons + RHF + Zod. Backend: Supabase/Postgres/Auth/RLS. AI: **sólo OpenAI**, BYOK por tenant, key cifrada server-side y nunca en el browser. Email: Resend. No introducir otro framework/provider sin ADR.
 - **El ERP conserva autoridad** sobre stock, precios, costos y SKUs cuando sea su source of truth. Cada campo sincronizable declara su origen; los campos ERP se bloquean localmente. Los adapters declaran capabilities (`supportsReservations`) — no prometer cero overselling si el ERP no las tiene.
 - **Fuera del core:** facturación, notas de crédito, refunds, returns engine, contabilidad. MCP tampoco puede ejecutarlos, y respeta siempre `user_id`/`tenant_id`/`role`/`permissions`; las escrituras sensibles usan PREVIEW → CONFIRM → EXECUTE.
