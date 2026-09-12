@@ -494,6 +494,26 @@ No se consideran polish opcional.
 **Consecuencias**
 Una operación asincrónica que "se congela" sin feedback no está terminada.
 
+**Agregado el 2026-09-12 — un control que promete algo que no existe se saca**
+El corolario estaba aplicado tres veces y escrito sólo en los mensajes de commit,
+así que la cuarta vez se iba a discutir de cero. La regla: si una función no
+existe, su control no se deja inerte ni «por ahora» — se saca, o se cablea a algo
+que sí funcione.
+
+- El header de Treeshop nació sin corazón de wishlist: no existe en el sistema y
+  un corazón que no hace nada es peor que no tenerlo (commit 03fcf31).
+- Salió el ícono «Mi cuenta»: no hay cuentas de comprador, y eso es v2
+  (commit 1c7a734).
+- El ícono de buscar sí llevaba a algún lado —al catálogo, sin campo donde
+  escribir— y es el caso que costó: se reportó como «el buscador no funciona»
+  después de una semana sin buscador. No se sacó, se cableó: abre un diálogo con
+  el formulario, y sin JavaScript es un enlace al formulario visible del catálogo
+  (commit 6c9beac).
+
+La versión preventiva ya está en el código: las flechas de un carrusel nacen
+`hidden` y las muestra el script, así que sin él no queda un control muerto
+(`packages/commerce-astro/src/primitives/carrusel-controles.ts`, ADR-113).
+
 ---
 
 ## ADR-023 — PLP usa faceted filtering
@@ -1157,9 +1177,10 @@ sola app React.
 
 **Dependencias que arrastra el init**, no declaradas antes en el stack:
 `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`,
-`tw-animate-css`, `@fontsource-variable/geist`, y — la menos obvia — `shadcn`
-como dependencia de **runtime**, porque `styles.css` hace
-`@import "shadcn/tailwind.css"`.
+`tw-animate-css`, `@fontsource-variable/geist` —reemplazado por
+`@fontsource-variable/onest` el 2026-09-02, cuando la tipografía del Admin pasó a
+ser Onest—, y — la menos obvia — `shadcn` como dependencia de **runtime**, porque
+`styles.css` hace `@import "shadcn/tailwind.css"`.
 
 **Nota de tamaño**
 El Admin queda en 72,9 KB gzip de JavaScript. Es aceptable: `PROJECT.md` §2.8
@@ -4139,6 +4160,9 @@ La guarda va en el store y no en quien llama porque **ahí está la escritura**:
 segundo llamador la heredaría, y el de hoy ya se olvidó una vez. Cubre además el
 caso de las dos pestañas, que el arreglo en el checkout no habría cubierto.
 
+ADR-115 acota esta regla: cuando el suscriptor es el que escribe, la guarda va en
+el llamador, porque un store no puede saber quién escribió.
+
 **Cómo se sabe que sirve**
 Con un test determinista —agregar, `clear()`, `replaceLines` con lo que la
 revalidación había leído— y con su sabotaje: quitar la guarda lo pone en rojo. La
@@ -4955,3 +4979,319 @@ en sucursal. Pickup sigue en v2.
 distinguir mayúsculas, desconocida, ninguna, umbral, y que la zona se guarda—;
 sabotear la rama de zona en `create_order` pone la suite en rojo. Treeshop
 quedó sembrado con los dieciocho departamentos desde `delivery_costs`.
+
+---
+
+## ADR-115 — La guarda de una suscripción va en el llamador
+
+**Fecha:** 2026-09-11
+**Estado:** Accepted — acota la lectura de ADR-100, no lo revierte
+
+**Contexto**
+El checkout hace dos cosas con el espejo del carrito: lo revalida contra el
+servidor y **lo corrige** con la respuesta (ADR-100), y está suscripto para
+enterarse si la persona edita el carrito en otra pestaña. Las dos juntas se
+llaman entre sí: `revalidar` escribe con `replaceLines`, el store avisa a los
+suscriptos, la suscripción del propio formulario lo recibe y vuelve a revalidar.
+Una petición al servidor por respuesta mientras el checkout esté abierto, en el
+camino del dinero.
+
+El defecto vivía desde la Fase 5 y no lo destapó ningún test: lo destapó la
+primera compra sobre `sontres.shop`, con 20 validaciones en cinco segundos y un
+solo carrito (commit c1cb0c5).
+
+**Decisión**
+La escritura propia se marca y la suscripción la ignora: una bandera
+—`escribiendo`, en `packages/commerce-ui/src/checkout/CheckoutForm.tsx:134`— que
+se levanta alrededor de `replaceLines` y que el callback de `subscribe`
+comprueba antes de revalidar. La guarda vive **en el llamador**.
+
+Alcanza una bandera de ida y vuelta porque el aviso del store es un
+`CustomEvent` despachado en la misma vuelta que la escritura
+(`packages/commerce-ui/src/cart/store.ts:141`): entre el `try` y el `finally` no
+se cuela nada asíncrono.
+
+**Por qué no va en el store, y por qué eso acota ADR-100**
+ADR-100 puso su guarda en `replaceLines` «y no en quien llama porque ahí está la
+escritura: un segundo llamador la heredaría». Esa razón es correcta para esa
+guarda —«no resucitar un carrito vacío» es una propiedad del dato, y la necesita
+cualquiera que escriba— y **acá lleva al arreglo equivocado**: un store no puede
+saber quién escribió. Aplicada al pie de la letra, la única forma de meter esta
+guarda adentro sería comparar el contenido antes de avisar, y eso vuelve
+silenciosa una corrección legítima: el espejo dejaría de avisar de un cambio real
+de otra pestaña por parecerse al que se acaba de escribir.
+
+Y no hay herencia que perder. De los cuatro llamadores de `subscribe`, sólo el
+checkout escribe desde adentro de su propio callback: `CartButton.tsx:35`,
+`CartDrawer.tsx:41` y `CartView.tsx:22` sólo leen. La bandera está en el único
+lugar donde hace falta.
+
+**Cómo se sabe que sirve**
+El e2e del envío cuenta las respuestas de `/api/cart/validate` con el checkout
+abierto y exige exactamente una (`e2e/checkout.spec.ts`); sin la bandera da ocho.
+
+---
+
+## ADR-116 — Una pestaña con un chunk viejo se recarga una vez
+
+**Fecha:** 2026-09-11
+**Estado:** Accepted
+
+**Contexto**
+El Admin trae cada pantalla por `import()` dinámico. Una pestaña abierta desde
+antes del último deploy tiene en memoria un `index.html` que pide los chunks con
+el hash viejo, y Workers Assets ya no los sirve: al abrir la primera pantalla que
+todavía no tenía cargada muere con «Failed to fetch dynamically imported module»
+y se queda ahí.
+
+La causa real no es el deploy. El mismo síntoma apareció cuando el edge se quedó
+un rato sin certificado al atar `admin.sontres.shop`: lo que falla es que **el
+índice que la pestaña tiene en memoria ya no describe lo que el servidor sirve**,
+y eso incluye fallos transitorios que no son un deploy.
+
+**Decisión**
+`pantalla()` —el único punto por donde entran las pantallas, en
+`apps/admin/src/lib/pantalla.ts`— envuelve el `import()` y, si falla, recarga la
+pestaña: la recarga trae el `index.html` vigente y con él los nombres vigentes.
+
+**Una sola vez por pantalla**, marcada en `sessionStorage`. Recargar sin límite
+convierte un fallo de red —que da el mismo error— en un bucle de recargas donde
+la persona no llega ni a leer el mensaje; a la segunda, el error llega al límite
+de errores y se ve. Una carga buena limpia la marca, así que un fallo posterior
+vuelve a tener su recarga.
+
+Mientras la recarga llega, la promesa se deja pendiente a propósito: se ve el
+fallback de Suspense y no el límite de errores, para no pintar un error que está
+por desaparecer.
+
+**Verificado**
+`apps/admin/src/lib/pantalla.test.ts`: una recarga al primer fallo, el error
+propagado al segundo, y la marca limpiada por una carga buena. Y en el navegador
+sobre el Admin desplegado, cortando la primera petición del chunk de Analytics.
+
+---
+
+## ADR-117 — El espejo de Camelot no pisa lo que la tienda editó
+
+**Fecha:** 2026-09-12
+**Estado:** Accepted — completa ADR-111
+
+**Contexto**
+ADR-111 dejó el catálogo de Treeshop como un espejo del Supabase de Camelot que
+entra por `scripts/camelot-importar.ts`. El importador declaraba
+`field_sources: { price: 'ERP', stock: 'ERP' }` y lo desobedecía: reescribía
+`title`, `description`, `brand`, `category_id` y `status` en **cada** corrida, y
+las fotos no se upserteaban sino que se borraban por producto tocado y se
+volvían a escribir.
+
+El enriquecimiento de la Fase 11 escribe exactamente título, descripción, marca y
+categoría (ADR-104), y v2 prevé fotografiar el tercio del catálogo que hoy no
+tiene foto. La corrida siguiente revertía las dos cosas **en silencio**: sin
+fallar, sin aparecer en el typecheck y sin que nadie se enterara hasta ver
+títulos de origen en la vitrina. No es prolijidad de importador: es perder
+trabajo ya hecho.
+
+**Decisión**
+Un producto nuevo se escribe entero, que es la única forma de crearlo. Uno que ya
+existe conserva lo suyo y sólo acepta del origen los campos que su propio
+`field_sources` le cede, campo por campo. Para que los títulos vuelvan a seguir a
+Camelot se le agrega `title: 'ERP'` a ese producto y el importador los reescribe.
+La declaración de un producto que ya existe tampoco se pisa: si la tienda le
+cedió un campo más al origen, la decisión es suya.
+
+Las fotos siguen siendo reemplazo y no upsert —si el origen ahora trae menos, un
+upsert dejaría las viejas colgando—, pero el reemplazo se acota a las de este
+importador: el `delete` filtra además por `url like '%/camelot/%'`, que es donde
+viven todas las que sube. Un `delete` por `product_id` también borraba las que
+subió el comercio, y nada las traía de vuelta.
+
+Es la regla que el proyecto ya tenía escrita —cada campo sincronizable declara su
+origen, y el origen conserva autoridad sólo sobre los suyos— aplicada al único
+catálogo espejado que hay.
+
+**Descartado**
+Congelar el catálogo y no volver a importar: el espejo es espejo por diseño y en
+Camelot se siguen cargando productos, así que dejar de reimportar lo convierte en
+una foto vieja, que es peor que el problema. Y resolverlo con una convención en
+el onboarding —«no reimportar después de enriquecer»—: una convención que si se
+olvida borra datos no es una defensa, es una trampa.
+
+**Verificado**
+De punta a punta sobre un producto real: reimportar deja en pie lo que se editó y
+sus fotos.
+
+---
+
+## ADR-118 — v2 se reordena: la identidad del comprador primero, la IA última
+
+**Fecha:** 2026-09-12
+**Estado:** Accepted
+
+**Contexto**
+Las seis fases escritas de v2 —Multi-location avanzado, Wholesale/B2B, AI Product
+Studio, Search avanzado, Loyalty, Advanced Analytics— se listaron antes de que
+existiera un catálogo real, y su orden no seguía ninguna dependencia técnica:
+ponía Loyalty dos fases antes de que hubiera cualquier identidad de comprador, y
+metía recomendaciones y vistos recientemente adentro de «Search avanzado», como
+si fueran búsqueda y no consecuencias de tener cuenta.
+
+**Decisión**
+v2 se reordena en ocho fases: cerrar el significado de `authenticated`, la
+identidad del comprador, lo que la identidad paga —wishlist, vistos
+recientemente—, el buscador léxico, recomendaciones y portada por visitante,
+devolver a la vitrina los productos sin foto, la IA que gasta por unidad de
+catálogo, y al final lo que quedaba del v2 escrito. El plan lo escribe
+[ROADMAP.md](ROADMAP.md); acá queda por qué ese orden.
+
+El cobro en línea no entra como fase de v2: sigue siendo P-001 y sigue en su
+track paralelo, porque depende de credenciales que consigue el comercio y una
+fase que espera a un tercero deja el roadmap rehén. Lo que sí entra, y primero
+porque no espera a nadie, es endurecer la transferencia bancaria, que es con lo
+que se cobra hoy.
+
+**El orden sale de tres fronteras que se cruzan una sola vez**
+
+**1. Hoy `authenticated` significa «alguien del equipo de un comercio».**
+`app.current_tenants()` lee `memberships`
+(`supabase/migrations/20260826004950_multitenancy.sql:163`) y las políticas de
+las tablas de negocio dicen
+`to authenticated using (tenant_id in (select app.current_tenants()))`. La cuenta
+del comprador convierte ese rol en un rol público, y hay más de treinta
+`grant execute … to authenticated` escritos bajo la premisa vieja.
+
+El motivo para hacerlo primero no es el volumen de grants: es que el sistema **no
+es fail-closed por RLS**. Nueve de las funciones alcanzables por `authenticated`
+son `security definer`, o sea que la RLS está salteada por construcción. Dos son
+la autorización misma —`app.current_tenants`, `app.has_permission`—; de las siete
+restantes, seis cortan adentro —cinco con `app.has_permission` y
+`admin_order_notifications` por tenant— y la séptima no cortaba nada:
+`app.consume_promotion(uuid)` recibía un uuid arbitrario e incrementaba el
+`usage_count` de la promoción que le nombraran
+(`supabase/migrations/20260829170232_fase9_descuento_en_el_pedido.sql:275`).
+La primera lectura fue que cruzar tenants ya estaba al alcance de un viewer de
+cualquier comercio, y era más grave que el hecho: **no había camino desde
+internet**, porque PostgREST expone únicamente el schema `public` —`POST
+/rest/v1/rpc/consume_promotion` devuelve 404 PGRST202— y `anon` no tiene `usage`
+sobre `app`. Lo que sí es cierto es que `authenticated` sí lo tiene, y que la
+Fase 1 convierte ese rol en un rol público: la apuesta se paga entonces, así que
+el permiso se revoca ahora. Su único llamador es `create_order`, revocada de
+`public, anon, authenticated`
+(`supabase/migrations/20260827015211_checkout.sql:363`), así que nunca hizo
+falta. Fueron dos migraciones, porque quitarle el grant explícito a
+`authenticated` deja intacto el `execute` que Postgres le da a `PUBLIC` al crear
+la función: `supabase/migrations/20260912173244_revocar_consume_promotion.sql` y
+`supabase/migrations/20260912183012_revocar_consume_promotion_de_public.sql`. Esa
+reauditoría se hace con cero filas de comprador en la base, no con dos mil.
+
+**2. La identidad es la frontera de confianza compartida.** Wishlist, vistos
+recientemente, preferencias, recomendaciones y portada por visitante son la misma
+fila vista de cinco maneras: piden el mismo identificador de cliente estable y la
+misma política. Hoy no existe. `store_events` no tiene columna de cliente y su
+propio comentario reserva el vínculo para «otra tabla»
+(`supabase/migrations/20260830153950_fase10_eventos.sql:28`), y la sesión anónima
+dura treinta minutos rodantes (`MINUTOS_DE_SESION`,
+`apps/treeshop/src/lib/analytics.ts:31`): sin identidad, «según quién mira» es
+«según esta media hora». Definirla una vez evita reabrir las políticas de tres
+fases.
+
+**3. Lo verificable offline va antes de lo que no.** `pg_trgm` está en el build
+de PGlite que usa la suite de aislamiento, así que un buscador léxico se prueba
+contra Postgres real en el CI; `vector` no está, así que los embeddings sólo se
+verifican contra el proyecto remoto, que es la validación más débil que este repo
+acepta. Y `catalog_search` se opera una sola vez: el ranking le cambia el
+criterio de orden y las recomendaciones le agregan una lista de ids, y hacerlo en
+ese orden convierte dos cirugías en una sobre la función que ya costó 2287 ms y
+quedó en 233 (commit 3caa756).
+
+**Lo que no ordena nada** es la preferencia. El buscador va tercero y no primero
+porque lo que de verdad le falta —índice, acentos, tipeos, ranking— no se abarata
+ni se encarece por esperar dos fases, y meterlo primero no desbloquea nada más.
+La IA va última porque es lo único que gasta plata del comercio por unidad de
+catálogo y lo único que la suite offline no puede verificar.
+
+**Descartado**
+Poner el cobro en línea primero, que era la lectura de negocio más fuerte: la
+fuga está después de la decisión de compra, no antes. Se descartó por P-001 —sin
+credenciales de sandbox de ningún proveedor paraguayo, la primera fase quedaría
+rehén de un tercero—; lo que sobrevive de ese argumento entra igual, endurecer la
+transferencia y medir la fuga.
+
+También se descartó medir esa fuga con `begin_checkout` contra
+`checkout_completed`: ningún evento guarda el método de pago, y con transferencia
+`checkout_completed` se anota **después** de que `create_order` creó el pedido
+(`apps/treeshop/src/pages/api/checkout.ts:117`), así que la fuga real ocurre
+fuera de ese par. El dato que sí la mide es la antigüedad de
+`orders.payment_status = 'pending'`, que existe desde la Fase 5.
+
+---
+
+## ADR-119 — Los documentos tienen dueño y tienen compuerta
+
+**Fecha:** 2026-09-12
+**Estado:** Accepted
+
+**Contexto**
+El harness pide desde el primer día que una unidad de trabajo no esté terminada
+hasta que los documentos digan la verdad. No alcanzó: una auditoría del
+2026-09-12 encontró setenta correcciones repartidas en nueve documentos, y cerca
+de la mitad eran mecánicas —una ruta que ya no existe, un comando retirado, un
+porcentaje escrito en dos lugares que dejaron de coincidir—.
+
+Dos causas, y ninguna es falta de atención.
+
+La primera: **el mismo hecho vivía en varios documentos.** La mecánica del deploy
+estaba en cinco y el estado de las fases en tres, así que corregir un hecho
+exigía acertar en cinco lugares y el que se olvidaba quedaba mintiendo. Se ve en
+un solo commit: `fa9a996` corrigió en `CLAUDE.md` el párrafo de la Fase 12
+—«tarifa plana **o por zona**»— y dejó cincuenta líneas más arriba, en el mismo
+archivo, «faltan el envío por departamento». El mismo archivo, el mismo commit,
+las dos frases sobre el mismo hecho.
+
+La segunda: **no había nada que lo comprobara.** Todo lo demás de este repo tiene
+compuerta —`lint`, `typecheck`, `test`, `e2e`—. Los documentos tenían una regla,
+y una regla sin compuerta se cumple mientras la atención está alta y se cae
+cuando no.
+
+**Decisión, primera mitad: un hecho, una casa**
+Cada hecho tiene un único documento que lo declara, y los demás enlazan en vez de
+repetir. El avance de las fases y el estado de v1, v2 y v3 son del
+[ROADMAP.md](ROADMAP.md); las decisiones de arquitectura y su motivo, de este
+archivo; Workers, deploy, dominios, secretos, CI y diagnóstico, de
+[INFRAESTRUCTURA.md](INFRAESTRUCTURA.md); qué **no** hace el sistema y qué lo
+desbloquea, de [LIMITACIONES.md](LIMITACIONES.md); dar de alta un comercio, de
+[ONBOARDING.md](ONBOARDING.md); cómo se trabaja con IA acá, de
+[CLAUDE.md](CLAUDE.md); la visión y el scope del producto, de
+[PROJECT.md](PROJECT.md); y los comandos que existen, de los `package.json`.
+
+Enlazar es una frase corta y un enlace relativo, no un resumen que después haya
+que mantener.
+
+**Decisión, segunda mitad: la compuerta**
+`pnpm docs:check` —`scripts/docs-check.mjs`, en el CI junto a `pnpm format:check`,
+que existía desde la Fase 0 y nunca se invocaba— convierte en error las formas de
+mentir que se pueden comprobar sin leer: un avance o el estado de una versión
+declarados fuera del ROADMAP, un comando de pnpm que ningún `package.json` tiene,
+una ruta bajo `apps/`, `packages/`, `scripts/`, `supabase/`, `e2e/` o `.github/`
+que no está en el disco, un enlace relativo que no resuelve, un `ADR-NNN` que
+este archivo no tiene, un rango de ADR que no termina en el último real, algo
+retirado que se sigue prometiendo, y la existencia de un segundo documento de
+instrucciones.
+
+Los bloques de código y las citas quedan afuera: un bloque de ejemplo no afirma
+que su comando exista. Y este archivo está exento de dos comprobaciones —la de
+comandos y la de lo retirado— porque es historia por definición: un ADR que
+registra algo que ya no existe no miente al nombrarlo.
+
+**Lo que la compuerta no puede comprobar**
+Que un documento diga la verdad. No sabe si un porcentaje es el real, si un
+«Verificado» ocurrió, si una decisión sigue vigente, si un documento omite lo que
+debería estar, ni si dos documentos cuentan el mismo hecho en prosa —de eso sólo
+ataja el caso del avance—. Eso sigue siendo del harness y de quien revisa; la
+compuerta garantiza nada más que lo mecánico no vuelva a pasar, que era la mitad.
+
+**Consecuencia: no hay un segundo documento de instrucciones**
+`AGENTS.md` era una copia byte a byte de `CLAUDE.md` con «Codex» en lugar de
+«Claude», congelada mientras `CLAUDE.md` seguía cambiando. Se borró, y la
+compuerta falla si reaparece —también con `GEMINI.md`, `CONVENTIONS.md` o
+`.cursorrules`—. Tener dos documentos sobre lo mismo garantiza que uno de los dos
+quede viejo, que es exactamente lo que pasó.
