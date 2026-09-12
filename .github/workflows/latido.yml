@@ -30,15 +30,24 @@ jobs:
       - name: Pedir las páginas que tienen que responder
         id: pedir
         run: |
-          # El storefront y el Admin, y del storefront las dos que se resuelven
-          # en el Worker contra la base: si Supabase se cae, `/` sigue
-          # devolviendo 200 sólo si el Worker lo resuelve, así que pedir `/`
-          # a secas no alcanza para saber que la tienda funciona.
+          # Los dos storefronts y el Admin, y de cada storefront las dos páginas
+          # que se resuelven en el Worker contra la base: si Supabase se cae, `/`
+          # sigue devolviendo 200 sólo si el Worker lo resuelve, así que pedir
+          # `/` a secas no alcanza para saber que la tienda funciona.
+          #
+          # Los dominios propios van además de los `workers.dev`, y no en su
+          # lugar: se piden por un camino distinto —zona de Cloudflare, dominio
+          # propio del Worker, certificado del edge— y ese camino ya se rompió
+          # una vez (INFRAESTRUCTURA §4). Si falla sólo `sontres.shop` y el
+          # `workers.dev` responde, el problema es el dominio y no la tienda.
           fallas=""
           for url in \
             "https://pick-commerce.chvpa-contacto.workers.dev/" \
             "https://pick-commerce.chvpa-contacto.workers.dev/catalogo" \
-            "https://pick-admin.chvpa-contacto.workers.dev/"
+            "https://pick-admin.chvpa-contacto.workers.dev/" \
+            "https://sontres.shop/" \
+            "https://sontres.shop/catalogo" \
+            "https://admin.sontres.shop/"
           do
             # Dos intentos antes de dar por caída: un timeout suelto es ruido, y
             # un issue por cada hipo del CDN entrena a ignorar la alerta.
