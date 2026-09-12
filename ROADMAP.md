@@ -1038,14 +1038,14 @@ distinción se construía dos veces lo mismo.
       alfabético— y alcanza con agregarle dos, bajo un separador que diga que se
       arman solas según la gente: **Tendencia**, «lo que se está moviendo ahora»,
       y **Preferencias**, «se adapta a cada visitante».
-
-      Entonces «una sección de Nike ordenada por preferencias» es
-          `rules: {brand:['Nike']}` con `sort: 'preferencias'`: dos desplegables que
-          el comercio ya sabe usar, y cero conceptos nuevos. **Se descartó** ponerlo
-          como fuente de la sección —`collection | recommended | recently_viewed`—
-          porque una fuente aparte necesitaría sus propios filtros el primer día y
-          terminaría duplicando `rules`; y de paso, como la sección sigue apuntando a
-          una colección, `home_sections_coleccion_coherente` no hay que tocarlo.
+      Entonces una sección de Nike ordenada por preferencias es una regla de
+      marca con el orden nuevo: dos desplegables que el comercio ya sabe usar, y
+      cero conceptos nuevos. **Se descartó** ponerlo
+      como fuente de la sección —`collection | recommended | recently_viewed`—
+      porque una fuente aparte necesitaría sus propios filtros el primer día y
+      terminaría duplicando `rules`; y de paso, como la sección sigue
+      apuntando a una colección, `home_sections_coleccion_coherente` no hay
+      que tocarlo.
 
 - [ ] **La cascada por sección, que es lo que hace la promesa honesta.** El
       comercio elige «Preferencias» y el storefront resuelve en orden: visitante
