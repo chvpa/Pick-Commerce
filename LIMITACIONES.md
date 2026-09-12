@@ -9,7 +9,7 @@ sorpresa, y cuesta la confianza de quien la descubre.
 Se actualiza al cerrar cada fase. Si algo de esta lista se resuelve, se saca —
 una lista que envejece deja de leerse.
 
-> Última revisión: cierre de la Fase 12 (v1).
+> Última revisión: 2026-09-12.
 
 ---
 
@@ -21,16 +21,49 @@ Existe el contrato `PaymentProvider` y una pasarela **simulada, declarada como
 tal**. Se cobra por transferencia bancaria, que es una persona mirando un
 comprobante y marcando el pedido como pagado en el Admin.
 
+No hay cobro en línea, y el texto de «Preguntas frecuentes» de las apps todavía
+nombra tarjetas: hay que corregirlo antes de abrirle la tienda a desconocidos.
+
 **Qué lo desbloquea:** elegir proveedor —Bancard, uPay, Pagopar, Dinelco— y
 conseguir credenciales. La decisión está pendiente como P-001.
 
 ### Los correos sólo llegan a la casilla del dueño de la cuenta
 
-Sin un dominio verificado en Resend, un pedido con el correo de un comprador real
-devuelve 403. El pipeline funciona: la fila queda en la cola y cuenta el intento.
+Sin `EMAIL_FROM` configurado el remitente cae a `Pick Commerce
+<onboarding@resend.dev>`, y desde ese remitente Resend entrega **sólo a la
+casilla del dueño de la cuenta**: un pedido con el correo de un comprador real
+devuelve 403. El pipeline funciona igual —la fila queda en la cola, el intento se
+cuenta y el fallo se ve en el pedido (ADR-102)—, así que lo que falta es el
+dominio, no código. Está diferido a propósito mientras el piloto sea la tienda
+del propio dueño.
 
 **Qué lo desbloquea:** verificar un dominio en `resend.com/domains` y cargar
-`EMAIL_FROM`. Es media hora y no depende de código.
+`EMAIL_FROM` como secreto del Worker
+([INFRAESTRUCTURA.md](INFRAESTRUCTURA.md)). Es media hora y no depende de código.
+
+### Un comprador no puede volver a ver su pedido
+
+No hay cuentas de comprador —el checkout es de invitado y no hay dónde
+registrarse— ni consulta pública de pedidos, y eso último no es un olvido: la
+numeración es secuencial por tienda, así que un número cualquiera abriría los
+pedidos del comercio. La confirmación se guarda en el `sessionStorage` de esa
+pestaña, así que entrar directo, o volver al día siguiente, muestra el estado
+vacío. El pedido existe igual: esa pantalla es el acuse, no el registro.
+
+**Qué lo desbloquea:** un enlace de acuse con un token propio del pedido, y el
+correo de confirmación de arriba, que hoy no sale de la casilla del dueño. No
+tiene fase asignada en el [ROADMAP](ROADMAP.md).
+
+### El stock que carga el Admin cae en la primera sucursal
+
+El formulario de producto tiene un solo campo `Stock` por variante y
+`admin_save_product` lo escribe en la primera sucursal de la tienda, porque no
+hay selector. Con una sucursal —lo normal hoy— no se nota; un comercio con dos
+carga creyendo que reparte y está apilando todo en una.
+
+**Qué lo desbloquea:** un selector de sucursal en el formulario, que es lo que la
+función está esperando. Es independiente del ERP, que tiene el mismo síntoma por
+otro motivo (más abajo).
 
 ---
 
@@ -58,6 +91,20 @@ escribe**: el cliente no da acceso de escritura ni contra un entorno de prueba
 Y el ERP **no dice en qué depósito está el stock**: manda una fila por lote sin
 identificar la sucursal, así que todo el stock cae en una sola.
 
+### El catálogo oculta productos, y el default es ocultar
+
+Un producto cuyas variantes están todas en cero no se lista, ni en la búsqueda,
+ni en las facetas, ni en las colecciones, salvo que la tienda pida lo contrario
+con `catalog.showOutOfStock`. Y uno sin foto tampoco, si la tienda enciende
+`catalog.hideWithoutImage` —en Treeshop está encendido, así que de 3752 productos
+importados el listado sirve 2096—. Las dos opciones se administran desde
+Configuración → Catálogo (ADR-112).
+
+Su PDP sigue existiendo y sigue siendo enlazable: con `p_handle` la función no
+filtra, a propósito, porque un enlace que ayer funcionaba no puede dar 404 porque
+se vendió la última unidad. Quien cargue un producto y no lo vea en su tienda,
+mire primero el stock y la foto.
+
 ### El stock del storefront es un espejo
 
 La navegación usa un espejo cacheado. Add to Cart y el checkout revalidan contra
@@ -70,12 +117,19 @@ como disponible algo que se agotó hace segundos.
 `supportsReservations` existe en la matriz de capacidades y ningún adapter lo
 declara. Nadie promete cero overselling contra un ERP que no lo soporta.
 
-### Presets: hay uno solo
+### Presets: hay dos, y ninguno de los tres previstos
 
 Los tokens de diseño están construidos para recibir presets —un preset redefine
-variables, no clases— pero los tres previstos (Blank, Fashion, Sport) no están
-hechos. Toda tienda arranca con la estética base, que está diseñada a propósito
-y no es una plantilla genérica (ADR-027).
+variables, no clases—. Existen la estética base, diseñada a propósito y no una
+plantilla genérica (ADR-027), y el preset de Treeshop
+(`apps/treeshop/src/styles/global.css`, ADR-110), que redefine `--font-sans`,
+`--color-accent`, `--color-sale`, `--radius-button`, `--aspect-product` y
+`--color-media`. Los tres previstos —Blank, Fashion, Sport— siguen sin hacer.
+
+Lo que el preset de Treeshop sí pisa con CSS propio son los controles nativos de
+la PLP: el `<select>` de orden y las casillas de los filtros, cuya forma no es un
+token. Está acotado y anotado en el archivo; al segundo cliente que lo pida, sube
+al paquete.
 
 ### El contenido de las páginas legales es el de la demo
 
@@ -85,10 +139,12 @@ CMS. Un comercio real necesita las suyas, y hoy eso es editar código.
 **Qué lo desbloquea:** una sección de páginas en el CMS, que ya administra la
 portada por secciones.
 
-### La home no tiene lema
+### La home no tiene lema administrable
 
-El `<title>` de la portada es el nombre de la tienda. No hay dónde guardar una
-descripción propia, así que no se inventa una.
+El `<title>` de la portada es el nombre de la tienda, que sale de la base. La
+descripción está escrita en el código de la app —la de Treeshop, en
+`apps/treeshop/src/pages/index.astro`—: no hay dónde guardarla por tienda, así
+que una tienda nueva la trae de su archivo o no la trae.
 
 ---
 
@@ -99,6 +155,12 @@ descripción propia, así que no se inventa una.
 El storefront sale a producción con cada push. El Admin **no** tiene Workers
 Builds: cada cambio necesita `pnpm --filter @pick/admin run deploy`. Una pantalla
 nueva dada por terminada sin desplegarla no existe para quien la va a usar.
+
+Y un deploy deja sin servir los archivos que pide una pestaña abierta desde
+antes: la primera pantalla que esa pestaña abra después se recarga sola —una
+sola vez, para que un fallo de red no recargue en bucle— en vez de quedar
+muerta (`apps/admin/src/lib/pantalla.ts`). Es un parpadeo, pero lo que se esté
+escribiendo en un formulario sin guardar se va con la recarga.
 
 ### Un solo entorno
 
@@ -131,7 +193,7 @@ pueda hacerlo se sirve desde su URL de `workers.dev`.
 
 ## Medición
 
-### El catálogo se midió hasta 5006 productos, no hasta 9032
+### El catálogo está medido hasta 5006 productos
 
 Hasta el 1 de septiembre de 2026 esto era un bloqueo: el listado tardaba 2,3
 segundos con 5000 productos y casi 4 en la página 100. Ahora es plano. Medido con
@@ -158,10 +220,22 @@ se recorría entero una vez por producto—; y el documento JSON de cada ítem s
 armaba antes del corte de página, lo que en la página 100 significaba armar 2400
 y descartar 2376.
 
-**Lo que queda:** el catálogo del piloto tiene **9032 productos** y esta medición
-llega a 5006. Los tiempos son planos de la primera página a la última, así que no
-hay motivo para esperar un salto — pero no está medido, y eso es distinto de
-estar bien.
+**Lo que queda:** el catálogo del piloto está **por debajo** de lo medido —3752
+productos importados, 2096 listables— así que el techo conocido alcanza. Las 9032
+filas que se citaban acá no son de ningún catálogo cargado: son las que manda el
+ORDS de Estilo Sport, que nunca se importó entero. Importar ese volumen sigue sin
+medirse, y no estar medido es distinto de estar mal.
+
+### La búsqueda es coincidencia literal de subcadena
+
+`catalog_search` arma un texto con el título, la marca y los SKU del producto y
+exige que cada término aparezca ahí con `position()`. Eso quiere decir que no
+tolera un error de tipeo, no ignora los acentos, no busca en la descripción y no
+ordena por relevancia: con término de búsqueda, «relevancia» sigue siendo el
+orden de alta. No hay `tsvector`, `pg_trgm` ni `unaccent` en ninguna migración.
+
+**Qué lo desbloquea:** la Fase 3 de v2 en el [ROADMAP](ROADMAP.md), que es donde
+viven el ranking y el manejo de errores de tipeo.
 
 ### Analytics no cuenta las precargas de Safari
 
