@@ -692,7 +692,11 @@ test('un producto sin foto se lista, salvo que la tienda pida ocultarlo', async 
   try {
     const con = await listar();
     assert.equal(con.total, 0, 'con el ajuste, un fixture sin fotos tiene que quedar vacío');
-    assert.deepEqual(await porHandle('p3'), ['p3'], 'el PDP de un producto sin foto dejó de existir');
+    assert.deepEqual(
+      await porHandle('p3'),
+      ['p3'],
+      'el PDP de un producto sin foto dejó de existir',
+    );
   } finally {
     await db.exec(`delete from store_settings where store_id = '${STORE}'`);
   }

@@ -85,8 +85,10 @@ const ICONO =
       <Logotipo class="h-6 w-auto md:h-7" aria-hidden="true" />
     </a>
 
-    {/* Los enlaces, centrados. `flex-1` a los dos lados los deja en el medio
-        aunque el logo y las acciones midan distinto. */}
+    {
+      /* Los enlaces, centrados. `flex-1` a los dos lados los deja en el medio
+        aunque el logo y las acciones midan distinto. */
+    }
     <nav
       aria-label="Principal"
       class="hidden flex-1 items-center justify-center gap-8 text-sm font-semibold tracking-wide uppercase md:flex"
@@ -104,8 +106,10 @@ const ICONO =
     </nav>
 
     <div class="ml-auto flex items-center gap-1 md:ml-0">
-      {/* Buscar: el ícono abre el formulario en un diálogo. Sin JavaScript
-          lleva al catálogo, que tiene el mismo formulario a la vista. */}
+      {
+        /* Buscar: el ícono abre el formulario en un diálogo. Sin JavaScript
+          lleva al catálogo, que tiene el mismo formulario a la vista. */
+      }
       <Buscador consulta={consulta} class={ICONO} />
 
       {
@@ -115,8 +119,10 @@ const ICONO =
          * existe es peor que no tenerlo. El login de compradores es v2.
          */
       }
-      {/* `client:idle`: el contador no compite con el render inicial. El
-          `className` pisa el hover del paquete por el mismo motivo que arriba. */}
+      {
+        /* `client:idle`: el contador no compite con el render inicial. El
+          `className` pisa el hover del paquete por el mismo motivo que arriba. */
+      }
       <CartButton icono className="rounded-full hover:bg-current/10" client:idle />
     </div>
   </Container>

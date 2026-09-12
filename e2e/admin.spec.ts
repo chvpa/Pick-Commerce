@@ -202,7 +202,11 @@ test.describe('Admin', () => {
 
     const titulo = `Novedades del smoke ${Date.now()}`;
     await page.locator('#title').fill(titulo);
-    await elegir(page, desplegable(page, '[aria-label="Cómo se arma la colección"]'), 'Se arma sola, con una regla');
+    await elegir(
+      page,
+      desplegable(page, '[aria-label="Cómo se arma la colección"]'),
+      'Se arma sola, con una regla',
+    );
     await elegir(page, desplegable(page, '#sort'), 'Novedades (lo último que entró)');
     await page.getByRole('switch').first().click();
 

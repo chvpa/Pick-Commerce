@@ -29,15 +29,7 @@ interface Props {
   headerFlotante?: boolean;
 }
 
-const {
-  title,
-  description,
-  image,
-  imageAlt,
-  type,
-  noindex,
-  headerFlotante = false,
-} = Astro.props;
+const { title, description, image, imageAlt, type, noindex, headerFlotante = false } = Astro.props;
 
 /* El buscador conserva la consulta activa. */
 const consulta = Astro.url.searchParams.get('q') ?? '';
@@ -85,7 +77,13 @@ const ENLACES = [
     <slot name="head" />
   </head>
   <body class="flex min-h-dvh flex-col bg-surface text-fg antialiased">
-    {ANUNCIO && <AnnouncementBar href="/catalogo" tone="accent">{ANUNCIO}</AnnouncementBar>}
+    {
+      ANUNCIO && (
+        <AnnouncementBar href="/catalogo" tone="accent">
+          {ANUNCIO}
+        </AnnouncementBar>
+      )
+    }
 
     <Header enlaces={ENLACES} consulta={consulta} flotante={headerFlotante} />
 

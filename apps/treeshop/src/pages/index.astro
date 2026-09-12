@@ -63,8 +63,7 @@ const seo = await contextoSeo();
  * —que es como arranca esta tienda hasta que carguen el arte— un header
  * transparente sería texto blanco sobre fondo blanco.
  */
-const heroArriba =
-  secciones[0]?.kind === 'hero' && secciones[0].piezas.length > 0;
+const heroArriba = secciones[0]?.kind === 'hero' && secciones[0].piezas.length > 0;
 ---
 
 <Base
@@ -127,29 +126,29 @@ const heroArriba =
             )}
             {seccion.layout === 'slider' ? (
               <div class="relative">
-              <CarouselControls
-                pista={`pista-${seccion.id}`}
-                label={seccion.title ?? 'avisos'}
-                posicion="esquina"
-              />
-              <div
-                id={`pista-${seccion.id}`}
-                role="group"
-                aria-label={seccion.title ? `Carrusel de ${seccion.title}` : 'Carrusel de avisos'}
-                tabindex="0"
-                class="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 scroll-smooth motion-reduce:scroll-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&>*]:w-[85%] [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-[45%]"
-              >
-                {seccion.piezas.map((pieza, i) => (
-                  <Banner
-                    image={pieza.image}
-                    imageMobile={pieza.imageMobile}
-                    title={pieza.title}
-                    subtitle={pieza.subtitle}
-                    href={pieza.href}
-                    priority={indice === 0 && i === 0}
-                  />
-                ))}
-              </div>
+                <CarouselControls
+                  pista={`pista-${seccion.id}`}
+                  label={seccion.title ?? 'avisos'}
+                  posicion="esquina"
+                />
+                <div
+                  id={`pista-${seccion.id}`}
+                  role="group"
+                  aria-label={seccion.title ? `Carrusel de ${seccion.title}` : 'Carrusel de avisos'}
+                  tabindex="0"
+                  class="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 scroll-smooth motion-reduce:scroll-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&>*]:w-[85%] [&>*]:shrink-0 [&>*]:snap-start sm:[&>*]:w-[45%]"
+                >
+                  {seccion.piezas.map((pieza, i) => (
+                    <Banner
+                      image={pieza.image}
+                      imageMobile={pieza.imageMobile}
+                      title={pieza.title}
+                      subtitle={pieza.subtitle}
+                      href={pieza.href}
+                      priority={indice === 0 && i === 0}
+                    />
+                  ))}
+                </div>
               </div>
             ) : (
               <div class:list={['grid gap-6', GRILLA[seccion.columns]]}>
@@ -175,26 +174,18 @@ const heroArriba =
         if (elegidas.length === 0) return null;
         return (
           <Container class="flex flex-col gap-6 py-12">
-            {
-              seccion.title && (
-                <h2 class="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
-                  {seccion.title}
-                </h2>
-              )
-            }
-            {
-              /*
-               * Tres en fila en desktop, dos en teléfono. El componente reparte
-               * en cuatro columnas por defecto, que es lo que hace falta con un
-               * catálogo de muchas categorías; Treeshop muestra tres y con
-               * cuatro columnas quedaría un hueco al final de la fila.
-               */
-            }
-            <CategorySection
-              categories={elegidas}
-              layout={seccion.layout}
-              class="md:grid-cols-3"
-            />
+            {seccion.title && (
+              <h2 class="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+                {seccion.title}
+              </h2>
+            )}
+            {/*
+             * Tres en fila en desktop, dos en teléfono. El componente reparte
+             * en cuatro columnas por defecto, que es lo que hace falta con un
+             * catálogo de muchas categorías; Treeshop muestra tres y con
+             * cuatro columnas quedaría un hueco al final de la fila.
+             */}
+            <CategorySection categories={elegidas} layout={seccion.layout} class="md:grid-cols-3" />
           </Container>
         );
       }
@@ -210,7 +201,11 @@ const heroArriba =
             {seccion.title && <h2 class="font-display text-xl font-semibold">{seccion.title}</h2>}
             {seccion.subtitle && <p class="text-sm text-fg-muted">{seccion.subtitle}</p>}
           </div>
-          <ProductCarousel label={seccion.title ?? 'Productos'} controles id={`pista-${seccion.id}`}>
+          <ProductCarousel
+            label={seccion.title ?? 'Productos'}
+            controles
+            id={`pista-${seccion.id}`}
+          >
             {seccion.productos.map((product) => {
               const variant = product.variants[0];
               if (!variant) return null;

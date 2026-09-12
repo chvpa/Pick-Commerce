@@ -135,7 +135,13 @@ async function main(): Promise<void> {
      * Lectura directa de tablas. RLS es lo único que separa acá: el Admin
      * consulta así, con la publishable key (ADR-052).
      */
-    for (const tabla of ['products', 'orders', 'customers', 'promotions', 'store_events'] as const) {
+    for (const tabla of [
+      'products',
+      'orders',
+      'customers',
+      'promotions',
+      'store_events',
+    ] as const) {
       const { data } = await sesion.from(tabla).select('tenant_id');
       const ajenas = (data ?? []).filter((f) => f.tenant_id !== uno.tenantId).length;
       comprobar(
@@ -243,7 +249,9 @@ async function main(): Promise<void> {
     await borrarActor(otro);
   }
 
-  console.log(`\n${fallas === 0 ? 'Aislamiento verificado.' : `${fallas} comprobaciones fallaron.`}`);
+  console.log(
+    `\n${fallas === 0 ? 'Aislamiento verificado.' : `${fallas} comprobaciones fallaron.`}`,
+  );
   process.exit(fallas === 0 ? 0 : 1);
 }
 

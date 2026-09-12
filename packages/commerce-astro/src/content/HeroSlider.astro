@@ -33,8 +33,15 @@ interface Props {
   class?: string;
 }
 
-const { piezas, layout, id, slideClass, controles = false, autoplay, class: className } =
-  Astro.props;
+const {
+  piezas,
+  layout,
+  id,
+  slideClass,
+  controles = false,
+  autoplay,
+  class: className,
+} = Astro.props;
 
 /*
  * Con **una sola pieza** las dos opciones dan lo mismo, y esa pieza va a ancho
@@ -71,96 +78,92 @@ const esSlider = layout === 'slider' && !unaSola;
 >
   {/* El `relative` es para las flechas, que van encima de los slides. */}
   <div class="relative">
-  <div
-    id={id}
-    {...esSlider ? { role: 'group', tabindex: '0' } : {}}
-    class={cn(
-      esSlider
-        ? [
-            'flex snap-x snap-mandatory overflow-x-auto scroll-smooth motion-reduce:scroll-auto',
-            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-            '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-          ]
-        : // De a dos en pantalla ancha y uno por fila en teléfono, donde dos
-          // heros lado a lado no dejan leer ninguno. Con una sola pieza, ancho
-          // completo: media pantalla vacía al lado no es un layout, es un error.
-          ['grid gap-4', !unaSola && 'sm:grid-cols-2'],
-      'rounded-lg',
-    )}
-  >
-    {
-      piezas.map((pieza, i) => (
-        <article
-          id={`${id}-${i}`}
-          class={cn(
-            'relative isolate flex flex-col justify-end overflow-hidden rounded-lg bg-media',
-            esSlider && 'w-full shrink-0 snap-center',
-            slideClass,
-          )}
-          aria-label={esSlider ? `${i + 1} de ${piezas.length}` : undefined}
-        >
-          <picture>
-            {pieza.imageMobile && (
-              <source media="(min-width: 640px)" srcset={pieza.image.url} />
+    <div
+      id={id}
+      {...esSlider ? { role: 'group', tabindex: '0' } : {}}
+      class={cn(
+        esSlider
+          ? [
+              'flex snap-x snap-mandatory overflow-x-auto scroll-smooth motion-reduce:scroll-auto',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+              '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+            ]
+          : // De a dos en pantalla ancha y uno por fila en teléfono, donde dos
+            // heros lado a lado no dejan leer ninguno. Con una sola pieza, ancho
+            // completo: media pantalla vacía al lado no es un layout, es un error.
+            ['grid gap-4', !unaSola && 'sm:grid-cols-2'],
+        'rounded-lg',
+      )}
+    >
+      {
+        piezas.map((pieza, i) => (
+          <article
+            id={`${id}-${i}`}
+            class={cn(
+              'relative isolate flex flex-col justify-end overflow-hidden rounded-lg bg-media',
+              esSlider && 'w-full shrink-0 snap-center',
+              slideClass,
             )}
-            <Image
-              src={(pieza.imageMobile ?? pieza.image).url}
-              alt={(pieza.imageMobile ?? pieza.image).alt}
-              width={(pieza.imageMobile ?? pieza.image).width}
-              height={(pieza.imageMobile ?? pieza.image).height}
-              layout="full-width"
-              sizes="100vw"
-              loading={i === 0 ? 'eager' : 'lazy'}
-              fetchpriority={i === 0 ? 'high' : 'auto'}
-              decoding="async"
-              class="absolute inset-0 -z-10 h-full w-full object-cover"
-            />
-          </picture>
+            aria-label={esSlider ? `${i + 1} de ${piezas.length}` : undefined}
+          >
+            <picture>
+              {pieza.imageMobile && <source media="(min-width: 640px)" srcset={pieza.image.url} />}
+              <Image
+                src={(pieza.imageMobile ?? pieza.image).url}
+                alt={(pieza.imageMobile ?? pieza.image).alt}
+                width={(pieza.imageMobile ?? pieza.image).width}
+                height={(pieza.imageMobile ?? pieza.image).height}
+                layout="full-width"
+                sizes="100vw"
+                loading={i === 0 ? 'eager' : 'lazy'}
+                fetchpriority={i === 0 ? 'high' : 'auto'}
+                decoding="async"
+                class="absolute inset-0 -z-10 h-full w-full object-cover"
+              />
+            </picture>
 
-          {/* Velo sólo acá, donde el texto va encima de la foto: es un hero y
+            {/* Velo sólo acá, donde el texto va encima de la foto: es un hero y
               esa es su forma. En los mosaicos el texto va debajo justamente
               para no necesitarlo. Sin gradient decorativo — ADR-027. */}
-          <div class="absolute inset-0 -z-10 bg-black/40" aria-hidden="true"></div>
+            <div class="absolute inset-0 -z-10 bg-black/40" aria-hidden="true" />
 
-          <div class="flex flex-col items-start gap-4 px-6 py-20 text-white sm:px-10 sm:py-28">
-            <h2 class="font-display max-w-lg text-3xl font-semibold sm:text-4xl">{pieza.title}</h2>
-            {pieza.subtitle && <p class="max-w-lg text-sm sm:text-base">{pieza.subtitle}</p>}
-            {
-              /* Con texto de botón se dibuja un botón; sin él, y con enlace, el
+            <div class="flex flex-col items-start gap-4 px-6 py-20 text-white sm:px-10 sm:py-28">
+              <h2 class="font-display max-w-lg text-3xl font-semibold sm:text-4xl">
+                {pieza.title}
+              </h2>
+              {pieza.subtitle && <p class="max-w-lg text-sm sm:text-base">{pieza.subtitle}</p>}
+              {/* Con texto de botón se dibuja un botón; sin él, y con enlace, el
                  título entero lleva. Un hero sin `href` es sólo una imagen con
-                 texto, que también es un uso válido. */
-            }
-            {pieza.href && pieza.ctaLabel && (
-              <a href={pieza.href} class={buttonVariants({ size: 'lg' })}>
-                {pieza.ctaLabel}
-              </a>
-            )}
-            {
-              /*
+                 texto, que también es un uso válido. */}
+              {pieza.href && pieza.ctaLabel && (
+                <a href={pieza.href} class={buttonVariants({ size: 'lg' })}>
+                  {pieza.ctaLabel}
+                </a>
+              )}
+              {/*
                * Sin texto de botón, el slide entero es el enlace y no se escribe
                * nada encima: el arte del comercio ya dice lo suyo, y un «Ver
                * más» genérico pegado abajo lo pisaba. El nombre queda para el
                * lector de pantalla y el foco se ve en el borde del slide.
-               */
-            }
-            {pieza.href && !pieza.ctaLabel && (
-              <a
-                href={pieza.href}
-                class="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white"
-              >
-                <span class="sr-only">{`Ver ${pieza.title}`}</span>
-              </a>
-            )}
-          </div>
-        </article>
-      ))
+               */}
+              {pieza.href && !pieza.ctaLabel && (
+                <a
+                  href={pieza.href}
+                  class="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white"
+                >
+                  <span class="sr-only">{`Ver ${pieza.title}`}</span>
+                </a>
+              )}
+            </div>
+          </article>
+        ))
+      }
+    </div>
+    {
+      controles && esSlider && (
+        <CarouselControls pista={id} label="destacados" autoplay={autoplay} />
+      )
     }
-  </div>
-  {
-    controles && esSlider && (
-      <CarouselControls pista={id} label="destacados" autoplay={autoplay} />
-    )
-  }
   </div>
 
   {

@@ -35,8 +35,7 @@ export function CartButton({ href = '/carrito', icono = false, className }: Cart
     return subscribe(() => setCount(totalQuantity()));
   }, []);
 
-  const unidades =
-    count === 0 ? 'vacío' : `${count} ${count === 1 ? 'unidad' : 'unidades'}`;
+  const unidades = count === 0 ? 'vacío' : `${count} ${count === 1 ? 'unidad' : 'unidades'}`;
 
   return (
     <a

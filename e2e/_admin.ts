@@ -115,7 +115,6 @@ export async function irAContenido(
     .click();
 }
 
-
 /**
  * Cambia a la tienda del smoke, la que el setup crea y el teardown borra.
  *

@@ -13,8 +13,7 @@
  * sin la variable, el sitio funcionaba perfecto y anunciaba a los buscadores una
  * dirección inexistente. Ya pasó una vez (INFRAESTRUCTURA §5).
  */
-export const SITE_URL =
-  import.meta.env.SITE ?? 'https://pick-commerce.chvpa-contacto.workers.dev';
+export const SITE_URL = import.meta.env.SITE ?? 'https://pick-commerce.chvpa-contacto.workers.dev';
 
 export const features = {
   /**

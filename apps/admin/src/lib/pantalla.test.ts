@@ -22,9 +22,10 @@ const Pantalla = () => null;
 test('un chunk que no se puede traer recarga la página una vez', async () => {
   const e = entorno();
   let rechazado = false;
-  cargar(() => Promise.reject(new Error('Failed to fetch dynamically imported module')), 'Pantalla').catch(
-    () => (rechazado = true),
-  );
+  cargar(
+    () => Promise.reject(new Error('Failed to fetch dynamically imported module')),
+    'Pantalla',
+  ).catch(() => (rechazado = true));
   await tick();
   assert.equal(e.recargas(), 1);
   assert.equal(rechazado, false, 'mientras recarga no llega al límite de errores');

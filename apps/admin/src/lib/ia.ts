@@ -38,9 +38,10 @@ async function pedir<T>(ruta: string, cuerpo: Record<string, unknown>): Promise<
   // El Worker responde JSON siempre, incluso al fallar. Si no lo hace, es que
   // algo se interpuso —un proxy, un 502 de la plataforma— y el mensaje genérico
   // es honesto porque no sabemos qué pasó.
-  const datos = (await respuesta.json().catch(() => null)) as
-    | { error?: string; message?: string }
-    | null;
+  const datos = (await respuesta.json().catch(() => null)) as {
+    error?: string;
+    message?: string;
+  } | null;
 
   if (!respuesta.ok) {
     throw new ErrorDeIA(

@@ -32,5 +32,8 @@ export function configuracionDeCatalogo(settings: unknown): ConfiguracionDeCatal
   const bruto = (settings as { catalog?: unknown } | null)?.catalog;
   if (!bruto || typeof bruto !== 'object') return POR_DEFECTO;
   const c = bruto as { showOutOfStock?: unknown; hideWithoutImage?: unknown };
-  return { showOutOfStock: c.showOutOfStock === true, hideWithoutImage: c.hideWithoutImage === true };
+  return {
+    showOutOfStock: c.showOutOfStock === true,
+    hideWithoutImage: c.hideWithoutImage === true,
+  };
 }

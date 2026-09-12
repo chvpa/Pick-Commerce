@@ -97,10 +97,7 @@ async function main(): Promise<number> {
   // Las categorías que van en la portada
   // -------------------------------------------------------------------------
 
-  const { data: cats } = await db
-    .from('categories')
-    .select('id, slug')
-    .eq('store_id', STORE);
+  const { data: cats } = await db.from('categories').select('id, slug').eq('store_id', STORE);
   const porSlug = new Map((cats ?? []).map((c) => [c.slug, c.id]));
 
   /*

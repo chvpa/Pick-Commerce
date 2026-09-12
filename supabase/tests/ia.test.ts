@@ -112,7 +112,10 @@ test('el Worker sí recibe el ciphertext, y con su modelo', async () => {
 });
 
 test('volver a guardar reemplaza en vez de duplicar', async () => {
-  await guardar(DUENO, { paquete: 'b3RyYS1jbGF2ZS1jaWZyYWRhLXBhcmEtbGEtcHJ1ZWJhLXNp', last4: '9999' });
+  await guardar(DUENO, {
+    paquete: 'b3RyYS1jbGF2ZS1jaWZyYWRhLXBhcmEtbGEtcHJ1ZWJhLXNp',
+    last4: '9999',
+  });
 
   const r = await db.query<{ n: number }>(`select count(*)::int as n from ai_credentials`);
   assert.equal(r.rows[0]!.n, 1);

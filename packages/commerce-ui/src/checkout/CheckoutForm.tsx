@@ -193,7 +193,9 @@ export function CheckoutForm({
           title: porId.get(l.variantId)?.title ?? l.title,
           price: l.price,
           available: l.available,
-          ...(porId.get(l.variantId)?.imageUrl ? { imageUrl: porId.get(l.variantId)!.imageUrl } : {}),
+          ...(porId.get(l.variantId)?.imageUrl
+            ? { imageUrl: porId.get(l.variantId)!.imageUrl }
+            : {}),
         })),
       );
     } finally {

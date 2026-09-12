@@ -28,10 +28,9 @@ export default function teardown(): void {
   try {
     const pid = readFileSync(PID_DEL_ADMIN, 'utf8').trim();
     if (pid) {
-      execSync(
-        process.platform === 'win32' ? `taskkill /PID ${pid} /T /F` : `kill -- -${pid}`,
-        { stdio: 'ignore' },
-      );
+      execSync(process.platform === 'win32' ? `taskkill /PID ${pid} /T /F` : `kill -- -${pid}`, {
+        stdio: 'ignore',
+      });
     }
   } catch {
     // Sin archivo de pid, o el proceso ya no está.
