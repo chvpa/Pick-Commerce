@@ -591,18 +591,31 @@ Sigue así, y es un diferido a propósito, no un olvido: verificar un dominio en
 `resend.com/domains` y cargar `EMAIL_FROM` con una dirección de ese dominio es
 lo que lo destraba, y está registrado en [LIMITACIONES.md](LIMITACIONES.md).
 
-### Que el correo de recuperación salga por Resend
+### Que los correos de Supabase Auth salgan por Resend
 
-El enlace para restablecer la contraseña lo manda **Supabase Auth con su propio
-SMTP**, no la API de Resend: el token lo acuña Supabase. Por defecto usa su
-servidor compartido, que admite pocos correos por hora y sólo escribe a miembros
-del proyecto — alcanza para probar, no para un comercio.
+Todo lo que manda **Supabase Auth** —el enlace para restablecer la contraseña, y
+el código de acceso del comprador cuando llegue— sale por el SMTP que tenga
+configurado el proyecto, no por la API de Resend: los tokens los acuña Supabase.
+Es un canal distinto del de `EMAIL_FROM`, que es el de los avisos de pedido.
+
+Por defecto usa el servidor compartido de Supabase, y los dos números que
+importan son: **2 correos por hora**, y **sólo a direcciones del equipo del
+proyecto**. Alcanza para probar con la propia casilla y para nada más.
 
 Para apuntarlo a Resend, en el panel de Supabase (_Authentication › Emails ›
 SMTP Settings_): servidor `smtp.resend.com`, puerto `465`, usuario `resend`,
 contraseña la misma `RESEND_API_KEY`, y un remitente del dominio verificado. Se
 puede hacer también con la API de Management y el `SUPABASE_ACCESS_TOKEN` que ya
 está en `.env`, pero es una operación única: no vale automatizarla.
+
+**Y falta el paso que no está en esa pantalla**: con SMTP propio el límite pasa a
+**30 correos por hora**, y se sube desde _Authentication › Rate Limits_. Queda
+escrito acá porque el síntoma —códigos que no llegan, a algunos y no a todos— no
+se parece en nada a la causa.
+
+El remitente es uno solo para todo el proyecto: `smtp_admin_email` no se puede
+variar por tienda. Es una decisión tomada y revisable, con su disparador escrito
+(ADR-122).
 
 ### Comprobar que los avisos están saliendo
 

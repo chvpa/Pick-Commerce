@@ -5353,3 +5353,155 @@ Recortar `cost` en el repositorio de `@pick/adapter-supabase`: más cerca del
 consumidor, pero deja el dato viajando por la red y por el Worker, y no protege a
 un llamador que no pase por ese repositorio. Recortarlo en cada island: la lista
 de bordes que hay que acordarse de recortar.
+
+---
+
+## ADR-121 — La sesión del comprador vive en una cookie httpOnly del Worker
+
+**Fecha:** 2026-09-13
+**Estado:** Accepted — habilita la Fase 1 de v2
+
+**Contexto**
+La Fase 1 abre cuentas de comprador, y hasta hoy el storefront no tuvo ninguna
+noción de usuario: todas sus consultas pasan por `clienteDeServidor`, que usa la
+secret key y **saltea RLS**. Lo que acota los datos ahí no son las políticas sino
+el SQL —todo entra por `catalog_search`, que filtra por tienda y por estado
+(ADR-052)—. Poner cuentas encima de ese camino obliga a decidir dónde vive la
+identidad del comprador, y la decisión hay que tomarla **antes** de escribir la
+primera política: después son una docena de funciones y treinta y pico de
+`grant` que ya asumieron una respuesta.
+
+Tres caminos reales, y el orden importa porque el segundo es el que parece
+natural:
+
+1. **Supabase Auth en el navegador**, con la publishable key y RLS por
+   `auth.uid()`. Es lo que documenta Supabase y lo más corto de escribir.
+2. **Sesión propia** en cookie firmada por nosotros, con la autorización adentro
+   de cada RPC y todo siguiendo por la secret key.
+3. **Los tokens de Supabase Auth en una cookie httpOnly que administra el
+   Worker**, y las lecturas con un cliente que lleva el JWT del comprador.
+
+**Decisión**
+El tercero.
+
+El primero mete supabase-js en el bundle del storefront y deja el token al
+alcance de cualquier script de la página. El storefront no manda el SDK al
+navegador desde la Fase 2, y eso no cambia por una pantalla de login.
+
+El segundo es el que hay que mirar dos veces, porque es el patrón que ya usa todo
+el storefront y por eso se siente natural. Su costo es que RLS sigue sin proteger
+nada: toda la defensa queda en SQL escrito a mano adentro de cada función, que es
+**exactamente** la forma del agujero que la Fase 0 acaba de cerrar en
+`app.consume_promotion` —`security definer`, uuid arbitrario, ninguna
+comprobación— y la razón por la que `supabase/tests/aislamiento-authenticated.test.ts`
+tuvo que existir. Repetir ese patrón multiplicado por las cuentas de comprador es
+apostar a no olvidarse nunca.
+
+**Consecuencias**
+
+- **Es el primer camino del storefront donde RLS protege de verdad**, y conviven
+  los dos: el catálogo sigue por la secret key, la cuenta va por el JWT. Un
+  archivo del storefront pasa a tener dos clientes con alcances distintos, y eso
+  hay que decirlo en su comentario o alguien va a elegir el equivocado.
+- **La regla dura, de la que depende todo lo demás:** el Worker pasa a ser capa
+  de autorización, así que **todo RPC de comprador toma el customer id de la
+  sesión y nunca del cuerpo del pedido**. Un `p_customer_id` en la firma de una
+  función de comprador es un bug, no un parámetro.
+- **No hay función nueva ni dependencia nueva.** `clienteDeUsuario(conexion, accessToken)`
+  ya existe en `@pick/adapter-supabase` —la escribió el Worker del Admin en la
+  Fase 11— y hace justo esto: crea el cliente con la publishable key y el
+  `Authorization: Bearer` de quien consulta. Viene con `persistSession: false` y
+  `autoRefreshToken: false`, que acá es lo correcto: **el refresh lo hace el
+  middleware**, no el SDK, porque en un Worker no hay nada que persista entre
+  peticiones.
+- **`SUPABASE_PUBLISHABLE_KEY` es un secreto nuevo del Worker del storefront**,
+  que hoy declara `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `STOREFRONT_DOMAIN` y
+  `PAYMENT_WEBHOOK_SECRET`. Va declarado `secret` y `optional` como los otros
+  —Astro valida **todos** los secretos declarados al cargar `astro:env/server`
+  aunque nadie los importe, y uno ausente es un 500 con el cuerpo vacío que no
+  dice qué falta— y comprobado en `middleware.ts`, que sí puede decirlo.
+- **Las políticas de comprador nunca usan `app.current_tenants()`.** Esa función
+  lee `memberships` y significa «staff del comercio»; copiar el patrón del Admin
+  le daría a un comprador la tienda entera. Va `app.current_customer(p_store)`,
+  que resuelve `auth.uid()` contra `customer_accounts`.
+- Las páginas de cuenta son todas on-demand. Con Workers Assets una
+  prerenderizada se sirve del disco **sin ejecutar el Worker**, así que una
+  página con sesión se vería bien en `astro dev` y saldría igual para todos al
+  desplegar (ADR-099).
+
+**Lo que esto no decide**
+Cómo entra la persona —el código por email es de la Fase 1— ni por dónde sale ese
+correo, que es ADR-122.
+
+---
+
+## ADR-122 — Los correos de Supabase Auth salen por SMTP propio, con un remitente para todo el proyecto
+
+**Fecha:** 2026-09-13
+**Estado:** Accepted — revisable, y el disparador está escrito abajo
+
+**Contexto**
+El login de la Fase 1 es un código que llega por email, así que antes de
+escribirlo hay que resolver quién manda ese correo. **No es el mismo canal que
+`EMAIL_FROM`**, y confundirlos es el error que este ADR existe para evitar:
+`EMAIL_FROM` es el remitente de los avisos de pedido, que manda este repo por la
+API de Resend desde la Fase 7; esto lo manda **Supabase Auth**, por su cuenta, y
+hoy no sale de ninguna parte porque nunca se usó.
+
+Consultada la documentación antes de decidir. Los números son lo que cierra la
+discusión:
+
+| Camino                    | Límite                                                           | Remitente                        |
+| ------------------------- | ---------------------------------------------------------------- | -------------------------------- |
+| Mailer propio de Supabase | 2 correos/hora, y **sólo a direcciones del equipo del proyecto** | del proyecto                     |
+| SMTP propio (Resend)      | 30/hora de arranque, ajustable en Rate Limits                    | `smtp_admin_email`, del proyecto |
+| Send Email Hook           | el de quien mande                                                | el que decida nuestro código     |
+
+**Decisión**
+SMTP propio apuntando a Resend, con un remitente para todas las tiendas.
+
+El mailer propio se descarta solo: dos por hora y sólo al dueño de la cuenta no
+es un login, es una demo rota. Entre los otros dos, el hook es el único que da
+remitente por tienda, y hoy eso no vale lo que cuesta: hay **un** comercio en
+línea, y el SMTP es configuración en dos paneles contra una ruta HTTP con
+verificación de firma.
+
+**El disparador para cambiar a hook es el segundo comercio que pida su propio
+remitente. No es una fecha.**
+
+**Lo que se averiguó del hook, para no volver a averiguarlo**
+Es un POST a una ruta nuestra —o una función de Postgres—, firmado con un secreto
+del panel de Auth que se valida con el esquema de Standard Webhooks; devolver 200
+vacío alcanza. El payload trae el usuario con su metadata y los datos del correo:
+tipo de acción, token, hash, redirect y site URL. O sea que la identidad de la
+tienda se puede resolver, pero hay que **decidir de dónde sale** —metadata del
+usuario puesta al pedir el código, o el host del `redirect_to`— y eso no es
+gratis.
+
+Dos cosas que parecían obvias y no lo son:
+
+- **El Worker del Admin sería su casa natural** —es el único Worker
+  multi-tenant— pero hoy **a propósito no tiene la secret key de Supabase**. Su
+  propio comentario lo declara como invariante: acá no hay secret key, así que un
+  agujero en ese código no da acceso a la base más allá de lo que ya tenía quien
+  llamó. Resolver el nombre y el dominio de la tienda para armar el remitente la
+  necesitaría, y romper ese invariante por un remitente es un mal cambio.
+- **Tampoco sirve encolar en la tabla que ya existe.** `notification_outbox`
+  tiene `order_id uuid not null` con clave foránea a `orders`, y un correo de
+  Auth no tiene pedido: reusarla es cambiarle el esquema. Y se drena cada 30 s
+  **y sólo si hay tráfico en el sitio**, o sea un código de acceso que puede
+  tardar un minuto en salir.
+
+**Consecuencias**
+
+- Quien reciba el código lo va a ver llegar de Pick Commerce y no de la tienda
+  donde está comprando. Es el costo aceptado, y es reversible.
+- **30 correos/hora de arranque es poco para un pico**, y se sube desde la página
+  de Rate Limits del proyecto. Queda anotado acá porque el síntoma —códigos que
+  no llegan, a algunos y no a todos— no se parece en nada a la causa.
+- Supabase Auth tiene además su propio límite de pedidos de OTP por dirección y
+  por hora, que es lo que impide usar el login como amplificador de correo. No se
+  baja sin motivo.
+- La configuración es del dueño del proyecto: el dominio verificado en Resend y
+  las credenciales SMTP en el panel de Supabase. Va junto con lo demás que se
+  hace en un panel.

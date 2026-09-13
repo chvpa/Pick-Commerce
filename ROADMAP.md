@@ -653,7 +653,7 @@ los desbloquea. Están todos en `Backlog / Retroactividad` con su fase destino.
 
 ## Fase 0 — Cerrar `authenticated` antes de abrirlo
 
-**Avance: 47%**
+**Avance: 56%**
 
 Objetivo: que existir como usuario autenticado sin ser miembro de ningún comercio
 no dé acceso a nada, y con un test que lo afirme en vez de una coincidencia que
@@ -706,24 +706,38 @@ por lo que se saltea.
       de la Fase 1 es la superficie de credential stuffing. Es una regla de
       Cloudflare sobre la ruta del Worker: configuración e INFRAESTRUCTURA, no
       código.
-- [ ] ADR del mecanismo de sesión del comprador, **antes** de escribirlo. Dos
-      caminos reales: Supabase Auth en el browser con la publishable key y RLS
-      por `auth.uid()`, o la sesión en cookie httpOnly del Worker con la
-      autorización en el RPC. El segundo es el patrón que ya usa todo el
-      storefront, y su costo hay que escribirlo: el Worker pasa a ser capa de
-      autorización, así que todo RPC de comprador toma el customer id **de la
-      sesión y nunca del cuerpo del pedido**.
+- [x] ADR del mecanismo de sesión del comprador, antes de escribirlo: **ADR-121**.
+      Los tokens de Supabase Auth en una cookie httpOnly del Worker, refresh en
+      el middleware y las lecturas con el JWT del comprador —el primer camino del
+      storefront donde RLS protege de verdad—. Se descartó la sesión propia con
+      autorización en el RPC, que es el patrón que ya usa el storefront, porque
+      deja toda la defensa en SQL escrito a mano: la forma exacta del agujero que
+      esta fase acaba de cerrar. De ahí la regla dura: todo RPC de comprador toma
+      el customer id **de la sesión y nunca del cuerpo del pedido**. Sin función
+      nueva: `clienteDeUsuario` ya existe en `@pick/adapter-supabase` desde la
+      Fase 11. Suma un secreto al storefront, `SUPABASE_PUBLISHABLE_KEY`.
 - [ ] Verificar `sontres.shop` en Resend y poner `EMAIL_FROM` de ese dominio.
       Hoy cae a `onboarding@resend.dev` y sin dominio verificado Resend entrega
       sólo a la casilla del dueño de la cuenta. Es un diferido conocido, y es del
       usuario: la clave del `.env` es de sólo envío y no da de alta dominios.
-- [ ] ADR: por dónde salen los correos de Supabase Auth. El mailer propio de
-      Supabase tiene límite por hora y no es apto para producción; apuntarlo a
-      Resend por SMTP da un remitente **para todo el proyecto**, o sea el mismo
-      «de» para todos los comercios; el hook de envío de email de Auth contra un
-      endpoint propio da remitente por tienda. Confirmar el hook contra la doc de
-      Supabase antes de elegir. **Éste es el que desbloquea la verificación de
-      email de las cuentas, no el `EMAIL_FROM` de arriba**: son dos canales.
+- [x] ADR: por dónde salen los correos de Supabase Auth, **ADR-122**. Con la
+      doc a la vista, los números: el mailer propio manda 2 por hora y **sólo a
+      direcciones del equipo del proyecto**, así que se descarta solo; el SMTP
+      propio manda a cualquiera, arranca en 30 por hora y su remitente es del
+      proyecto; el hook es el único con remitente por tienda. Se eligió SMTP
+      contra Resend: con un comercio en línea, la marca del correo del código no
+      vale una ruta HTTP con verificación de firma. **El disparador para pasar al
+      hook es el segundo comercio que pida su propio remitente, no una fecha.**
+      Queda escrito por qué el hook no era gratis —el Worker del Admin a
+      propósito no tiene la secret key, y `notification_outbox` exige un
+      `order_id`—. **Éste es el que desbloquea la verificación de email de las
+      cuentas, no el `EMAIL_FROM` de arriba**: son dos canales. Falta la
+      configuración en los dos paneles, que va con el bloque del usuario.
+- [ ] **Lo que destapó ese ADR:** configurar el SMTP propio de Supabase Auth.
+      Dominio verificado en Resend, credenciales SMTP en el panel de Supabase, y
+      el límite de 30 correos/hora subido desde Rate Limits. Es del usuario, y es
+      **distinto** de `EMAIL_FROM`: sin esto el código de acceso de la Fase 1 sólo
+      le llega al dueño de la cuenta de Resend, dos veces por hora.
 - [x] El importador de Camelot deja de pisar lo que la tienda editó: respeta
       `field_sources` para `title`, `description`, `brand`, `category_id` y
       `status`, y el borrado de fotos se acota a las suyas (ADR-117). Sin esto,
@@ -1688,6 +1702,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-12 | Endurecimiento de la tanda: `app.consume_promotion` sale del alcance de los roles de cliente en dos migraciones —revocarle a `authenticated` no alcanza: sobrevive el `execute` que Postgres le da a `PUBLIC`—, y de paso queda escrito que no era alcanzable desde internet, que fue la primera hipótesis y era más grave que el hecho, el importador de Camelot respeta `field_sources` y no borra fotos ajenas (ADR-117), `scripts/limpiar-e2e.ts` restituye la tienda de la demo que el smoke renombraba, el latido vigila los tres hostnames del piloto, y el CI corre `pnpm docs:check` y `pnpm format:check` | Fase 12   |          90% |            90% |
 | 2026-09-12 | **v1 cerrada al 100%**: el piloto procesó una compra completa sobre el dominio real el 2026-09-11, que es la Definition of Done de la Fase 12. Queda el arte del hero y de las marcas, que es del cliente, en el backlog. Y v2 se reordena alrededor de las cuentas de comprador, que era lo que le faltaba (ADR-118)                                                                                                                                                                                                                                                                                               | Fase 12   |         100% |           100% |
 | 2026-09-13 | v2 Fase 0: un usuario autenticado sin membresía no llega a nada, y hay un test que lo afirma —`aislamiento-authenticated.test.ts`, 29 casos, el inventario comparado contra `pg_proc` y la comprobación por huella; verificado con sabotaje—. Leer `store_settings` pide `settings.write`. Y lo que encontró el test: el catálogo publicaba el costo de los 2096 productos en el HTML de cada PDP desde la Fase 2, porque `catalog_search` lo devolvía y el storefront serializa las variantes para hidratarlas (ADR-120)                                                                                           | v2 Fase 0 |           0% |            47% |
+| 2026-09-13 | v2 Fase 0: los dos ADR que la Fase 1 da por resueltos. **ADR-121**, la sesión del comprador en cookie httpOnly del Worker y las lecturas con su JWT: el primer camino del storefront donde RLS protege de verdad, y de ahí la regla de que todo RPC de comprador toma el customer id de la sesión y nunca del cuerpo. **ADR-122**, los correos de Auth por SMTP propio con un remitente para todo el proyecto, con la doc a la vista —el mailer de Supabase manda 2 por hora y sólo al equipo— y el disparador del cambio escrito: el segundo comercio que pida el suyo                                             | v2 Fase 0 |          47% |            56% |
 
 ---
 
