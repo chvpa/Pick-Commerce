@@ -5181,7 +5181,7 @@ el permiso se revoca ahora. Su único llamador es `create_order`, revocada de
 falta. Fueron dos migraciones, porque quitarle el grant explícito a
 `authenticated` deja intacto el `execute` que Postgres le da a `PUBLIC` al crear
 la función: `supabase/migrations/20260912173244_revocar_consume_promotion.sql` y
-`supabase/migrations/20260912183012_revocar_consume_promotion_de_public.sql`. Esa
+`supabase/migrations/20260913182114_revocar_consume_promotion_de_public.sql`. Esa
 reauditoría se hace con cero filas de comprador en la base, no con dos mil.
 
 **2. La identidad es la frontera de confianza compartida.** Wishlist, vistos
@@ -5296,3 +5296,60 @@ compuerta garantiza nada más que lo mecánico no vuelva a pasar, que era la mit
 compuerta falla si reaparece —también con `GEMINI.md`, `CONVENTIONS.md` o
 `.cursorrules`—. Tener dos documentos sobre lo mismo garantiza que uno de los dos
 quede viejo, que es exactamente lo que pasó.
+
+---
+
+## ADR-120 — El catálogo no devuelve nada que el comprador no pueda ver
+
+**Fecha:** 2026-09-13
+**Estado:** Accepted
+
+**Contexto**
+`catalog_search` devolvía `cost` adentro de cada variante desde su primera
+versión (Fase 2) y sobrevivió a diez reescrituras posteriores sin que nadie lo
+mirara. El storefront le pasa las variantes enteras a una island —`variants={product.variants}`
+en `productos/[handle].astro`— y Astro **serializa las props en el HTML** para
+poder hidratarlas del otro lado.
+
+Medido sobre `sontres.shop` antes del arreglo, en el código fuente de una PDP
+cualquiera:
+
+```text
+"cost":{"amount":201300,"currency":"PYG"}
+"price":{"amount":239547,"currency":"PYG"}
+```
+
+El costo unitario y, por diferencia, el margen de cada uno de los 2096 productos
+del catálogo, sin credenciales, sin cuenta y sin nada más que «ver código
+fuente». Con un scraper, el catálogo entero.
+
+Nadie lo consumía. El costo que edita el Admin sale de `admin_products`; el
+margen de los reportes sale de `order_items.cost`, que lo copia al vender
+justamente para no depender del precio de hoy (ADR-101).
+
+**Decisión**
+`catalog_search` deja de emitir `cost`. La regla que queda, y que es lo que
+importa para lo que viene: **una función que sirve al storefront no devuelve
+campos que el comprador no pueda ver**, aunque el llamador de hoy no los use y
+aunque la consulta pase por la secret key.
+
+El arreglo va en la función y no en la página, y por eso: hay dos apps, varias
+páginas por app y cada island decide qué props recibe. Recortar en el borde es
+una lista que se mantiene sola mal —basta una página nueva que pase la variante
+entera—; recortar en el origen lo cierra para todas de una vez.
+
+**Consecuencias**
+`ProductVariant.cost` sigue existiendo en los tipos porque el Admin lo edita: lo
+que cambió es quién lo emite, no quién lo tiene. `catalog_search` es `security
+invoker`, así que RLS ya la acotaba por tenant —un autenticado ajeno recibe el
+catálogo vacío—; lo que no acotaba era **qué campos** de los propios salían, y
+eso RLS no lo puede hacer.
+
+Queda una comprobación en `supabase/tests/aislamiento-authenticated.test.ts`: el
+dueño ve su catálogo y el costo no aparece. Si alguien lo repone, se entera ahí.
+
+**Alternativas descartadas**
+Recortar `cost` en el repositorio de `@pick/adapter-supabase`: más cerca del
+consumidor, pero deja el dato viajando por la red y por el Worker, y no protege a
+un llamador que no pase por ese repositorio. Recortarlo en cada island: la lista
+de bordes que hay que acordarse de recortar.

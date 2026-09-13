@@ -373,7 +373,7 @@ estrategia de reversión escrita **antes** de aplicarla, y el PR la declara
 
 No hay «down migration»: el CLI de Supabase no las tiene y una migración ya
 aplicada en remoto es append-only. Revertir es **otra migración hacia
-adelante** —`supabase/migrations/20260912183012_revocar_consume_promotion_de_public.sql`
+adelante** —`supabase/migrations/20260913182114_revocar_consume_promotion_de_public.sql`
 es exactamente eso: revierte el alcance que dejó abierto la migración anterior—,
 y no hay staging donde ensayarla
 ([LIMITACIONES.md](LIMITACIONES.md)), así que el ensayo es local: `pnpm db:reset`

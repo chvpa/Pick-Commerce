@@ -446,18 +446,17 @@ poder correr en orden sobre una base vacía.
 El script renombra el archivo local para que su versión coincida con la que
 asignó el servidor. Si no, local y remoto divergen y el CLI empieza a mentir.
 
-**Hoy hay una escrita y sin aplicar**:
-`supabase/migrations/20260912183012_revocar_consume_promotion_de_public.sql`. Es
-la segunda mitad de un arreglo que necesitó dos: `20260912173244` le quitó a
-`authenticated` el permiso de ejecutar `app.consume_promotion` —una función
-`security definer` que recibe un uuid arbitrario y no comprueba ni tenant ni
-permiso— y **no alcanzó**, porque Postgres le da `execute` a `PUBLIC` a toda
-función al crearla y ese grant sobrevive a revocarle a un rol puntual. La
-primera está aplicada; la segunda espera su `pnpm db:apply`.
+No hay ninguna escrita y sin aplicar. La última que lo estuvo deja la lección:
+`supabase/migrations/20260913182114_revocar_consume_promotion_de_public.sql` fue
+la segunda mitad de un arreglo que necesitó dos —`20260912173244` le quitó a
+`authenticated` el permiso de ejecutar `app.consume_promotion` y **no alcanzó**,
+porque Postgres le da `execute` a `PUBLIC` a toda función al crearla y ese grant
+sobrevive a revocarle a un rol puntual—, y estuvo un día en el repo sin estar en
+el remoto.
 
-Es el caso que muestra el riesgo de esta sección entera: **el CI aplica las
-migraciones desde cero y pasa, así que nada avisa de que el proyecto remoto no
-las tiene**. Una migración en el repo no es una migración aplicada. Para
+Es el riesgo de esta sección entera: **el CI aplica las migraciones desde cero y
+pasa, así que nada avisa de que el proyecto remoto no las tiene**. Una migración
+en el repo no es una migración aplicada. Para
 comprobar un grant contra el remoto, la consulta es
 `select grantee, privilege_type from information_schema.routine_privileges
 where routine_name = '<función>'`.

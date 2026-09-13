@@ -1,0 +1,306 @@
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import type { PGlite } from '@electric-sql/pglite';
+import { baseDePrueba, como, comoServicio, intentar } from './harness.ts';
+
+/**
+ * Qué alcanza alguien que está autenticado y no es de ningún comercio.
+ *
+ * Hasta hoy la pregunta no tenía respuesta comprobada porque no podía haber uno:
+ * `authenticated` significaba «alguien del equipo de un comercio», y los 32
+ * `grant execute` del repo se escribieron bajo esa premisa. La Fase 1 de v2 abre
+ * cuentas de comprador, y a partir de ahí `authenticated` significa «cualquiera
+ * que se registró». Este archivo fija la línea **antes** de que eso pase: si una
+ * función queda al alcance de un forastero, se entera acá y no en producción.
+ *
+ * **Lo que hoy sostiene el aislamiento no es RLS.** Ocho de las funciones
+ * alcanzables son `security definer` —RLS salteada por construcción— y lo que
+ * corta es un `app.has_permission` escrito a mano adentro de cada una. Una de
+ * ellas, `ai_credential_secret`, devuelve el ciphertext de la credencial de
+ * OpenAI del comercio. Por eso la comprobación es por huella y no por forma: se
+ * siembran datos con marcas irrepetibles y se afirma que **ninguna** respuesta
+ * las contiene. Una función que cambie de forma sigue estando cubierta; una que
+ * empiece a devolver de más, no pasa.
+ */
+
+const TENANT = 'a0000000-0000-4000-8000-000000000000';
+const TIENDA = 'a1000000-0000-4000-8000-000000000000';
+const SUCURSAL = 'a2000000-0000-4000-8000-000000000000';
+const PRODUCTO = 'a3000000-0000-4000-8000-000000000000';
+const VARIANTE = 'a4000000-0000-4000-8000-000000000000';
+
+const DUENO = 'f0000000-0000-4000-8000-000000000000';
+/** Existe en `auth.users` y no tiene ni una fila en `memberships`. */
+const FORASTERO = 'f0000000-0000-4000-8000-0000000000ff';
+
+/**
+ * Marcas que sólo existen adentro del comercio A.
+ *
+ * Cada una está en un lugar distinto a propósito, porque cada función devuelve
+ * una cosa distinta: el título viaja en el catálogo del Admin, el email en los
+ * clientes y en los avisos, el importe en el resumen y en las ventas por
+ * producto, el ciphertext y el last4 en la credencial de IA, y las instrucciones
+ * de cobro en la configuración de la tienda.
+ */
+const HUELLAS = [
+  'Remera del comercio A',
+  'ana@privada.test',
+  '137731', // el precio, y por lo tanto el total del pedido
+  'CIPHERTEXT-QUE-NO-DEBE-SALIR',
+  '9x9x', // los últimos cuatro de la API key
+  'TRANSFERIR-A-LA-CUENTA-SECRETA',
+] as const;
+
+/**
+ * Toda función que `authenticated` puede ejecutar está en una de estas dos
+ * listas, y el primer test lo comprueba contra el catálogo de Postgres. Agregar
+ * un `grant execute ... to authenticated` sin clasificarlo deja la suite en
+ * rojo, que es el punto: la decisión se toma, no se hereda.
+ */
+const BLOQUEADAS: readonly (readonly [string, string])[] = [
+  ['public.admin_products', `admin_products('${TIENDA}', null, null, 1, 20)`],
+  ['public.admin_save_product', `admin_save_product('${TIENDA}', '{"title":"x"}'::jsonb)`],
+  ['public.import_products', `import_products('${TIENDA}', '[]'::jsonb)`],
+  ['public.admin_orders', `admin_orders('${TIENDA}', null, null, 1, 20)`],
+  ['public.admin_customers', `admin_customers('${TIENDA}', null, null, 1, 20)`],
+  ['public.admin_dashboard', `admin_dashboard('${TIENDA}', now() - interval '30 days', now())`],
+  ['public.admin_analytics', `admin_analytics('${TIENDA}', now() - interval '30 days', now())`],
+  [
+    'public.admin_product_performance',
+    `admin_product_performance('${TIENDA}', now() - interval '30 days', now(), 'vendidos', 1, 20)`,
+  ],
+  ['public.admin_team', `admin_team('${TENANT}')`],
+  ['public.admin_save_settings', `admin_save_settings('${TIENDA}', '{"a":1}'::jsonb, null)`],
+  ['public.ai_credential_status', `ai_credential_status('${TIENDA}')`],
+  ['public.ai_credential_secret', `ai_credential_secret('${TIENDA}')`],
+  [
+    'public.admin_save_ai_credential',
+    `admin_save_ai_credential('${TIENDA}', 'x', '1234', 'gpt-5-mini')`,
+  ],
+  ['public.order_json', `order_json((select id from orders limit 1))`],
+  [
+    'public.admin_order_notifications',
+    `admin_order_notifications('${TIENDA}', (select id from orders limit 1))`,
+  ],
+  [
+    'public.admin_set_order_status',
+    `admin_set_order_status('${TIENDA}', (select id from orders limit 1), 'preparing', null)`,
+  ],
+  [
+    'public.admin_set_payment_status',
+    `admin_set_payment_status('${TIENDA}', (select id from orders limit 1), 'paid', null)`,
+  ],
+  // Las dos que sirven al storefront no son `security definer`, así que RLS las
+  // acota: a un forastero le devuelven el catálogo vacío y ninguna promoción.
+  // Quien las llama de verdad es el Worker con la secret key, que saltea RLS
+  // (ADR-052); el grant a `authenticated` es para el Admin.
+  [
+    'public.catalog_search',
+    `catalog_search('${TIENDA}', '{}'::jsonb, null, null, 1, 20, null, null, null, null)`,
+  ],
+  ['public.cart_promotions', `cart_promotions('${TIENDA}', '[]'::jsonb, null)`],
+];
+
+/**
+ * Alcanzables a propósito, porque no hay nada que puedan filtrar.
+ *
+ * No se clasifica nada como inofensivo por descarte: más abajo hay un test que
+ * comprueba el comportamiento que justifica a cada una. Las tres de promociones
+ * y la del embudo son aritmética sobre los argumentos y no leen ninguna tabla;
+ * las dos primeras son las que **responden** la pregunta de quién sos, así que
+ * no tendría sentido pedirles permiso.
+ */
+const PUBLICAS = [
+  'app.apply_chain',
+  'app.current_tenants', // devuelve vacío para quien no es de ningún comercio
+  'app.has_permission', // devuelve false
+  'app.paso_del_embudo',
+  'app.promo_discount',
+] as const;
+
+let db: PGlite;
+
+before(async () => {
+  db = await baseDePrueba();
+
+  await db.exec(`
+    insert into auth.users (id, email) values
+      ('${DUENO}', 'dueno@a.test'),
+      ('${FORASTERO}', 'forastero@nadie.test');
+
+    insert into organizations (id, name, slug) values ('${TENANT}', 'Comercio A', 'a');
+
+    insert into stores (id, tenant_id, name, slug, domain, currency) values
+      ('${TIENDA}', '${TENANT}', 'Tienda A', 'ta', 'a.test', 'PYG');
+
+    insert into locations (id, tenant_id, store_id, name) values
+      ('${SUCURSAL}', '${TENANT}', '${TIENDA}', 'Central');
+
+    -- El forastero **no** aparece acá. Es todo el experimento.
+    insert into memberships (tenant_id, user_id, role) values ('${TENANT}', '${DUENO}', 'owner');
+
+    insert into products (id, tenant_id, store_id, handle, title, status) values
+      ('${PRODUCTO}', '${TENANT}', '${TIENDA}', 'remera-a', 'Remera del comercio A', 'active');
+
+    insert into product_variants
+      (id, tenant_id, product_id, sku, title, price, cost, currency, position)
+      values ('${VARIANTE}', '${TENANT}', '${PRODUCTO}', 'REM-A', 'M', 137731, 90000, 'PYG', 0);
+
+    insert into inventory_levels (tenant_id, variant_id, location_id, available) values
+      ('${TENANT}', '${VARIANTE}', '${SUCURSAL}', 10);
+
+    -- Sin foto el catálogo lo oculta (20260910233527), y el test de más abajo
+    -- necesita que el producto se vea para poder afirmar que se ve.
+    insert into product_media (tenant_id, product_id, url, width, height) values
+      ('${TENANT}', '${PRODUCTO}', 'https://cdn.test/a.webp', 800, 800);
+
+    insert into store_settings (store_id, tenant_id, settings) values
+      ('${TIENDA}', '${TENANT}',
+       '{"payments":{"enabled":["bank_transfer"],"bankTransfer":{"instructions":"TRANSFERIR-A-LA-CUENTA-SECRETA"}}}'::jsonb);
+
+    insert into ai_credentials (store_id, tenant_id, ciphertext, last4, model) values
+      ('${TIENDA}', '${TENANT}', 'CIPHERTEXT-QUE-NO-DEBE-SALIR', '9x9x', 'gpt-5-mini');
+  `);
+
+  // Un pedido real, con su cliente, sus líneas y sus eventos: sin datos, «no
+  // devolvió nada» no prueba nada.
+  await comoServicio(
+    db,
+    `select create_order('${TIENDA}'::uuid, gen_random_uuid(),
+       '{"customer":{"name":"Ana Privada","email":"ana@privada.test","phone":"0981123456"},
+         "address":{"street":"Calle 1","city":"Asuncion"},
+         "paymentMethod":"bank_transfer",
+         "lines":[{"variantId":"${VARIANTE}","quantity":1}]}'::jsonb)`,
+  );
+});
+
+after(async () => {
+  await db.close();
+});
+
+// --- El inventario ----------------------------------------------------------
+
+test('toda función alcanzable por `authenticated` está clasificada', async () => {
+  const filas = await db.query<{ nombre: string }>(`
+    select p.pronamespace::regnamespace::text || '.' || p.proname as nombre
+    from pg_proc p
+    where has_function_privilege('authenticated', p.oid, 'execute')
+      and p.pronamespace::regnamespace::text in ('public', 'app')
+    group by 1
+    order by 1
+  `);
+
+  const alcanzables = filas.rows.map((f) => f.nombre);
+  const clasificadas = [...BLOQUEADAS.map(([n]) => n), ...PUBLICAS].sort();
+
+  assert.deepEqual(
+    alcanzables,
+    clasificadas,
+    'hay una función alcanzable por `authenticated` que nadie clasificó, o una ' +
+      'clasificada que ya no existe. Decidir a cuál de las dos listas va.',
+  );
+});
+
+test('`app.consume_promotion` no está al alcance de nadie salvo el servicio', async () => {
+  // Es `security definer`, recibe un uuid arbitrario y no comprueba ni tenant ni
+  // permiso. Su único llamador, `create_order`, corre como `service_role`, así
+  // que el grant nunca hizo falta. Hicieron falta dos migraciones: revocarle a
+  // `authenticated` no alcanzó, porque sobrevivía el `execute` que Postgres le
+  // da a `PUBLIC` al crear la función.
+  const r = await db.query<{ puede: boolean }>(
+    `select has_function_privilege('authenticated', 'app.consume_promotion(uuid)', 'execute') as puede`,
+  );
+  assert.equal(r.rows[0]!.puede, false);
+});
+
+// --- Las funciones ----------------------------------------------------------
+
+for (const [nombre, llamada] of BLOQUEADAS) {
+  test(`${nombre} no le dice nada a un forastero`, async () => {
+    const r = await intentar(db, FORASTERO, `select (${llamada})::text as t`);
+
+    // Si lanzó, ya está: nada salió. Si contestó, lo que contestó no puede
+    // contener nada del comercio A.
+    if (!r.ok) return;
+
+    const filas = await como<{ t: string | null }>(db, FORASTERO, `select (${llamada})::text as t`);
+    const texto = filas.map((f) => f.t ?? '').join(' ');
+    for (const huella of HUELLAS) {
+      assert.ok(
+        !texto.includes(huella),
+        `${nombre} devolvió «${huella}», que es del comercio A: ${texto.slice(0, 300)}`,
+      );
+    }
+  });
+}
+
+// --- Las tablas -------------------------------------------------------------
+
+for (const tabla of ['customers', 'orders', 'order_items', 'order_events', 'store_settings']) {
+  test(`un forastero no lee ni una fila de ${tabla}`, async () => {
+    const suyas = await comoServicio<{ n: number }>(db, `select count(*)::int as n from ${tabla}`);
+    assert.ok(suyas[0]!.n > 0, `el seed no dejó filas en ${tabla}: el test no probaría nada`);
+
+    const filas = await como<{ n: number }>(
+      db,
+      FORASTERO,
+      `select count(*)::int as n from ${tabla}`,
+    );
+    assert.equal(filas[0]!.n, 0);
+  });
+}
+
+test('un `viewer` tampoco lee `store_settings`: leerla pide `settings.write`', async () => {
+  // La política de lectura acotaba por membresía y no pedía ningún permiso, al
+  // contrario de la de escritura. Ahí viven las zonas de envío, las
+  // instrucciones de cobro y la configuración del catálogo.
+  const VIEWER = 'f0000000-0000-4000-8000-0000000000aa';
+  await db.exec(`
+    insert into auth.users (id, email) values ('${VIEWER}', 'viewer@a.test')
+      on conflict do nothing;
+    insert into memberships (tenant_id, user_id, role) values ('${TENANT}', '${VIEWER}', 'viewer')
+      on conflict do nothing;
+  `);
+
+  const delViewer = await como<{ n: number }>(
+    db,
+    VIEWER,
+    'select count(*)::int as n from store_settings',
+  );
+  assert.equal(delViewer[0]!.n, 0);
+
+  const delDueno = await como<{ n: number }>(
+    db,
+    DUENO,
+    'select count(*)::int as n from store_settings',
+  );
+  assert.equal(delDueno[0]!.n, 1, 'el dueño dejó de ver su propia configuración');
+});
+
+// --- Lo que sí es público, y por qué ----------------------------------------
+
+test('las funciones sin dueño no le dan nada a un forastero', async () => {
+  const tenants = await como<{ t: string }>(db, FORASTERO, 'select app.current_tenants() as t');
+  assert.deepEqual(tenants, [], '`current_tenants` le devolvió una organización a un forastero');
+
+  const permiso = await como<{ p: boolean }>(
+    db,
+    FORASTERO,
+    `select app.has_permission('${TENANT}', 'settings.write') as p`,
+  );
+  assert.equal(permiso[0]!.p, false);
+});
+
+test('el catálogo del comercio lo sigue viendo el comercio', async () => {
+  // La contracara del test de arriba: que un forastero reciba `items: []` de
+  // `catalog_search` podría deberse a que la consulta se rompió, no a que RLS la
+  // acote. Esto lo distingue.
+  const r = await como<{ t: string }>(
+    db,
+    DUENO,
+    `select catalog_search('${TIENDA}', '{}'::jsonb, null, null, 1, 20, null, null, null, null)::text as t`,
+  );
+  const texto = r[0]!.t;
+  assert.ok(texto.includes('Remera del comercio A'), 'el dueño dejó de ver su propio catálogo');
+  assert.ok(!texto.includes('90000'), '`catalog_search` está devolviendo el costo');
+});
