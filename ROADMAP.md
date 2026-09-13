@@ -653,7 +653,7 @@ los desbloquea. Están todos en `Backlog / Retroactividad` con su fase destino.
 
 ## Fase 0 — Cerrar `authenticated` antes de abrirlo
 
-**Avance: 72%**
+**Avance: 78%**
 
 Objetivo: que existir como usuario autenticado sin ser miembro de ningún comercio
 no dé acceso a nada, y con un test que lo afirme en vez de una coincidencia que
@@ -743,9 +743,17 @@ por lo que se saltea.
       `status`, y el borrado de fotos se acota a las suyas (ADR-117). Sin esto,
       lo que el enriquecimiento de ADR-104 escriba y las fotos de la Fase 5 los
       revierte en silencio el próximo `pnpm camelot:importar`.
-- [ ] e2e parametrizable por app, con suite de Treeshop. `playwright.config.ts`
-      fija `baseURL` en la demo y `grep treeshop e2e/` da cero: el único
-      storefront en producción es el único que no se prueba.
+- [x] e2e con suite de Treeshop, en `e2e/treeshop/`. Un proyecto de Playwright
+      propio en el 4323 con la app del cliente servida contra **los datos de la
+      demo**: lo que no estaba probado es su código —encabezado, menú en
+      teléfono, preset, `contenido.ts`—, no la base. Cuatro casos, incluido el
+      camino de compra entero. La corrida no le crea pedidos a `sontres.shop`,
+      verificado contando antes y después: ocho y ocho. Y la guarda que lo
+      sostiene se probó rompiéndola: sin `STOREFRONT_DOMAIN` el Worker sirve la
+      tienda real —las dos viven en el mismo proyecto de Supabase y el fallback
+      es `sontres.shop`—, así que `global-setup` comprueba qué tienda está
+      sirviendo el 4323 antes de dejar correr un test y aborta si no es la de la
+      demo.
 - [x] Una corrida local de `pnpm e2e` deja de ensuciar el proyecto real.
       `scripts/preparar-storefront-e2e.ts` le ponía «Pick Demo (smoke)» a la
       tienda de la demo y le pisaba el envío; `scripts/limpiar-e2e.ts` la
@@ -794,7 +802,7 @@ por lo que se saltea.
       función, y hay un test que lo comprueba rompiéndolo a propósito
 - [ ] un correo de prueba llega a una dirección que no es la del dueño de la
       cuenta de Resend, verificado leyendo las cabeceras
-- [ ] `pnpm e2e` corre contra Treeshop y no deja rastro en el proyecto real
+- [x] `pnpm e2e` corre contra Treeshop y no deja rastro en el proyecto real
 - [x] ninguna respuesta del storefront lleva un campo que el comprador no pueda
       ver, y el catálogo tiene quien lo afirme
 
@@ -1716,6 +1724,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-13 | v2 Fase 0: un usuario autenticado sin membresía no llega a nada, y hay un test que lo afirma —`aislamiento-authenticated.test.ts`, 29 casos, el inventario comparado contra `pg_proc` y la comprobación por huella; verificado con sabotaje—. Leer `store_settings` pide `settings.write`. Y lo que encontró el test: el catálogo publicaba el costo de los 2096 productos en el HTML de cada PDP desde la Fase 2, porque `catalog_search` lo devolvía y el storefront serializa las variantes para hidratarlas (ADR-120)                                                                                           | v2 Fase 0 |           0% |            47% |
 | 2026-09-13 | v2 Fase 0: los dos ADR que la Fase 1 da por resueltos. **ADR-121**, la sesión del comprador en cookie httpOnly del Worker y las lecturas con su JWT: el primer camino del storefront donde RLS protege de verdad, y de ahí la regla de que todo RPC de comprador toma el customer id de la sesión y nunca del cuerpo. **ADR-122**, los correos de Auth por SMTP propio con un remitente para todo el proyecto, con la doc a la vista —el mailer de Supabase manda 2 por hora y sólo al equipo— y el disparador del cambio escrito: el segundo comercio que pida el suyo                                             | v2 Fase 0 |          47% |            56% |
 | 2026-09-13 | v2 Fase 0, los tres arreglos chicos: el texto de privacidad deja de prometer lo que v2 rompe —en las dos apps— y se compromete a cambiar antes que la tienda; las colecciones del Admin se paginan con la misma forma que los productos, así que la `Paginacion` que ya existe las dibuja, y los dos selectores piden un techo explícito en vez de «todo»; y la fuga de la transferencia queda medida con la respuesta honesta de que ocho pedidos, seis por transferencia y tres pendientes de la demo, no deciden nada: lo que queda es el método                                                                 | v2 Fase 0 |          56% |            72% |
+| 2026-09-13 | v2 Fase 0: el único storefront en producción deja de ser el único sin suite. `e2e/treeshop/` corre la app del cliente en el 4323 contra los datos de la demo, porque lo que no estaba probado es su código y no la base; cuatro casos, con el camino de compra entero y el menú en teléfono, que no existe en ningún otro lado. No le crea pedidos a `sontres.shop` —ocho antes, ocho después— y la guarda que lo sostiene se probó rompiéndola: sin `STOREFRONT_DOMAIN` el Worker sirve la tienda real, así que el setup comprueba cuál está sirviendo antes de dejar correr un test                               | v2 Fase 0 |          72% |            78% |
 
 ---
 

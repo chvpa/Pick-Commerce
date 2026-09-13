@@ -1,5 +1,7 @@
 import { execSync, spawn } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
+import { TIENDA } from '../scripts/seed-data.ts';
+import { NOMBRE_E2E } from '../scripts/preparar-storefront-e2e.ts';
 
 /**
  * Prepara el entorno de los tests de navegación.
@@ -236,4 +238,82 @@ SUPABASE_PUBLISHABLE_KEY=${publishable}
   admin.unref();
 
   execSync('npx --yes wait-on -t 120000 http-get://127.0.0.1:4322/', { stdio: 'ignore' });
+
+  // ---------------------------------------------------------------------------
+  // Treeshop
+  // ---------------------------------------------------------------------------
+
+  /*
+   * El primer cliente real, servido contra los datos de la demo.
+   *
+   * Lo que no estaba probado es **el código de Treeshop** —su encabezado, su
+   * menú en teléfono, su preset, su `contenido.ts`—, no la base: el catálogo y
+   * las secciones ya los cubre el smoke de la demo. Así que se construye su app
+   * y se le apunta `STOREFRONT_DOMAIN` a la tienda de demostración. La
+   * consecuencia importa: la corrida **no toca `sontres.shop`**, no crea pedidos
+   * y no descuenta stock del comercio.
+   *
+   * Puerto 4323: el 4321 es la demo y el 4322 está pedido dos veces —el `astro
+   * dev` de Treeshop y el Worker del Admin de acá arriba—.
+   */
+  silencioso('pnpm --filter @pick/treeshop exec astro preview stop');
+
+  if (process.env.PLAYWRIGHT_SKIP_BUILD !== '1') {
+    execSync('pnpm --filter @pick/treeshop run build', { stdio: 'inherit' });
+  }
+
+  writeFileSync(
+    'apps/treeshop/dist/server/.dev.vars',
+    `SUPABASE_URL=${url}
+SUPABASE_SECRET_KEY=${secretKey}
+` +
+      `STOREFRONT_DOMAIN=${TIENDA.domain}
+` +
+      `PAYMENT_WEBHOOK_SECRET=${SECRETO_DE_PAGO}
+`,
+    'utf8',
+  );
+
+  liberarPuerto(4323);
+
+  execSync(
+    'pnpm --filter @pick/treeshop exec astro preview --background --host 127.0.0.1 --port 4323',
+    { stdio: 'ignore' },
+  );
+  execSync('npx --yes wait-on -t 120000 http-get://127.0.0.1:4323/', { stdio: 'ignore' });
+
+  laTiendaEsLaDeLaDemo();
+}
+
+/**
+ * Que el Worker de Treeshop esté sirviendo la tienda de demostración, y no la
+ * del cliente.
+ *
+ * No es paranoia: `dominioDeLaTienda()` cae a `sontres.shop` cuando
+ * `STOREFRONT_DOMAIN` no llega, las dos tiendas viven en el **mismo** proyecto
+ * de Supabase, y el `.dev.vars` se escribe junto a `dist/server`, que el build
+ * vacía. O sea que un `.dev.vars` que no se escribió no rompe nada: hace que la
+ * suite corra contra la tienda real y le cree pedidos de prueba.
+ *
+ * Se comprueba acá y no en un test porque un test corre **después** de que otro
+ * ya compró.
+ */
+function laTiendaEsLaDeLaDemo(): void {
+  const traer = [
+    'node -e "',
+    'fetch(process.argv[1]).then(r=>r.text()).then(t=>process.stdout.write(t))',
+    '" http://127.0.0.1:4323/',
+  ].join('');
+
+  const html = execSync(traer, { encoding: 'utf8', maxBuffer: 20_000_000 });
+
+  if (html.includes(NOMBRE_E2E)) return;
+
+  throw new Error(
+    `El storefront de Treeshop en el 4323 no está sirviendo «${NOMBRE_E2E}». ` +
+      'Con STOREFRONT_DOMAIN ausente cae a sontres.shop, que es la tienda real del ' +
+      'cliente y vive en el mismo proyecto de Supabase: la suite le crearía pedidos. ' +
+      'Revisar que apps/treeshop/dist/server/.dev.vars exista y declare ' +
+      `STOREFRONT_DOMAIN=${TIENDA.domain}.`,
+  );
 }

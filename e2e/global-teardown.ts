@@ -3,10 +3,12 @@ import { readFileSync, rmSync } from 'node:fs';
 import { PID_DEL_ADMIN } from './global-setup.ts';
 
 export default function teardown(): void {
-  try {
-    execSync('pnpm --filter @pick/demo exec astro preview stop', { stdio: 'ignore' });
-  } catch {
-    // Ya estaba detenido.
+  for (const app of ['@pick/demo', '@pick/treeshop']) {
+    try {
+      execSync(`pnpm --filter ${app} exec astro preview stop`, { stdio: 'ignore' });
+    } catch {
+      // Ya estaba detenido.
+    }
   }
 
   /*
@@ -16,6 +18,7 @@ export default function teardown(): void {
    * una línea; dejar una credencial que saltea RLS tirada, no.
    */
   rmSync('apps/demo/dist/server/.dev.vars', { force: true });
+  rmSync('apps/treeshop/dist/server/.dev.vars', { force: true });
 
   /*
    * El Worker del Admin, con su árbol.

@@ -99,8 +99,9 @@ apps/
                      preset propios (ADR-110). Corre en 4322 en local
 supabase/            migraciones y pruebas de aislamiento entre tenants
 e2e/                 Playwright: el storefront de la demo (4321), el Admin y el
-                     presupuesto de performance. Treeshop no tiene suite: el
-                     único storefront en producción es el que no se prueba
+                     presupuesto de performance. `e2e/treeshop/` prueba la app
+                     del cliente en el 4323, servida contra los datos de la
+                     demo: no le crea pedidos a la tienda real
 ```
 
 Los paquetes se consumen como fuente (`exports` → `src/`), sin build propio. Ver ADR-029.
@@ -135,6 +136,15 @@ pnpm rls:verificar  # aislamiento entre comercios con sesiones reales; contra el
 **El 4322 está pedido dos veces**: es el `astro dev` de Treeshop y, durante el
 e2e, el Worker del Admin —que además le hace `kill-port`—. No correr `pnpm e2e`
 con `pnpm dev` abierto; el propio error de `e2e/global-setup.ts` ya lo nombra.
+Durante el e2e, Treeshop se sirve en el **4323**.
+
+**La suite de Treeshop corre contra los datos de la demo, no contra la tienda
+del cliente**: se le apunta `STOREFRONT_DOMAIN` a la tienda de demostración. Las
+dos viven en el mismo proyecto de Supabase y el fallback de `dominioDeLaTienda()`
+es `sontres.shop`, así que un `.dev.vars` que no se escribió no rompe nada: haría
+que la suite le creara pedidos al comercio. Por eso `global-setup` comprueba qué
+tienda está sirviendo el 4323 **antes** de dejar correr un test, y aborta si no
+es la de la demo. Medido quitando la variable: sirve Treeshop.
 
 Deploy: `pnpm --filter <app> run deploy`. El `run` **no es opcional** — `deploy` es un comando built-in de pnpm y sin `run` nunca llega al script del paquete.
 
