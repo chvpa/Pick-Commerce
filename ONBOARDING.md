@@ -153,6 +153,17 @@ En el Admin, en Configuración:
 - [ ] **Comprobarlo de punta a punta**: hacer un pedido de prueba con un correo
       propio y ver que llega.
 
+- [ ] Si se van a habilitar **cuentas de comprador**, el dominio verificado deja
+      de ser una recomendación y pasa a ser **requisito**: el código para entrar
+      sale por este mismo canal, con el remitente de este comercio (ADR-123).
+      Sin dominio verificado no llega el código, y sin código no hay login. Los
+      avisos de pedido degradan —el pedido se crea igual—; el login no degrada,
+      se rompe.
+
+Lo que **no** sale del correo de este comercio: el reset de contraseña del
+Admin. Ése va de Pick Commerce al comercio, no del comercio a un comprador, y
+sale por el SMTP del proyecto.
+
 ---
 
 ## 6. Antes de abrir al público

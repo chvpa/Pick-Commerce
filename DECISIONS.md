@@ -5438,7 +5438,7 @@ correo, que es ADR-122.
 ## ADR-122 — Los correos de Supabase Auth salen por SMTP propio, con un remitente para todo el proyecto
 
 **Fecha:** 2026-09-13
-**Estado:** Accepted — revisable, y el disparador está escrito abajo
+**Estado:** Accepted — acotado por ADR-123
 
 **Contexto**
 El login de la Fase 1 es un código que llega por email, así que antes de
@@ -5468,6 +5468,13 @@ verificación de firma.
 
 **El disparador para cambiar a hook es el segundo comercio que pida su propio
 remitente. No es una fecha.**
+
+> **Acotado por ADR-123.** Esto se escribió dando por hecho que el código de
+> acceso del comprador tendría que salir por acá, y no es así: `generateLink`
+> devuelve el código sin mandar nada, así que ese correo lo manda la cola de la
+> tienda con su propio remitente. El hook queda para el día que haga falta que
+> _todo_ lo de Auth salga por tienda. Lo que sigue vale igual y por eso se
+> conserva: es lo que costaría, averiguado.
 
 **Lo que se averiguó del hook, para no volver a averiguarlo**
 Es un POST a una ruta nuestra —o una función de Postgres—, firmado con un secreto
@@ -5512,3 +5519,85 @@ Dos cosas que parecían obvias y no lo son:
 - La configuración es del dueño del proyecto: el dominio verificado en Resend y
   las credenciales SMTP en el panel de Supabase. Va junto con lo demás que se
   hace en un panel.
+
+---
+
+## ADR-123 — Un correo lo decide quién lo recibe, no quién lo manda
+
+**Fecha:** 2026-09-13
+**Estado:** Accepted — acota ADR-122 y ordena la Fase 1 de v2
+
+**Contexto**
+ADR-122 eligió mandar los correos de Supabase Auth por SMTP propio, con un
+remitente para todo el proyecto, y dejó escrito el disparador para cambiarlo: el
+segundo comercio que pidiera el suyo. Ese disparador se leía como una cuestión de
+marca, algo que se pospone.
+
+No lo es, y el dueño del proyecto lo formuló mejor que el ADR:
+
+> La comunicación **comercio ↔ Pick Commerce** puede salir con el remitente de
+> Pick. La comunicación **comprador ↔ comercio** tiene que salir con el correo
+> del comercio.
+
+Con esa regla, el problema deja de ser estético. Un comprador que entra a su
+cuenta en la tienda A y recibe el código desde el dominio de la tienda B no está
+viendo una marca equivocada: está viendo que dos comercios que él cree
+independientes comparten infraestructura, y le llega un correo con un código de
+acceso desde un dominio que no reconoce. Eso es indefendible y además se parece
+mucho a un intento de phishing.
+
+**Decisión**
+La regla se adopta como regla de producto, y de ahí sale la clasificación de cada
+correo que el sistema manda:
+
+| Correo                                            | Quién lo recibe | Remitente   |
+| ------------------------------------------------- | --------------- | ----------- |
+| Avisos de pedido (recibido, confirmado, enviado…) | el comprador    | el comercio |
+| Código de acceso a la cuenta del comprador        | el comprador    | el comercio |
+| Reset de contraseña del Admin                     | el comercio     | Pick        |
+| Invitación a un equipo, avisos de la plataforma   | el comercio     | Pick        |
+
+Los avisos de pedido ya cumplían: los manda el Worker del storefront, y
+`EMAIL_FROM` es un secreto de ese Worker, así que cada tienda tiene el suyo. Lo
+que no cumplía era el código de acceso, porque lo manda Supabase Auth y su
+`smtp_admin_email` es del proyecto entero.
+
+**Cómo se cumple sin el Send Email Hook**
+Buscando el costo del hook apareció que no hace falta. `auth.admin.generateLink()`
+**no manda ningún correo**: su documentación dice que existe «para enviarse por
+un proveedor propio», y los tipos del SDK lo confirman —devuelve `email_otp`, el
+código en crudo, junto con `hashed_token` y `action_link`—. Después
+`verifyOtp({ email, token, type })` canjea ese código por una sesión.
+
+Entonces el código lo genera Supabase y lo manda **la cola de correos que ya
+existe**, que cada Worker drena con el `EMAIL_FROM` de su tienda. No hace falta
+una ruta HTTP nueva, ni verificación de firma, ni `pg_net`, ni una clave de
+Resend adentro de la base, ni romper el invariante del Worker del Admin —que a
+propósito no tiene la secret key—.
+
+La única cesión es de esquema: `notification_outbox.order_id` pasa a aceptar
+nulos, porque un código de acceso no tiene pedido. La clave foránea es compuesta
+y con un nulo no se comprueba, así que no hay que tocarla.
+
+**Consecuencias**
+
+- **Un comercio no puede habilitar cuentas de comprador sin su dominio
+  verificado en Resend.** Antes eso degradaba —los avisos de pedido no salían y
+  el pedido igual se creaba—; ahora rompe una función: sin correo no hay código,
+  y sin código no hay login. Es una condición del interruptor, no una
+  recomendación del onboarding, y el Admin la tiene que decir antes de dejar
+  prenderlo.
+- El drenador deja de asumir que toda fila de la cola tiene un pedido.
+- **ADR-122 queda acotado**: el Send Email Hook ya no es el camino previsto para
+  el código de acceso. Sigue siendo el camino si algún día hace falta que _todo_
+  lo de Auth salga por tienda —un cambio de dirección de correo, un reset de
+  contraseña de comprador si alguna vez hay contraseñas—, y su costo sigue
+  escrito ahí.
+- El SMTP del proyecto se queda con lo que le corresponde: lo que Pick Commerce
+  le escribe a un comercio.
+
+**Lo que esta decisión no resuelve**
+Que el remitente de cada comercio siga siendo un secreto del despliegue en vez de
+configuración del Admin. Está en `Backlog / Retroactividad` con sus dos
+dependencias, y esta regla lo vuelve más urgente: ahora ese valor no decide sólo
+la marca de un aviso, decide si el login de esa tienda funciona.

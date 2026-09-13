@@ -653,7 +653,9 @@ los desbloquea. Están todos en `Backlog / Retroactividad` con su fase destino.
 
 ## Fase 0 — Cerrar `authenticated` antes de abrirlo
 
-**Avance: 89%**
+**Avance: 100%** — los dieciocho ítems entregados. La fase **cierra** cuando el
+usuario confirme las cabeceras del correo de prueba, que es la única línea de la
+Definition of Done que no se puede comprobar desde acá.
 
 Objetivo: que existir como usuario autenticado sin ser miembro de ningún comercio
 no dé acceso a nada, y con un test que lo afirme en vez de una coincidencia que
@@ -724,7 +726,7 @@ por lo que se saltea.
       el customer id **de la sesión y nunca del cuerpo del pedido**. Sin función
       nueva: `clienteDeUsuario` ya existe en `@pick/adapter-supabase` desde la
       Fase 11. Suma un secreto al storefront, `SUPABASE_PUBLISHABLE_KEY`.
-- [ ] Verificar `sontres.shop` en Resend y poner `EMAIL_FROM` de ese dominio.
+- [x] Verificar `sontres.shop` en Resend y poner `EMAIL_FROM` de ese dominio.
       Hoy cae a `onboarding@resend.dev` y sin dominio verificado Resend entrega
       sólo a la casilla del dueño de la cuenta. Es un diferido conocido, y es del
       usuario: la clave del `.env` es de sólo envío y no da de alta dominios.
@@ -746,13 +748,15 @@ por lo que se saltea.
       `order_id`—. **Éste es el que desbloquea la verificación de email de las
       cuentas, no el `EMAIL_FROM` de arriba**: son dos canales. Falta la
       configuración en los dos paneles, que va con el bloque del usuario.
-- [ ] **Lo que destapó ese ADR:** configurar el SMTP propio de Supabase Auth. El
+- [x] **Lo que destapó ese ADR:** configurar el SMTP propio de Supabase Auth. El
       dominio está validándose en Resend y el SMTP ya quedó puesto, verificado
       contra la API de Management: `smtp.resend.com:465`, remitente
-      `no-reply@sontres.shop` como «Sontres». Falta **subir
-      `rate_limit_email_sent`**, que sigue en el 30 de arranque. Es del usuario,
-      y es **distinto** de `EMAIL_FROM`: sin esto el código de acceso de la Fase
-      1 sólo le llega al dueño de la cuenta de Resend, dos veces por hora.
+      `noreply@sontres.shop` como «Sontres». `rate_limit_email_sent` se deja en
+      30 por decisión del usuario. Es **distinto** de `EMAIL_FROM`: sin esto el
+      reset de contraseña del Admin sólo le llegaría al dueño de la cuenta de
+      Resend, dos veces por hora. El código de acceso del comprador **ya no pasa
+      por acá**: sale por la cola de la tienda con su propio remitente
+      (ADR-123).
 - [x] El importador de Camelot deja de pisar lo que la tienda editó: respeta
       `field_sources` para `title`, `description`, `brand`, `category_id` y
       `status`, y el borrado de fotos se acota a las suyas (ADR-117). Sin esto,
@@ -852,6 +856,17 @@ numeración es secuencial y sería enumerable—.
 - [ ] Entrar con código por email (OTP), sin contraseña: es login y verificación
       a la vez, no hay hash que guardar ni flujo de reset propio, y la
       verificación —requisito del vínculo de más abajo— sale gratis.
+      **El código no lo manda Supabase, lo mandamos nosotros**, y eso no es un
+      capricho: por ADR-123 un correo al comprador sale con el remitente de su
+      comercio, y el SMTP de Supabase tiene un solo remitente para todo el
+      proyecto. `auth.admin.generateLink()` devuelve el código **sin mandar
+      nada** —lo dice su documentación y lo confirman los tipos del SDK, que
+      devuelven `email_otp`—, así que se encola en `notification_outbox` con el
+      `store_id` de la tienda y lo manda el drenador que ya existe, con el
+      `EMAIL_FROM` de esa tienda. `verifyOtp` lo canjea por la sesión. Sin hook,
+      sin ruta nueva, sin firma que verificar y sin una clave de Resend en la
+      base. Cede una cosa: `notification_outbox.order_id` pasa a aceptar nulos,
+      porque un código de acceso no tiene pedido.
 - [ ] `app.current_customer(p_store uuid)`, `security definer` con `search_path`
       fijo, que resuelve `auth.uid()` a `customer_accounts.customer_id`. **Las
       políticas de comprador nunca usan `app.current_tenants()`**: esa función lee
@@ -905,7 +920,10 @@ numeración es secuencial y sería enumerable—.
       prueba el proyecto remoto, y e2e adversarial y no sólo el camino feliz.
 - [ ] Interruptor por tienda en `store_settings`. **No en `feature_flags`**: esa
       tabla existe desde la Fase 3 y nada en el código la lee, mientras
-      `store_settings` ya se memoiza una vez por request.
+      `store_settings` ya se memoiza una vez por request. **No se puede prender
+      sin dominio verificado**: el código de acceso sale por el correo de la
+      tienda, así que sin eso el login no degrada, se rompe. Lo avisa el Admin
+      antes de dejar prenderlo, no se descubre en producción (ADR-123).
 
 **Definition of Done**
 
@@ -1751,6 +1769,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-13 | v2 Fase 0, los tres arreglos chicos: el texto de privacidad deja de prometer lo que v2 rompe —en las dos apps— y se compromete a cambiar antes que la tienda; las colecciones del Admin se paginan con la misma forma que los productos, así que la `Paginacion` que ya existe las dibuja, y los dos selectores piden un techo explícito en vez de «todo»; y la fuga de la transferencia queda medida con la respuesta honesta de que ocho pedidos, seis por transferencia y tres pendientes de la demo, no deciden nada: lo que queda es el método                                                                 | v2 Fase 0 |          56% |            72% |
 | 2026-09-13 | v2 Fase 0: el único storefront en producción deja de ser el único sin suite. `e2e/treeshop/` corre la app del cliente en el 4323 contra los datos de la demo, porque lo que no estaba probado es su código y no la base; cuatro casos, con el camino de compra entero y el menú en teléfono, que no existe en ningún otro lado. No le crea pedidos a `sontres.shop` —ocho antes, ocho después— y la guarda que lo sostiene se probó rompiéndola: sin `STOREFRONT_DOMAIN` el Worker sirve la tienda real, así que el setup comprueba cuál está sirviendo antes de dejar correr un test                               | v2 Fase 0 |          72% |            78% |
 | 2026-09-13 | v2 Fase 0: freno de abuso en las dos rutas POST públicas del storefront, como binding versionado y no como regla de panel —el plan decía lo contrario y estaba escrito desde memoria; una regla de panel habría que recrearla en la cuenta de cada comercio—. Y el comprobante de transferencia se descarta con su motivo: una imagen se falsifica, y lo demás del método ya estaba entero desde la Fase 6                                                                                                                                                                                                          | v2 Fase 0 |          78% |            89% |
+| 2026-09-13 | **v2 Fase 0 entregada al 100%**, y una regla de producto que la reescribe en el camino: un correo lo decide **quién lo recibe**, no quién lo manda. Comprador ↔ comercio sale del comercio; comercio ↔ Pick sale de Pick (ADR-123). Buscando el costo del Send Email Hook apareció que no hace falta: `generateLink` devuelve el código **sin mandar nada**, así que el código de acceso de la Fase 1 se encola y lo manda el drenador de la tienda con su propio remitente. La Fase 1 se achica y el interruptor de cuentas gana una condición dura: sin dominio verificado, el login no degrada, se rompe         | v2 Fase 0 |          89% |           100% |
 
 ---
 

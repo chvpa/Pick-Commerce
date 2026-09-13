@@ -968,6 +968,19 @@ ruido —al comprador le importa que salió, no que lo están empacando—. Se
 agregan cuando haya a quién mandárselos
 (`packages/commerce-core/src/notifications.ts`).
 
+**Un correo lo decide quién lo recibe, no quién lo manda.** Lo que va del
+comercio al comprador —los avisos de arriba, y el código de acceso a su cuenta—
+sale con el correo **del comercio**. Lo que va de Pick Commerce al comercio
+—reset de contraseña del Admin, invitaciones al equipo, avisos de la
+plataforma— sale con el remitente de Pick. Un comprador que recibe un código de
+acceso desde el dominio de otra tienda no está viendo una marca equivocada: está
+viendo que dos comercios que cree independientes comparten infraestructura, y
+eso se parece demasiado a un phishing (ADR-123).
+
+De ahí una condición dura: **un comercio no puede habilitar cuentas de comprador
+sin su dominio verificado.** Sin correo no hay código y sin código no hay login,
+así que acá el remitente dejó de ser cosmético.
+
 El reset de contraseña es del Admin y no de esta cola: lo hace Supabase Auth con
 su propio correo, no código propio (ADR-083).
 
