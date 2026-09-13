@@ -17,6 +17,12 @@
   "ratelimits": [
     { "name": "CHECKOUT_LIMITE", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } },
     { "name": "CARRITO_LIMITE", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } },
+    // Entrar a la cuenta va más ajustado que comprar: pedir un código es a la
+    // vez la superficie de enumeración de cuentas y la de abuso de correo —cada
+    // intento manda un mail—, y canjearlo es la de fuerza bruta. Aun así quedan
+    // holgados para una persona: nadie pide diez códigos en un minuto.
+    { "name": "CODIGO_LIMITE", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } },
+    { "name": "ENTRAR_LIMITE", "namespace_id": "1004", "simple": { "limit": 15, "period": 60 } },
   ],
   // El entry del Worker y los assets los inyecta @astrojs/cloudflare al construir.
 }

@@ -362,7 +362,7 @@ cargarle.
 | ----------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------- | ---------------- | ------------------------- | --------------------- |
 | `SUPABASE_URL`                                        | Dirección del proyecto                                              | No, pero viaja como secreto                           | `.env`           | La imprime el stack local | Runtime               |
 | `SUPABASE_SECRET_KEY`                                 | **Saltea RLS por completo**                                         | **Sí**                                                | `.env`           | Ídem                      | Runtime               |
-| `SUPABASE_PUBLISHABLE_KEY`                            | Clave para el browser; la protege RLS                               | No                                                    | `.env`           | Ídem                      | No la usa             |
+| `SUPABASE_PUBLISHABLE_KEY`                            | Clave para el browser; la protege RLS                               | No                                                    | `.env`           | Ídem                      | Sólo para las cuentas |
 | `SUPABASE_ACCESS_TOKEN`                               | Token de tu **cuenta** Supabase, para el CLI y la API de Management | **Sí, y es la más peligrosa: ve todos tus proyectos** | `.env`           | No se usa                 | No se usa             |
 | `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` | Lo que el Admin expone al browser                                   | No                                                    | `.env`           | Ídem                      | —                     |
 | `SITE_URL`                                            | Dirección pública del storefront                                    | No                                                    | `.env`, opcional | —                         | Variable de **build** |
@@ -542,6 +542,15 @@ romper, así que un despliegue sin ellos sigue vendiendo.
 Cargar `PAYMENT_WEBHOOK_SECRET` con un valor largo y aleatorio: es lo que firma
 los avisos de pago, y quien lo tenga puede marcar pedidos como pagados.
 
+La v2 le suma uno con la misma regla: **`SUPABASE_PUBLISHABLE_KEY`**, que las
+cuentas de comprador necesitan para canjear el código —ese es el único camino del
+storefront donde manda RLS y no la secret key—. Sin ella, `/api/cuenta/codigo` y
+`/api/cuenta/entrar` responden 503 nombrando en el log lo que falta, y el resto
+del sitio —catálogo, carrito, checkout— funciona igual. Por eso **no** está entre
+las que el middleware exige: apagar la tienda entera por una credencial que sólo
+hace falta para entrar a una cuenta sería apagar la caja porque no anda el
+probador.
+
 ### Secretos del Worker del Admin, que trajo la Fase 11
 
 El Admin dejó de ser sólo assets. Desde la Fase 11 su `wrangler.jsonc` declara un
@@ -596,9 +605,16 @@ después lo tiene sin que nadie se acuerde.
 ```jsonc
 "ratelimits": [
   { "name": "CHECKOUT_LIMITE", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } },
-  { "name": "CARRITO_LIMITE", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } }
+  { "name": "CARRITO_LIMITE", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } },
+  { "name": "CODIGO_LIMITE", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } },
+  { "name": "ENTRAR_LIMITE", "namespace_id": "1004", "simple": { "limit": 15, "period": 60 } }
 ]
 ```
+
+Los dos de la cuenta van más ajustados que el del checkout: pedir un código es a
+la vez la superficie de enumeración de cuentas y la de abuso de correo —cada
+intento manda un mail— y canjearlo es la de fuerza bruta. Aun así quedan
+holgados para una persona.
 
 Cuatro cosas que hay que saber antes de tocar esos números:
 

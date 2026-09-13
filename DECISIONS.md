@@ -5587,7 +5587,19 @@ y con un nulo no se comprueba, así que no hay que tocarla.
   y sin código no hay login. Es una condición del interruptor, no una
   recomendación del onboarding, y el Admin la tiene que decir antes de dejar
   prenderlo.
-- El drenador deja de asumir que toda fila de la cola tiene un pedido.
+- El drenador deja de asumir que toda fila de la cola tiene un pedido, **y no
+  era el único**. `mark_notification_sent` marcaba la fila y además dejaba un
+  `email_sent` en la timeline del pedido (ADR-102): con `order_id` nulo, ese
+  insert violaba el `not null` de `order_events`. El modo de fallo era peor que
+  un error, porque el correo ya había salido cuando fallaba el marcado: la fila
+  quedaba pendiente y el siguiente drenaje mandaba el mismo código otra vez,
+  hasta cinco veces. Apareció recién probando las rutas contra el proyecto real
+  —ni el typecheck ni la suite de PGlite lo veían— y dejó su caso en
+  `pagos-y-notificaciones.test.ts`. La lección se generaliza: **hacer nullable
+  una columna no termina en la tabla**, termina cuando se leyó a cada uno de sus
+  consumidores. Un código de acceso, a propósito, no deja entrada en ninguna
+  timeline: no hay pedido donde ponerla y el Admin no tiene por qué ver cuándo
+  entra cada comprador.
 - **ADR-122 queda acotado**: el Send Email Hook ya no es el camino previsto para
   el código de acceso. Sigue siendo el camino si algún día hace falta que _todo_
   lo de Auth salga por tienda —un cambio de dirección de correo, un reset de

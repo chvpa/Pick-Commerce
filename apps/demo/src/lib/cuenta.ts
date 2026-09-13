@@ -77,6 +77,27 @@ export async function pedirCodigo(email: string): Promise<void> {
  * hasta ahora sólo tenía la secret key: es lo que habilita el primer camino de
  * este sitio donde RLS decide de verdad (ADR-121).
  */
+/**
+ * El secreto que falta para que las cuentas funcionen, o `null` si están todos.
+ *
+ * No va a `REQUERIDAS` del middleware, y la diferencia importa: sin
+ * `SUPABASE_PUBLISHABLE_KEY` el catálogo, el carrito y el checkout andan
+ * perfecto —usan la secret key— así que tumbar la tienda entera por una
+ * credencial que sólo hace falta para entrar a una cuenta sería apagar la caja
+ * porque no anda el probador. Lo dicen las dos rutas de `/api/cuenta/`, con un
+ * 503 que nombra lo que falta en el log del Worker.
+ */
+export function faltaParaLasCuentas(): string | null {
+  for (const nombre of ['SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY'] as const) {
+    try {
+      if (!getSecret(nombre)) return nombre;
+    } catch {
+      return nombre;
+    }
+  }
+  return null;
+}
+
 function conexionPublica(): { url: string; publishableKey: string } {
   const url = getSecret('SUPABASE_URL');
   const publishableKey = getSecret('SUPABASE_PUBLISHABLE_KEY');

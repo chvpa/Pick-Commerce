@@ -498,6 +498,32 @@ test('marcar enviada la saca de la cola y la deja en la timeline', async () => {
   assert.equal((await eventosDe(o.id, 'email_sent')).length, antes);
 });
 
+test('un correo sin pedido también se marca como enviado', async () => {
+  /*
+   * El código de acceso comparte esta cola y no tiene pedido (ADR-123). Sin la
+   * guarda, `mark_notification_sent` fallaba al insertar en `order_events` con
+   * `order_id` nulo — y el modo de fallo era el peor posible: el correo **ya**
+   * había salido, así que la fila quedaba pendiente y el siguiente drenaje lo
+   * volvía a mandar. Hasta cinco veces el mismo código.
+   */
+  const filas = await comoServicio<{ id: string }>(
+    db,
+    `insert into notification_outbox (tenant_id, store_id, event, recipient, payload)
+     values (${sql(TENANT)}::uuid, ${sql(TIENDA)}::uuid, 'auth_code', 'sin-pedido@test.local',
+             '{"codigo":"123456","minutos":15}'::jsonb)
+     returning id`,
+  );
+  const id = filas[0]!.id;
+
+  await comoServicio(db, `select mark_notification_sent(${sql(TIENDA)}::uuid, ${sql(id)}::uuid)`);
+
+  const r = await db.query<{ sent_at: string | null }>(
+    `select sent_at from notification_outbox where id = $1`,
+    [id],
+  );
+  assert.ok(r.rows[0]!.sent_at, 'el correo salió pero la fila quedó pendiente: se va a repetir');
+});
+
 test('registrar un correo enviado no encola otro correo', async () => {
   // El ciclo: `mark_notification_sent` inserta `email_sent`, y ese insert vuelve
   // a disparar el trigger que encola. Sin el corte, cada correo enviado

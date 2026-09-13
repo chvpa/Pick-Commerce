@@ -63,14 +63,15 @@ Hay dos caminos, y el primero que hay que decidir es cuál:
 - [ ] **Cargar las variables.** De build, `SITE_URL` con la dirección pública —de
       ahí salen el canonical, el `og:url` y el sitemap—. De runtime:
 
-  | Variable                 | Qué es                                           |
-  | ------------------------ | ------------------------------------------------ |
-  | `SUPABASE_URL`           | El proyecto                                      |
-  | `SUPABASE_SECRET_KEY`    | Saltea RLS. **Sólo servidor**                    |
-  | `STOREFRONT_DOMAIN`      | Qué tienda sirve este deploy                     |
-  | `RESEND_API_KEY`         | Sin ella no sale ningún correo, y la cola espera |
-  | `EMAIL_FROM`             | De qué dirección salen                           |
-  | `PAYMENT_WEBHOOK_SECRET` | Sólo si se habilita la pasarela simulada         |
+  | Variable                   | Qué es                                           |
+  | -------------------------- | ------------------------------------------------ |
+  | `SUPABASE_URL`             | El proyecto                                      |
+  | `SUPABASE_SECRET_KEY`      | Saltea RLS. **Sólo servidor**                    |
+  | `STOREFRONT_DOMAIN`        | Qué tienda sirve este deploy                     |
+  | `RESEND_API_KEY`           | Sin ella no sale ningún correo, y la cola espera |
+  | `EMAIL_FROM`               | De qué dirección salen                           |
+  | `PAYMENT_WEBHOOK_SECRET`   | Sólo si se habilita la pasarela simulada         |
+  | `SUPABASE_PUBLISHABLE_KEY` | Sólo si se habilitan cuentas de comprador        |
 
 - [ ] **Conectar el dominio.** La zona tiene que vivir en Cloudflare: agregar
       el sitio, apuntar los nameservers del registrador a los que Cloudflare
@@ -158,7 +159,10 @@ En el Admin, en Configuración:
       sale por este mismo canal, con el remitente de este comercio (ADR-123).
       Sin dominio verificado no llega el código, y sin código no hay login. Los
       avisos de pedido degradan —el pedido se crea igual—; el login no degrada,
-      se rompe.
+      se rompe. Y va también `SUPABASE_PUBLISHABLE_KEY` como secreto del Worker:
+      es la clave con la que se canjea el código, y es el único camino del
+      storefront donde manda RLS. Sin ella las dos rutas de `/api/cuenta/`
+      responden 503 y el resto del sitio sigue vendiendo.
 
 Lo que **no** sale del correo de este comercio: el reset de contraseña del
 Admin. Ése va de Pick Commerce al comercio, no del comercio a un comprador, y
