@@ -5136,12 +5136,13 @@ metía recomendaciones y vistos recientemente adentro de «Search avanzado», co
 si fueran búsqueda y no consecuencias de tener cuenta.
 
 **Decisión**
-v2 se reordena en ocho fases: cerrar el significado de `authenticated`, la
+v2 se reordena en nueve fases: cerrar el significado de `authenticated`, la
 identidad del comprador, lo que la identidad paga —wishlist, vistos
 recientemente—, el buscador léxico, recomendaciones y portada por visitante,
 devolver a la vitrina los productos sin foto, la IA que gasta por unidad de
-catálogo, y al final lo que quedaba del v2 escrito. El plan lo escribe
-[ROADMAP.md](ROADMAP.md); acá queda por qué ese orden.
+catálogo, lo que quedaba del v2 escrito, y al final el programa de beneficios
+que cruza comercios. El plan lo escribe [ROADMAP.md](ROADMAP.md); acá queda por
+qué ese orden.
 
 El cobro en línea no entra como fase de v2: sigue siendo P-001 y sigue en su
 track paralelo, porque depende de credenciales que consigue el comercio y una

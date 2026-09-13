@@ -626,6 +626,10 @@ avanzado» se parte en tres, porque tenía tres consecuencias de las cuentas de
 comprador —recomendaciones, vistos recientemente, recomendaciones de carrito—
 listadas como si fueran búsqueda.
 
+**Loyalty creció y se partió en dos.** La fidelidad por tienda queda en la Fase
+7; el programa que cruza comercios —una cuenta, unos puntos que sirven en toda
+la red— pasó a ser la Fase 8, condicionada a que la red exista.
+
 El orden no sale del valor percibido de cada fase, sale de tres fronteras
 técnicas que se cruzan una sola vez: `app.current_tenants()` lee `memberships`,
 así que hoy `authenticated` significa «alguien del equipo de un comercio» y hay
@@ -1201,12 +1205,45 @@ Objetivo: lo que el v2 original tenía adelante y que ahora sí se puede apoyar 
 algo. No es una fase que se tome entera: se toma de a un bloque, con un cliente
 real que lo pida.
 
-- [ ] **Loyalty** —ledger de puntos, reglas de acumulación y canje, niveles,
-      cumpleaños, habilitable por tenant—: recién acá. Un ledger sin sesión es un
-      ledger con clave email, y cualquiera que sepa el correo reclama los puntos.
-      En el v2 escrito estaba en la Fase 4, dos fases antes de que existiera
-      cualquier identidad de comprador. Mientras tanto, lo que un comercio quiere
-      hacer con puntos lo hace con los cupones de la Fase 9.
+- [ ] **Fidelidad, por tienda.** Recién acá: un ledger sin sesión es un ledger
+      con clave email, y cualquiera que sepa el correo reclama los puntos. En el
+      v2 escrito estaba dos fases antes de que existiera cualquier identidad de
+      comprador. Lo que define esta capa, y es lo único que no se puede cambiar
+      después: - **El ledger es append-only y cada movimiento lleva la tienda que lo
+      emitió.** Ganó, gastó, venció, ajuste. **Nunca una columna `points` en el
+      cliente**: con un saldo, la Fase 8 es reescribir; con un libro atribuido,
+      la Fase 8 es una consulta encima. Es la única inversión de esta fase que
+      existe para la siguiente, y cuesta nada ahora. - **Dos formas de sumar y ninguna más**: una compra da 20 puntos, una
+      reseña da 10. Se descartaron las misiones por navegar —visitar, buscar,
+      agregar al carrito, compartir— porque premian una acción sin valor
+      económico y se farmean abriendo una pestaña: con 30 días de visitas
+      valiendo más que una compra, se paga más por mirar que por comprar. La
+      racha con multiplicador y las encuestas quedan para más adelante. - **Los puntos se acreditan cuando el pedido se cobra, no cuando se crea**,
+      y una cancelación o devolución emite el movimiento inverso. El único
+      pedido que existe hoy en el piloto está `cancelled`: es exactamente el
+      caso. - **Las reseñas no existen todavía**: no hay tabla ni pantalla, así que son
+      una dependencia de esta fase y no un detalle. Una reseña por producto
+      comprado y por cliente, verificada contra `order_items` y habilitada
+      recién con el pedido entregado. **Se paga sin mirar la estrella** y la
+      reseña incentivada se marca como tal: pagar por estrellas altas es cómo
+      se arruina el activo que la reseña construye. - **El catálogo de canje lo arma el comercio**: qué se canjea, cuántos
+      puntos cuesta, cuántas veces, entre qué fechas y hasta agotar stock. - **Tres de los cuatro tipos de canje ya son una promoción.** El motor de la
+      Fase 9 tiene `discount_type`, `discount_value`, alcance por `all`,
+      `category`, `collection` y `product`, tope de usos y rango de fechas: un
+      30% en todo, un 20% sobre una colección de marca y un producto al 100% ya
+      se expresan ahí. Un canje **gasta puntos y emite una promoción de un solo
+      uso atada a ese comprador**. Lo único que el motor no tiene es el
+      **envío gratis**, porque el envío lo calcula `create_order` aparte y no
+      es un descuento sobre el subtotal (ADR-107, ADR-114): ése es el efecto
+      nuevo de esta fase, más la reserva de stock del producto regalado, que se
+      revalida como cualquier checkout. - **El Admin muestra el tipo de cambio implícito al fijar el precio en
+      puntos**, y es lo más valioso de la pantalla. «Una compra da 20 puntos;
+      estás pidiendo 10: cada compra alcanza para dos canjes de esto» evita que
+      un envío gratis a 10 puntos se convierta en un descuento permanente del
+      12% sobre cada pedido, que es a lo que llegaba el primer boceto sin que
+      se notara. - **Un canje agotado se ve como agotado, nunca como un error al pagar**, y
+      los puntos vencen con un plazo avisado: sin vencimiento el pasivo crece
+      para siempre y nadie canjea.
 - [ ] **Wholesale / B2B** —MOQ, case packs, quantity breaks, precio por cliente,
       grupos de cliente, bulk ordering, pedido mínimo—: los grupos necesitan la
       cuenta de la Fase 1, y el precio por cliente tiene que calcularse en el
@@ -1243,6 +1280,61 @@ real que lo pida.
 
 - [ ] ningún bloque de esta fase se empieza sin un cliente real que lo pida
 - [ ] nada de acá promete una capacidad que el proveedor de abajo no tiene
+
+---
+
+## Fase 8 — El Sistema de beneficios: una cuenta y unos puntos que cruzan tiendas
+
+**Avance: 0%**
+
+**Condicionada a la cantidad de comercios, no a una fecha.** Con una tienda, un
+programa de red es un programa normal con maquinaria de más; el efecto empieza
+alrededor de los cinco o diez comercios con tráfico real. Se diseña ahora para
+no cerrarse puertas, y se construye cuando la red exista.
+
+Objetivo: que comprar en una tienda de la red sirva en todas. Es lo único que
+puede dar un efecto de red —cada comercio nuevo hace el programa más valioso
+para el comprador, y eso lo hace más valioso para el comercio siguiente— y es un
+argumento de venta concreto: se entra a una red donde el comprador ya tiene
+cuenta y puntos para gastar.
+
+- [ ] **La regla que ordena todo: la emisión es de la red, el canje es de cada
+      comercio.** Cada comercio adherido publica su propia tabla de canje y sus
+      propios topes, así que **no hay deuda entre comercios**: la tienda D no le
+      paga nada a la A, decide por su cuenta qué entrega a quien traiga cien
+      puntos y hasta cuántas veces. Los puntos son un calificador, no un pasivo
+      transferido. Eso es lo que evita tener que montar una cámara de
+      compensación, que sería un producto financiero y no una feature.
+- [ ] **Un techo global de emisión por persona y período**, que es lo que hace
+      que la red escale sin inflarse: con veinte comercios adheridos, lo que
+      alguien puede acumular sin comprar tiene el mismo tope que con tres. El
+      comercio que fija su tabla sabe contra qué juega.
+- [ ] **Adhesión opt-in por comercio.** Ninguno entra por defecto: quien no se
+      adhiere no honra puntos y no aparece en la red.
+- [ ] **La primera excepción al tenant scope del sistema**, y por eso necesita su
+      ADR antes de una línea de código: la cuenta y el ledger son datos que
+      ninguna tienda posee, mientras que todo lo demás del esquema lleva
+      `tenant_id` y su política. Con una regla que hay que hacer cumplir y no
+      sólo escribir: **un comercio no ve que su cliente compró en otro**. «Mi
+      cuenta» muestra los pedidos de las tiendas donde el comprador aceptó.
+- [ ] **Consentimiento explícito en el alta**, no el interruptor de la Fase 2:
+      compartir historial entre comercios independientes es otra categoría, y se
+      pide con palabras claras en el momento de crear la cuenta.
+- [ ] **Se descartó el catálogo de tiendas asociadas.** Mostrarle a alguien que
+      está decidiendo una compra el producto de otro comercio de la red es
+      desleal con el comercio que lo trajo. Si vuelve, vuelve opt-in y por
+      categorías que no compitan.
+- [ ] Quedan para después, con su motivo: la racha diaria como **multiplicador**
+      de lo que se gana por acciones reales —nunca como puntos por visitar—, las
+      encuestas, y cualquier misión nueva. Cada una es emisión sin venta detrás,
+      así que entran de a una y con tope.
+
+**Definition of Done**
+
+- [ ] un comprador acumula en una tienda y canjea en otra, y ninguna de las dos
+      ve los pedidos de la otra
+- [ ] el techo de emisión se sostiene con veinte comercios adheridos
+- [ ] un comercio puede salirse de la red sin romper los puntos ya emitidos
 
 ---
 
