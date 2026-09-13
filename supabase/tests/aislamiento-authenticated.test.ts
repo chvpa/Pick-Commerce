@@ -99,6 +99,10 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
     `catalog_search('${TIENDA}', '{}'::jsonb, null, null, 1, 20, null, null, null, null)`,
   ],
   ['public.cart_promotions', `cart_promotions('${TIENDA}', '[]'::jsonb, null)`],
+  // Los pedidos del comprador. `security invoker` a propósito: la defensa es
+  // RLS, no una comprobación escrita adentro (ADR-121). Un forastero recibe la
+  // página vacía.
+  ['public.customer_orders', `customer_orders('${TIENDA}', 1, 10)`],
 ];
 
 /**
@@ -112,7 +116,9 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
  */
 const PUBLICAS = [
   'app.apply_chain',
+  'app.current_customer', // devuelve null para quien no tiene cuenta en esa tienda
   'app.current_tenants', // devuelve vacío para quien no es de ningún comercio
+  'app.es_mi_pedido', // devuelve false
   'app.has_permission', // devuelve false
   'app.paso_del_embudo',
   'app.promo_discount',
@@ -282,6 +288,26 @@ test('un `viewer` tampoco lee `store_settings`: leerla pide `settings.write`', a
 test('las funciones sin dueño no le dan nada a un forastero', async () => {
   const tenants = await como<{ t: string }>(db, FORASTERO, 'select app.current_tenants() as t');
   assert.deepEqual(tenants, [], '`current_tenants` le devolvió una organización a un forastero');
+
+  // Las dos del comprador responden «quién sos», así que pedirles permiso no
+  // tendría sentido; lo que no pueden es decir algo de otro.
+  const cliente = await como<{ c: string | null }>(
+    db,
+    FORASTERO,
+    `select app.current_customer('${TIENDA}') as c`,
+  );
+  assert.equal(
+    cliente[0]!.c,
+    null,
+    '`current_customer` le dio una ficha de cliente a un forastero',
+  );
+
+  const ajeno = await como<{ m: boolean }>(
+    db,
+    FORASTERO,
+    'select app.es_mi_pedido((select id from orders limit 1)) as m',
+  );
+  assert.equal(ajeno[0]!.m, false, '`es_mi_pedido` dijo que sí sobre un pedido ajeno');
 
   const permiso = await como<{ p: boolean }>(
     db,
