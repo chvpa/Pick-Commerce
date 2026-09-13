@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { repositorioContenido } from '@pick/adapter-supabase';
-import { moverEn, type SeccionDeHome } from '@pick/commerce-core';
+import { TOPE_DE_COLECCIONES, moverEn, type SeccionDeHome } from '@pick/commerce-core';
 import { GalleryVerticalEndIcon } from '@/components/iconos';
 import { buttonVariants } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -30,9 +30,12 @@ export function Secciones() {
     queryFn: () => repositorioContenido(db).secciones(tienda.id),
   });
 
+  // El selector necesita todas para poder nombrar la colección de cada
+  // sección, así que pide una página del tamaño del techo en vez de «todo».
   const colecciones = useQuery({
-    queryKey: ['colecciones', tienda.id],
-    queryFn: () => repositorioContenido(db).colecciones(tienda.id),
+    queryKey: ['colecciones', tienda.id, 'todas'],
+    queryFn: () =>
+      repositorioContenido(db).colecciones(tienda.id, { perPage: TOPE_DE_COLECCIONES }),
   });
 
   const refrescar = () => queryClient.invalidateQueries({ queryKey: ['secciones', tienda.id] });
@@ -62,7 +65,7 @@ export function Secciones() {
   });
 
   const nombreDeColeccion = (id?: string): string =>
-    colecciones.data?.find((c) => c.id === id)?.title ?? '—';
+    colecciones.data?.items.find((c) => c.id === id)?.title ?? '—';
 
   return (
     <PaginaAdmin

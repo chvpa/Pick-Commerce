@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { repositorioContenido } from '@pick/adapter-supabase';
 import {
   COLUMNAS_POR_DEFECTO,
+  TOPE_DE_COLECCIONES,
   categoriasDe,
   columnasDe,
   moverEn,
@@ -156,9 +157,12 @@ function Campos({
   const [published, setPublished] = useState(inicial?.published ?? false);
   const [error, setError] = useState<string | null>(null);
 
+  // Idem `Secciones`: es un `<select>`, necesita la lista entera, y «entera»
+  // llega hasta el techo.
   const colecciones = useQuery({
-    queryKey: ['colecciones', tienda.id],
-    queryFn: () => repositorioContenido(db).colecciones(tienda.id),
+    queryKey: ['colecciones', tienda.id, 'todas'],
+    queryFn: () =>
+      repositorioContenido(db).colecciones(tienda.id, { perPage: TOPE_DE_COLECCIONES }),
     enabled: type === 'products',
   });
 
@@ -253,7 +257,7 @@ function Campos({
                   onValueChange={(valor) => setCollectionId(valor)}
                 >
                   <SelectItem value="">Elegí una colección</SelectItem>
-                  {(colecciones.data ?? []).map((c) => (
+                  {(colecciones.data?.items ?? []).map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.title}
                     </SelectItem>

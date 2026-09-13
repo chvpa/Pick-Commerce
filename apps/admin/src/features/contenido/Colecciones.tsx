@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { repositorioContenido } from '@pick/adapter-supabase';
@@ -6,7 +7,14 @@ import { LibraryBigIcon } from '@/components/iconos';
 import { buttonVariants } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { BorrarConConfirmacion, EnlaceDeEdicion } from '@/components/acciones';
-import { Esqueleto, EstadoDeError, EstadoVacio, PaginaAdmin, Tarjeta } from '@/components/pagina';
+import {
+  Esqueleto,
+  EstadoDeError,
+  EstadoVacio,
+  Paginacion,
+  PaginaAdmin,
+  Tarjeta,
+} from '@/components/pagina';
 import { usePuede } from '@/features/auth/usePuede';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
@@ -18,9 +26,11 @@ export function Colecciones() {
   const puede = usePuede();
   const queryClient = useQueryClient();
 
+  const [pagina, setPagina] = useState(1);
+
   const consulta = useQuery({
-    queryKey: ['colecciones', tienda.id],
-    queryFn: () => repositorioContenido(db).colecciones(tienda.id),
+    queryKey: ['colecciones', tienda.id, pagina],
+    queryFn: () => repositorioContenido(db).colecciones(tienda.id, { page: pagina }),
   });
 
   const refrescar = async () => {
@@ -76,7 +86,7 @@ export function Colecciones() {
           />
         ) : consulta.isPending ? (
           <Esqueleto />
-        ) : consulta.data.length === 0 ? (
+        ) : consulta.data.total === 0 ? (
           <EstadoVacio
             titulo="Todavía no hay colecciones"
             accion={
@@ -92,7 +102,7 @@ export function Colecciones() {
           </EstadoVacio>
         ) : (
           <ul aria-label="Colecciones" className="divide-border divide-y">
-            {consulta.data.map((c) => (
+            {consulta.data.items.map((c) => (
               <li key={c.id} className="hover:bg-muted/40 flex items-center gap-3 px-4 py-3">
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-medium">{c.title}</span>
@@ -130,6 +140,15 @@ export function Colecciones() {
               </li>
             ))}
           </ul>
+        )}
+
+        {consulta.data && (
+          <Paginacion
+            datos={consulta.data}
+            sustantivo="colecciones"
+            cargando={consulta.isFetching}
+            onPagina={setPagina}
+          />
         )}
       </Tarjeta>
     </PaginaAdmin>

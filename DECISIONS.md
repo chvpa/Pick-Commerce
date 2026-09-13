@@ -5494,8 +5494,15 @@ Dos cosas que parecían obvias y no lo son:
 
 **Consecuencias**
 
-- Quien reciba el código lo va a ver llegar de Pick Commerce y no de la tienda
-  donde está comprando. Es el costo aceptado, y es reversible.
+- **El remitente es el único dominio que hay, y no es neutro.** Se configuró
+  `no-reply@sontres.shop` porque es el que se puede verificar en Resend; no
+  existe un dominio de Pick Commerce. Hoy eso juega a favor —con una sola tienda,
+  el comprador recibe el código de la tienda donde está comprando—, pero se da
+  vuelta con la segunda: sus compradores van a recibir el código desde el dominio
+  de **otro comercio**, que es peor que un remitente neutro y no es defendible.
+  O sea que el disparador escrito arriba no es cómodo sino urgente, y tiene una
+  salida intermedia más barata que el hook: verificar un dominio propio y mandar
+  desde ahí. Escrito acá para que la segunda alta no lo descubra en caliente.
 - **30 correos/hora de arranque es poco para un pico**, y se sube desde la página
   de Rate Limits del proyecto. Queda anotado acá porque el síntoma —códigos que
   no llegan, a algunos y no a todos— no se parece en nada a la causa.

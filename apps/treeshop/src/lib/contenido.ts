@@ -70,7 +70,8 @@ export const POLITICAS = [
     titulo: 'Qué medimos',
     parrafos: [
       'Contamos visitas, búsquedas y pasos de la compra para saber qué funciona de la tienda. Lo hacemos desde nuestro propio servidor: no usamos servicios de terceros, no hay publicidad y nada de esto sale de acá.',
-      'Para distinguir una visita de otra guardamos un identificador al azar en una cookie que se borra sola a la media hora de inactividad. No guardamos tu dirección IP ni nada que permita identificarte, y esa cookie no se cruza con tus datos de cliente.',
+      'Para distinguir una visita de otra guardamos un identificador al azar en una cookie que se borra sola a la media hora de inactividad. No guardamos tu dirección IP ni nada que permita identificarte.',
+      'Hoy ese identificador no está atado a ninguna cuenta, porque todavía no hay cuentas en la tienda. Cuando las haya vas a poder decidir si lo que mirás se usa para ordenar lo que te mostramos, y este texto va a cambiar antes que la tienda, no después.',
     ],
   },
 ] as const;

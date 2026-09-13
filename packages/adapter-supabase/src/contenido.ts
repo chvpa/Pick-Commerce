@@ -1,3 +1,4 @@
+import { TOPE_DE_COLECCIONES } from '@pick/commerce-core';
 import type {
   Banner,
   CatalogFilters,
@@ -5,6 +6,7 @@ import type {
   CategoriaAdmin,
   Coleccion,
   LayoutDeSeccion,
+  PaginaColecciones,
   RepositorioContenido,
   SeccionDeHome,
   TipoDeSeccion,
@@ -104,17 +106,32 @@ export function repositorioContenido(db: PickSupabaseClient): RepositorioConteni
   return {
     // --- Colecciones ---------------------------------------------------------
 
-    async colecciones(storeId): Promise<readonly Coleccion[]> {
-      const { data, error } = await db
+    async colecciones(storeId, consulta = {}): Promise<PaginaColecciones> {
+      const perPage = Math.min(Math.max(consulta.perPage ?? 20, 1), TOPE_DE_COLECCIONES);
+      const page = Math.max(consulta.page ?? 1, 1);
+      const desde = (page - 1) * perPage;
+
+      const { data, error, count } = await db
         .from('collections')
-        .select(COLUMNAS_COLECCION)
+        .select(COLUMNAS_COLECCION, { count: 'exact' })
         .eq('store_id', storeId)
         // Las de la home primero y en su orden; el resto después, por título.
+        // El orden no es cosmético acá: sin `order` dos páginas de PostgREST no
+        // están garantizadas disjuntas (ADR-111).
         .order('home_position', { nullsFirst: false })
-        .order('title');
+        .order('title')
+        .range(desde, desde + perPage - 1);
 
       if (error) throw new Error(`No se pudieron leer las colecciones: ${error.message}`);
-      return ((data ?? []) as unknown as FilaColeccion[]).map((f) => aColeccion(f));
+
+      const total = count ?? 0;
+      return {
+        items: ((data ?? []) as unknown as FilaColeccion[]).map((f) => aColeccion(f)),
+        total,
+        page,
+        perPage,
+        pageCount: Math.max(Math.ceil(total / perPage), 1),
+      };
     },
 
     async coleccion(storeId, id): Promise<Coleccion | null> {

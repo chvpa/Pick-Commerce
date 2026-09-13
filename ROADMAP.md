@@ -653,7 +653,7 @@ los desbloquea. Están todos en `Backlog / Retroactividad` con su fase destino.
 
 ## Fase 0 — Cerrar `authenticated` antes de abrirlo
 
-**Avance: 56%**
+**Avance: 72%**
 
 Objetivo: que existir como usuario autenticado sin ser miembro de ningún comercio
 no dé acceso a nada, y con un test que lo afirme en vez de una coincidencia que
@@ -758,20 +758,32 @@ por lo que se saltea.
       instrucciones en el checkout, comprobante subido a Supabase Storage
       (ADR-082, ya en el stack) y visible en el pedido del Admin. Es con lo que
       se cobra hoy y lo va a seguir usando quien no tenga tarjeta.
-- [ ] Medir la fuga de la transferencia con lo que ya existe: **no** sirve
-      `begin_checkout` contra `checkout_completed` —ningún evento guarda el
-      método de pago, y con transferencia `checkout_completed` dispara después de
-      que `create_order` creó el pedido—. El dato es la antigüedad de
-      `orders.payment_status = 'pending'`. Es una consulta, y decide el peso del
-      track de Payment.
-- [ ] El texto de privacidad deja de prometer lo que v2 va a hacer:
-      `apps/treeshop/src/lib/contenido.ts` publica «esa cookie no se cruza con
-      tus datos de cliente», y la sesión de comprador y el perfil de preferencias
-      cruzan exactamente eso. Se corrige acá, no después.
-- [ ] Paginación de colecciones en el Admin. `contenido.ts:107-118` trae la tabla
-      entera sin `.range()` ni `.limit()`, contra la restricción no negociable de
-      paginación. (`secciones()` también, y eso está bien: una portada acota su
-      propio tamaño.)
+- [x] Medida la fuga de la transferencia, y **la respuesta es que todavía no se
+      puede responder**. No sirve `begin_checkout` contra `checkout_completed`
+      —ningún evento guarda el método de pago, y con transferencia
+      `checkout_completed` dispara después de que `create_order` creó el
+      pedido—, así que el dato sale de los pedidos. Hay **ocho en total**: seis
+      por transferencia, cuatro cobrados; los tres pendientes son de la demo y
+      tienen más de dos semanas. Es una muestra de pruebas propias, no de
+      compradores, así que no decide el peso del track de Payment: lo que queda
+      es el método, para repetirlo cuando haya volumen. La consulta es
+      `orders` agrupado por `payment_method` y `payment_status`, con la
+      antigüedad de los `pending`.
+- [x] El texto de privacidad deja de prometer lo que v2 va a hacer. Decía «esa
+      cookie no se cruza con tus datos de cliente» —en las dos apps, no sólo en
+      Treeshop— y la sesión de comprador y el perfil de preferencias cruzan
+      exactamente eso. Ahora dice lo que es verdad hoy y lo que va a pasar:
+      el identificador no está atado a ninguna cuenta porque todavía no hay
+      cuentas, y cuando las haya se va a poder elegir. Con el compromiso escrito
+      de que **el texto cambia antes que la tienda, no después**.
+- [x] Paginación de colecciones en el Admin. Traía la tabla entera sin `.range()`
+      ni `.limit()`, contra la restricción no negociable. `colecciones()` devuelve
+      una `PaginaColecciones` con la misma forma que `PaginaProductos`, así que la
+      `Paginacion` que ya existe la dibuja sin adaptador; los dos selectores de
+      sección piden una página del tamaño del techo —`TOPE_DE_COLECCIONES`, 200—
+      en vez de «todo», porque un `<select>` necesita la lista entera y «entera»
+      no puede significar «sin límite». (`secciones()` sigue sin paginar, y eso
+      está bien: una portada acota su propio tamaño.)
 - [x] `pnpm format:check` en verde y en el CI, junto con `pnpm docs:check`.
       Estaba en rojo y el CI no lo invocaba: era el único gate del repo que
       mentía.
@@ -783,7 +795,7 @@ por lo que se saltea.
 - [ ] un correo de prueba llega a una dirección que no es la del dueño de la
       cuenta de Resend, verificado leyendo las cabeceras
 - [ ] `pnpm e2e` corre contra Treeshop y no deja rastro en el proyecto real
-- [ ] ninguna respuesta del storefront lleva un campo que el comprador no pueda
+- [x] ninguna respuesta del storefront lleva un campo que el comprador no pueda
       ver, y el catálogo tiene quien lo afirme
 
 ---
@@ -1703,6 +1715,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-12 | **v1 cerrada al 100%**: el piloto procesó una compra completa sobre el dominio real el 2026-09-11, que es la Definition of Done de la Fase 12. Queda el arte del hero y de las marcas, que es del cliente, en el backlog. Y v2 se reordena alrededor de las cuentas de comprador, que era lo que le faltaba (ADR-118)                                                                                                                                                                                                                                                                                               | Fase 12   |         100% |           100% |
 | 2026-09-13 | v2 Fase 0: un usuario autenticado sin membresía no llega a nada, y hay un test que lo afirma —`aislamiento-authenticated.test.ts`, 29 casos, el inventario comparado contra `pg_proc` y la comprobación por huella; verificado con sabotaje—. Leer `store_settings` pide `settings.write`. Y lo que encontró el test: el catálogo publicaba el costo de los 2096 productos en el HTML de cada PDP desde la Fase 2, porque `catalog_search` lo devolvía y el storefront serializa las variantes para hidratarlas (ADR-120)                                                                                           | v2 Fase 0 |           0% |            47% |
 | 2026-09-13 | v2 Fase 0: los dos ADR que la Fase 1 da por resueltos. **ADR-121**, la sesión del comprador en cookie httpOnly del Worker y las lecturas con su JWT: el primer camino del storefront donde RLS protege de verdad, y de ahí la regla de que todo RPC de comprador toma el customer id de la sesión y nunca del cuerpo. **ADR-122**, los correos de Auth por SMTP propio con un remitente para todo el proyecto, con la doc a la vista —el mailer de Supabase manda 2 por hora y sólo al equipo— y el disparador del cambio escrito: el segundo comercio que pida el suyo                                             | v2 Fase 0 |          47% |            56% |
+| 2026-09-13 | v2 Fase 0, los tres arreglos chicos: el texto de privacidad deja de prometer lo que v2 rompe —en las dos apps— y se compromete a cambiar antes que la tienda; las colecciones del Admin se paginan con la misma forma que los productos, así que la `Paginacion` que ya existe las dibuja, y los dos selectores piden un techo explícito en vez de «todo»; y la fuga de la transferencia queda medida con la respuesta honesta de que ocho pedidos, seis por transferencia y tres pendientes de la demo, no deciden nada: lo que queda es el método                                                                 | v2 Fase 0 |          56% |            72% |
 
 ---
 

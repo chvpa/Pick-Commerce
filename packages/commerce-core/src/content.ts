@@ -98,8 +98,40 @@ export interface PaginaDeCategorias {
  * cura el catálogo cura la vidriera—. Las promociones fueron la excepción porque
  * son una decisión de precio.
  */
+/**
+ * Las colecciones son un dataset que crece —una campaña por temporada y por
+ * marca se acumulan—, así que se paginan como los productos, los pedidos y los
+ * clientes. La forma es la misma de `PaginaProductos` a propósito: así la
+ * `Paginacion` del Admin las dibuja sin adaptador.
+ */
+export interface ConsultaColecciones {
+  readonly page?: number;
+  /** Con techo: ver `TOPE_DE_COLECCIONES`. */
+  readonly perPage?: number;
+}
+
+export interface PaginaColecciones {
+  readonly items: readonly Coleccion[];
+  readonly total: number;
+  readonly page: number;
+  readonly perPage: number;
+  readonly pageCount: number;
+}
+
+/**
+ * El techo, para los dos llamadores que necesitan la lista entera: los
+ * selectores de colección de una sección de portada.
+ *
+ * «Entera» no puede significar «sin límite», que es lo que hacía esta consulta
+ * —ni `.range()` ni `.limit()`, contra la restricción de paginación de
+ * CLAUDE.md—. Un tope explícito es peor que paginar de verdad y mucho mejor que
+ * traer una tabla sin fondo: si una tienda llega acá, el selector muestra 200 y
+ * no tumba la pantalla.
+ */
+export const TOPE_DE_COLECCIONES = 200;
+
 export interface RepositorioContenido {
-  colecciones(storeId: string): Promise<readonly Coleccion[]>;
+  colecciones(storeId: string, consulta?: ConsultaColecciones): Promise<PaginaColecciones>;
   coleccion(storeId: string, id: string): Promise<Coleccion | null>;
   guardarColeccion(storeId: string, datos: DatosDeColeccion, id?: string): Promise<string>;
   borrarColeccion(storeId: string, id: string): Promise<void>;
