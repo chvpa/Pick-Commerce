@@ -653,7 +653,7 @@ los desbloquea. Están todos en `Backlog / Retroactividad` con su fase destino.
 
 ## Fase 0 — Cerrar `authenticated` antes de abrirlo
 
-**Avance: 78%**
+**Avance: 89%**
 
 Objetivo: que existir como usuario autenticado sin ser miembro de ningún comercio
 no dé acceso a nada, y con un test que lo afirme en vez de una coincidencia que
@@ -701,11 +701,19 @@ por lo que se saltea.
       nada: el único lector es la pantalla de Configuración, ya detrás de su
       `Gate`, y el storefront lee con la secret key. Se arregló antes de meter
       ahí los interruptores de v2.
-- [ ] Rate limiting en las rutas POST públicas del storefront: hoy
-      `api/checkout.ts` y `api/cart/validate.ts` no tienen ninguno, y el login
-      de la Fase 1 es la superficie de credential stuffing. Es una regla de
-      Cloudflare sobre la ruta del Worker: configuración e INFRAESTRUCTURA, no
-      código.
+- [x] Rate limiting en las rutas POST públicas del storefront, y **no como
+      configuración sino como código**: el plan decía «una regla de Cloudflare
+      sobre la ruta del Worker», y eso estaba escrito desde memoria. Existe el
+      binding de rate limiting, que se declara en `wrangler.jsonc`, se versiona
+      y viaja en el build. Para un producto multi-tenant eso decide: una regla
+      de panel hay que recrearla a mano en la cuenta de cada comercio y no se ve
+      desde el repo. 20/min en `api/checkout.ts` y 120/min en
+      `api/cart/validate.ts`, generosos porque la llave es la IP y detrás de una
+      IP puede haber una oficina. Sin binding declarado no frena nada, y un
+      fallo del limitador deja pasar: un freno que falla cerrado se termina
+      comentando. Medido sobre el preview: veinticinco POST dan veinte `400` y
+      el primer `429` en la petición 21. El login de la Fase 1 lleva el suyo,
+      más ajustado. Ver INFRAESTRUCTURA §6.
 - [x] ADR del mecanismo de sesión del comprador, antes de escribirlo: **ADR-121**.
       Los tokens de Supabase Auth en una cookie httpOnly del Worker, refresh en
       el middleware y las lecturas con el JWT del comprador —el primer camino del
@@ -733,11 +741,13 @@ por lo que se saltea.
       `order_id`—. **Éste es el que desbloquea la verificación de email de las
       cuentas, no el `EMAIL_FROM` de arriba**: son dos canales. Falta la
       configuración en los dos paneles, que va con el bloque del usuario.
-- [ ] **Lo que destapó ese ADR:** configurar el SMTP propio de Supabase Auth.
-      Dominio verificado en Resend, credenciales SMTP en el panel de Supabase, y
-      el límite de 30 correos/hora subido desde Rate Limits. Es del usuario, y es
-      **distinto** de `EMAIL_FROM`: sin esto el código de acceso de la Fase 1 sólo
-      le llega al dueño de la cuenta de Resend, dos veces por hora.
+- [ ] **Lo que destapó ese ADR:** configurar el SMTP propio de Supabase Auth. El
+      dominio está validándose en Resend y el SMTP ya quedó puesto, verificado
+      contra la API de Management: `smtp.resend.com:465`, remitente
+      `no-reply@sontres.shop` como «Sontres». Falta **subir
+      `rate_limit_email_sent`**, que sigue en el 30 de arranque. Es del usuario,
+      y es **distinto** de `EMAIL_FROM`: sin esto el código de acceso de la Fase
+      1 sólo le llega al dueño de la cuenta de Resend, dos veces por hora.
 - [x] El importador de Camelot deja de pisar lo que la tienda editó: respeta
       `field_sources` para `title`, `description`, `brand`, `category_id` y
       `status`, y el borrado de fotos se acota a las suyas (ADR-117). Sin esto,
@@ -762,10 +772,19 @@ por lo que se saltea.
       `sontres.shop`, su catálogo y `admin.sontres.shop`. Antes sólo miraba la
       demo, así que la tienda del cliente podía estar caída sin que nadie se
       enterara.
-- [ ] La transferencia bancaria pasa de hueco a método de primera clase:
-      instrucciones en el checkout, comprobante subido a Supabase Storage
-      (ADR-082, ya en el stack) y visible en el pedido del Admin. Es con lo que
-      se cobra hoy y lo va a seguir usando quien no tenga tarjeta.
+- [x] La transferencia bancaria ya era un método de primera clase, y **el
+      comprobante se descarta**. Al ir a construirlo apareció que lo demás
+      estaba entero desde la Fase 6: `admin_set_payment_status`, el botón
+      «Marcar como pagado» compartiendo el campo de nota, el movimiento en el
+      historial del pedido, y las instrucciones de cobro como texto libre por
+      tienda en la confirmación —ahí entra el número de WhatsApp, sin un campo
+      nuevo—. Lo único que faltaba era guardar el comprobante, y no se hace: una
+      imagen de transferencia se falsifica en dos minutos, así que guardarla da
+      una sensación de prueba que no es prueba, y a cambio el comercio acumula
+      miles de fotos con datos bancarios adentro. Lo que decide el cobro es que
+      la plata esté en la cuenta, y eso lo mira una persona. El flujo real es el
+      que ya funciona: el comprador manda el comprobante por WhatsApp y quien
+      tiene `order.write` marca el pedido como pagado.
 - [x] Medida la fuga de la transferencia, y **la respuesta es que todavía no se
       puede responder**. No sirve `begin_checkout` contra `checkout_completed`
       —ningún evento guarda el método de pago, y con transferencia
@@ -1725,6 +1744,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-13 | v2 Fase 0: los dos ADR que la Fase 1 da por resueltos. **ADR-121**, la sesión del comprador en cookie httpOnly del Worker y las lecturas con su JWT: el primer camino del storefront donde RLS protege de verdad, y de ahí la regla de que todo RPC de comprador toma el customer id de la sesión y nunca del cuerpo. **ADR-122**, los correos de Auth por SMTP propio con un remitente para todo el proyecto, con la doc a la vista —el mailer de Supabase manda 2 por hora y sólo al equipo— y el disparador del cambio escrito: el segundo comercio que pida el suyo                                             | v2 Fase 0 |          47% |            56% |
 | 2026-09-13 | v2 Fase 0, los tres arreglos chicos: el texto de privacidad deja de prometer lo que v2 rompe —en las dos apps— y se compromete a cambiar antes que la tienda; las colecciones del Admin se paginan con la misma forma que los productos, así que la `Paginacion` que ya existe las dibuja, y los dos selectores piden un techo explícito en vez de «todo»; y la fuga de la transferencia queda medida con la respuesta honesta de que ocho pedidos, seis por transferencia y tres pendientes de la demo, no deciden nada: lo que queda es el método                                                                 | v2 Fase 0 |          56% |            72% |
 | 2026-09-13 | v2 Fase 0: el único storefront en producción deja de ser el único sin suite. `e2e/treeshop/` corre la app del cliente en el 4323 contra los datos de la demo, porque lo que no estaba probado es su código y no la base; cuatro casos, con el camino de compra entero y el menú en teléfono, que no existe en ningún otro lado. No le crea pedidos a `sontres.shop` —ocho antes, ocho después— y la guarda que lo sostiene se probó rompiéndola: sin `STOREFRONT_DOMAIN` el Worker sirve la tienda real, así que el setup comprueba cuál está sirviendo antes de dejar correr un test                               | v2 Fase 0 |          72% |            78% |
+| 2026-09-13 | v2 Fase 0: freno de abuso en las dos rutas POST públicas del storefront, como binding versionado y no como regla de panel —el plan decía lo contrario y estaba escrito desde memoria; una regla de panel habría que recrearla en la cuenta de cada comercio—. Y el comprobante de transferencia se descarta con su motivo: una imagen se falsifica, y lo demás del método ya estaba entero desde la Fase 6                                                                                                                                                                                                          | v2 Fase 0 |          78% |            89% |
 
 ---
 

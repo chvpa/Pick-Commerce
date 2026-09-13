@@ -3,6 +3,7 @@ import { addMoney, calcularEnvio, validarCarrito } from '@pick/commerce-core';
 import { checkout, envio, tiendaActual } from '../../../lib/db.ts';
 import { anotar } from '../../../lib/analytics.ts';
 import { cuerpoJson, falla, json, lineasRecibidas } from '../_respuesta.ts';
+import { demasiadasPeticiones, dentroDelLimite } from '../../../lib/limite.ts';
 
 export const prerender = false;
 
@@ -20,6 +21,8 @@ export const prerender = false;
  * acota los datos en este camino, porque la secret key saltea RLS (ADR-052).
  */
 export const POST: APIRoute = async ({ request, locals }) => {
+  if (!(await dentroDelLimite(request, 'CARRITO_LIMITE'))) return demasiadasPeticiones();
+
   const cuerpo = await cuerpoJson(request);
   const { lines: lineas, invalidas } = lineasRecibidas(cuerpo);
   if (invalidas > 0) {

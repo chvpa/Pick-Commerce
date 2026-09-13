@@ -580,6 +580,54 @@ credenciales cifradas con la anterior dejan de abrirse y hay que volver a
 cargarlas desde la pantalla de Configuración. Es una decisión, no un olvido
 (ADR-105).
 
+### El freno de abuso de las rutas POST públicas
+
+`/api/checkout` y `/api/cart/validate` son las dos rutas del storefront que
+cualquiera puede postear sin credencial. Desde v2 tienen un límite por IP, en el
+**binding de rate limiting de Workers** y no en una regla del panel.
+
+La elección es del producto, no técnica. Una regla del panel se crea a mano y por
+zona: habría que recrearla en la cuenta de **cada comercio**, y no se ve desde el
+repo, así que nadie sabe que existe hasta el día que bloquea algo. El binding se
+declara en `wrangler.jsonc`, se versiona, viaja en el build —el adapter lo copia
+a `dist/server/wrangler.json`, verificado— y todo storefront que se despliegue
+después lo tiene sin que nadie se acuerde.
+
+```jsonc
+"ratelimits": [
+  { "name": "CHECKOUT_LIMITE", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } },
+  { "name": "CARRITO_LIMITE", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } }
+]
+```
+
+Cuatro cosas que hay que saber antes de tocar esos números:
+
+- **El período sólo admite 10 o 60 segundos.** No hay otros valores.
+- **Cuenta por centro de datos de Cloudflare, no globalmente**, y se actualiza de
+  forma diferida. Su propia documentación lo llama permisivo y explícitamente no
+  apto como sistema de conteo. Para frenar un script alcanza; para cobrar por
+  uso, no serviría.
+- **La llave es la IP**, y detrás de una IP puede haber una oficina entera o el
+  NAT de una operadora móvil. Por eso los límites son generosos: uno ajustado no
+  frena a quien rota IPs y sí le corta la compra a la segunda persona del mismo
+  edificio.
+- **Sin el binding declarado, `dentroDelLimite` deja pasar todo**, y un fallo del
+  limitador también. Es a propósito: que Cloudflare no pueda contar no es motivo
+  para que un comercio deje de vender, y un freno que falla cerrado en desarrollo
+  se termina comentando.
+
+Los bindings **no se ven en el panel de Cloudflare**, así que el único lugar
+donde consta que existen es `wrangler.jsonc` y esta sección.
+
+Comprobarlo después de desplegar, contra el dominio de la tienda: veinticinco
+POST seguidos a `/api/checkout` con el cuerpo vacío tienen que dar veinte `400`
+—el cuerpo es inválido, que es la respuesta correcta— y después `429`. Medido así
+sobre el preview antes de entregarlo: el primer `429` llegó en la petición 21.
+
+El login del comprador de la Fase 1 es la superficie de credential stuffing y
+todavía no existe. Cuando exista lleva su propio binding, más ajustado que estos
+dos, y Supabase Auth aporta encima su límite de OTP por dirección.
+
 ### Correos: el techo del sandbox
 
 Sin un dominio verificado, **Resend sólo entrega a la casilla del dueño de la

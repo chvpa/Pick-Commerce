@@ -5,6 +5,7 @@ import { drenarNotificaciones, enSegundoPlano } from '../../lib/notificaciones.t
 import { anotar } from '../../lib/analytics.ts';
 import { proveedorDePago } from '../../lib/proveedor-de-pago.ts';
 import { cuerpoJson, falla, json, lineasRecibidas } from './_respuesta.ts';
+import { demasiadasPeticiones, dentroDelLimite } from '../../lib/limite.ts';
 
 export const prerender = false;
 
@@ -36,6 +37,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
  * el comercio puede rescatar por otro medio, en vez de un carrito perdido.
  */
 export const POST: APIRoute = async ({ request, locals }) => {
+  if (!(await dentroDelLimite(request, 'CHECKOUT_LIMITE'))) return demasiadasPeticiones();
+
   const cuerpo = await cuerpoJson(request);
   const bruto = (cuerpo ?? {}) as Record<string, unknown>;
 

@@ -9,5 +9,14 @@
   // Logs del Worker. Sin esto, un error en producción es un 500 sin rastro: no
   // hay dónde leer qué pasó, ni siquiera sabiendo que pasó.
   "observability": { "enabled": true },
+  // Freno de abuso en las rutas POST públicas. El período sólo admite 10 o 60
+  // segundos, y la llave es la IP, así que los límites son generosos a
+  // propósito: detrás de una IP puede haber una oficina entera. Ver
+  // `src/lib/limite.ts`. Los `namespace_id` son de esta cuenta y no se reusan
+  // entre bindings distintos.
+  "ratelimits": [
+    { "name": "CHECKOUT_LIMITE", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } },
+    { "name": "CARRITO_LIMITE", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } },
+  ],
   // El entry del Worker y los assets los inyecta @astrojs/cloudflare al construir.
 }
