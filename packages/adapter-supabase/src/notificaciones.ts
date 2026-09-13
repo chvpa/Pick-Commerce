@@ -25,15 +25,20 @@ export function repositorioNotificaciones(db: PickSupabaseClient): RepositorioNo
       if (error) throw new Error(`No se pudieron reclamar los correos: ${error.message}`);
 
       return (data ?? []).map((fila): NotificacionPendiente => {
-        const payload = fila.payload as { order?: Order } | null;
+        const payload = (fila.payload ?? {}) as Readonly<Record<string, unknown>>;
+        const order = payload.order as Order | undefined;
         return {
           id: fila.id,
-          orderId: fila.order_id,
           event: fila.event,
           recipient: fila.recipient,
           // El pedido va serializado en la fila desde que se encoló: el correo
           // cuenta lo que pasó cuando pasó, no lo que el pedido sea ahora.
-          order: (payload?.order ?? null) as unknown as Order,
+          //
+          // Y puede no haberlo: desde ADR-123 el código de acceso sale por esta
+          // misma cola, y no tiene pedido. Por eso `order_id` acepta nulos.
+          ...(fila.order_id ? { orderId: fila.order_id } : {}),
+          ...(order ? { order } : {}),
+          datos: payload,
         };
       });
     },

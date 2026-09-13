@@ -1,4 +1,5 @@
 export {
+  clienteDeAuth,
   clienteDeBrowser,
   clienteDeServidor,
   clienteDeUsuario,

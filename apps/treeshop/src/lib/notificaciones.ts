@@ -1,7 +1,11 @@
 import { getSecret } from 'astro:env/server';
 import {
+  EVENTO_CODIGO,
   esEventoConocido,
+  plantillaDeCodigo,
   plantillaDeCorreo,
+  type MensajeDeCorreo,
+  type NotificacionPendiente,
   type NotificationProvider,
 } from '@pick/commerce-core';
 import { proveedorResend } from '@pick/adapter-resend';
@@ -56,6 +60,36 @@ function remitente(): string {
 }
 
 /**
+ * Qué correo es esta fila, o `null` si este código no sabe redactarlo.
+ *
+ * La cola dejó de ser sólo de pedidos: el código de acceso sale por acá porque
+ * es lo único del sistema que manda con el `EMAIL_FROM` de cada tienda, y un
+ * correo al comprador tiene que salir de su comercio (ADR-123).
+ */
+function redactar(
+  pendiente: NotificacionPendiente,
+  tiendaNombre: string,
+  locale: string,
+  instrucciones?: string,
+): MensajeDeCorreo | null {
+  if (pendiente.event === EVENTO_CODIGO) {
+    const codigo = pendiente.datos?.codigo;
+    const minutos = pendiente.datos?.minutos;
+    if (typeof codigo !== 'string' || typeof minutos !== 'number') return null;
+    return plantillaDeCodigo({ tiendaNombre, codigo, minutos });
+  }
+
+  if (!esEventoConocido(pendiente.event) || !pendiente.order) return null;
+
+  return plantillaDeCorreo(pendiente.event, {
+    tiendaNombre,
+    order: pendiente.order,
+    locale,
+    ...(instrucciones ? { instrucciones } : {}),
+  });
+}
+
+/**
  * Manda lo que haya pendiente. Devuelve cuántos salieron.
  *
  * Cada fallo se registra y se sigue con el siguiente: un correo con una
@@ -77,22 +111,15 @@ export async function drenarNotificaciones(): Promise<number> {
 
   for (const pendiente of pendientes) {
     try {
-      if (!esEventoConocido(pendiente.event) || !pendiente.order) {
+      const mensaje = redactar(pendiente, name, locale, formasDePago.bankTransfer?.instructions);
+
+      if (!mensaje) {
         // Se marca igual: una fila que este código no sabe redactar se
         // reintentaría para siempre, y taparía a las que sí.
         console.warn(`[notificaciones] sin plantilla para ${pendiente.event}, se descarta`);
         await repo.marcarEnviada(storeId, pendiente.id);
         continue;
       }
-
-      const mensaje = plantillaDeCorreo(pendiente.event, {
-        tiendaNombre: name,
-        order: pendiente.order,
-        locale,
-        ...(formasDePago.bankTransfer?.instructions
-          ? { instrucciones: formasDePago.bankTransfer.instructions }
-          : {}),
-      });
 
       await proveedor.send({
         to: pendiente.recipient,

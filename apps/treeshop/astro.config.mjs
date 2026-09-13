@@ -89,6 +89,18 @@ export default defineConfig({
         optional: true,
       }),
       /*
+       * La clave pública. No saltea RLS, y es la que usa el único camino de este
+       * sitio donde RLS decide de verdad: la sesión del comprador (ADR-121).
+       * `optional` por el mismo motivo que las otras: Astro valida todos los
+       * secretos declarados al cargar el módulo, y una ausente sería un 500 con
+       * el cuerpo vacío en vez de la pantalla que dice qué falta.
+       */
+      SUPABASE_PUBLISHABLE_KEY: envField.string({
+        context: 'server',
+        access: 'secret',
+        optional: true,
+      }),
+      /*
        * Qué tienda sirve este deploy.
        *
        * `secret` y no `public` **aunque un dominio no sea secreto**: en

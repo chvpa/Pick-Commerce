@@ -59,6 +59,31 @@ export function clienteDeServidor(conexion: ConexionServidor): PickSupabaseClien
 }
 
 /**
+ * Cliente de un solo uso para operar contra Auth sin identidad previa.
+ *
+ * Existe por un fallo que se midió antes de entregarlo: **`verifyOtp` le deja la
+ * sesión puesta al cliente sobre el que se llama.** `persistSession: false` sólo
+ * impide escribirla en disco; en memoria queda igual, y a partir de ahí ese
+ * cliente habla con el JWT de quien acaba de entrar en vez de con su propia
+ * credencial.
+ *
+ * En el storefront eso sería grave y silencioso: `clienteDelStorefront()` se
+ * memoiza por isolate, así que un comprador que entra le cambiaría la identidad
+ * al catálogo de todos los que caigan en ese isolate hasta que el isolate muera.
+ * Se vio como un `permission denied` en la petición **siguiente** al login,
+ * que no se parece en nada a la causa.
+ *
+ * Por eso este cliente se crea, se usa una vez y se tira. Y con la publishable
+ * key: canjear un código es una operación pública y no hay motivo para hacerla
+ * con la clave que saltea RLS.
+ */
+export function clienteDeAuth(conexion: ConexionPublica): PickSupabaseClient {
+  return createClient<Database>(conexion.url, conexion.publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+/**
  * Cliente para el Admin en el browser.
  *
  * Persiste la sesión —a diferencia de los otros dos, que son de un solo uso—

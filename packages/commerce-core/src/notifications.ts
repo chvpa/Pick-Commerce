@@ -221,6 +221,69 @@ export function plantillaDeCorreo(
 }
 
 /**
+ * El código para entrar a la cuenta.
+ *
+ * **No es una notificación de pedido**, y por eso no entra en
+ * `EventoDeNotificacion` ni tiene etiqueta en el Admin: comparte la cola y nada
+ * más. Lo que lo trajo acá es ADR-123 —un correo al comprador sale con el
+ * remitente de su comercio— y la cola es lo único del sistema que ya manda con
+ * el `EMAIL_FROM` de cada tienda.
+ */
+export const EVENTO_CODIGO = 'auth_code';
+
+export interface ContextoDeCodigo {
+  readonly tiendaNombre: string;
+  /** El código en crudo, tal como lo devolvió `generateLink`. */
+  readonly codigo: string;
+  /** Cuántos minutos vale, para decirlo en el cuerpo. */
+  readonly minutos: number;
+}
+
+/**
+ * El correo del código de acceso.
+ *
+ * Tres cosas que un correo con un código tiene que hacer y son fáciles de
+ * olvidar:
+ *
+ * - **decir de qué tienda es**, porque quien lo recibe puede tener cuenta en
+ *   varias y un código suelto no se sabe dónde va;
+ * - **decir cuánto vale**, porque si no, quien lo intente veinte minutos
+ *   después no entiende por qué le dicen que es inválido;
+ * - **decir qué hacer si no lo pidió**. Un código de acceso que llega sin
+ *   haberlo pedido es la señal de que alguien está probando ese email, y la
+ *   respuesta correcta es ignorarlo: sin el código, nadie entra.
+ *
+ * El código va como texto y no como enlace. Un enlace en un correo se
+ * preclickea solo —los escáneres de seguridad de las casillas corporativas
+ * abren todo lo que llega— y eso consumiría el token antes de que la persona lo
+ * toque.
+ */
+export function plantillaDeCodigo(ctx: ContextoDeCodigo): MensajeDeCorreo {
+  const asunto = `${ctx.codigo} es tu código para entrar a ${ctx.tiendaNombre}`;
+
+  const texto = [
+    `Tu código para entrar a ${ctx.tiendaNombre}:`,
+    '',
+    `  ${ctx.codigo}`,
+    '',
+    `Vence en ${ctx.minutos} minutos.`,
+    '',
+    'Si no pediste entrar, podés ignorar este correo: sin el código nadie entra a tu cuenta.',
+  ].join('\n');
+
+  const html = `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111">
+  <h1 style="margin:0 0 16px;font-size:20px">Tu código para entrar</h1>
+  <p style="margin:0 0 20px;color:#444">Usalo para entrar a tu cuenta en ${escapar(ctx.tiendaNombre)}.</p>
+  <p style="margin:0 0 20px;font-size:30px;font-weight:700;letter-spacing:6px;background:#f6f6f6;border-radius:8px;padding:16px;text-align:center">${escapar(ctx.codigo)}</p>
+  <p style="margin:0 0 20px;color:#444">Vence en ${ctx.minutos} minutos.</p>
+  <p style="margin:0 0 20px;color:#666;font-size:13px">Si no pediste entrar, podés ignorar este correo: sin el código nadie entra a tu cuenta.</p>
+  <p style="margin:0;color:#666;font-size:13px">${escapar(ctx.tiendaNombre)}</p>
+</div>`;
+
+  return { asunto, html, texto };
+}
+
+/**
  * El puerto del proveedor de correo (PROJECT.md §24).
  *
  * `idempotencyKey` no es opcional: es lo que impide que un reintento le mande el
@@ -240,11 +303,21 @@ export interface NotificationProvider {
 
 export interface NotificacionPendiente {
   readonly id: string;
-  readonly orderId: string;
   /** Texto y no el union: la cola puede tener un evento que este código no conoce. */
   readonly event: string;
   readonly recipient: string;
-  readonly order: Order;
+  /**
+   * Ausentes cuando la fila no es de un pedido.
+   *
+   * La cola dejó de ser sólo de pedidos cuando el código de acceso entró por
+   * acá: es lo único del sistema que manda con el `EMAIL_FROM` de cada tienda,
+   * que es lo que ADR-123 exige. Opcionales y no `Order | null` para que
+   * olvidarse de comprobarlo sea un error de tipos y no un correo vacío.
+   */
+  readonly orderId?: string;
+  readonly order?: Order;
+  /** Lo que la fila trae y no es un pedido. Para `auth_code`, el código. */
+  readonly datos?: Readonly<Record<string, unknown>>;
 }
 
 export interface RepositorioNotificaciones {

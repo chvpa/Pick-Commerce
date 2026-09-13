@@ -1,7 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Order } from '@pick/commerce-types';
-import { esEventoConocido, plantillaDeCorreo, type EventoDeNotificacion } from './notifications.ts';
+import {
+  esEventoConocido,
+  plantillaDeCodigo,
+  plantillaDeCorreo,
+  type EventoDeNotificacion,
+} from './notifications.ts';
 
 /**
  * Las plantillas de correo.
@@ -148,4 +153,29 @@ test('el correo muestra el envío cuando se cobró, y no cuando no', () => {
 
   const sinEnvio = plantillaDeCorreo('order_received', CTX);
   assert.ok(!sinEnvio.texto.includes('Envío:'), 'sin envío cobrado no va el renglón');
+});
+
+test('el correo del código dice de qué tienda es, cuánto vale y qué hacer si no lo pediste', () => {
+  // Las tres cosas que un correo con un código tiene que hacer y son fáciles de
+  // olvidar: quien lo recibe puede tener cuenta en varias tiendas, no sabe que
+  // vence, y si no lo pidió necesita saber que ignorarlo alcanza.
+  const m = plantillaDeCodigo({ tiendaNombre: 'Treeshop', codigo: '12345678', minutos: 15 });
+
+  assert.match(m.asunto, /12345678/, 'el código no está en el asunto');
+  assert.match(m.asunto, /Treeshop/);
+  for (const cuerpo of [m.texto, m.html]) {
+    assert.match(cuerpo, /12345678/);
+    assert.match(cuerpo, /Treeshop/);
+    assert.match(cuerpo, /15 minutos/);
+    assert.match(cuerpo, /no pediste/i);
+  }
+});
+
+test('el código va como texto, nunca como enlace', () => {
+  // Un enlace en un correo se preclickea solo: los escáneres de las casillas
+  // corporativas abren todo lo que llega, y consumirían el token antes de que
+  // la persona lo toque.
+  const m = plantillaDeCodigo({ tiendaNombre: 'Treeshop', codigo: '12345678', minutos: 15 });
+  assert.ok(!m.html.includes('<a '), 'la plantilla del código tiene un enlace');
+  assert.ok(!/https?:\/\//.test(m.texto), 'la versión de texto tiene una URL');
 });
