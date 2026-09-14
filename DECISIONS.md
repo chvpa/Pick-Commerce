@@ -4569,6 +4569,23 @@ motivo escrito, en vez de aflojar el de todo el sitio para que entre uno.
 producen vista y sesión, así que analytics dejó de tener páginas fuera de la
 medición. El panel decía que no las contaba; ahora dice que las cuenta.
 
+**Corrección del 2026-09-14: el presupuesto es una señal, no una compuerta.**
+El dueño del proyecto lo fijó así después de que el corazón de la wishlist
+pusiera el catálogo 149 bytes por encima del tope:
+
+> No pasa nada si se pasa del presupuesto de peso. Ya estamos ahorrando usando
+> Astro, así que no es limitante.
+
+O sea: cuando un número de estos bloquea algo, **se sube el número y se escribe
+el motivo**; no se tuerce el diseño para entrar. Lo que el presupuesto sigue
+haciendo, y para lo que se lo quiere, es avisar cuando una página engorda sin
+que nadie lo haya decidido — que es distinto de prohibir que engorde.
+
+El caso que lo disparó igual terminó bien por otro motivo: la island se cambió
+por un componente `.astro` con un `<script>` que Astro emite una vez, y eso es
+menos código y cero hidratación por tarjeta. El ahorro de peso fue 0,3 KB y no
+era el punto.
+
 ---
 
 ## ADR-107 — El envío lo calcula el servidor, y el pedido lo guarda

@@ -71,6 +71,13 @@ function kb(bytes: number): string {
  * medirlo por primera vez dio 26,6 KB. El número va declarado con su motivo, que
  * es mejor que aflojar el presupuesto de todo el sitio para que entre uno.
  */
+/*
+ * **Estos números son una señal, no una compuerta** (ADR-106, corregido el
+ * 2026-09-14). Cuando uno bloquea algo que vale la pena, se sube el número y se
+ * escribe el motivo; lo que no se hace es torcer un diseño para entrar por
+ * ciento cincuenta bytes. Para lo que sirven es para avisar que una página
+ * engordó sin que nadie lo decidiera.
+ */
 const PAGINAS = [
   { ruta: '/politicas', que: 'una página de contenido', js: 25 * 1024 },
   { ruta: '/', que: 'la home', js: 25 * 1024 },
