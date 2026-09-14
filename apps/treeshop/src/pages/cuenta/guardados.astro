@@ -1,7 +1,7 @@
 ---
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import { Image } from 'astro:assets';
-import { WishlistButton } from '@pick/commerce-ui/wishlist/WishlistButton';
+import WishlistHeart from '@pick/commerce-astro/wishlist/WishlistHeart.astro';
 import Base from '../../layouts/Base.astro';
 import { productosGuardados, type ProductoGuardado } from '../../lib/cuenta.ts';
 import { paginaDeCuenta } from '../../lib/sesion.ts';
@@ -79,7 +79,7 @@ try {
                 )}
               </div>
 
-              <WishlistButton client:visible productId={p.id} guardadoEnLaCuenta={true} />
+              <WishlistHeart productId={p.id} guardadoEnLaCuenta={true} />
             </li>
           ))}
         </ul>

@@ -4,7 +4,7 @@ import JsonLd from '@pick/commerce-astro/seo/JsonLd.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import ProductGallery from '@pick/commerce-astro/product/ProductGallery.astro';
 import { ProductPurchase } from '@pick/commerce-ui/product/ProductPurchase';
-import { WishlistButton } from '@pick/commerce-ui/wishlist/WishlistButton';
+import WishlistHeart from '@pick/commerce-astro/wishlist/WishlistHeart.astro';
 import { productJsonLd } from '@pick/commerce-core';
 
 import { catalogo, contextoSeo, tiendaActual } from '../../lib/db.ts';
@@ -97,20 +97,15 @@ const jsonLd = productJsonLd(product, await contextoSeo());
         /*
         El corazón sólo existe donde existen las cuentas: sin el interruptor,
         guardar llevaría a una pantalla que responde 404.
-
-        `client:idle` y no `client:load`: la acción principal de esta página es
-        comprar, y el corazón no puede competir por el hilo con el botón que
-        agrega al carrito.
       */
       }
       {
         hayCuenta && (
-          <WishlistButton
-            client:idle
+          <WishlistHeart
             productId={product.id}
             guardadoEnLaCuenta={guardadoEnLaCuenta}
             etiqueta="Guardar"
-            className="self-start"
+            class="self-start"
           />
         )
       }

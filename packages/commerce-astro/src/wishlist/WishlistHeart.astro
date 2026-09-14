@@ -1,0 +1,159 @@
+---
+import { cn } from '@pick/commerce-ui';
+
+/**
+ * El corazón, sin island.
+ *
+ * **Nació como una island Preact y el presupuesto de peso la rechazó**, con
+ * razón: doce corazones en la grilla del catálogo son doce hidrataciones de un
+ * botón que hace `classList.toggle` y un `fetch`. Medido, la island puso el
+ * catálogo en 28,1 KB de JS contra un presupuesto de 28 (ADR-106).
+ *
+ * Acá son cero bytes por tarjeta. El `<script>` lo emite Astro **una sola vez**
+ * por más que el componente se repita, y escucha por delegación desde el
+ * documento, así que el costo no crece con la grilla.
+ *
+ * Lo que sí sigue en TypeScript compartido es `localStorage`: el script importa
+ * el mismo módulo que usa el login para fusionar lo guardado al entrar, así que
+ * la forma de la clave y su versión viven en un solo lugar.
+ */
+
+interface Props {
+  productId: string;
+  /**
+   * Cómo está para quien ya entró, resuelto en el servidor. `undefined` sin
+   * sesión, y ahí manda `localStorage`: el script lo corrige al cargar.
+   */
+  guardadoEnLaCuenta?: boolean;
+  /** Texto al lado del ícono. Sin él es sólo el corazón, para la tarjeta. */
+  etiqueta?: string;
+  class?: string;
+}
+
+const { productId, guardadoEnLaCuenta, etiqueta, class: className } = Astro.props;
+
+const guardado = guardadoEnLaCuenta === true;
+---
+
+<button
+  type="button"
+  data-corazon={productId}
+  data-con-sesion={guardadoEnLaCuenta === undefined ? undefined : 'si'}
+  aria-pressed={guardado ? 'true' : 'false'}
+  aria-label={etiqueta ? undefined : 'Guardar'}
+  title="Guardar"
+  class={cn(
+    'inline-flex cursor-pointer items-center gap-2 text-sm',
+    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+    'text-fg-muted hover:text-fg',
+    className,
+  )}
+>
+  {
+    /*
+    Relleno cuando está guardado, contorno cuando no, y **la diferencia es la
+    forma y no sólo el color**: en daltonismo rojo un corazón rojo y uno gris se
+    ven igual. Lo hace CSS desde `aria-pressed`, que ya es el estado accesible,
+    en vez de una clase paralela que habría que mantener sincronizada.
+  */
+  }
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+    class="h-5 w-5"
+    aria-hidden="true"
+  >
+    <path
+      d="M12 20.5C7 17 3.5 13.9 3.5 10.2A4.2 4.2 0 0 1 12 7.6a4.2 4.2 0 0 1 8.5 2.6c0 3.7-3.5 6.8-8.5 10.3Z"
+    ></path>
+  </svg>
+  {
+    /*
+    La etiqueta no cambia al guardar. El estado lo dice `aria-pressed` —que es
+    lo que anuncia un lector de pantalla— y el corazón relleno; cambiar además
+    el texto obligaría a un segundo `<span>` y a mantenerlos sincronizados por
+    CSS para ganar nada.
+  */
+  }
+  {etiqueta && <span>{etiqueta}</span>}
+</button>
+
+<style>
+  /*
+   * Dos reglas de CSS en vez de variantes arbitrarias de Tailwind con selectores
+   * de atributo anidados, que es donde se empieza a pelear con el parser. El
+   * estado sale de `aria-pressed`, que ya existe y ya es accesible, en vez de
+   * una clase paralela que habría que mantener sincronizada.
+   *
+   * **La forma cambia, no sólo el color**: en daltonismo rojo un corazón rojo y
+   * uno gris se ven igual, y el relleno se distingue igual.
+   */
+  button[data-corazon][aria-pressed='true'] {
+    color: var(--color-danger);
+  }
+
+  button[data-corazon][aria-pressed='true'] svg {
+    fill: currentColor;
+  }
+</style>
+
+<script>
+  import { alternarLocal, estaGuardado } from '@pick/commerce-ui/wishlist/store';
+
+  /*
+   * Uno solo para toda la página, y Astro lo emite una sola vez por más que el
+   * componente se repita doce veces en la grilla.
+   */
+  const RUTA = '/api/wishlist';
+
+  function corazones(productId: string): HTMLButtonElement[] {
+    return [...document.querySelectorAll<HTMLButtonElement>(`[data-corazon="${productId}"]`)];
+  }
+
+  function pintar(productId: string, guardado: boolean): void {
+    // Todos los del mismo producto: la tarjeta y el PDP pueden convivir.
+    for (const b of corazones(productId)) b.setAttribute('aria-pressed', String(guardado));
+  }
+
+  /*
+   * Lo de `localStorage` se aplica al cargar y no en el HTML: el servidor no lo
+   * conoce, así que la página sale igual para todos —cacheable— y el estado
+   * propio se corrige acá.
+   */
+  function sincronizar(): void {
+    for (const b of document.querySelectorAll<HTMLButtonElement>('[data-corazon]')) {
+      if (b.dataset.conSesion) continue;
+      const id = b.dataset.corazon;
+      if (id) b.setAttribute('aria-pressed', String(estaGuardado(id)));
+    }
+  }
+
+  document.addEventListener('click', (evento) => {
+    const boton = (evento.target as Element | null)?.closest<HTMLButtonElement>('[data-corazon]');
+    const productId = boton?.dataset.corazon;
+    if (!boton || !productId) return;
+
+    const conSesion = Boolean(boton.dataset.conSesion);
+    const siguiente = conSesion
+      ? boton.getAttribute('aria-pressed') !== 'true'
+      : alternarLocal(productId);
+
+    // Optimista: pinta primero y manda después. Sin sesión lo local ya quedó
+    // escrito y es lo que la persona ve; lo que se pierde si falla es el evento,
+    // que es un dato nuestro y no suyo.
+    pintar(productId, siguiente);
+
+    void fetch(RUTA, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ productId, accion: siguiente ? 'guardar' : 'quitar' }),
+    }).catch(() => undefined);
+  });
+
+  sincronizar();
+  // El catálogo navega con `ClientRouter`: sin esto, los corazones de la página
+  // siguiente salen vacíos aunque estén guardados.
+  document.addEventListener('astro:page-load', sincronizar);
+</script>

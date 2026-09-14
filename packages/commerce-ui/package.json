@@ -19,7 +19,6 @@
     "./checkout/CheckoutForm": "./src/checkout/CheckoutForm.tsx",
     "./checkout/OrderConfirmation": "./src/checkout/OrderConfirmation.tsx",
     "./account/AccountLogin": "./src/account/AccountLogin.tsx",
-    "./wishlist/WishlistButton": "./src/wishlist/WishlistButton.tsx",
     "./wishlist/store": "./src/wishlist/store.ts"
   },
   "scripts": {

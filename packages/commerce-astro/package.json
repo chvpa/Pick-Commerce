@@ -29,7 +29,8 @@
     "./catalog/Pagination.astro": "./src/catalog/Pagination.astro",
     "./catalog/SortSelect.astro": "./src/catalog/SortSelect.astro",
     "./seo/SeoHead.astro": "./src/seo/SeoHead.astro",
-    "./seo/JsonLd.astro": "./src/seo/JsonLd.astro"
+    "./seo/JsonLd.astro": "./src/seo/JsonLd.astro",
+    "./wishlist/WishlistHeart.astro": "./src/wishlist/WishlistHeart.astro"
   },
   "scripts": {
     "typecheck": "astro check"

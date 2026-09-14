@@ -20,7 +20,10 @@ import {
 } from '@pick/commerce-core';
 
 import { catalogo, contextoSeo, facetasFiltrables, tiendaActual } from '../lib/db.ts';
+import WishlistHeart from '@pick/commerce-astro/wishlist/WishlistHeart.astro';
 import { anotar } from '../lib/analytics.ts';
+import { misFavoritos } from '../lib/cuenta.ts';
+import { paginaDeCuenta } from '../lib/sesion.ts';
 import { ClientRouter } from 'astro:transitions';
 import Base from '../layouts/Base.astro';
 
@@ -112,6 +115,27 @@ const result = await catalogo().buscar(tienda.storeId, {
  * aparece ocho veces y ocho sin resultados es un producto que la gente pide y la
  * tienda no tiene, y eso se lee de una comparando las dos columnas.
  */
+/*
+ * Qué tiene guardado quien está mirando.
+ *
+ * **Una consulta para toda la grilla, no una por tarjeta.** Una wishlist es
+ * chica, así que se traen los ids de una y las cards preguntan contra un `Set`.
+ *
+ * Para quien no entró esto no cuesta nada: `hayCuentas()` sale de los ajustes
+ * memoizados y `tokenDelComprador` mira el `exp` del token sin salir a la red.
+ * Y si falla, la grilla se dibuja con los corazones vacíos —que es lo que ve
+ * cualquiera sin cuenta— en vez de caerse: el catálogo es la página que vende.
+ */
+const { habilitado: hayCuenta, token: tokenDeCuenta } = await paginaDeCuenta(Astro.cookies);
+let guardados: ReadonlySet<string> | null = null;
+if (hayCuenta && tokenDeCuenta) {
+  try {
+    guardados = new Set(await misFavoritos(tokenDeCuenta));
+  } catch (error) {
+    console.error('[catalogo] no se pudo leer lo guardado', error);
+  }
+}
+
 const termino = normalizarTermino(search);
 if (termino !== '') {
   anotar(Astro.locals, 'search', url.pathname, { term: termino, results: result.total });
@@ -428,6 +452,18 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
                     <ProductCard>
                       <ProductCardMedia image={product.images[0]} priority={index < 4}>
                         {soldOut && <Badge slot="badge">Sin stock</Badge>}
+                        {/*
+                          Sin island: doce corazones son cero bytes por tarjeta.
+                          Ver `WishlistHeart.astro`, que nació island y el
+                          presupuesto de peso la rechazó.
+                        */}
+                        {hayCuenta && (
+                          <WishlistHeart
+                            slot="accion"
+                            productId={product.id}
+                            guardadoEnLaCuenta={guardados ? guardados.has(product.id) : undefined}
+                          />
+                        )}
                       </ProductCardMedia>
                       <ProductCardBody>
                         {product.brand && <p class="text-xs text-fg-subtle">{product.brand}</p>}

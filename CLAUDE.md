@@ -395,6 +395,11 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
   puede dar por bueno**: lo dice el propio SDK. Si el valor decide algo —de qué
   ficha de cliente cuelga un pedido, por ejemplo— se pide con `getUser`, que lo
   verifica contra el servidor de Auth.
+- **`astro dev` corre como daemon**: si ya hay uno del mismo proyecto, un
+  `astro dev` nuevo —aun con otro puerto— **no arranca** y devuelve «Dev server
+  already running». El que queda sirviendo es el viejo, con el código de antes,
+  y lo único que se ve es que el cambio «no aparece». Antes de probar algo a
+  mano, `astro dev stop`. Costó dos ciclos: uno con un servidor de cuatro días.
 - **Una función `security invoker` sólo sirve si _todas_ las tablas que toca
   tienen política para quien la llama.** `customer_orders` funciona así porque
   `orders` y `order_items` tienen política de comprador; `wishlist_products`

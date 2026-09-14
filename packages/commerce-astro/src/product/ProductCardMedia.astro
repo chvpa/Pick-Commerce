@@ -60,4 +60,19 @@ const {
   <div class="absolute top-2 left-2 flex flex-col items-start gap-1">
     <slot name="badge" />
   </div>
+
+  {
+    /*
+    Slot para una acción sobre la foto: hoy el corazón.
+    
+    Arriba a la derecha, que es donde se lo busca, y **por encima del enlace que
+    se estira sobre la card**: `ProductCard` deja el `after:absolute` del título
+    cubriendo todo, así que sin `z-10` el clic abriría el producto en vez de
+    guardarlo. El fondo semitransparente es porque va sobre una foto que puede
+    ser de cualquier color.
+  */
+  }
+  <div class="absolute top-2 right-2 z-10 rounded-full bg-surface/80 p-1.5 backdrop-blur-sm">
+    <slot name="accion" />
+  </div>
 </div>

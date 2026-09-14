@@ -991,7 +991,7 @@ numeración es secuencial y sería enumerable—.
 
 ## Fase 2 — El sustrato de preferencias, que la wishlist estrena
 
-**Avance: 60%**
+**Avance: 70%**
 
 Objetivo: que cada cosa que un visitante hace quede atada a algo que dura más
 que media hora, porque **el dato que no se captura se pierde para siempre**:
@@ -1007,6 +1007,11 @@ sesión y encontrarlo después de entrar funciona, la identidad funciona.
       con `unique (store_id, customer_id, product_id)` y políticas por
       `app.current_customer`. Producto y no variante: el corazón vive en la
       tarjeta del catálogo, que no elige talle.
+      El corazón está en la tarjeta y en el PDP, y **no es una island**: nació
+      como una y el presupuesto de peso la rechazó —28,1 KB contra 28—. Es un
+      componente `.astro` con un `<script>` que Astro emite una sola vez y que
+      escucha por delegación, así que doce corazones cuestan lo mismo que uno.
+      Medido: 27,8 KB.
 - [x] Sin sesión la wishlist vive en `localStorage` —mismo patrón que el carrito,
       ADR-039— y se fusiona al entrar; el `unique` hace la fusión idempotente por
       construcción. Un corazón que exige registrarse para funcionar es la razón
