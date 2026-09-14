@@ -11,6 +11,15 @@ export const prerender = false;
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import Base from '../layouts/Base.astro';
 import { POLITICAS } from '../lib/contenido.ts';
+import { COOKIE_SIN_PERSONALIZACION } from '../lib/analytics.ts';
+
+/*
+ * El estado del interruptor sale de la cookie y no de un parámetro de la URL: el
+ * parámetro sólo sirve para confirmar el cambio recién hecho, y compartir el
+ * enlace no tiene que mentirle a nadie sobre cómo está su propia preferencia.
+ */
+const personalizado = !Astro.cookies.get(COOKIE_SIN_PERSONALIZACION)?.value;
+const aviso = Astro.url.searchParams.get('personalizacion');
 ---
 
 <Base title="Políticas" description="Políticas de envío, cambios, devoluciones y privacidad.">
@@ -27,5 +36,57 @@ import { POLITICAS } from '../lib/contenido.ts';
         </section>
       ))
     }
+
+    {
+      /*
+      El interruptor, y no un banner. Vive acá —donde está la explicación— y no
+      en una cinta que aparece encima de todo: un banner lo descarta todo el
+      mundo sin leerlo, así que no da una elección, da un clic.
+
+      Sin JavaScript: es un `<form>` que la ruta procesa y contesta con una
+      redirección.
+    */
+    }
+    <section id="personalizacion" class="flex flex-col gap-3">
+      <h2 class="text-lg font-semibold">Personalización</h2>
+      <p class="max-w-prose text-fg-muted">
+        Recordamos qué miraste en este navegador para poder ordenar mejor lo que te mostramos. Es un
+        identificador al azar que dura seis meses y se renueva cada vez que volvés; no lleva tu
+        nombre ni tu correo, y no se cruza con tu cuenta.
+      </p>
+
+      {
+        aviso === 'apagada' && (
+          <p role="status" class="max-w-prose rounded-sm bg-surface-muted px-4 py-3 text-sm">
+            Listo: apagamos la personalización y borramos el identificador de este navegador.
+          </p>
+        )
+      }
+      {
+        aviso === 'prendida' && (
+          <p role="status" class="max-w-prose rounded-sm bg-surface-muted px-4 py-3 text-sm">
+            Listo: volvimos a personalizar. El identificador empieza de cero.
+          </p>
+        )
+      }
+
+      <form method="post" action="/api/preferencias" class="self-start">
+        <input type="hidden" name="accion" value={personalizado ? 'apagar' : 'prender'} />
+        <button
+          type="submit"
+          class="cursor-pointer rounded-sm border border-border px-4 py-2 text-sm hover:border-border-strong"
+        >
+          {personalizado ? 'Desactivar la personalización' : 'Activar la personalización'}
+        </button>
+      </form>
+
+      <p class="max-w-prose text-sm text-fg-subtle">
+        {
+          personalizado
+            ? 'Está activada. Al desactivarla borramos el identificador; las visitas siguen contándose de forma anónima, como las de cualquiera.'
+            : 'Está desactivada en este navegador. No guardamos ningún identificador que dure más que tu visita.'
+        }
+      </p>
+    </section>
   </Container>
 </Base>

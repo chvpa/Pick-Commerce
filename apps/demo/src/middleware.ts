@@ -2,7 +2,10 @@ import { defineMiddleware } from 'astro:middleware';
 import { getSecret } from 'astro:env/server';
 import { drenarNotificaciones, enSegundoPlano } from './lib/notificaciones.ts';
 import {
+  COOKIE_DE_DISPOSITIVO,
   COOKIE_DE_SESION,
+  COOKIE_SIN_PERSONALIZACION,
+  DIAS_DE_DISPOSITIVO,
   MINUTOS_DE_SESION,
   anotar,
   cuentaComoVisita,
@@ -89,6 +92,40 @@ function abrirSesion(context: Parameters<Parameters<typeof defineMiddleware>[0]>
     secure: true,
     sameSite: 'lax',
     maxAge: MINUTOS_DE_SESION * 60,
+  });
+
+  abrirDispositivo(context);
+}
+
+/**
+ * El identificador del navegador, que es lo que dura más que una visita.
+ *
+ * **Son dos cookies y no una, y esa es toda la decisión.** `pick_sid` dice qué
+ * pasó en esta visita y es el denominador del embudo; estirarla habría
+ * multiplicado la conversión por veinte sin que nada avisara. `pick_did` dice
+ * qué viene haciendo este navegador, y es lo que levanta el techo de lo que el
+ * sitio puede recordar —hasta hoy, treinta minutos—.
+ *
+ * Con la personalización apagada no se abre **y además se borra la que hubiera**:
+ * apagar tiene que quitar el identificador, no sólo dejar de usarlo. Sin eso,
+ * volver a prender recuperaría un historial que la persona creyó haber cortado.
+ */
+function abrirDispositivo(context: Parameters<Parameters<typeof defineMiddleware>[0]>[0]): void {
+  if (context.cookies.get(COOKIE_SIN_PERSONALIZACION)?.value) {
+    context.cookies.delete(COOKIE_DE_DISPOSITIVO, { path: '/' });
+    return;
+  }
+
+  const existente = context.cookies.get(COOKIE_DE_DISPOSITIVO)?.value;
+  const deviceId = existente ?? crypto.randomUUID();
+  context.locals.deviceId = deviceId;
+
+  context.cookies.set(COOKIE_DE_DISPOSITIVO, deviceId, {
+    path: '/',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: DIAS_DE_DISPOSITIVO * 24 * 60 * 60,
   });
 }
 

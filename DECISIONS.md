@@ -401,8 +401,6 @@ Permite validar escala y datos reales sin afectar operación actual.
 **Revisar si**
 El ERP permite un sandbox o writes seguros.
 
----
-
 # Decisiones pendientes
 
 | ID    | Tema                                   | Motivo                                                                                                                                                             |
@@ -5654,3 +5652,81 @@ Que el remitente de cada comercio siga siendo un secreto del despliegue en vez d
 configuración del Admin. Está en `Backlog / Retroactividad` con sus dos
 dependencias, y esta regla lo vuelve más urgente: ahora ese valor no decide sólo
 la marca de un aviso, decide si el login de esa tienda funciona.
+
+---
+
+## ADR-124 — La visita y el dispositivo son dos identificadores, no uno
+
+**Fecha:** 2026-09-14
+**Estado:** Accepted — corrige el plan escrito de la v2 Fase 2
+
+**Contexto**
+La Fase 2 existe para levantar el techo de lo que el sitio puede recordar de un
+visitante. Hoy ese techo son **treinta minutos**: lo único que ata una visita a
+la siguiente es `pick_sid`, una cookie de sesión deslizante. Cada sesión que pasa
+sin quedar atada a nada es una sesión de la que nunca se va a poder aprender, y
+ese dato no se recupera después.
+
+El plan de la fase decía, textualmente: «No se agrega ninguna cookie nueva. El
+perfil se cuelga de `pick_sid`, que ya existe. Lo que cambia es cuánto dura.»
+
+**Eso rompía la analítica**, y se vio antes de escribir una línea. `pick_sid` es
+el id de _visita_ y es el **denominador de todo el embudo**: `admin_dashboard`
+cuenta `count(distinct session_id)` para cada paso. Con esa cookie durando seis
+meses, las veinte visitas de una persona pasan a ser una sola sesión; la
+conversión sube unas veinte veces y **nada falla ni avisa**. Es el mismo modo de
+fallo que ADR-099 trató de evitar cuando escribió que los eventos aportan el
+denominador: el numerador sale de `orders` y sigue bien, así que las métricas
+quedan creíbles y equivocadas.
+
+**Decisión**
+Dos identificadores, porque son dos preguntas distintas:
+
+|            | qué responde                          | cuánto dura          |
+| ---------- | ------------------------------------- | -------------------- |
+| `pick_sid` | qué pasó en **esta visita**           | 30 min deslizantes   |
+| `pick_did` | qué viene haciendo **este navegador** | 180 días deslizantes |
+
+`store_events` gana una columna `device_id` **nullable**, y sigue sin tener
+ninguna columna de cliente: el cruce entre lo que alguien mira y quién es vive en
+`session_identities`, que es otra tabla y otra decisión (PROJECT.md §23).
+
+Seis meses porque cubre una temporada completa de compra, se renueva con cada
+visita —así que quien vuelve no lo pierde nunca— y caduca solo en quien no
+volvió. Coincide con `DIAS_DE_RETENCION` a propósito: no tiene sentido recordar
+quién es alguien más tiempo del que se guardan sus eventos.
+
+**Un interruptor, no un aviso de cookies**
+La personalización se apaga desde la página de privacidad, donde está la
+explicación, y no desde una cinta que aparece encima de todo. Un banner lo
+descarta todo el mundo sin leerlo: no da una elección, da un clic.
+
+Apagar **borra** `pick_did` en vez de dejar de usarlo, y el middleware lo vuelve
+a borrar en cada visita mientras la preferencia esté puesta. Sin eso, volver a
+prender recuperaría un historial que la persona creyó haber cortado. La cookie de
+la preferencia dura un año, más que el perfil que apaga: que la elección caduque
+antes que su efecto sería volver a prenderla sola.
+
+Con la personalización apagada **el evento se guarda igual**, sin `device_id`. La
+medición del comercio no depende de que le den permiso a nada; lo que se pierde
+es poder atar esa visita a las demás del mismo navegador.
+
+**Una cosa que el plan daba por cierta y no lo era**
+El plan decía que la frase «no usamos servicios de terceros» del texto de
+privacidad «ya es falsa hoy, por el beacon de Cloudflare Web Analytics que la
+zona inyecta en el HTML». Se comprobó contra producción antes de corregirla:
+**el beacon no está**. La frase queda como estaba, y lo que se reescribió es sólo
+lo que este cambio vuelve incompleto — que había un identificador y ahora hay
+dos.
+
+**Consecuencias**
+
+- Toda página del storefront emite ahora dos `set-cookie` en vez de uno. Sobre
+  HTML solamente, como el anterior: el sitemap sigue siendo la única respuesta
+  cacheable y sigue sin cookies.
+- El embudo no se toca y sigue significando lo mismo. Es el punto entero.
+- «Vistos recientemente» y las recomendaciones de la Fase 4 tienen de dónde
+  comer, y tienen un índice por dispositivo para hacerlo sin un scan.
+- Queda **sin** resolver, y es decisión de producto: si lo que alguien mira se
+  cruza con su cuenta. Hoy no se cruza y el texto de privacidad lo dice; el día
+  que se cruce, ese texto cambia antes que la tienda.

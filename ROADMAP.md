@@ -991,7 +991,7 @@ numeración es secuencial y sería enumerable—.
 
 ## Fase 2 — El sustrato de preferencias, que la wishlist estrena
 
-**Avance: 70%**
+**Avance: 90%**
 
 Objetivo: que cada cosa que un visitante hace quede atada a algo que dura más
 que media hora, porque **el dato que no se captura se pierde para siempre**:
@@ -1032,13 +1032,13 @@ sesión y encontrarlo después de entrar funciona, la identidad funciona.
       los `product_view` de un visitante es hoy un scan sobre la tabla que más
       crece del esquema, en la portada y en la PLP. Es el patrón que ya produjo
       los 2,3 segundos del catálogo.
-- [ ] «Vistos recientemente», derivado de `store_events.product_view` cruzado por
-      `session_identities`. **No es una feature, es el checkpoint del sustrato**:
-      es una consulta sobre la misma tabla que van a leer las preferencias, así
-      que si esto sale bien el resto tiene de dónde comer, y si sale mal se sabe
-      antes de construir la Fase 4 encima. Cero tracking nuevo: el evento ya se
-      registra del lado del servidor sin una línea de JavaScript.
-- [ ] **El perfil es anónimo por dispositivo y se fusiona con la cuenta al
+- [~] «Vistos recientemente», derivado de `store_events.product_view` cruzado por
+  `session_identities`. **No es una feature, es el checkpoint del sustrato**:
+  es una consulta sobre la misma tabla que van a leer las preferencias, así
+  que si esto sale bien el resto tiene de dónde comer, y si sale mal se sabe
+  antes de construir la Fase 4 encima. Cero tracking nuevo: el evento ya se
+  registra del lado del servidor sin una línea de JavaScript.
+- [x] **El perfil es anónimo por dispositivo y se fusiona con la cuenta al
       iniciar sesión.** Decidido así y no «sólo para quien tenga cuenta»: casi
       nadie se registra antes de comprar, y un perfil que arranca en el registro
       llega tarde a todo el tráfico. Implica tres cosas, y las tres van en esta
@@ -1057,6 +1057,16 @@ sesión y encontrarlo después de entrar funciona, la identidad funciona.
       el beacon de Cloudflare Web Analytics que la zona inyecta en el HTML—,
       «esa cookie no se cruza con tus datos de cliente» y «se borra sola a la
       media hora». Está en `apps/*/src/lib/contenido.ts`.
+
+> **Dos cosas que el plan daba por ciertas y no lo eran.** La primera, que no
+> hacía falta una cookie nueva: `pick_sid` es el denominador del embudo, así que
+> estirarlo a seis meses habría multiplicado la conversión por veinte sin que
+> nada fallara. Van dos identificadores, `pick_sid` para la visita y `pick_did`
+> para el navegador (ADR-124). La segunda, que la frase «no usamos servicios de
+> terceros» del texto de privacidad ya era falsa por el beacon de Cloudflare Web
+> Analytics: se comprobó contra producción y **el beacon no está**, así que la
+> frase queda como estaba.
+
 - [x] La pantalla de wishlist muestra lo no disponible en vez de esconderlo: un
       producto guardado puede quedar fuera del catálogo por archivado, sin stock o
       sin foto, y desaparecerlo en silencio parece un bug de la wishlist.

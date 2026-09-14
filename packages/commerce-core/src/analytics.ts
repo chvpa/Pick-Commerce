@@ -53,6 +53,16 @@ export interface EventoDeTienda {
   readonly type: TipoDeEvento;
   /** La sesión anónima. Nunca una IP, nunca un cliente (PROJECT.md §23). */
   readonly sessionId: string;
+  /**
+   * El navegador, no la visita ni la persona.
+   *
+   * Es lo que permite leer «lo que viene haciendo este visitante» más allá de
+   * los treinta minutos que dura una sesión, que hasta ahora era el techo de lo
+   * que el sitio podía recordar. **Ausente cuando se apagó la personalización**,
+   * y ahí el evento se guarda igual: la medición del comercio no depende de que
+   * nadie dé permiso para nada.
+   */
+  readonly deviceId?: string;
   /** La ruta, sin query: el término va en `data` y el resto es ruido. */
   readonly path: string;
   readonly data?: Readonly<Record<string, unknown>>;

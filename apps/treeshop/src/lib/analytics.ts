@@ -30,10 +30,42 @@ import { clienteDelStorefront, tiendaActual } from './db.ts';
 /** Cuánto vive la sesión anónima. Deslizante: cada visita la renueva. */
 export const MINUTOS_DE_SESION = 30;
 
+/**
+ * Cuánto vive el identificador de dispositivo. Deslizante, como la sesión.
+ *
+ * **No es lo mismo que la sesión y por eso son dos cookies.** `pick_sid` dice
+ * qué pasó en esta visita y es el denominador del embudo —que cuenta
+ * `distinct session_id`—, así que estirarla habría multiplicado la conversión
+ * por veinte sin que nada avisara. `pick_did` dice qué viene haciendo este
+ * navegador, que es lo que la Fase 2 necesita poder recordar.
+ *
+ * Seis meses: cubre una temporada completa de compra, se renueva con cada
+ * visita —así que quien vuelve no lo pierde nunca— y caduca solo en quien no
+ * volvió. Coincide con `DIAS_DE_RETENCION` a propósito: no tiene sentido
+ * recordar quién es alguien más tiempo del que se guardan sus eventos.
+ */
+export const DIAS_DE_DISPOSITIVO = 180;
+
 /** Cuánto se guarda. Ver `purgarSiTocaAgregar` más abajo. */
 const DIAS_DE_RETENCION = 180;
 
 export const COOKIE_DE_SESION = 'pick_sid';
+export const COOKIE_DE_DISPOSITIVO = 'pick_did';
+
+/**
+ * Con qué se apaga la personalización.
+ *
+ * Es un **interruptor y no un aviso de cookies**: un banner lo descarta todo el
+ * mundo sin leerlo y no da una elección real. Vive en el pie y en la página de
+ * privacidad, y mientras esté puesta no se abre `pick_did` ni se guarda
+ * `device_id` en ningún evento.
+ *
+ * La ausencia de la cookie significa «personalizado», que es el default. Es la
+ * decisión de producto que va escrita en PROJECT.md §23, no una comodidad: lo
+ * contrario —pedir permiso antes de poder medir nada— deja al comercio sin
+ * denominador desde el primer día.
+ */
+export const COOKIE_SIN_PERSONALIZACION = 'pick_no_perso';
 
 let destino: AnalyticsDestination | undefined;
 
@@ -60,7 +92,13 @@ export function anotar(
   if (!sessionId) return;
 
   locals.eventos ??= [];
-  locals.eventos.push({ type, sessionId, path, ...(data ? { data } : {}) });
+  locals.eventos.push({
+    type,
+    sessionId,
+    path,
+    ...(locals.deviceId ? { deviceId: locals.deviceId } : {}),
+    ...(data ? { data } : {}),
+  });
 }
 
 /**

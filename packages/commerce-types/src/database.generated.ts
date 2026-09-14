@@ -1618,6 +1618,7 @@ export type Database = {
         Row: {
           data: Json
           dedupe_key: string | null
+          device_id: string | null
           id: number
           occurred_at: string
           path: string | null
@@ -1629,6 +1630,7 @@ export type Database = {
         Insert: {
           data?: Json
           dedupe_key?: string | null
+          device_id?: string | null
           id?: never
           occurred_at?: string
           path?: string | null
@@ -1640,6 +1642,7 @@ export type Database = {
         Update: {
           data?: Json
           dedupe_key?: string | null
+          device_id?: string | null
           id?: never
           occurred_at?: string
           path?: string | null

@@ -85,7 +85,8 @@ export const POLITICAS = [
     titulo: 'Qué medimos',
     parrafos: [
       'Contamos visitas, búsquedas y pasos de la compra para saber qué funciona de la tienda. Lo hacemos desde nuestro propio servidor: no usamos servicios de terceros, no hay publicidad y nada de esto sale de acá.',
-      'Para distinguir una visita de otra guardamos un identificador al azar en una cookie que se borra sola a la media hora de inactividad. No guardamos tu dirección IP ni nada que permita identificarte.',
+      'Guardamos dos identificadores al azar, y hacen cosas distintas: uno distingue una visita de otra y se borra solo a la media hora de inactividad; el otro reconoce a este navegador durante seis meses, para poder ordenar mejor lo que te mostramos. Ninguno de los dos lleva tu nombre, tu correo ni tu dirección IP.',
+      'El segundo lo podés apagar cuando quieras, acá abajo en «Personalización». Al apagarlo lo borramos: las visitas se siguen contando de forma anónima, como las de cualquiera.',
       'Ese identificador no está atado a tu cuenta, ni siquiera cuando entrás: lo que mirás y lo que comprás se guardan por separado y nada los cruza. El día que eso cambie —para ordenar lo que te mostramos según lo que viste— vas a poder decidirlo, y este texto va a cambiar antes que la tienda, no después.',
     ],
   },

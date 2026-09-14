@@ -928,6 +928,23 @@ Métricas prioritarias:
 
 No usar IP como identidad fiable de una persona.
 
+**Son dos identificadores y no uno**, porque responden dos preguntas distintas
+(ADR-124):
+
+```text
+pick_sid   qué pasó en esta visita          30 min deslizantes
+pick_did   qué viene haciendo este navegador  180 días deslizantes
+```
+
+`pick_sid` es el denominador del embudo —`count(distinct session_id)`—, así que
+estirarlo para que el sitio recordara más habría multiplicado la conversión por
+veinte sin que nada fallara. `pick_did` es lo que levanta ese techo, y se apaga
+desde la página de privacidad con **un interruptor, no un banner**: un aviso de
+cookies lo descarta todo el mundo sin leerlo, así que no da una elección, da un
+clic. Apagarlo **borra** el identificador, y con él apagado el evento se guarda
+igual sin `device_id`: la medición del comercio no depende de que le den permiso
+a nada.
+
 Usar:
 
 ```text

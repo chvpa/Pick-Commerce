@@ -17,6 +17,8 @@ declare global {
     interface Locals {
       /** La sesión anónima de quien navega. Ausente si esta petición no cuenta. */
       sessionId?: string;
+      /** El navegador. Ausente si se apagó la personalización. */
+      deviceId?: string;
       /** Lo que la petición juntó, hasta que el middleware lo vuelca. */
       eventos?: EventoDeTienda[];
     }

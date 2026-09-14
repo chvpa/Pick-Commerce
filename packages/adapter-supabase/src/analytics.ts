@@ -31,6 +31,9 @@ export function destinoSupabase(db: PickSupabaseClient, tenantId: string): Analy
           tenant_id: tenantId,
           store_id: storeId,
           session_id: e.sessionId,
+          // Nulo y no ausente: la fila existe igual sin personalización, y lo
+          // que se pierde es poder atarla a las demás visitas del navegador.
+          device_id: e.deviceId ?? null,
           type: e.type,
           path: e.path,
           data: (e.data ?? {}) as never,
