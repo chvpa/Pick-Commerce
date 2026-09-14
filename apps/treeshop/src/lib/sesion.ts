@@ -1,6 +1,7 @@
 import type { AstroCookies } from 'astro';
 import { clienteDeAuth } from '@pick/adapter-supabase';
 import { conexionPublica, faltaParaLasCuentas } from './cuenta.ts';
+import { hayCuentas } from './db.ts';
 
 /**
  * La sesión del comprador, en una cookie que el navegador no puede leer.
@@ -120,4 +121,19 @@ export async function tokenDelComprador(cookies: AstroCookies): Promise<string |
     console.error('[sesion] no se pudo renovar', error);
     return null;
   }
+}
+
+/**
+ * Lo que toda página de cuenta pregunta antes de dibujar nada.
+ *
+ * Dos cosas y en este orden: si la tienda tiene cuentas —apagadas, `/cuenta` no
+ * existe— y quién está mirando. El orden importa porque la respuesta a la
+ * primera no puede depender de la segunda: una tienda sin cuentas responde lo
+ * mismo a todo el mundo.
+ */
+export async function paginaDeCuenta(
+  cookies: AstroCookies,
+): Promise<{ habilitado: boolean; token: string | null }> {
+  if (!(await hayCuentas())) return { habilitado: false, token: null };
+  return { habilitado: true, token: await tokenDelComprador(cookies) };
 }

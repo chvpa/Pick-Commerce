@@ -62,6 +62,21 @@ export const POLITICAS = [
     ],
   },
   /*
+   * Existe desde que existen las cuentas. La regla que ordena el texto es la
+   * misma de siempre: decir lo que el sistema hace, no lo que sería cómodo que
+   * hiciera. Se nombra que no hay contraseña porque cambia lo que una persona
+   * tiene que cuidar, y se nombra qué guarda la cuenta porque es corto: sus
+   * pedidos y sus direcciones, nada más.
+   */
+  {
+    titulo: 'Tu cuenta',
+    parrafos: [
+      'Si creás una cuenta, entrás con un código que te mandamos por correo. No guardamos ninguna contraseña.',
+      'La cuenta guarda tus pedidos —incluidos los que hiciste antes sin cuenta con ese mismo correo— y las direcciones que elijas guardar para no volver a escribirlas. Nada más.',
+      'Podés salir cuando quieras, y pedir que borremos la cuenta escribiéndonos.',
+    ],
+  },
+  /*
    * Existe porque medimos, y decirlo es la contrapartida de no pedir permiso con
    * un banner: la medición es de primera parte, anónima y no sale del sitio, y eso
    * sólo vale si está escrito en algún lado.
@@ -71,7 +86,7 @@ export const POLITICAS = [
     parrafos: [
       'Contamos visitas, búsquedas y pasos de la compra para saber qué funciona de la tienda. Lo hacemos desde nuestro propio servidor: no usamos servicios de terceros, no hay publicidad y nada de esto sale de acá.',
       'Para distinguir una visita de otra guardamos un identificador al azar en una cookie que se borra sola a la media hora de inactividad. No guardamos tu dirección IP ni nada que permita identificarte.',
-      'Hoy ese identificador no está atado a ninguna cuenta, porque todavía no hay cuentas en la tienda. Cuando las haya vas a poder decidir si lo que mirás se usa para ordenar lo que te mostramos, y este texto va a cambiar antes que la tienda, no después.',
+      'Ese identificador no está atado a tu cuenta, ni siquiera cuando entrás: lo que mirás y lo que comprás se guardan por separado y nada los cruza. El día que eso cambie —para ordenar lo que te mostramos según lo que viste— vas a poder decidirlo, y este texto va a cambiar antes que la tienda, no después.',
     ],
   },
 ] as const;

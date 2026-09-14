@@ -9,7 +9,7 @@ import SeoHead from '@pick/commerce-astro/seo/SeoHead.astro';
    descarga las que no usa. Ver ADR-040. */
 import { CartButton } from '@pick/commerce-ui/cart/CartButton';
 import { CartDrawer } from '@pick/commerce-ui/cart/CartDrawer';
-import { anuncio, contextoSeo } from '../lib/db.ts';
+import { anuncio, contextoSeo, hayCuentas } from '../lib/db.ts';
 import '../styles/global.css';
 
 interface Props {
@@ -44,6 +44,13 @@ const consulta = Astro.url.searchParams.get('q') ?? '';
 const seo = await contextoSeo();
 const STORE_NAME = seo.storeName;
 const ANUNCIO = await anuncio();
+
+/*
+ * «Mi cuenta» sólo si la tienda tiene cuentas, y la condición vive acá y no en
+ * cada página por lo mismo que el título: así la próxima no puede olvidarse.
+ * `hayCuentas()` sale de los ajustes, memoizados una vez por request.
+ */
+const CUENTAS = await hayCuentas();
 const tituloCompleto = title ? `${title} · ${STORE_NAME}` : STORE_NAME;
 ---
 
@@ -70,6 +77,13 @@ const tituloCompleto = title ? `${title} · ${STORE_NAME}` : STORE_NAME;
     <Header storeName={STORE_NAME}>
       <a slot="nav" href="/catalogo" class="cursor-pointer hover:underline">Catálogo</a>
       {/* `client:idle`: el contador del carrito no compite con el render inicial. */}
+      {
+        CUENTAS && (
+          <a slot="account" href="/cuenta" class="cursor-pointer hover:underline">
+            Mi cuenta
+          </a>
+        )
+      }
       <CartButton slot="cart" client:idle />
       <SearchInput slot="search" value={consulta} />
     </Header>

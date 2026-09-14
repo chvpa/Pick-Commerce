@@ -5,6 +5,7 @@ import { CartButton } from '@pick/commerce-ui/cart/CartButton';
 import Logotipo from '../assets/logotipo.svg';
 import Buscador from './Buscador.astro';
 import MenuMobile from './MenuMobile.astro';
+import { hayCuentas } from '../lib/db.ts';
 
 interface Props {
   /** Los enlaces del medio. Salen de la página, no del componente. */
@@ -21,6 +22,8 @@ interface Props {
 }
 
 const { enlaces, consulta = '', flotante = false, class: className } = Astro.props;
+
+const cuentas = await hayCuentas();
 
 /*
  * Un mismo estilo para los tres íconos y el del menú. El hover es un tinte del
@@ -114,10 +117,33 @@ const ICONO =
 
       {
         /*
-         * Sin «Mi cuenta» hasta que haya cuentas de comprador. Estuvo un tiempo
-         * llevando a las preguntas frecuentes: un ícono que promete algo que no
-         * existe es peor que no tenerlo. El login de compradores es v2.
+         * «Mi cuenta», sólo si la tienda tiene cuentas.
+         *
+         * La condición la resuelve este componente y no la página, por lo mismo
+         * que el título lo compone el layout: así la próxima página no puede
+         * olvidarse. `hayCuentas()` sale de los ajustes, que se memoizan una vez
+         * por request, así que no cuesta una consulta más.
+         *
+         * Sin el interruptor no hay ícono, y es la regla vieja intacta: un ícono
+         * que promete algo que no existe es peor que no tenerlo. Acá «no existe»
+         * es literal — `/cuenta` responde 404 en esa tienda.
          */
+        cuentas && (
+          <a href="/cuenta" aria-label="Mi cuenta" class={ICONO}>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              class="h-5 w-5"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="8" r="3.5" />
+              <path d="M5 19.5a7 7 0 0 1 14 0" />
+            </svg>
+          </a>
+        )
       }
       {
         /* `client:idle`: el contador no compite con el render inicial. El

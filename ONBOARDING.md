@@ -164,6 +164,14 @@ En el Admin, en Configuración:
       storefront donde manda RLS. Sin ella las dos rutas de `/api/cuenta/`
       responden 503 y el resto del sitio sigue vendiendo.
 
+- [ ] **Prenderlas**, si corresponde: Configuración → Cuentas de comprador en el
+      Admin. Viene apagado, y prenderlo pide confirmar que el dominio está
+      verificado —el Admin no lo puede comprobar solo, y por qué está en
+      [LIMITACIONES.md](LIMITACIONES.md)—. Con el interruptor apagado la tienda
+      vende igual que antes: no aparece «Mi cuenta» en el encabezado y `/cuenta`
+      responde 404. El cambio tarda hasta un minuto en verse, como el resto de la
+      configuración: el storefront memoiza los ajustes por ese tiempo.
+
 Lo que **no** sale del correo de este comercio: el reset de contraseña del
 Admin. Ése va de Pick Commerce al comercio, no del comercio a un comprador, y
 sale por el SMTP del proyecto.

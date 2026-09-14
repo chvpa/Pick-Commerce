@@ -6,7 +6,7 @@ import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
 import Base from '../layouts/Base.astro';
 import { MINUTOS_DEL_CODIGO, misPedidos, type PaginaDePedidos } from '../lib/cuenta.ts';
 import { tiendaActual } from '../lib/db.ts';
-import { tokenDelComprador } from '../lib/sesion.ts';
+import { paginaDeCuenta } from '../lib/sesion.ts';
 
 /*
  * On-demand, como todo lo que depende de la sesión.
@@ -18,8 +18,20 @@ import { tokenDelComprador } from '../lib/sesion.ts';
  */
 export const prerender = false;
 
+const { habilitado, token } = await paginaDeCuenta(Astro.cookies);
+
+if (!habilitado) {
+  // La tienda no tiene cuentas: esta página no existe, y lo dice con el código
+  // que corresponde. Un 200 con «no disponible» haría que un buscador la
+  // indexara.
+  const pagina = await Astro.rewrite('/404');
+  return new Response(pagina.body, { status: 404, headers: pagina.headers });
+}
+
 const { locale } = await tiendaActual();
-const token = await tokenDelComprador(Astro.cookies);
+
+const pedida = Number.parseInt(Astro.url.searchParams.get('pagina') ?? '1', 10);
+const pagina = Number.isFinite(pedida) && pedida > 0 ? pedida : 1;
 
 /*
  * Si la lectura falla no se cae la página: se muestra la cuenta sin pedidos y el
@@ -29,7 +41,7 @@ const token = await tokenDelComprador(Astro.cookies);
 let pedidos: PaginaDePedidos | null = null;
 if (token) {
   try {
-    pedidos = await misPedidos(token);
+    pedidos = await misPedidos(token, pagina);
   } catch (error) {
     console.error('[cuenta] no se pudieron leer los pedidos', error);
   }
@@ -38,7 +50,7 @@ if (token) {
 const fecha = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
 ---
 
-<Base title="Mi cuenta" description="Tus pedidos y tus datos." noindex>
+<Base title="Mi cuenta" description="Tus pedidos y tus direcciones." noindex>
   <Container class="flex max-w-3xl flex-col gap-8 py-12">
     <h1 class="font-display text-2xl font-semibold tracking-tight">Mi cuenta</h1>
 
@@ -52,30 +64,78 @@ const fecha = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
       ) : (
         <>
           <section class="flex flex-col gap-4">
-            <h2 class="text-lg font-medium">Tus pedidos</h2>
+            <div class="flex items-baseline justify-between gap-4">
+              <h2 class="text-lg font-medium">Tus pedidos</h2>
+              <a
+                href="/cuenta/direcciones"
+                class="text-sm text-fg-muted underline underline-offset-4 hover:text-fg"
+              >
+                Mis direcciones
+              </a>
+            </div>
 
             {pedidos && pedidos.items.length > 0 ? (
-              <ul class="flex flex-col gap-3">
-                {pedidos.items.map((pedido) => (
-                  <li class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-4 py-3">
-                    <div class="flex flex-col gap-0.5">
-                      <span class="font-medium">Pedido #{pedido.number}</span>
-                      <span class="text-sm text-fg-muted">
-                        {fecha.format(new Date(pedido.createdAt))} ·{' '}
-                        {pedido.itemCount === 1 ? '1 producto' : `${pedido.itemCount} productos`}
-                      </span>
-                    </div>
-                    <div class="flex flex-col items-end gap-0.5">
-                      <span class="font-medium">{formatMoney(pedido.total, locale)}</span>
-                      <span class="text-sm text-fg-muted">
-                        {ETIQUETA_ESTADO_PEDIDO[pedido.status as OrderStatus] ?? pedido.status} ·{' '}
-                        {ETIQUETA_ESTADO_PAGO[pedido.paymentStatus as PaymentStatus] ??
-                          pedido.paymentStatus}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul class="flex flex-col gap-3">
+                  {pedidos.items.map((pedido) => (
+                    <li>
+                      <a
+                        href={`/cuenta/pedidos/${pedido.id}`}
+                        class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-4 py-3 hover:border-border-strong"
+                      >
+                        <span class="flex flex-col gap-0.5">
+                          <span class="font-medium">Pedido #{pedido.number}</span>
+                          <span class="text-sm text-fg-muted">
+                            {fecha.format(new Date(pedido.createdAt))} ·{' '}
+                            {pedido.itemCount === 1
+                              ? '1 producto'
+                              : `${pedido.itemCount} productos`}
+                          </span>
+                        </span>
+                        <span class="flex flex-col items-end gap-0.5">
+                          <span class="font-medium">{formatMoney(pedido.total, locale)}</span>
+                          <span class="text-sm text-fg-muted">
+                            {ETIQUETA_ESTADO_PEDIDO[pedido.status as OrderStatus] ?? pedido.status}{' '}
+                            ·{' '}
+                            {ETIQUETA_ESTADO_PAGO[pedido.paymentStatus as PaymentStatus] ??
+                              pedido.paymentStatus}
+                          </span>
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+
+                {pedidos.pageCount > 1 && (
+                  <nav class="flex items-center justify-between gap-4 text-sm" aria-label="Páginas">
+                    {pedidos.page > 1 ? (
+                      <a
+                        href={`/cuenta?pagina=${pedidos.page - 1}`}
+                        rel="prev"
+                        class="underline underline-offset-4"
+                      >
+                        Anteriores
+                      </a>
+                    ) : (
+                      <span />
+                    )}
+                    <span class="text-fg-muted">
+                      Página {pedidos.page} de {pedidos.pageCount}
+                    </span>
+                    {pedidos.page < pedidos.pageCount ? (
+                      <a
+                        href={`/cuenta?pagina=${pedidos.page + 1}`}
+                        rel="next"
+                        class="underline underline-offset-4"
+                      >
+                        Siguientes
+                      </a>
+                    ) : (
+                      <span />
+                    )}
+                  </nav>
+                )}
+              </>
             ) : (
               <p class="rounded-md border border-border px-4 py-6 text-center text-sm text-fg-muted">
                 Todavía no hiciste ningún pedido con este correo.

@@ -1,7 +1,8 @@
 import { getSecret } from 'astro:env/server';
 import { clienteDeAuth, clienteDeUsuario } from '@pick/adapter-supabase';
 import { EVENTO_CODIGO } from '@pick/commerce-core';
-import type { Money } from '@pick/commerce-types';
+import type { Money, Order } from '@pick/commerce-types';
+import type { Json } from '@pick/commerce-types/database';
 import { clienteDelStorefront, tiendaActual } from './db.ts';
 import type { SesionDeComprador } from './sesion.ts';
 
@@ -230,6 +231,144 @@ export async function misPedidos(accessToken: string, pagina = 1): Promise<Pagin
 
 /** Cuántos pedidos por página. El techo de la función es 50. */
 export const POR_PAGINA = 10;
+
+/**
+ * Un pedido propio, o `null` si no lo es.
+ *
+ * **No hay función nueva para «mi pedido»**: `order_json` es `language sql
+ * stable` y security invoker, así que con el JWT del comprador lo filtra RLS por
+ * `app.es_mi_pedido`. Pedir el id de un pedido ajeno devuelve vacío, no el
+ * pedido de otro — y eso tiene su caso en la suite de aislamiento.
+ */
+export async function miPedido(accessToken: string, orderId: string): Promise<Order | null> {
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+  const { data, error } = await db.rpc('order_json', { p_order_id: orderId });
+
+  if (error) throw new Error(`No se pudo leer el pedido: ${error.message}`);
+  const pedido = data as unknown as Order | null;
+  return pedido?.id ? pedido : null;
+}
+
+/**
+ * El correo verificado de la sesión, o `null`.
+ *
+ * Se le pregunta a Supabase con `getUser` en vez de decodificar el JWT de la
+ * cookie, y la diferencia no es ceremonia: el propio SDK advierte que el usuario
+ * que sale de un token guardado en una cookie **no se puede dar por bueno** sin
+ * verificarlo contra el servidor de Auth. Y este valor decide de qué ficha de
+ * cliente cuelga el pedido, así que es exactamente el caso donde importa.
+ */
+export async function emailDelComprador(accessToken: string): Promise<string | null> {
+  const db = clienteDeAuth(conexionPublica());
+  const { data, error } = await db.auth.getUser(accessToken);
+  if (error || !data.user?.email) return null;
+  return data.user.email;
+}
+
+export interface DireccionGuardada {
+  readonly id: string;
+  readonly label: string | null;
+  readonly address: DireccionDeEnvio;
+  readonly isDefault: boolean;
+}
+
+export interface DireccionDeEnvio {
+  readonly street: string;
+  readonly city: string;
+  readonly zone?: string;
+  readonly reference?: string;
+}
+
+/**
+ * Las direcciones guardadas de quien está mirando.
+ *
+ * Con su JWT: la política de `customer_addresses` es `for all` acotada por
+ * `app.current_customer(store_id)`, así que la tabla se consulta directamente
+ * sin una función intermedia. Es la diferencia con el resto del storefront, que
+ * usa la secret key y no puede darse ese lujo (ADR-052).
+ */
+export async function misDirecciones(accessToken: string): Promise<readonly DireccionGuardada[]> {
+  const { storeId } = await tiendaActual();
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+  const { data, error } = await db
+    .from('customer_addresses')
+    .select('id, label, address, is_default')
+    .eq('store_id', storeId)
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: true });
+
+  if (error) throw new Error(`No se pudieron leer las direcciones: ${error.message}`);
+
+  return (data ?? []).map((fila) => ({
+    id: fila.id,
+    label: fila.label,
+    address: fila.address as unknown as DireccionDeEnvio,
+    isDefault: fila.is_default,
+  }));
+}
+
+/**
+ * Guarda una dirección de la cuenta.
+ *
+ * `customer_id` sale de `app.current_customer(store_id)`, **nunca del cuerpo**:
+ * es la regla de ADR-121 y acá es lo que impide colgar una dirección de la
+ * cuenta de otro. El `with check` de la política lo vuelve a comprobar del lado
+ * de la base, que es donde vale.
+ */
+export async function guardarDireccion(
+  accessToken: string,
+  entrada: { label: string | null; address: DireccionDeEnvio; porDefecto: boolean },
+): Promise<void> {
+  const { storeId, tenantId } = await tiendaActual();
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+  /*
+   * Se lee de `customer_accounts` y no llamando a `app.current_customer`: esa
+   * función vive en el schema `app`, que PostgREST no expone —y no se le va a
+   * poner un envoltorio en `public` sólo para esto, que sería una función más
+   * alcanzable por `authenticated`—. La política `customer_accounts_propia` ya
+   * deja leer la fila propia y nada más.
+   */
+  const { data: cuenta, error: errorCuenta } = await db
+    .from('customer_accounts')
+    .select('customer_id')
+    .eq('store_id', storeId)
+    .maybeSingle();
+
+  if (errorCuenta) throw new Error(`No se pudo resolver la cuenta: ${errorCuenta.message}`);
+  const cliente = cuenta?.customer_id;
+  if (!cliente) throw new Error('La sesión no tiene cuenta en esta tienda.');
+
+  // Una sola por defecto. Se apagan las otras antes de insertar; RLS acota el
+  // update a las propias, así que no hace falta nombrar al cliente.
+  if (entrada.porDefecto) {
+    const { error } = await db
+      .from('customer_addresses')
+      .update({ is_default: false })
+      .eq('store_id', storeId)
+      .eq('is_default', true);
+    if (error) throw new Error(`No se pudo reordenar las direcciones: ${error.message}`);
+  }
+
+  const { error } = await db.from('customer_addresses').insert({
+    tenant_id: tenantId,
+    store_id: storeId,
+    customer_id: cliente,
+    label: entrada.label,
+    address: entrada.address as unknown as Json,
+    is_default: entrada.porDefecto,
+  });
+
+  if (error) throw new Error(`No se pudo guardar la dirección: ${error.message}`);
+}
+
+/** Borra una dirección propia. RLS se encarga de que sea propia. */
+export async function borrarDireccion(accessToken: string, id: string): Promise<void> {
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+  const { error } = await db.from('customer_addresses').delete().eq('id', id);
+  if (error) throw new Error(`No se pudo borrar la dirección: ${error.message}`);
+}
 
 export interface PedidoDeLaCuenta {
   readonly id: string;

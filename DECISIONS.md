@@ -5602,6 +5602,15 @@ y con un nulo no se comprueba, así que no hay que tocarla.
   y sin código no hay login. Es una condición del interruptor, no una
   recomendación del onboarding, y el Admin la tiene que decir antes de dejar
   prenderlo.
+  **Cómo quedó, y hasta dónde llega:** el interruptor vive en `store_settings`
+  —apagado por defecto— y prenderlo desde el Admin exige tildar una confirmación
+  aparte, con los dos requisitos escritos al lado. Es una **afirmación de quien
+  lo prende, no una verificación**: la clave de Resend del proyecto es de sólo
+  envío y su API contesta «This API key is restricted to only send emails» a
+  cualquier consulta de dominios, así que el Admin no lo puede comprobar solo.
+  Queda dicho así en LIMITACIONES.md en vez de fingir un control que no se hace.
+  Apagado, la tienda no muestra «Mi cuenta» y `/cuenta` responde 404: un comercio
+  que no las habilitó vende exactamente igual que antes.
 - El drenador deja de asumir que toda fila de la cola tiene un pedido, **y no
   era el único**. `mark_notification_sent` marcaba la fila y además dejaba un
   `email_sent` en la timeline del pedido (ADR-102): con `order_id` nulo, ese

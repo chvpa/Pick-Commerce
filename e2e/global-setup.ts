@@ -82,6 +82,21 @@ export default function setup(): void {
     );
   }
 
+  /*
+   * La clave pública la necesitan los dos: el Admin para construirse y el
+   * storefront para la sesión del comprador. Se pide acá arriba con el resto de
+   * las credenciales porque el `.dev.vars` del storefront —que se escribe mucho
+   * antes que el build del Admin— ya la usa.
+   */
+  const publishable =
+    process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!publishable) {
+    throw new Error(
+      'Falta SUPABASE_PUBLISHABLE_KEY: sin ella el Admin no se construye y el ' +
+        'storefront no puede abrir la sesión de un comprador.',
+    );
+  }
+
   // Idempotente: restituye los datos que los tests dan por ciertos ("2
   // productos" en Negro, "Gs. 389.000" en la campera) sin borrar nada más.
   execSync('pnpm seed', { stdio: 'inherit' });
@@ -142,10 +157,23 @@ export default function setup(): void {
    * drenaje es un no-op, así que una corrida de tests no le manda nada a nadie;
    * lo que se encola queda pendiente y se va en cascada con los pedidos que
    * borra el teardown.
+   *
+   * Consecuencia de eso, y por qué `cuenta.spec.ts` no pide un código:
+   * `/api/cuenta/codigo` responde 503 sin proveedor de correo, a propósito —sin
+   * correo no hay código y sin código no hay login (ADR-123)—. Esa suite arma la
+   * sesión con el cliente de Supabase y la deja en la cookie en vez de mandarse
+   * un mail a sí misma. Lo que sólo un navegador puede mostrar —la island, el
+   * correo de sólo lectura del checkout— queda probado igual; el login por
+   * código está medido aparte, contra el proyecto real.
+   *
+   * `SUPABASE_PUBLISHABLE_KEY` sí se pasa: es con la que el Worker canjea y
+   * renueva la sesión del comprador, y sin ella las páginas de cuenta contestan
+   * 503.
    */
   writeFileSync(
     'apps/demo/dist/server/.dev.vars',
     `SUPABASE_URL=${url}\nSUPABASE_SECRET_KEY=${secretKey}\n` +
+      `SUPABASE_PUBLISHABLE_KEY=${publishable}\n` +
       `PAYMENT_WEBHOOK_SECRET=${SECRETO_DE_PAGO}\n`,
     'utf8',
   );
@@ -176,14 +204,6 @@ export default function setup(): void {
    * ni siquiera llega al login — que es, literalmente, lo que produce hoy el
    * `pnpm build` del CI sin que nadie se entere.
    */
-  const publishable =
-    process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if (!publishable) {
-    throw new Error(
-      'Falta SUPABASE_PUBLISHABLE_KEY: el Admin no puede construirse sin su clave pública.',
-    );
-  }
-
   liberarPuerto(4322);
 
   if (process.env.PLAYWRIGHT_SKIP_BUILD !== '1') {

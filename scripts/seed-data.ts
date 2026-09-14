@@ -463,6 +463,17 @@ export const CONFIGURACION = {
      * del checkout cuenta con verla. Una tienda real arranca ocultándolos.
      */
     catalog: { showOutOfStock: true },
+    /*
+     * La demo tiene cuentas de comprador prendidas. Es una tienda de
+     * demostración: lo que hace el producto se tiene que poder ver sin tocar
+     * ajustes, y además es lo que le da al e2e una tienda con `/cuenta` sin
+     * escribir configuración desde un test.
+     *
+     * Apagado es el default para un comercio real, y con motivo: prenderlo sin
+     * el dominio verificado en Resend deja un login que no puede mandar el
+     * código (ADR-123).
+     */
+    accounts: true,
     payments: {
       // La demo ofrece los dos para que se vea el flujo con pasarela. El
       // simulado no cobra nada y está declarado como prueba en toda la interfaz

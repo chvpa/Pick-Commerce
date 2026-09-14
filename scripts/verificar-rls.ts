@@ -83,6 +83,195 @@ async function borrarActor(actor: Actor): Promise<void> {
   if (actor.userId) await admin.auth.admin.deleteUser(actor.userId);
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * El otro lado del mostrador
+ * ---------------------------------------------------------------------------
+ *
+ * Un comprador está en el **mismo** `auth.users` que el staff —hay un solo
+ * proyecto de Supabase— y no tiene membresía en ninguna organización. Lo que
+ * decide qué ve es `customer_accounts`, y la forma de arruinarlo es de una
+ * línea: usar `app.current_tenants()` en una política de comprador, que
+ * significa «staff» y le entregaría la tienda entera.
+ *
+ * La suite de PGlite ya cubre eso con `set role`. Acá se comprueba con el JWT
+ * real, que es la capa que aquella no toca.
+ */
+
+const COMPRADOR = { email: 'compradora@rls.test', password: PASSWORD };
+let compradorId: string | undefined;
+
+async function borrarComprador(): Promise<void> {
+  if (!compradorId) return;
+  await admin.from('customers').delete().eq('email', COMPRADOR.email);
+  await admin.auth.admin.deleteUser(compradorId);
+}
+
+/** Un pedido de invitada en esa tienda, por el mismo camino que el checkout. */
+async function pedidoDePrueba(storeId: string): Promise<string | null> {
+  const { data: variantes } = await admin
+    .from('product_variants')
+    .select('id, products!inner(store_id)')
+    .eq('products.store_id', storeId)
+    .limit(1);
+
+  const variantId = variantes?.[0]?.id;
+  if (!variantId) return null;
+
+  const { data } = await admin.rpc('create_order', {
+    p_store_id: storeId,
+    p_idempotency_key: crypto.randomUUID(),
+    p_input: {
+      customer: { name: 'Compradora RLS', email: COMPRADOR.email, phone: '0981000000' },
+      address: { street: 'Calle RLS', city: 'Asunción' },
+      paymentMethod: 'bank_transfer',
+      lines: [{ variantId, quantity: 1 }],
+    } as never,
+  });
+
+  return (data as { order?: { id: string } } | null)?.order?.id ?? null;
+}
+
+async function verificarComprador(propia: Actor, ajena: Actor): Promise<void> {
+  console.log('');
+  console.log('Con la sesión de una compradora (sin membresía en ninguna organización):');
+
+  const { data: creado } = await admin.auth.admin.createUser({
+    email: COMPRADOR.email,
+    password: COMPRADOR.password,
+    email_confirm: true,
+  });
+  compradorId = creado?.user?.id;
+  if (!compradorId) {
+    comprobar('se pudo crear la compradora', false);
+    return;
+  }
+
+  const miPedido = await pedidoDePrueba(propia.storeId);
+  if (!miPedido) {
+    comprobar(`«${propia.etiqueta}» tiene una variante con la que comprar`, false);
+    return;
+  }
+
+  const { error: errorVinculo } = await admin.rpc('link_customer_account', {
+    p_store_id: propia.storeId,
+    p_user_id: compradorId,
+    p_email: COMPRADOR.email,
+  });
+  comprobar('link_customer_account engancha la cuenta', !errorVinculo, errorVinculo?.message ?? '');
+
+  const compradora = clienteDeBrowser({ url: url!, publishableKey: publishableKey! });
+  const { data: entrada, error: errorEntrada } =
+    await compradora.auth.signInWithPassword(COMPRADOR);
+  if (errorEntrada || !entrada.session) {
+    comprobar('la compradora puede entrar', false, errorEntrada?.message ?? '');
+    return;
+  }
+
+  // Lo suyo, y nada más. `orders` es la tabla donde las dos políticas conviven:
+  // la del staff por `app.current_tenants()` y la suya por `customer_accounts`.
+  const { data: pedidos } = await compradora.from('orders').select('id, store_id');
+  comprobar(
+    'orders: ve su pedido y sólo el suyo',
+    (pedidos ?? []).length === 1 && pedidos?.[0]?.id === miPedido,
+    `${pedidos?.length ?? 0} pedidos`,
+  );
+
+  /*
+   * Lo que un comprador **no** es: staff. Estas cinco son las tablas que el
+   * Admin consulta, y para alguien sin membresía tienen que venir vacías —es la
+   * garantía de la Fase 0, ahora con una sesión que además tiene cuenta—.
+   */
+  for (const tabla of ['products', 'customers', 'promotions', 'store_events'] as const) {
+    const { data } = await compradora.from(tabla).select('tenant_id');
+    comprobar(
+      `${tabla}: una compradora no ve nada`,
+      (data ?? []).length === 0,
+      `${data?.length ?? 0} filas`,
+    );
+  }
+
+  // Su listado, y el de la tienda donde no tiene cuenta.
+  const { data: mios } = await compradora.rpc('customer_orders', {
+    p_store_id: propia.storeId,
+    p_page: 1,
+    p_per_page: 10,
+  });
+  comprobar(
+    'customer_orders: devuelve su pedido en su tienda',
+    ((mios as { total?: number } | null)?.total ?? 0) === 1,
+  );
+
+  const { data: ajenos } = await compradora.rpc('customer_orders', {
+    p_store_id: ajena.storeId,
+    p_page: 1,
+    p_per_page: 10,
+  });
+  comprobar(
+    'customer_orders: en la tienda donde no tiene cuenta viene vacío',
+    ((ajenos as { total?: number } | null)?.total ?? 0) === 0,
+  );
+
+  // Un pedido ajeno por id. `order_json` es security invoker: lo filtra RLS.
+  const { data: otroPedido } = await admin
+    .from('orders')
+    .select('id')
+    .neq('id', miPedido)
+    .limit(1)
+    .maybeSingle();
+
+  if (otroPedido?.id) {
+    const { data: leido } = await compradora.rpc('order_json', { p_order_id: otroPedido.id });
+    comprobar(
+      'order_json: un pedido ajeno por id no devuelve el pedido',
+      !(leido as { number?: number } | null)?.number,
+    );
+  }
+
+  // Escribir colgada de otra cuenta. Lo impide el `with check` de la política.
+  const { data: otraCuenta } = await admin
+    .from('customer_accounts')
+    .select('customer_id, tenant_id, store_id')
+    .neq('user_id', compradorId)
+    .limit(1)
+    .maybeSingle();
+
+  if (!otraCuenta) {
+    // Se dice en vez de saltarse en silencio: un control que no corrió y uno que
+    // pasó se ven igual en la salida, y esa confusión ya costó un ciclo acá.
+    console.log(
+      '  · sin otra cuenta de comprador en la base: el caso de la dirección ajena no corrió',
+    );
+  }
+
+  if (otraCuenta) {
+    const { error } = await compradora.from('customer_addresses').insert({
+      tenant_id: otraCuenta.tenant_id,
+      store_id: otraCuenta.store_id,
+      customer_id: otraCuenta.customer_id,
+      address: { street: 'Intrusa', city: 'Asunción' } as never,
+    });
+    comprobar(
+      'customer_addresses: no se puede colgar una dirección de otra cuenta',
+      Boolean(error),
+    );
+  }
+
+  // Y la función del vínculo no está a su alcance: es la que decide de quién son
+  // los pedidos, así que sólo la secret key la puede llamar.
+  const { error: errorVincular } = await compradora.rpc('link_customer_account', {
+    p_store_id: propia.storeId,
+    p_user_id: compradorId,
+    p_email: 'otra@persona.test',
+  });
+  comprobar(
+    'link_customer_account: no la puede llamar una sesión de comprador',
+    Boolean(errorVincular),
+  );
+
+  await compradora.auth.signOut();
+}
+
 async function main(): Promise<void> {
   const { data: orgs } = await admin.from('organizations').select('id, slug').order('slug');
   if (!orgs || orgs.length < 2) {
@@ -244,9 +433,12 @@ async function main(): Promise<void> {
     comprobar('products: no se puede escribir en otra organización', Boolean(errorEscritura));
 
     await sesion.auth.signOut();
+
+    await verificarComprador(uno, otro);
   } finally {
     await borrarActor(uno);
     await borrarActor(otro);
+    await borrarComprador();
   }
 
   console.log(

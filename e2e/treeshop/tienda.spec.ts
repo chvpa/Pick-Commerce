@@ -134,7 +134,14 @@ test('se puede comprar de punta a punta', async ({ page }) => {
   await page.getByRole('button', { name: /confirmar pedido/i }).click();
 
   await expect(page).toHaveURL(/\/checkout\/confirmacion/);
-  await expect(page.getByText(/^#1\d{3}$/).first()).toBeVisible();
+  /*
+   * `\d{3,}` y no `1\d{3}`. El número de pedido es una secuencia por comercio
+   * que **sólo crece**, así que el regex viejo tenía fecha de vencimiento: se
+   * rompió el día que la tienda pasó el pedido 1999, con un #2003
+   * perfectamente correcto en pantalla. Un test que falla por el paso del
+   * tiempo y no por un cambio de código es peor que no tenerlo.
+   */
+  await expect(page.getByText(/^#\d{3,}$/).first()).toBeVisible();
 
   expect(problemasDe(page)).toEqual([]);
 });
@@ -146,14 +153,19 @@ test('las políticas son las de este comercio y no las de la demo', async ({ pag
    * `contenido.ts` es de la app, no de la base: es lo único de esta página que
    * Treeshop no comparte con la demo, y hasta ahora no lo miraba nadie.
    *
-   * La frase de la cookie se afirma en positivo a propósito. Decía «esa cookie
-   * no se cruza con tus datos de cliente» y la v2 cruza exactamente eso; ahora
-   * declara que el identificador no está atado a ninguna cuenta **porque
-   * todavía no hay cuentas**, con el compromiso de cambiar antes que la tienda.
-   * Cuando la Fase 1 entregue las cuentas, este test se pone en rojo, que es
-   * justo lo que tiene que pasar.
+   * **Este caso ya se puso en rojo una vez y funcionó.** Decía «todavía no hay
+   * cuentas en la tienda», con el compromiso escrito de cambiar el texto antes
+   * que la tienda; la Fase 1 entregó las cuentas y el caso falló, que es
+   * exactamente lo que tenía que pasar. Lo que se afirma ahora es lo que la v2
+   * sí sostiene: existe la cuenta, y lo que mirás sigue sin cruzarse con ella
+   * —`store_events` guarda el id de sesión y nada lo ata a `customer_accounts`—.
+   *
+   * La frase vieja se sigue exigiendo ausente: es la que la v2 rompería primero
+   * si alguien la reescribiera de memoria.
    */
-  await expect(page.getByText(/todavía no hay cuentas en la tienda/i)).toBeVisible();
+  await expect(page.getByText(/no está atado a tu cuenta/i)).toBeVisible();
+  await expect(page.getByText(/entrás con un código que te mandamos por correo/i)).toBeVisible();
+  await expect(page.getByText(/todavía no hay cuentas en la tienda/i)).toHaveCount(0);
   await expect(page.getByText(/no se cruza con tus datos de cliente/i)).toHaveCount(0);
 
   expect(problemasDe(page)).toEqual([]);

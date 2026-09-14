@@ -41,18 +41,38 @@ del propio dueño.
 `EMAIL_FROM` como secreto del Worker
 ([INFRAESTRUCTURA.md](INFRAESTRUCTURA.md)). Es media hora y no depende de código.
 
-### Un comprador no puede volver a ver su pedido
+### El Admin no puede comprobar que el dominio esté verificado
 
-No hay cuentas de comprador —el checkout es de invitado y no hay dónde
-registrarse— ni consulta pública de pedidos, y eso último no es un olvido: la
-numeración es secuencial por tienda, así que un número cualquiera abriría los
-pedidos del comercio. La confirmación se guarda en el `sessionStorage` de esa
-pestaña, así que entrar directo, o volver al día siguiente, muestra el estado
-vacío. El pedido existe igual: esa pantalla es el acuse, no el registro.
+Habilitar las cuentas de comprador exige que el correo de ese comercio salga de
+su propio dominio: el código para entrar se manda por ahí, así que sin dominio
+verificado en Resend el login no degrada, no existe (ADR-123). El Admin **no
+puede comprobarlo solo**: la clave de Resend es de sólo envío y su API contesta
+«This API key is restricted to only send emails» a cualquier consulta de
+dominios.
 
-**Qué lo desbloquea:** un enlace de acuse con un token propio del pedido, y el
-correo de confirmación de arriba, que hoy no sale de la casilla del dueño. No
-tiene fase asignada en el [ROADMAP](ROADMAP.md).
+Lo que hace el Admin es decir qué hace falta y pedir una confirmación explícita
+antes de dejar prender el interruptor. Es una afirmación de quien lo prende, no
+una verificación, y está dicho así a propósito: fingir un control que no se hace
+sería peor que no tenerlo.
+
+**Qué lo desbloquea:** una clave de Resend con permiso de lectura de dominios,
+guardada aparte de la de envío. Es configuración, no código, y no tiene fase
+asignada en el [ROADMAP](ROADMAP.md).
+
+### Un comprador sin cuenta no puede volver a ver su pedido
+
+Con las cuentas prendidas, quien entra ve sus pedidos —incluidos los que hizo
+como invitada con ese mismo correo—. Lo que sigue sin existir es la consulta
+**sin** cuenta, y no es un olvido: la numeración es secuencial por tienda, así
+que un número cualquiera abriría los pedidos del comercio. Para quien compra de
+invitada, la confirmación se guarda en el `sessionStorage` de esa pestaña, así
+que entrar directo, o volver al día siguiente, muestra el estado vacío. El
+pedido existe igual: esa pantalla es el acuse, no el registro.
+
+**Qué lo desbloquea:** crear la cuenta con ese mismo correo, que engancha los
+pedidos viejos sin migrar nada. Para quien no quiera cuenta, un enlace de acuse
+con un token propio del pedido; no tiene fase asignada en el
+[ROADMAP](ROADMAP.md).
 
 ### El stock que carga el Admin cae en la primera sucursal
 

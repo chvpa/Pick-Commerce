@@ -5,6 +5,8 @@ import { CheckoutForm } from '@pick/commerce-ui/checkout/CheckoutForm';
 import Base from '../../layouts/Base.astro';
 import { formatMoney } from '@pick/commerce-core';
 import { envio, pagos, tiendaActual, tiendaEsDemo } from '../../lib/db.ts';
+import { emailDelComprador, misDirecciones, type DireccionDeEnvio } from '../../lib/cuenta.ts';
+import { paginaDeCuenta } from '../../lib/sesion.ts';
 
 /*
  * On-demand: las formas de pago salen de la configuración de la tienda, y el
@@ -34,6 +36,43 @@ const zonas = (configuracionEnvio.zones ?? []).map((z) => ({
   label: `${z.name} · ${formatMoney({ amount: z.amount, currency: tienda.currency as 'PYG' }, tienda.locale)}`,
 }));
 const metodos = formasDePago.enabled.map((id) => ({ id, label: ETIQUETAS[id] ?? id }));
+
+/*
+ * Quien entró a su cuenta compra con el correo de su cuenta, y no puede
+ * cambiarlo en este formulario.
+ *
+ * Es el único agujero funcional que tenía el diseño: el pedido se cuelga del
+ * `customers` que lleva ese correo, así que comprar con otro lo dejaría fuera de
+ * la cuenta desde la que se está comprando — y quien lo hiciera no tendría cómo
+ * darse cuenta. La salida existe y es explícita: salir de la cuenta.
+ *
+ * La dirección por defecto, en cambio, **se precarga y se puede editar**: es
+ * para no tipear el departamento otra vez, no una restricción. El pedido guarda
+ * su propio snapshot igual (PROJECT.md §13).
+ *
+ * **El checkout guest no se toca.** Sin sesión esto es `undefined` y el
+ * formulario es exactamente el de siempre; nunca se pide cuenta para comprar.
+ */
+const { token } = await paginaDeCuenta(Astro.cookies);
+
+let emailFijo: string | undefined;
+let direccionPrecargada: DireccionDeEnvio | undefined;
+
+if (token) {
+  try {
+    const [correo, direcciones] = await Promise.all([
+      emailDelComprador(token),
+      misDirecciones(token),
+    ]);
+    emailFijo = correo ?? undefined;
+    const porDefecto = direcciones.find((d) => d.isDefault) ?? direcciones[0];
+    direccionPrecargada = porDefecto?.address;
+  } catch (error) {
+    // Comprar no puede depender de que la cuenta responda: se sigue con el
+    // formulario vacío, que es el de invitada y funciona.
+    console.error('[checkout] no se pudo precargar la cuenta', error);
+  }
+}
 
 /*
  * Llegar al checkout es el paso del embudo, y se cuenta por sesión: recargar o
@@ -77,6 +116,8 @@ anotar(Astro.locals, 'begin_checkout', Astro.url.pathname);
       metodos={metodos}
       metodoPorDefecto={formasDePago.default}
       zonas={zonas}
+      emailFijo={emailFijo}
+      direccionPrecargada={direccionPrecargada}
       locale="es-PY"
     />
   </Container>

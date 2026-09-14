@@ -945,6 +945,21 @@ Separar:
 
 No disparar outreach sólo porque una IP visitó un producto.
 
+**La cuenta del comprador no cruza esa separación, y hoy es literal.** Desde la
+v2 una persona puede entrar a su cuenta en una tienda con un código que le llega
+por correo —sin contraseña: el código _es_ la verificación—, y la cuenta guarda
+sus pedidos y sus direcciones. Lo que **no** guarda es qué miró: `store_events`
+sigue anotando el identificador de sesión y nada lo ata a `customer_accounts`.
+Atarlos es lo que habilita recomendar por historial, y es una decisión de
+producto que se toma y se anuncia aparte, no un efecto colateral de que ahora
+haya cuentas. El texto de privacidad de cada tienda lo dice en esos términos.
+
+Y una consecuencia del esquema que ordena todo lo demás: hay **un solo**
+`auth.users` para todos los comercios, así que la pertenencia a una tienda vive
+en `customer_accounts` y no en el usuario. De ahí que ningún mensaje de la
+interfaz pueda revelar si un correo ya tiene cuenta: con un pool compartido, eso
+sería enumeración de clientes **entre comercios** (ADR-121).
+
 ---
 
 ## 24. Email
@@ -979,7 +994,10 @@ eso se parece demasiado a un phishing (ADR-123).
 
 De ahí una condición dura: **un comercio no puede habilitar cuentas de comprador
 sin su dominio verificado.** Sin correo no hay código y sin código no hay login,
-así que acá el remitente dejó de ser cosmético.
+así que acá el remitente dejó de ser cosmético. El interruptor de las cuentas
+vive en `store_settings` —apagado por defecto— y el Admin exige una confirmación
+explícita antes de dejar prenderlo; comprobarlo por API no se puede, y el motivo
+está en [LIMITACIONES.md](LIMITACIONES.md).
 
 El reset de contraseña es del Admin y no de esta cola: lo hace Supabase Auth con
 su propio correo, no código propio (ADR-083).

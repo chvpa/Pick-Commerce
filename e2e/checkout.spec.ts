@@ -113,7 +113,14 @@ test('Home → PDP → carrito → checkout → pedido', async ({ page }) => {
   await page.getByRole('button', { name: /confirmar pedido/i }).click();
 
   await expect(page).toHaveURL(/\/checkout\/confirmacion/);
-  await expect(page.getByText(/^#1\d{3}$/).first()).toBeVisible();
+  /*
+   * `\d{3,}` y no `1\d{3}`. El número de pedido es una secuencia por comercio
+   * que **sólo crece**, así que el regex viejo tenía fecha de vencimiento: se
+   * rompió el día que la tienda pasó el pedido 1999, con un #2003
+   * perfectamente correcto en pantalla. Un test que falla por el paso del
+   * tiempo y no por un cambio de código es peor que no tenerlo.
+   */
+  await expect(page.getByText(/^#\d{3,}$/).first()).toBeVisible();
   await expect(page.getByText(/cómo pagar/i)).toBeVisible();
 
   // El carrito quedó vacío: el contador del header ya no muestra unidades.
@@ -201,7 +208,14 @@ test('un doble click termina en un solo pedido', async ({ page }) => {
   await page.getByRole('button', { name: /confirmar pedido/i }).click({ clickCount: 2, delay: 10 });
 
   await expect(page).toHaveURL(/\/checkout\/confirmacion/);
-  await expect(page.getByText(/^#1\d{3}$/).first()).toBeVisible();
+  /*
+   * `\d{3,}` y no `1\d{3}`. El número de pedido es una secuencia por comercio
+   * que **sólo crece**, así que el regex viejo tenía fecha de vencimiento: se
+   * rompió el día que la tienda pasó el pedido 1999, con un #2003
+   * perfectamente correcto en pantalla. Un test que falla por el paso del
+   * tiempo y no por un cambio de código es peor que no tenerlo.
+   */
+  await expect(page.getByText(/^#\d{3,}$/).first()).toBeVisible();
 
   await page.goto('/carrito');
   await expect(page.getByText(/tu carrito está vacío/i).first()).toBeVisible();

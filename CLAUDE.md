@@ -376,6 +376,25 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
   muere con «Failed to fetch dynamically imported module» al abrir la primera
   pantalla que no tenía cargada. No falla al compilar ni en local: aparece
   recién con un despliegue encima de una sesión abierta (ADR-116).
+- **`response.headers.get('set-cookie')` devuelve las cookies pegadas en un solo
+  string**, separadas por coma, y una cookie cuyo valor es JSON también lleva
+  comas: partir por `;` toma la cookie equivocada y partir por `,` parte el
+  valor. Para leer varias, `getSetCookie()`. Y al **escribir** una cookie con
+  JSON adentro hay que codificarla —`cookies.set` de Astro lo hace solo, un
+  script no—, porque una coma cruda en el valor es un separador para el servidor.
+- **`supabase.auth.signOut()` revoca las sesiones del usuario del lado del
+  servidor**, no sólo las del cliente que lo llama: un token capturado antes deja
+  de valer. Un `signOut` «por prolijidad» después de pedir tokens los invalida, y
+  se ve como «no hay sesión» en un lugar que no tiene nada que ver.
+- **`verifyOtp` y `setSession` le dejan la sesión puesta al cliente sobre el que
+  corren**, y `persistSession: false` no lo evita: eso sólo habla del disco. Con
+  un cliente memoizado por isolate —como el del storefront— la identidad de quien
+  entra se le pega al catálogo de todos. Van sobre un cliente de un solo uso
+  (`clienteDeAuth`).
+- Un usuario de `auth.users` leído de un token guardado en una cookie **no se
+  puede dar por bueno**: lo dice el propio SDK. Si el valor decide algo —de qué
+  ficha de cliente cuelga un pedido, por ejemplo— se pide con `getUser`, que lo
+  verifica contra el servidor de Auth.
 - Un importador que reimporta **pisa lo que la tienda editó** si no mira el
   dueño de cada campo: `field_sources` declara el origen y sólo los campos
   marcados como del ERP se sobreescriben. Y el borrado de medios se acota a los

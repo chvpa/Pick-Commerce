@@ -46,6 +46,27 @@ export interface CheckoutFormProps {
    * armada en el servidor («Central · Gs. 30.000»). Vacío: no se pregunta.
    */
   zonas?: readonly { name: string; label: string }[];
+  /**
+   * El correo de la sesión, cuando quien compra entró a su cuenta.
+   *
+   * Se muestra y **no se puede cambiar**, y eso cierra el único agujero
+   * funcional del diseño de cuentas: el pedido se cuelga del `customers` que
+   * lleva ese correo, así que comprar con otro lo dejaría fuera de la cuenta
+   * desde la que se está comprando, y quien lo hiciera no tendría cómo darse
+   * cuenta. La salida existe y es explícita: salir de la cuenta.
+   */
+  emailFijo?: string;
+  /**
+   * La dirección guardada por defecto. A diferencia del correo **se puede
+   * editar**: es un punto de partida para no tipear el departamento otra vez, no
+   * una restricción. El pedido guarda su propio snapshot igual.
+   */
+  direccionPrecargada?: {
+    readonly street?: string;
+    readonly city?: string;
+    readonly zone?: string;
+    readonly reference?: string;
+  };
   locale?: string;
   catalogHref?: string;
   confirmacionHref?: string;
@@ -91,6 +112,8 @@ export function CheckoutForm({
   zonas = [],
   metodos,
   metodoPorDefecto,
+  emailFijo,
+  direccionPrecargada,
   locale,
   catalogHref = '/catalogo',
   confirmacionHref = '/checkout/confirmacion',
@@ -124,7 +147,27 @@ export function CheckoutForm({
    * una suscripción que capturó el render viejo. */
   const codigoActual = useRef<string | null>(null);
   /** La zona elegida, para que la revalidación cotice el envío con ella. */
-  const zonaActual = useRef<string>('');
+  /*
+   * La zona guardada sólo vale si la tienda todavía la cobra: una dirección de
+   * hace seis meses puede apuntar a un departamento que el comercio sacó de la
+   * tabla, y precargar un valor que no está entre las opciones deja el `select`
+   * en blanco y el envío sin cotizar sin que nadie sepa por qué.
+   */
+  const zonaPrecargada =
+    direccionPrecargada?.zone && zonas.some((z) => z.name === direccionPrecargada.zone)
+      ? direccionPrecargada.zone
+      : '';
+
+  // Arranca con la zona precargada para que la primera cotización ya la use.
+  const zonaActual = useRef<string>(zonaPrecargada);
+
+  /** Con qué abre cada campo: la sesión manda el correo, la dirección el resto. */
+  function precargado(id: string): string {
+    if (id === 'email') return emailFijo ?? '';
+    if (id === 'street') return direccionPrecargada?.street ?? '';
+    if (id === 'city') return direccionPrecargada?.city ?? '';
+    return '';
+  }
   /**
    * `revalidar` escribe el espejo, y el espejo avisa a los suscriptos, y este
    * formulario está suscripto: sin esta bandera se llama a sí mismo en bucle
@@ -449,14 +492,28 @@ export function CheckoutForm({
                 type={campo.tipo}
                 autocomplete={campo.autoComplete}
                 required
+                /*
+                  `readOnly` y no `disabled`: un campo deshabilitado no viaja en
+                  el formulario, así que el correo de la sesión no llegaría y el
+                  pedido quedaría sin cliente. De sólo lectura se ve, se copia y
+                  se manda.
+                */
+                readOnly={campo.id === 'email' && Boolean(emailFijo)}
+                defaultValue={precargado(campo.id)}
                 aria-invalid={errores[campo.id] ? 'true' : undefined}
                 aria-describedby={errores[campo.id] ? `error-${campo.id}` : undefined}
                 class={cn(
                   'rounded-sm border border-border bg-surface px-3 py-2 text-sm',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                  campo.id === 'email' && emailFijo && 'cursor-not-allowed text-fg-muted',
                   errores[campo.id] && 'border-danger',
                 )}
               />
+              {campo.id === 'email' && emailFijo ? (
+                <span class="text-xs text-fg-subtle">
+                  El de tu cuenta. Para comprar con otro, salí de la cuenta.
+                </span>
+              ) : null}
               {errores[campo.id] ? (
                 <span id={`error-${campo.id}`} class="text-xs text-danger">
                   {errores[campo.id]}
@@ -478,6 +535,7 @@ export function CheckoutForm({
                 required
                 aria-invalid={errores.zone ? 'true' : undefined}
                 aria-describedby={errores.zone ? 'error-zone' : undefined}
+                defaultValue={zonaPrecargada}
                 onChange={(evento) => {
                   zonaActual.current = evento.currentTarget.value;
                   if (!enVuelo.current) revalidar().catch(() => undefined);
@@ -510,6 +568,7 @@ export function CheckoutForm({
             <input
               name="reference"
               type="text"
+              defaultValue={direccionPrecargada?.reference ?? ''}
               class="rounded-sm border border-border bg-surface px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             />
           </label>

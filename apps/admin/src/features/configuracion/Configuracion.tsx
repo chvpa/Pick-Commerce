@@ -10,6 +10,7 @@ import {
   configuracionDeEnvio,
   configuracionDeMoneda,
   configuracionDePagos,
+  cuentasHabilitadas,
   esTiendaDemo,
   money,
   toMajorUnits,
@@ -138,6 +139,13 @@ export function Configuracion() {
         descripcion="Para mostrarle la tienda a alguien sin mandarle correos a nadie."
       >
         <ModoDemo settings={consulta.data} guardado={guardado} />
+      </Seccion>
+
+      <Seccion
+        titulo="Cuentas de comprador"
+        descripcion="Si quien compra puede entrar y ver sus pedidos anteriores."
+      >
+        <CuentasDeComprador settings={consulta.data} guardado={guardado} />
       </Seccion>
 
       <Seccion
@@ -407,6 +415,117 @@ function Moneda({
  * - **Quitar** va directo por RPC: borrar no necesita descifrar nada, y una ruta
  *   de servidor que no toca el secreto sería una capa de más.
  */
+/**
+ * El interruptor de las cuentas de comprador.
+ *
+ * **Prenderlo rompe la tienda si el correo de este comercio no sale**, y por eso
+ * pide una confirmación explícita en vez de sólo avisar. El resto de la
+ * configuración degrada —un aviso de pedido que no se manda deja el pedido igual
+ * creado—; acá no: el código para entrar sale por ese mismo canal, así que sin
+ * dominio verificado el login no degrada, no existe (ADR-123).
+ *
+ * El Admin **no puede comprobarlo solo**: la clave de Resend del proyecto es de
+ * sólo envío y su propia API contesta «This API key is restricted to only send
+ * emails» a cualquier consulta de dominios. Así que lo que se puede hacer es
+ * decir qué hace falta y pedir que alguien afirme que está. Fingir una
+ * comprobación que no se hace sería peor que no tenerla.
+ */
+function CuentasDeComprador({ settings, guardado }: { settings: Settings; guardado: Guardado }) {
+  const inicial = cuentasHabilitadas(settings);
+  const [cuentas, setCuentas] = useState(inicial);
+  const [confirmado, setConfirmado] = useState(false);
+  const [listo, setListo] = useState(false);
+
+  // Prender algo que no estaba prendido es lo que pide confirmación. Apagarlo no
+  // rompe nada, y volver a guardar algo que ya estaba tampoco.
+  const prendiendo = cuentas && !inicial;
+
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (prendiendo && !confirmado) return;
+        setListo(false);
+        guardado.guardar(
+          { accounts: cuentas },
+          {
+            action: cuentas ? 'customer_accounts.enable' : 'customer_accounts.disable',
+            entity: 'store_settings',
+            metadata: { accounts: cuentas },
+          },
+        );
+        setListo(true);
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <Checkbox
+          id="cuentas"
+          checked={cuentas}
+          onCheckedChange={(v) => {
+            setCuentas(v === true);
+            setConfirmado(false);
+          }}
+        />
+        <div className="flex flex-col gap-0.5">
+          <Label htmlFor="cuentas" className="cursor-pointer">
+            Quien compra puede crear una cuenta
+          </Label>
+          <p className="text-muted-foreground text-xs">
+            Entra con un código que le llega por correo, sin contraseña, y ve sus pedidos anteriores
+            —incluidos los que hizo sin cuenta con ese mismo correo— y sus direcciones guardadas.
+            Apagado, la tienda vende exactamente igual que ahora.
+          </p>
+        </div>
+      </div>
+
+      {prendiendo && (
+        <div className="border-border flex flex-col gap-3 rounded-lg border p-3">
+          <p className="text-sm font-medium">Antes de prenderlo</p>
+          <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-xs">
+            <li>
+              El dominio de esta tienda tiene que estar <strong>verificado en Resend</strong> y
+              <code className="mx-1">EMAIL_FROM</code> apuntando a una dirección de ese dominio. El
+              código para entrar sale con el remitente de este comercio, no con uno de Pick: sin
+              dominio verificado no llega, y sin código no hay forma de entrar.
+            </li>
+            <li>
+              El Worker de la tienda necesita el secreto
+              <code className="mx-1">SUPABASE_PUBLISHABLE_KEY</code>. Sin él, las páginas de cuenta
+              contestan que el servicio no está disponible; el resto del sitio sigue vendiendo.
+            </li>
+          </ul>
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="cuentas-confirmar"
+              checked={confirmado}
+              onCheckedChange={(v) => setConfirmado(v === true)}
+            />
+            <Label htmlFor="cuentas-confirmar" className="cursor-pointer text-xs font-normal">
+              Ya está el dominio verificado y el correo sale de este comercio.
+            </Label>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <Button
+          type="submit"
+          size="sm"
+          disabled={guardado.guardando || (prendiendo && !confirmado)}
+        >
+          {guardado.guardando ? 'Guardando…' : 'Guardar'}
+        </Button>
+        {listo && !guardado.guardando && (
+          <span className="text-muted-foreground text-sm" role="status">
+            Guardado.
+          </span>
+        )}
+      </div>
+    </form>
+  );
+}
+
 function InteligenciaArtificial({ tienda }: { tienda: TiendaResumen }) {
   const cliente = useQueryClient();
   const [apiKey, setApiKey] = useState('');

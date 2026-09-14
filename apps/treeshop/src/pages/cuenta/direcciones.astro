@@ -1,0 +1,204 @@
+---
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import Base from '../../layouts/Base.astro';
+import { misDirecciones, type DireccionGuardada } from '../../lib/cuenta.ts';
+import { envio } from '../../lib/db.ts';
+import { paginaDeCuenta } from '../../lib/sesion.ts';
+
+export const prerender = false;
+
+const { habilitado, token } = await paginaDeCuenta(Astro.cookies);
+
+if (!habilitado) {
+  const pagina = await Astro.rewrite('/404');
+  return new Response(pagina.body, { status: 404, headers: pagina.headers });
+}
+if (!token) return Astro.redirect('/cuenta', 302);
+
+const configuracionEnvio = await envio();
+const zonas = configuracionEnvio.mode === 'zones' ? (configuracionEnvio.zones ?? []) : [];
+
+let direcciones: readonly DireccionGuardada[] = [];
+let fallo = false;
+try {
+  direcciones = await misDirecciones(token);
+} catch (error) {
+  console.error('[direcciones] no se pudieron leer', error);
+  fallo = true;
+}
+
+/* Lo que dejó la ruta al volver, para decir qué pasó sin guardar estado. */
+const aviso = Astro.url.searchParams.get('aviso');
+---
+
+<Base title="Mis direcciones" description="Las direcciones guardadas de tu cuenta." noindex>
+  <Container class="flex max-w-3xl flex-col gap-8 py-12">
+    <div class="flex flex-col gap-2">
+      <a
+        href="/cuenta"
+        class="self-start text-sm text-fg-muted underline underline-offset-4 hover:text-fg"
+      >
+        ← Mi cuenta
+      </a>
+      <h1 class="font-display text-2xl font-semibold tracking-tight">Mis direcciones</h1>
+      <p class="text-sm text-fg-muted">
+        Para no volver a tipearlas en cada compra. El pedido guarda la suya aparte, así que cambiar
+        una de acá no mueve a dónde se despachó algo que ya compraste.
+      </p>
+    </div>
+
+    {
+      aviso === 'guardada' && (
+        <p role="status" class="rounded-sm bg-surface-muted px-4 py-3 text-sm">
+          Dirección guardada.
+        </p>
+      )
+    }
+    {
+      aviso === 'borrada' && (
+        <p role="status" class="rounded-sm bg-surface-muted px-4 py-3 text-sm">
+          Dirección borrada.
+        </p>
+      )
+    }
+    {
+      (aviso === 'error' || fallo) && (
+        <p role="alert" class="rounded-sm bg-danger/10 px-4 py-3 text-sm text-danger">
+          No pudimos completar la operación. Probá de nuevo en unos segundos.
+        </p>
+      )
+    }
+
+    <section class="flex flex-col gap-3">
+      {
+        direcciones.length > 0 ? (
+          <ul class="flex flex-col divide-y divide-border rounded-md border border-border">
+            {direcciones.map((d) => (
+              <li class="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+                <div class="flex flex-col gap-0.5">
+                  <span class="font-medium">
+                    {d.label || d.address.street}
+                    {d.isDefault && (
+                      <span class="ml-2 rounded-sm bg-surface-muted px-1.5 py-0.5 text-xs font-normal text-fg-muted">
+                        Predeterminada
+                      </span>
+                    )}
+                  </span>
+                  <span class="text-sm text-fg-muted">
+                    {[d.address.street, d.address.city, d.address.zone, d.address.reference]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </div>
+                {/* Un form por fila: borrar es una escritura y no puede ser un
+                    enlace, que un prefetch del navegador dispararía solo. */}
+                <form method="post" action="/api/cuenta/direcciones">
+                  <input type="hidden" name="accion" value="borrar" />
+                  <input type="hidden" name="id" value={d.id} />
+                  <button
+                    type="submit"
+                    class="cursor-pointer text-sm text-fg-muted underline underline-offset-4 hover:text-danger"
+                  >
+                    Borrar
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="rounded-md border border-border px-4 py-6 text-center text-sm text-fg-muted">
+            Todavía no guardaste ninguna dirección.
+          </p>
+        )
+      }
+    </section>
+
+    <section class="flex flex-col gap-4 rounded-md border border-border p-5">
+      <h2 class="text-lg font-medium">Agregar una dirección</h2>
+
+      {
+        /* Sin JavaScript: es un formulario de dos campos que la ruta procesa y
+          contesta con una redirección. Una island acá no agregaría nada. */
+      }
+      <form method="post" action="/api/cuenta/direcciones" class="flex flex-col gap-4">
+        <input type="hidden" name="accion" value="guardar" />
+
+        <label class="flex flex-col gap-1.5">
+          <span class="text-sm">Nombre (opcional)</span>
+          <input
+            name="label"
+            type="text"
+            maxlength="60"
+            placeholder="Casa, trabajo…"
+            class="rounded-sm border border-border bg-surface px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          />
+        </label>
+
+        <label class="flex flex-col gap-1.5">
+          <span class="text-sm">Dirección</span>
+          <input
+            name="street"
+            type="text"
+            required
+            maxlength="200"
+            autocomplete="street-address"
+            class="rounded-sm border border-border bg-surface px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          />
+        </label>
+
+        <label class="flex flex-col gap-1.5">
+          <span class="text-sm">Ciudad</span>
+          <input
+            name="city"
+            type="text"
+            required
+            maxlength="120"
+            autocomplete="address-level2"
+            class="rounded-sm border border-border bg-surface px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          />
+        </label>
+
+        {
+          zonas.length > 0 && (
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm">Departamento de entrega</span>
+              <select
+                name="zone"
+                required
+                class="rounded-sm border border-border bg-surface px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                <option value="">Elegí uno</option>
+                {zonas.map((z) => (
+                  <option value={z.name}>{z.name}</option>
+                ))}
+              </select>
+            </label>
+          )
+        }
+
+        <label class="flex flex-col gap-1.5">
+          <span class="text-sm">Referencia (opcional)</span>
+          <input
+            name="reference"
+            type="text"
+            maxlength="200"
+            placeholder="Entre calles, color de la casa…"
+            class="rounded-sm border border-border bg-surface px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          />
+        </label>
+
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="porDefecto" value="1" class="cursor-pointer" />
+          <span class="cursor-pointer text-sm">Usar esta por defecto</span>
+        </label>
+
+        <button
+          type="submit"
+          class="cursor-pointer self-start rounded-sm bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover"
+        >
+          Guardar dirección
+        </button>
+      </form>
+    </section>
+  </Container>
+</Base>

@@ -12,6 +12,7 @@ import {
   anuncioDeEnvio,
   configuracionDeEnvio,
   configuracionDePagos,
+  cuentasHabilitadas,
   esTiendaDemo,
   resolverTenant,
   type CategoriaCatalogo,
@@ -222,6 +223,18 @@ export async function envio(): Promise<ConfiguracionDeEnvio> {
 /** Si esta tienda es una demostración. Lo usa el aviso del checkout. */
 export async function tiendaEsDemo(): Promise<boolean> {
   return esTiendaDemo(await ajustes());
+}
+
+/**
+ * Si esta tienda tiene cuentas de comprador.
+ *
+ * Apagado por defecto, y lo que cuelga de eso es todo: sin el interruptor no hay
+ * entrada en el encabezado y `/cuenta` responde 404. Una tienda que no las
+ * habilitó no puede tener una página que le pida el correo a alguien para
+ * mandarle un código que su dominio quizá no entregue (ADR-123).
+ */
+export async function hayCuentas(): Promise<boolean> {
+  return cuentasHabilitadas(await ajustes());
 }
 
 /**
