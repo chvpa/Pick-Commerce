@@ -21,6 +21,8 @@ const ORG_A = 'aa000000-0000-4000-8000-000000000000';
 const TIENDA_A = 'a5000000-0000-4000-8000-000000000000';
 const SUCURSAL_A = 'a6000000-0000-4000-8000-000000000000';
 const PRODUCTO_A = 'a3000000-0000-4000-8000-000000000000';
+/** Un segundo producto de A, que **ningún** caso guarda: ver `fichaDe`. */
+const PRODUCTO_A2 = 'a3000000-0000-4000-8000-000000000002';
 const VARIANTE_A = 'a4000000-0000-4000-8000-000000000000';
 
 const ORG_B = 'bb000000-0000-4000-8000-000000000000';
@@ -74,6 +76,28 @@ async function vincular(user: string, tienda: string, org: string, email: string
   );
 }
 
+/**
+ * La ficha de cliente de un usuario, leída con la secret key.
+ *
+ * **Existe por un falso verde que encontró un sabotaje**, no por comodidad. Los
+ * casos de «escribir colgado de la cuenta de otro» hacían
+ * `select ... from customer_accounts where user_id = <el otro>`, y
+ * `customer_accounts` tiene RLS: esa subconsulta devuelve **cero filas** para
+ * quien no es su dueño, así que el insert no insertaba nada y el caso pasaba
+ * aunque la política no existiera. Medido: con `with check (true)` la suite
+ * seguía entera en verde.
+ *
+ * Con el id como literal, lo único que puede rechazar la fila es la política.
+ */
+async function fichaDe(user: string): Promise<string> {
+  const r = await comoServicio<{ customer_id: string }>(
+    db,
+    `select customer_id from customer_accounts where user_id = '${user}'`,
+  );
+  assert.ok(r[0], `el usuario ${user} no tiene cuenta de comprador`);
+  return r[0].customer_id;
+}
+
 before(async () => {
   db = await baseDePrueba();
 
@@ -103,6 +127,7 @@ before(async () => {
 
     insert into products (id, tenant_id, store_id, handle, title, status) values
       ('${PRODUCTO_A}', '${ORG_A}', '${TIENDA_A}', 'p-a', 'Producto de A', 'active'),
+      ('${PRODUCTO_A2}', '${ORG_A}', '${TIENDA_A}', 'p-a2', 'Otro producto de A', 'active'),
       ('${PRODUCTO_B}', '${ORG_B}', '${TIENDA_B}', 'p-b', 'Producto de B', 'active');
 
     insert into product_variants (id, tenant_id, product_id, sku, title, price, currency, position) values
@@ -324,14 +349,150 @@ test('una dirección se guarda en la cuenta propia y no en la de otro', async ()
 
   // La misma inserción, colgada de la ficha de Beto. Es lo que impide el
   // `with check` de la política; sin él, `using` solo no alcanza.
+  //
+  // El id va como literal y no por subconsulta: ver `fichaDe`.
+  const deBeto = await fichaDe(BETO);
   const ajena = await intentar(
     db,
     ANA,
     `insert into customer_addresses (tenant_id, store_id, customer_id, address)
-     select '${ORG_A}', '${TIENDA_A}', ca.customer_id, '{"street":"Casa de Beto"}'::jsonb
-     from customer_accounts ca where ca.user_id = '${BETO}'`,
+     values ('${ORG_A}', '${TIENDA_A}', '${deBeto}', '{"street":"Casa de Beto"}'::jsonb)`,
   );
-  assert.equal(ajena.filas, 0, 'Ana guardó una dirección colgada de la cuenta de Beto');
+  assert.equal(ajena.ok, false, 'Ana guardó una dirección colgada de la cuenta de Beto');
+});
+
+// --- La wishlist -------------------------------------------------------------
+
+test('un comprador guarda un producto y lo vuelve a ver', async () => {
+  const guardado = await intentar(
+    db,
+    ANA,
+    `insert into wishlist_items (tenant_id, store_id, customer_id, product_id)
+     select '${ORG_A}', '${TIENDA_A}', app.current_customer('${TIENDA_A}'), '${PRODUCTO_A}'`,
+  );
+  assert.ok(guardado.ok, `Ana no pudo guardar un producto: ${guardado.error}`);
+
+  // Persistido aparte, porque `intentar` hace rollback: lo que se comprueba acá
+  // es la lectura, no la escritura de arriba.
+  await comoServicio(
+    db,
+    `insert into wishlist_items (tenant_id, store_id, customer_id, product_id)
+     select '${ORG_A}', '${TIENDA_A}', ca.customer_id, '${PRODUCTO_A}'
+     from customer_accounts ca where ca.user_id = '${ANA}'
+     on conflict do nothing`,
+  );
+
+  const suyos = await como<{ product_id: string }>(
+    db,
+    ANA,
+    'select product_id from wishlist_items',
+  );
+  assert.deepEqual(
+    suyos.map((f) => f.product_id),
+    [PRODUCTO_A],
+  );
+});
+
+test('guardar dos veces el mismo producto no lo duplica', async () => {
+  /*
+   * Es lo que hace la fusión idempotente por construcción: al entrar, la
+   * wishlist de `localStorage` se vuelca con un `on conflict do nothing`, así
+   * que volcar dos veces —o volcar algo que ya estaba— no duplica nada y no hay
+   * lógica de «¿ya lo tenía?» que escribir ni que equivocar.
+   */
+  await comoServicio(
+    db,
+    `insert into wishlist_items (tenant_id, store_id, customer_id, product_id)
+     select '${ORG_A}', '${TIENDA_A}', ca.customer_id, '${PRODUCTO_A}'
+     from customer_accounts ca where ca.user_id = '${ANA}'
+     on conflict do nothing`,
+  );
+
+  const n = await como<{ n: number }>(db, ANA, 'select count(*)::int as n from wishlist_items');
+  assert.equal(n[0]!.n, 1);
+});
+
+test('un comprador no ve ni borra la wishlist de otro', async () => {
+  // Beto compra en la misma tienda que Ana: el caso que se rompe solo si alguien
+  // acota por tienda en vez de por cuenta.
+  const deBeto = await como<{ n: number }>(
+    db,
+    BETO,
+    'select count(*)::int as n from wishlist_items',
+  );
+  assert.equal(deBeto[0]!.n, 0, 'Beto ve lo que guardó Ana');
+
+  const borrado = await intentar(db, BETO, 'delete from wishlist_items');
+  assert.equal(borrado.filas, 0, 'Beto borró un guardado de Ana');
+});
+
+test('no se puede guardar colgado de la cuenta de otro', async () => {
+  // Sin el `with check` de la política, `using` solo deja pasar esto.
+  /*
+   * `PRODUCTO_A2` y no `PRODUCTO_A`, y es el segundo falso verde que encontró el
+   * mismo sabotaje: con el producto que otro caso ya había guardado, lo que
+   * rechazaba la fila era el `unique (store_id, customer_id, product_id)` y no
+   * la política. El caso pasaba con `with check (true)`.
+   */
+  const deAna = await fichaDe(ANA);
+  const ajena = await intentar(
+    db,
+    BETO,
+    `insert into wishlist_items (tenant_id, store_id, customer_id, product_id)
+     values ('${ORG_A}', '${TIENDA_A}', '${deAna}', '${PRODUCTO_A2}')`,
+  );
+  assert.equal(ajena.ok, false, 'Beto guardó un producto en la wishlist de Ana');
+});
+
+test('no se puede guardar el producto de otro comercio', async () => {
+  /*
+   * Dos defensas distintas y las dos tienen que estar: la política acota la
+   * cuenta, y la clave foránea compuesta `(product_id, tenant_id)` acota el
+   * producto. Sin la segunda, una cuenta legítima podría guardar el catálogo de
+   * otro comercio — y el `using` de la política no se enteraría.
+   */
+  const ajeno = await intentar(
+    db,
+    ANA,
+    `insert into wishlist_items (tenant_id, store_id, customer_id, product_id)
+     select '${ORG_A}', '${TIENDA_A}', app.current_customer('${TIENDA_A}'), '${PRODUCTO_B}'`,
+  );
+  assert.equal(ajeno.ok, false, 'Ana guardó un producto del comercio B');
+});
+
+test('la wishlist es del comprador y el staff no la toca', async () => {
+  // El dueño del comercio ve todos los pedidos de su tienda, pero la wishlist no
+  // tiene política de staff: es de quien la escribió y de nadie más.
+  const delDueno = await como<{ n: number }>(
+    db,
+    DUENO_A,
+    'select count(*)::int as n from wishlist_items',
+  );
+  assert.equal(delDueno[0]!.n, 0, 'el dueño de A ve lo que guardaron sus clientes');
+});
+
+// --- El vínculo entre sesión y persona ---------------------------------------
+
+test('`session_identities` no está al alcance de nadie autenticado', async () => {
+  /*
+   * Es el mapa de qué sesión anónima resultó ser qué cliente, y la promesa del
+   * texto de privacidad es que lo que mirás no se cruza con tu cuenta. La
+   * escribe y la lee sólo la secret key del storefront; dársela al Admin sería
+   * darle a un operador el historial de navegación de cada cliente, y esa
+   * decisión no se tomó.
+   */
+  for (const usuario of [null, ANA, DUENO_A]) {
+    const lectura = await intentar(db, usuario, 'select * from session_identities');
+    assert.equal(lectura.filas, 0, `${usuario ?? 'anon'} leyó session_identities`);
+
+    const escritura = await intentar(
+      db,
+      usuario,
+      `insert into session_identities (session_id, tenant_id, store_id, customer_id)
+       values (gen_random_uuid(), '${ORG_A}', '${TIENDA_A}', '${PRODUCTO_A}')`,
+    );
+    assert.equal(escritura.ok, false, `${usuario ?? 'anon'} escribió session_identities`);
+  }
 });
 
 // --- Y el comercio sigue viendo lo suyo --------------------------------------
