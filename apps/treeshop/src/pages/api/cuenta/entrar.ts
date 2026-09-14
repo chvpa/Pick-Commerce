@@ -6,6 +6,7 @@ import {
   vincularCuenta,
 } from '../../../lib/cuenta.ts';
 import { demasiadasPeticiones, dentroDelLimite } from '../../../lib/limite.ts';
+import { hayCuentas } from '../../../lib/db.ts';
 import { guardarSesion } from '../../../lib/sesion.ts';
 import { cuerpoJson, falla, json } from '../_respuesta.ts';
 import { EMAIL_VALIDO, emailRecibido } from './_email.ts';
@@ -23,6 +24,16 @@ export const prerender = false;
 const CODIGO_VALIDO = /^\d{4,12}$/;
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
+  /*
+   * El interruptor primero, y **antes que el freno de abuso**: una tienda sin
+   * cuentas no tiene esta ruta. Faltaba, y se vio desplegando: con las cuentas
+   * apagadas, `/cuenta` respondia 404 pero esto seguia mandando codigos de
+   * acceso con el remitente del comercio. No abria ninguna puerta —las paginas
+   * y las otras rutas si miraban el interruptor— pero dejaba que un extrano
+   * hiciera enviar correos desde el dominio de una tienda que no habilito nada.
+   */
+  if (!(await hayCuentas())) return new Response(null, { status: 404 });
+
   if (!(await dentroDelLimite(request, 'ENTRAR_LIMITE'))) return demasiadasPeticiones();
 
   const cuerpo = await cuerpoJson(request);
