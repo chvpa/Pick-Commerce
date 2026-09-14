@@ -888,11 +888,16 @@ Eventos mínimos:
 - checkout_completed
 - coupon_applied
 
-Dos más de la lista original quedaron **sin emitir**, cada uno por su motivo, y
-el core los deja escritos para que nadie los reponga con JavaScript en el
-navegador (`packages/commerce-core/src/analytics.ts`):
+`wishlist_add` se sumó con la wishlist (v2 Fase 2), y trajo la única decisión
+interesante de los nueve: **el corazón le pega al servidor aunque no haya
+sesión**. Sin cuenta el guardado vive en `localStorage` y podría no llamar a
+nadie, pero entonces el evento existiría sólo para quien ya se registró —o sea,
+para casi nadie— y estaría contando otra cosa que el resto del embudo.
 
-- `wishlist_add` no tiene feature que lo emita: la wishlist es v2.
+Uno de la lista original sigue **sin emitir**, y el core lo deja escrito para
+que nadie lo reponga con JavaScript en el navegador
+(`packages/commerce-core/src/analytics.ts`):
+
 - `remove_from_cart` es el único sin momento de servidor — quitar una línea del
   carrito no habla con nadie—. Registrarlo costaría el único script que este
   diseño evita (ADR-099).

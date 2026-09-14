@@ -471,6 +471,46 @@ test('la wishlist es del comprador y el staff no la toca', async () => {
   assert.equal(delDueno[0]!.n, 0, 'el dueño de A ve lo que guardaron sus clientes');
 });
 
+test('`wishlist_products` devuelve lo guardado, con el catálogo adentro', async () => {
+  /*
+   * El caso que faltaba cuando la función nació `security invoker`: entra a
+   * `products`, que **no tiene política de comprador** —el catálogo lo lee el
+   * storefront con la secret key—, así que la unión volvía vacía siempre. La
+   * pantalla decía «todavía no guardaste nada» con dos productos guardados, sin
+   * un solo error en ningún lado.
+   */
+  const r = await como<{ j: readonly { id: string; available: boolean }[] }>(
+    db,
+    ANA,
+    `select wishlist_products('${TIENDA_A}') as j`,
+  );
+
+  assert.deepEqual(
+    r[0]!.j.map((p) => p.id),
+    [PRODUCTO_A],
+    'Ana no ve el producto que guardó, o ve uno que no guardó',
+  );
+  assert.equal(r[0]!.j[0]!.available, true, 'el producto tiene stock y dice que no');
+});
+
+test('`wishlist_products` no le da a nadie lo guardado por otro', async () => {
+  const deBeto = await como<{ j: readonly unknown[] }>(
+    db,
+    BETO,
+    `select wishlist_products('${TIENDA_A}') as j`,
+  );
+  assert.deepEqual(deBeto[0]!.j, [], 'Beto ve lo que guardó Ana');
+
+  // Y el staff tampoco: es `security definer`, así que lo único que la acota es
+  // la línea de `app.current_customer` escrita adentro.
+  const delDueno = await como<{ j: readonly unknown[] }>(
+    db,
+    DUENO_A,
+    `select wishlist_products('${TIENDA_A}') as j`,
+  );
+  assert.deepEqual(delDueno[0]!.j, [], 'el dueño de A ve lo que guardaron sus clientes');
+});
+
 // --- El vínculo entre sesión y persona ---------------------------------------
 
 test('`session_identities` no está al alcance de nadie autenticado', async () => {

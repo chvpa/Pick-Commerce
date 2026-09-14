@@ -66,12 +66,20 @@ const fecha = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
           <section class="flex flex-col gap-4">
             <div class="flex items-baseline justify-between gap-4">
               <h2 class="text-lg font-medium">Tus pedidos</h2>
-              <a
-                href="/cuenta/direcciones"
-                class="text-sm text-fg-muted underline underline-offset-4 hover:text-fg"
-              >
-                Mis direcciones
-              </a>
+              <span class="flex gap-4">
+                <a
+                  href="/cuenta/guardados"
+                  class="text-sm text-fg-muted underline underline-offset-4 hover:text-fg"
+                >
+                  Guardados
+                </a>
+                <a
+                  href="/cuenta/direcciones"
+                  class="text-sm text-fg-muted underline underline-offset-4 hover:text-fg"
+                >
+                  Mis direcciones
+                </a>
+              </span>
             </div>
 
             {pedidos && pedidos.items.length > 0 ? (

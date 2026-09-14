@@ -4,10 +4,13 @@ import JsonLd from '@pick/commerce-astro/seo/JsonLd.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import ProductGallery from '@pick/commerce-astro/product/ProductGallery.astro';
 import { ProductPurchase } from '@pick/commerce-ui/product/ProductPurchase';
+import { WishlistButton } from '@pick/commerce-ui/wishlist/WishlistButton';
 import { productJsonLd } from '@pick/commerce-core';
 
 import { catalogo, contextoSeo, tiendaActual } from '../../lib/db.ts';
 import { anotar } from '../../lib/analytics.ts';
+import { misFavoritos } from '../../lib/cuenta.ts';
+import { paginaDeCuenta } from '../../lib/sesion.ts';
 import Base from '../../layouts/Base.astro';
 
 /*
@@ -36,6 +39,26 @@ if (!product) {
  * producto. El `Astro.rewrite` de arriba corre la cadena de middleware otra vez,
  * así que anotar antes habría dado además una vista con el producto en null.
  */
+/*
+ * Cómo está el corazón para quien ya entró.
+ *
+ * `undefined` sin sesión, y ahí manda `localStorage`: el HTML es el mismo para
+ * todos y la island lo corrige al hidratar. Con sesión se resuelve acá, que es
+ * lo que evita el parpadeo de un corazón que aparece vacío y se llena solo.
+ *
+ * Un fallo leyendo esto no puede tumbar un PDP, que es la página que vende: se
+ * cae a `undefined` y el corazón se comporta como el de alguien sin cuenta.
+ */
+let guardadoEnLaCuenta: boolean | undefined;
+const { habilitado: hayCuenta, token: tokenDeCuenta } = await paginaDeCuenta(Astro.cookies);
+if (hayCuenta && tokenDeCuenta) {
+  try {
+    guardadoEnLaCuenta = (await misFavoritos(tokenDeCuenta)).includes(product.id);
+  } catch (error) {
+    console.error('[pdp] no se pudo leer lo guardado', error);
+  }
+}
+
 anotar(Astro.locals, 'product_view', Astro.url.pathname, {
   handle: product.handle,
   productId: product.id,
@@ -69,6 +92,28 @@ const jsonLd = productJsonLd(product, await contextoSeo());
         {product.brand && <p class="text-sm text-fg-subtle">{product.brand}</p>}
         <h1 class="font-display text-2xl font-semibold tracking-tight">{product.title}</h1>
       </div>
+
+      {
+        /*
+        El corazón sólo existe donde existen las cuentas: sin el interruptor,
+        guardar llevaría a una pantalla que responde 404.
+
+        `client:idle` y no `client:load`: la acción principal de esta página es
+        comprar, y el corazón no puede competir por el hilo con el botón que
+        agrega al carrito.
+      */
+      }
+      {
+        hayCuenta && (
+          <WishlistButton
+            client:idle
+            productId={product.id}
+            guardadoEnLaCuenta={guardadoEnLaCuenta}
+            etiqueta="Guardar"
+            className="self-start"
+          />
+        )
+      }
 
       {
         /*

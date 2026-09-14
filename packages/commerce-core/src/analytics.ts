@@ -14,14 +14,19 @@
  */
 
 /**
- * Los ocho que la Fase 10 pide.
+ * Nueve de los diez de PROJECT.md §22.
  *
- * Dos de los diez de PROJECT.md §22 no están, y no por olvido:
+ * `wishlist_add` entró con la wishlist (v2 Fase 2) y trajo consigo la única
+ * decisión interesante: **el corazón le pega al servidor aunque no haya
+ * sesión**. Sin cuenta el guardado vive en `localStorage` y podría no llamar a
+ * nadie, pero entonces el evento sólo existiría para quien ya se registró —o
+ * sea, para casi nadie— y el denominador quedaría contando otra cosa que el
+ * numerador. Guardar sin cuenta es exactamente el momento que esta fase quiere
+ * poder recordar.
  *
- * - `wishlist_add` no tiene feature que lo emita — la wishlist es v2.
- * - `remove_from_cart` es el único sin momento de servidor: quitar una línea del
- *   carrito no habla con nadie. Registrarlo costaría JavaScript en el navegador,
- *   que es justo lo que este diseño evita.
+ * El que sigue faltando es `remove_from_cart`, y es el único sin momento de
+ * servidor: quitar una línea del carrito no habla con nadie. Registrarlo
+ * costaría JavaScript en el navegador, que es justo lo que este diseño evita.
  */
 export const TIPOS_DE_EVENTO = [
   'page_view',
@@ -29,6 +34,7 @@ export const TIPOS_DE_EVENTO = [
   'search',
   'search_no_results',
   'add_to_cart',
+  'wishlist_add',
   'coupon_applied',
   'begin_checkout',
   'checkout_completed',
@@ -187,6 +193,16 @@ export function claveDeDeduplicacion(
   if (tipo === 'search' || tipo === 'search_no_results') {
     const termino = data?.term;
     return typeof termino === 'string' ? `${sessionId}:${termino}` : undefined;
+  }
+
+  /*
+   * Guardar dos veces el mismo producto **no** son dos guardados: el corazón es
+   * un interruptor, y quitarlo y volver a ponerlo es la misma intención de
+   * siempre. Sin esta clave, tocarlo cinco veces contaría cinco.
+   */
+  if (tipo === 'wishlist_add') {
+    const producto = data?.productId;
+    return typeof producto === 'string' ? `${sessionId}:${producto}` : undefined;
   }
 
   // `page_view`, `product_view`, `add_to_cart` y `begin_checkout`: repetirse es

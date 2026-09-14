@@ -103,6 +103,9 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   // RLS, no una comprobación escrita adentro (ADR-121). Un forastero recibe la
   // página vacía.
   ['public.customer_orders', `customer_orders('${TIENDA}', 1, 10)`],
+  // Los productos guardados, por lo mismo: `security invoker` y RLS sobre
+  // `wishlist_items`, que es del comprador.
+  ['public.wishlist_products', `wishlist_products('${TIENDA}')`],
 ];
 
 /**

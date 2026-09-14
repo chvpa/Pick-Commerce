@@ -395,6 +395,15 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
   puede dar por bueno**: lo dice el propio SDK. Si el valor decide algo —de qué
   ficha de cliente cuelga un pedido, por ejemplo— se pide con `getUser`, que lo
   verifica contra el servidor de Auth.
+- **Una función `security invoker` sólo sirve si _todas_ las tablas que toca
+  tienen política para quien la llama.** `customer_orders` funciona así porque
+  `orders` y `order_items` tienen política de comprador; `wishlist_products`
+  entraba además a `products`, que **no la tiene** —el catálogo lo lee el
+  storefront con la secret key—, así que la unión devolvía cero filas siempre y
+  la pantalla decía «no guardaste nada» con filas en la base. Sin un error en
+  ningún lado: lo encontró mirar la página, no el tipo ni el test. Cuando hace
+  falta cruzar una tabla del comprador con una del catálogo, va `definer` con el
+  filtro de identidad escrito en una línea.
 - Un importador que reimporta **pisa lo que la tienda editó** si no mira el
   dueño de cada campo: `field_sources` declara el origen y sólo los campos
   marcados como del ERP se sobreescriben. Y el borrado de medios se acota a los

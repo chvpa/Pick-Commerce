@@ -991,7 +991,7 @@ numeración es secuencial y sería enumerable—.
 
 ## Fase 2 — El sustrato de preferencias, que la wishlist estrena
 
-**Avance: 0%**
+**Avance: 60%**
 
 Objetivo: que cada cosa que un visitante hace quede atada a algo que dura más
 que media hora, porque **el dato que no se captura se pierde para siempre**:
@@ -1003,26 +1003,26 @@ La wishlist va en esta fase y no en otra porque es el primer consumidor del
 sustrato y la prueba más barata de que quedó bien: si guardar un corazón sin
 sesión y encontrarlo después de entrar funciona, la identidad funciona.
 
-- [ ] `wishlist_items (tenant_id, store_id, customer_id, product_id, created_at)`
+- [x] `wishlist_items (tenant_id, store_id, customer_id, product_id, created_at)`
       con `unique (store_id, customer_id, product_id)` y políticas por
       `app.current_customer`. Producto y no variante: el corazón vive en la
       tarjeta del catálogo, que no elige talle.
-- [ ] Sin sesión la wishlist vive en `localStorage` —mismo patrón que el carrito,
+- [x] Sin sesión la wishlist vive en `localStorage` —mismo patrón que el carrito,
       ADR-039— y se fusiona al entrar; el `unique` hace la fusión idempotente por
       construcción. Un corazón que exige registrarse para funcionar es la razón
       por la que nadie lo toca.
-- [ ] Emitir `wishlist_add`, que cierra el ítem diferido de la Fase 10. Es uno de
+- [x] Emitir `wishlist_add`, que cierra el ítem diferido de la Fase 10. Es uno de
       los diez eventos de PROJECT.md §22 y **no** está en `TIPOS_DE_EVENTO`: hay
       que sumarlo ahí y encontrarle su momento de servidor, como a los otros
       ocho. El motivo por el que falta está escrito en
       `packages/commerce-core/src/analytics.ts`.
-- [ ] `session_identities`, con la sesión, el tenant, la tienda, el customer y
+- [x] `session_identities`, con la sesión, el tenant, la tienda, el customer y
       la fecha del vínculo: es la tabla que `store_events` dejó prometida en su
       comentario —«se asocia a una persona sólo si algún día hay un evento de
       identificación legítimo, y eso es otra tabla»— y que PROJECT.md §23 exige
       separada del log anónimo. Es lo que hace que la sesión de media hora rodante
       deje de ser el techo de lo que el sitio pueda recordar.
-- [ ] Un índice de `store_events` por sesión. Los dos que hay son
+- [x] Un índice de `store_events` por sesión. Los dos que hay son
       `(store_id, occurred_at desc)` y `(store_id, type, occurred_at desc)`: leer
       los `product_view` de un visitante es hoy un scan sobre la tabla que más
       crece del esquema, en la portada y en la PLP. Es el patrón que ya produjo
@@ -1052,15 +1052,23 @@ sesión y encontrarlo después de entrar funciona, la identidad funciona.
       el beacon de Cloudflare Web Analytics que la zona inyecta en el HTML—,
       «esa cookie no se cruza con tus datos de cliente» y «se borra sola a la
       media hora». Está en `apps/*/src/lib/contenido.ts`.
-- [ ] La pantalla de wishlist muestra lo no disponible en vez de esconderlo: un
+- [x] La pantalla de wishlist muestra lo no disponible en vez de esconderlo: un
       producto guardado puede quedar fuera del catálogo por archivado, sin stock o
       sin foto, y desaparecerlo en silencio parece un bug de la wishlist.
 
 **Definition of Done**
 
-- [ ] un producto guardado sin sesión sigue guardado después de entrar, una sola vez
-- [ ] la wishlist de un comprador no es visible para otro, con su test de aislamiento
-- [ ] `wishlist_add` aparece en `store_events` y suma en el panel de analytics
+- [x] un producto guardado sin sesión sigue guardado después de entrar, una sola vez
+      — medido contra el proyecto real: fusionar tres ids con uno repetido deja
+      dos filas, y volver a fusionar los mismos deja dos
+- [x] la wishlist de un comprador no es visible para otro, con su test de aislamiento
+      — y verificado con sabotaje en las dos capas: sacándole el `with check` a la
+      política y el filtro de identidad a `wishlist_products`, los casos se ponen
+      en rojo
+- [~] `wishlist_add` aparece en `store_events` —medido, y sin contar dos veces el
+  mismo corazón— pero **no suma en el panel**: `admin_dashboard` cuenta los
+  pasos del embudo por nombre y guardar no es uno de ellos. Sumarlo es
+  decidir dónde va en el embudo, que es una pregunta de producto
 
 ---
 
@@ -1829,6 +1837,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-13 | v2 Fase 1: se entra a la cuenta, y el código sale con el remitente del comercio. `POST /api/cuenta/codigo` genera el código con `generateLink` —que no manda nada—, lo encola en `notification_outbox` con el `store_id` de la tienda y **drena la cola en la misma petición**: el comprador está mirando la pantalla, esperar al próximo visitante convertiría un login en algo de minutos. `POST /api/cuenta/entrar` lo canjea y deja los dos tokens en una cookie `httpOnly` que el navegador no lee. Cada ruta con su binding de rate limiting, más ajustado que el del checkout: pedir un código es a la vez enumeración de cuentas y abuso de correo. **Y un bug que sólo aparecía probando contra el proyecto real**: `mark_notification_sent` insertaba en `order_events` con el `order_id` nulo que ADR-123 acababa de permitir, así que el correo salía y la fila quedaba pendiente — el mismo código reenviado hasta cinco veces, una por visita. Hacer nullable una columna no termina en la tabla                                                                                                                                                                                                                                                                                                 | v2 Fase 1 |          43% |            57% |
 | 2026-09-14 | v2 Fase 1: la sesión sirve para leer, y lo que se compró como invitada aparece. `/cuenta` lista los pedidos **con el JWT del comprador**, no con la secret key: es el primer lugar del storefront donde la base decide quién ve qué, y está medido —8 pedidos en la tienda, 1 en la página—. El refresco del token **no** quedó en el middleware, que era el plan: ahí correría en cada visita al catálogo para renovar una sesión que esa página no usa; va en `tokenDelComprador()`, y `setSession` sólo sale a la red cuando el token venció. `link_customer_account` engancha la cuenta a la ficha de cliente que ya existía —`customers` es única por (tienda, email) desde la Fase 5, así que no hay nada que migrar— y `create_order` no se tocó. Dos decisiones que son de seguridad y no de comodidad: el email que se vincula es el que devolvió Supabase y nunca el del formulario, y si la ficha ya es de otra cuenta la función devuelve null en vez del cliente — la cuenta se ve vacía en lugar de mostrar los pedidos de otra persona                                                                                                                                                                                                                                                          | v2 Fase 1 |          57% |            72% |
 | 2026-09-14 | **v2 Fase 1 entregada al 100%.** Una persona entra a su cuenta con un código que le llega por correo —sin contraseña—, ve sus pedidos, abre el detalle de cualquiera, guarda direcciones y compra con su correo ya puesto y fijo. Lo que se cerró en este tramo: el interruptor por tienda en `store_settings`, apagado por defecto, con «Mi cuenta» en el encabezado colgando de él y `/cuenta` respondiendo 404 en las tiendas que no lo prendieron; `/cuenta/pedidos/[id]`, que no necesitó función nueva —`order_json` es security invoker y lo filtra RLS—; `/cuenta/direcciones`, con formularios planos y sin una línea de JavaScript; y el checkout con el correo de la sesión en `readonly`, que era el único agujero funcional que quedaba. El Admin gana la sección para prenderlo, con un límite escrito en vez de disimulado: **no puede comprobar que el dominio esté verificado** —la clave de Resend es de sólo envío— así que pide una confirmación explícita. Tres capas de prueba, cada una para lo que las otras no alcanzan: PGlite, `pnpm rls:verificar` con JWTs firmados (22 comprobaciones) y `e2e/cuenta.spec.ts` para lo que sólo se ve en un navegador. Y el texto de privacidad cambió **antes** que la tienda, como estaba prometido: el caso que lo exigía se puso en rojo solo | v2 Fase 1 |          72% |           100% |
+| 2026-09-14 | v2 Fase 2: el sustrato de preferencias, que la wishlist estrena. `wishlist_items` con el `unique` que hace **idempotente por construcción** la fusión de lo guardado sin cuenta; `session_identities`, la tabla que `store_events` dejó prometida en su propio comentario y que PROJECT.md §23 exige separada del log anónimo; y un índice por sesión, porque leer «lo que hizo este visitante» era un scan sobre la tabla que más crece del esquema. El corazón **le pega al servidor aunque no haya sesión**: si sólo llamara para quien ya se registró, `wishlist_add` existiría para casi nadie y estaría contando otra cosa que el resto del embudo. La fusión va en el momento del login y en ningún otro lado, que es el único en que existen a la vez el `localStorage` de quien venía sin cuenta y la sesión recién abierta. Tres hallazgos, y los tres los encontró comprobar en vez de leer: **dos tests que pasaban por el motivo equivocado** —uno de la Fase 1, que llevaba así desde entonces— y una función `security invoker` que devolvía vacío siempre, porque entraba a `products`, que no tiene política de comprador. La pantalla decía «no guardaste nada» con filas en la base y sin un error en ningún lado                                                                           | v2 Fase 2 |           0% |            60% |
 
 ---
 

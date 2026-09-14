@@ -1,0 +1,98 @@
+---
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import { Image } from 'astro:assets';
+import { WishlistButton } from '@pick/commerce-ui/wishlist/WishlistButton';
+import Base from '../../layouts/Base.astro';
+import { productosGuardados, type ProductoGuardado } from '../../lib/cuenta.ts';
+import { paginaDeCuenta } from '../../lib/sesion.ts';
+
+export const prerender = false;
+
+const { habilitado, token } = await paginaDeCuenta(Astro.cookies);
+
+if (!habilitado) {
+  const pagina = await Astro.rewrite('/404');
+  return new Response(pagina.body, { status: 404, headers: pagina.headers });
+}
+if (!token) return Astro.redirect('/cuenta', 302);
+
+let guardados: readonly ProductoGuardado[] = [];
+let fallo = false;
+try {
+  guardados = await productosGuardados(token);
+} catch (error) {
+  console.error('[guardados] no se pudieron leer', error);
+  fallo = true;
+}
+---
+
+<Base title="Guardados" description="Los productos que guardaste." noindex>
+  <Container class="flex max-w-3xl flex-col gap-8 py-12">
+    <div class="flex flex-col gap-2">
+      <a
+        href="/cuenta"
+        class="self-start text-sm text-fg-muted underline underline-offset-4 hover:text-fg"
+      >
+        ← Mi cuenta
+      </a>
+      <h1 class="font-display text-2xl font-semibold tracking-tight">Guardados</h1>
+    </div>
+
+    {
+      fallo && (
+        <p role="alert" class="rounded-sm bg-danger/10 px-4 py-3 text-sm text-danger">
+          No pudimos leer lo que guardaste. Probá de nuevo en unos segundos.
+        </p>
+      )
+    }
+
+    {
+      guardados.length > 0 ? (
+        <ul class="flex flex-col divide-y divide-border rounded-md border border-border">
+          {guardados.map((p) => (
+            <li class="flex items-center gap-4 px-4 py-3">
+              {p.image ? (
+                <Image
+                  src={p.image.url}
+                  alt={p.image.alt ?? p.title}
+                  width={64}
+                  height={80}
+                  class="h-20 w-16 rounded-sm object-cover"
+                  inferSize
+                />
+              ) : (
+                <div class="h-20 w-16 rounded-sm bg-surface-muted" aria-hidden="true" />
+              )}
+
+              <div class="flex flex-1 flex-col gap-0.5">
+                {p.brand && <span class="text-xs text-fg-subtle">{p.brand}</span>}
+                <a href={`/productos/${p.handle}/`} class="font-medium hover:underline">
+                  {p.title}
+                </a>
+                {/*
+                  Lo no disponible se dice, no se esconde. Un producto que
+                  desaparece de acá sin explicación parece un bug de la lista:
+                  la persona guardó algo y ya no está.
+                */}
+                {!p.available && (
+                  <span class="text-sm text-fg-muted">Ahora no está disponible</span>
+                )}
+              </div>
+
+              <WishlistButton client:visible productId={p.id} guardadoEnLaCuenta={true} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        !fallo && (
+          <div class="flex flex-col items-center gap-4 rounded-md border border-border px-4 py-12 text-center">
+            <p class="text-sm text-fg-muted">Todavía no guardaste ningún producto.</p>
+            <a href="/catalogo" class="text-sm underline underline-offset-4">
+              Ver el catálogo
+            </a>
+          </div>
+        )
+      )
+    }
+  </Container>
+</Base>

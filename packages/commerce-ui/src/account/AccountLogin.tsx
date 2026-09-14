@@ -1,6 +1,7 @@
 import { useRef, useState } from 'preact/hooks';
 import { cn } from '../lib/cn.ts';
 import { buttonVariants } from '../recipes/button.ts';
+import { guardadosLocales, limpiarLocal } from '../wishlist/store.ts';
 
 /**
  * Entrar a la cuenta con un código que llega por correo.
@@ -20,6 +21,7 @@ export interface AccountLoginProps {
   minutos: number;
   codigoHref?: string;
   entrarHref?: string;
+  wishlistHref?: string;
   className?: string;
 }
 
@@ -34,6 +36,7 @@ export function AccountLogin({
   minutos,
   codigoHref = '/api/cuenta/codigo',
   entrarHref = '/api/cuenta/entrar',
+  wishlistHref = '/api/wishlist',
   className,
 }: AccountLoginProps) {
   const [paso, setPaso] = useState<Paso>('correo');
@@ -103,6 +106,29 @@ export function AccountLogin({
       setEnviando(false);
       setError(await motivo(respuesta, 'Ese código no entró. Probá de nuevo.'));
       return;
+    }
+
+    /*
+     * **La fusión de lo guardado sin cuenta va acá y en ningún otro lado.**
+     *
+     * Este es el único momento en que existen las dos cosas a la vez: el
+     * `localStorage` de quien venía navegando sin cuenta, y la sesión que acaba
+     * de abrirse. Hacerlo en cada página con un corazón sería reconciliar en
+     * caliente un estado que ya no cambia; hacerlo en el servidor es imposible,
+     * porque `localStorage` no llega ahí.
+     *
+     * Se limpia **después** de que el servidor confirmó. Al revés, un fallo de
+     * red entre las dos cosas se lleva puesto lo que la persona había guardado,
+     * que es justamente lo que la fusión existe para no perder. Y el `unique` de
+     * la tabla hace que repetirla no duplique nada, así que reintentar es gratis.
+     */
+    const pendientes = guardadosLocales();
+    if (pendientes.length > 0) {
+      const fusion = await postear(wishlistHref, {
+        accion: 'fusionar',
+        productIds: pendientes,
+      });
+      if (fusion?.ok) limpiarLocal();
     }
 
     /*

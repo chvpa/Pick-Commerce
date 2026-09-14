@@ -1970,6 +1970,7 @@ export type Database = {
         }
         Returns: Json
       }
+      wishlist_products: { Args: { p_store_id: string }; Returns: Json }
     }
     Enums: {
       home_section_type: "hero" | "tiles" | "products" | "categories"

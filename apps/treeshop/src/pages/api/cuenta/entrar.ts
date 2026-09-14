@@ -1,5 +1,10 @@
 import type { APIRoute } from 'astro';
-import { canjearCodigo, faltaParaLasCuentas, vincularCuenta } from '../../../lib/cuenta.ts';
+import {
+  atarLaSesion,
+  canjearCodigo,
+  faltaParaLasCuentas,
+  vincularCuenta,
+} from '../../../lib/cuenta.ts';
 import { demasiadasPeticiones, dentroDelLimite } from '../../../lib/limite.ts';
 import { guardarSesion } from '../../../lib/sesion.ts';
 import { cuerpoJson, falla, json } from '../_respuesta.ts';
@@ -17,7 +22,7 @@ export const prerender = false;
  */
 const CODIGO_VALIDO = /^\d{4,12}$/;
 
-export const POST: APIRoute = async ({ request, cookies }) => {
+export const POST: APIRoute = async ({ request, cookies, locals }) => {
   if (!(await dentroDelLimite(request, 'ENTRAR_LIMITE'))) return demasiadasPeticiones();
 
   const cuerpo = await cuerpoJson(request);
@@ -59,7 +64,25 @@ export const POST: APIRoute = async ({ request, cookies }) => {
      * ese correo. Registrarse con el correo de otra persona le entregaría sus
      * pedidos. El que se pasa es el que devolvió Supabase, no el del formulario.
      */
-    await vincularCuenta(canje.userId, canje.email);
+    const cliente = await vincularCuenta(canje.userId, canje.email);
+
+    /*
+     * Y acá se ata la sesión anónima a la persona, que es lo que convierte media
+     * hora de memoria en todo su historial. Este es el «evento de
+     * identificación legítimo» que `store_events` dejó nombrado en su comentario
+     * y el único momento en que existe: antes no se sabe quién es y después ya
+     * no se está mirando la cookie de la visita.
+     *
+     * No puede tumbar el login. Entrar es lo que la persona vino a hacer; que no
+     * se haya podido guardar un vínculo de analítica es un problema nuestro.
+     */
+    if (cliente && locals.sessionId) {
+      try {
+        await atarLaSesion(locals.sessionId, cliente);
+      } catch (error) {
+        console.error('[cuenta-entrar] no se pudo atar la sesión', error);
+      }
+    }
 
     guardarSesion(cookies, canje.sesion);
     return json({ ok: true });

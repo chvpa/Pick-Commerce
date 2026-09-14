@@ -1,5 +1,5 @@
 import { getSecret } from 'astro:env/server';
-import { clienteDeAuth, clienteDeUsuario } from '@pick/adapter-supabase';
+import { clienteDeAuth, clienteDeUsuario, type PickSupabaseClient } from '@pick/adapter-supabase';
 import { EVENTO_CODIGO } from '@pick/commerce-core';
 import type { Money, Order } from '@pick/commerce-types';
 import type { Json } from '@pick/commerce-types/database';
@@ -316,6 +316,148 @@ export async function misDirecciones(accessToken: string): Promise<readonly Dire
  * cuenta de otro. El `with check` de la política lo vuelve a comprobar del lado
  * de la base, que es donde vale.
  */
+/**
+ * La ficha de cliente de esta sesión en esta tienda.
+ *
+ * Se lee de `customer_accounts` y no llamando a `app.current_customer`: esa
+ * función vive en el schema `app`, que PostgREST no expone —y no se le va a
+ * poner un envoltorio en `public` sólo para esto, que sería una función más
+ * alcanzable por `authenticated`—. La política `customer_accounts_propia` ya
+ * deja leer la fila propia y nada más.
+ */
+async function fichaDeLaSesion(db: PickSupabaseClient, storeId: string): Promise<string> {
+  const { data, error } = await db
+    .from('customer_accounts')
+    .select('customer_id')
+    .eq('store_id', storeId)
+    .maybeSingle();
+
+  if (error) throw new Error(`No se pudo resolver la cuenta: ${error.message}`);
+  if (!data?.customer_id) throw new Error('La sesión no tiene cuenta en esta tienda.');
+  return data.customer_id;
+}
+
+/** Los productos guardados de quien está mirando, del más nuevo al más viejo. */
+export async function misFavoritos(accessToken: string): Promise<readonly string[]> {
+  const { storeId } = await tiendaActual();
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+  const { data, error } = await db
+    .from('wishlist_items')
+    .select('product_id')
+    .eq('store_id', storeId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(`No se pudieron leer los guardados: ${error.message}`);
+  return (data ?? []).map((f) => f.product_id);
+}
+
+export interface ProductoGuardado {
+  readonly id: string;
+  readonly handle: string;
+  readonly title: string;
+  readonly brand: string | null;
+  readonly image: { url: string; alt: string | null } | null;
+  /** Publicado y con stock. Lo no disponible **se muestra**, no se esconde. */
+  readonly available: boolean;
+  readonly savedAt: string;
+}
+
+/**
+ * Lo guardado, listo para dibujar.
+ *
+ * Va por `wishlist_products` y no por el catálogo, y el motivo está en la
+ * migración: el catálogo **esconde** lo archivado y lo sin stock, que es lo
+ * contrario de lo que esta pantalla necesita. Tampoco trae precio, para que no
+ * pueda discrepar con el del catálogo.
+ */
+export async function productosGuardados(
+  accessToken: string,
+): Promise<readonly ProductoGuardado[]> {
+  const { storeId } = await tiendaActual();
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+  const { data, error } = await db.rpc('wishlist_products', { p_store_id: storeId });
+  if (error) throw new Error(`No se pudieron leer los guardados: ${error.message}`);
+  return data as unknown as readonly ProductoGuardado[];
+}
+
+/**
+ * Guarda productos en la cuenta. Idempotente por construcción.
+ *
+ * El `unique (store_id, customer_id, product_id)` es lo que hace que volcar la
+ * wishlist de `localStorage` al entrar no necesite preguntar qué había: volcar
+ * dos veces, o volcar algo que ya estaba, no duplica nada.
+ *
+ * `customer_id` sale de la sesión y **nunca del cuerpo** (ADR-121). El
+ * `with check` de la política lo vuelve a comprobar del lado de la base, que es
+ * donde vale.
+ */
+export async function guardarFavoritos(
+  accessToken: string,
+  productIds: readonly string[],
+): Promise<void> {
+  if (productIds.length === 0) return;
+
+  const { storeId, tenantId } = await tiendaActual();
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+  const cliente = await fichaDeLaSesion(db, storeId);
+
+  const { error } = await db.from('wishlist_items').upsert(
+    productIds.map((product_id) => ({
+      tenant_id: tenantId,
+      store_id: storeId,
+      customer_id: cliente,
+      product_id,
+    })),
+    { onConflict: 'store_id,customer_id,product_id', ignoreDuplicates: true },
+  );
+
+  if (error) throw new Error(`No se pudo guardar: ${error.message}`);
+}
+
+/** Saca un producto de la cuenta. RLS se encarga de que sea la propia. */
+export async function quitarFavorito(accessToken: string, productId: string): Promise<void> {
+  const { storeId } = await tiendaActual();
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+  const { error } = await db
+    .from('wishlist_items')
+    .delete()
+    .eq('store_id', storeId)
+    .eq('product_id', productId);
+
+  if (error) throw new Error(`No se pudo quitar: ${error.message}`);
+}
+
+/**
+ * Ata esta sesión anónima a la persona que acaba de entrar.
+ *
+ * Es lo que convierte media hora de memoria en todo su historial: `store_events`
+ * guarda el id de sesión y **nunca la identidad** (PROJECT.md §23), así que el
+ * cruce vive en esta tabla aparte y sólo lo puede hacer el servidor.
+ *
+ * Con la secret key porque `session_identities` no tiene políticas, y eso
+ * también es a propósito: ver la migración.
+ *
+ * La clave primaria es `(store_id, session_id)`, así que entrar de nuevo desde
+ * el mismo navegador **pisa** el vínculo. Correcto: lo que ese dispositivo haga
+ * de ahora en adelante es de quien lo está usando ahora.
+ */
+export async function atarLaSesion(sessionId: string, customerId: string): Promise<void> {
+  const db = clienteDelStorefront();
+  const { storeId, tenantId } = await tiendaActual();
+
+  const { error } = await db
+    .from('session_identities')
+    .upsert(
+      { session_id: sessionId, tenant_id: tenantId, store_id: storeId, customer_id: customerId },
+      { onConflict: 'store_id,session_id' },
+    );
+
+  if (error) throw new Error(`No se pudo atar la sesión: ${error.message}`);
+}
+
 export async function guardarDireccion(
   accessToken: string,
   entrada: { label: string | null; address: DireccionDeEnvio; porDefecto: boolean },
@@ -323,22 +465,7 @@ export async function guardarDireccion(
   const { storeId, tenantId } = await tiendaActual();
   const db = clienteDeUsuario(conexionPublica(), accessToken);
 
-  /*
-   * Se lee de `customer_accounts` y no llamando a `app.current_customer`: esa
-   * función vive en el schema `app`, que PostgREST no expone —y no se le va a
-   * poner un envoltorio en `public` sólo para esto, que sería una función más
-   * alcanzable por `authenticated`—. La política `customer_accounts_propia` ya
-   * deja leer la fila propia y nada más.
-   */
-  const { data: cuenta, error: errorCuenta } = await db
-    .from('customer_accounts')
-    .select('customer_id')
-    .eq('store_id', storeId)
-    .maybeSingle();
-
-  if (errorCuenta) throw new Error(`No se pudo resolver la cuenta: ${errorCuenta.message}`);
-  const cliente = cuenta?.customer_id;
-  if (!cliente) throw new Error('La sesión no tiene cuenta en esta tienda.');
+  const cliente = await fichaDeLaSesion(db, storeId);
 
   // Una sola por defecto. Se apagan las otras antes de insertar; RLS acota el
   // update a las propias, así que no hace falta nombrar al cliente.
