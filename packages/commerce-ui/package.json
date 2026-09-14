@@ -17,7 +17,8 @@
     "./cart/CartContents": "./src/cart/CartContents.tsx",
     "./cart/add-to-cart": "./src/cart/add-to-cart.ts",
     "./checkout/CheckoutForm": "./src/checkout/CheckoutForm.tsx",
-    "./checkout/OrderConfirmation": "./src/checkout/OrderConfirmation.tsx"
+    "./checkout/OrderConfirmation": "./src/checkout/OrderConfirmation.tsx",
+    "./account/AccountLogin": "./src/account/AccountLogin.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

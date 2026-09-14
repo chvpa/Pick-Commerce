@@ -1,4 +1,6 @@
 import type { AstroCookies } from 'astro';
+import { clienteDeAuth } from '@pick/adapter-supabase';
+import { conexionPublica, faltaParaLasCuentas } from './cuenta.ts';
 
 /**
  * La sesión del comprador, en una cookie que el navegador no puede leer.
@@ -63,4 +65,59 @@ export function leerSesion(cookies: AstroCookies): SesionDeComprador | null {
 
 export function cerrarSesion(cookies: AstroCookies): void {
   cookies.delete(COOKIE_DE_CUENTA, { path: '/' });
+}
+
+/**
+ * El token con el que leer, renovado si hacía falta. `null` si no hay sesión.
+ *
+ * **El refresco pasa del lado del servidor**, que es la contrapartida de tener
+ * la cookie `httpOnly`: el token de acceso dura una hora y no hay supabase-js en
+ * el navegador que lo renueve solo. Lo hace `setSession`, que decide sola —mira
+ * el `exp` del token, sin red— y sólo sale a pedir uno nuevo cuando venció.
+ *
+ * Va sobre un cliente de un solo uso por lo mismo que `canjearCodigo`:
+ * `setSession` le deja la sesión puesta al cliente sobre el que corre, y el del
+ * storefront está memoizado por isolate.
+ *
+ * Cuando el refresco falla —el token de refresco venció, o alguien cerró la
+ * sesión desde otro lado— la cookie **se borra**. Dejarla puesta haría que cada
+ * página intentara renovar de nuevo, un viaje a Supabase por visita, para
+ * terminar mostrando lo mismo.
+ */
+export async function tokenDelComprador(cookies: AstroCookies): Promise<string | null> {
+  const sesion = leerSesion(cookies);
+  if (!sesion) return null;
+
+  // Sin la clave publicable no hay con qué renovar. No se borra la cookie: el
+  // problema es del despliegue, no de la sesión, y volverá a servir en cuanto se
+  // cargue el secreto.
+  if (faltaParaLasCuentas()) return null;
+
+  try {
+    const { data, error } = await clienteDeAuth(conexionPublica()).auth.setSession({
+      access_token: sesion.accessToken,
+      refresh_token: sesion.refreshToken,
+    });
+
+    if (error || !data.session) {
+      cerrarSesion(cookies);
+      return null;
+    }
+
+    // Sólo si cambió: reescribir la cookie en cada visita le agrega una cabecera
+    // `set-cookie` a todas las respuestas sin motivo.
+    if (data.session.refresh_token !== sesion.refreshToken) {
+      guardarSesion(cookies, {
+        accessToken: data.session.access_token,
+        refreshToken: data.session.refresh_token,
+      });
+    }
+
+    return data.session.access_token;
+  } catch (error) {
+    // Que Supabase no conteste no puede dejar una página en 500. Se muestra la
+    // cuenta cerrada y la cookie se conserva, porque la sesión puede estar viva.
+    console.error('[sesion] no se pudo renovar', error);
+    return null;
+  }
 }

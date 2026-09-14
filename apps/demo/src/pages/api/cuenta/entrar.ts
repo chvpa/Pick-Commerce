@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { canjearCodigo, faltaParaLasCuentas } from '../../../lib/cuenta.ts';
+import { canjearCodigo, faltaParaLasCuentas, vincularCuenta } from '../../../lib/cuenta.ts';
 import { demasiadasPeticiones, dentroDelLimite } from '../../../lib/limite.ts';
 import { guardarSesion } from '../../../lib/sesion.ts';
 import { cuerpoJson, falla, json } from '../_respuesta.ts';
@@ -42,18 +42,26 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   try {
-    const sesion = await canjearCodigo(email, codigo);
+    const canje = await canjearCodigo(email, codigo);
 
     // Un código que no verifica y uno vencido dan la misma respuesta, que es
     // además la única que se puede dar: Supabase tampoco los distingue.
-    if (!sesion) {
+    if (!canje) {
       return json(
         { error: 'invalid_code', message: 'Ese código no es válido o ya venció. Pedí uno nuevo.' },
         401,
       );
     }
 
-    guardarSesion(cookies, sesion);
+    /*
+     * Acá y no antes: el vínculo con lo que compró como invitada exige el email
+     * **verificado**, porque engancha la cuenta a la ficha de cliente que lleva
+     * ese correo. Registrarse con el correo de otra persona le entregaría sus
+     * pedidos. El que se pasa es el que devolvió Supabase, no el del formulario.
+     */
+    await vincularCuenta(canje.userId, canje.email);
+
+    guardarSesion(cookies, canje.sesion);
     return json({ ok: true });
   } catch (error) {
     return falla('cuenta-entrar', error);

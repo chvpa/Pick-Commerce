@@ -1,7 +1,9 @@
 import { getSecret } from 'astro:env/server';
-import { clienteDeAuth } from '@pick/adapter-supabase';
+import { clienteDeAuth, clienteDeUsuario } from '@pick/adapter-supabase';
 import { EVENTO_CODIGO } from '@pick/commerce-core';
+import type { Money } from '@pick/commerce-types';
 import { clienteDelStorefront, tiendaActual } from './db.ts';
+import type { SesionDeComprador } from './sesion.ts';
 
 /**
  * Entrar a la cuenta, con el correo del comercio.
@@ -98,7 +100,7 @@ export function faltaParaLasCuentas(): string | null {
   return null;
 }
 
-function conexionPublica(): { url: string; publishableKey: string } {
+export function conexionPublica(): { url: string; publishableKey: string } {
   const url = getSecret('SUPABASE_URL');
   const publishableKey = getSecret('SUPABASE_PUBLISHABLE_KEY');
   if (!url || !publishableKey) {
@@ -141,10 +143,7 @@ async function generar(
  * del storefront, un comprador que entra le cambiaría la identidad al catálogo
  * de todo el isolate. Ver `clienteDeAuth`.
  */
-export async function canjearCodigo(
-  email: string,
-  codigo: string,
-): Promise<{ accessToken: string; refreshToken: string } | null> {
+export async function canjearCodigo(email: string, codigo: string): Promise<CanjeLogrado | null> {
   const db = clienteDeAuth(conexionPublica());
 
   /*
@@ -154,13 +153,98 @@ export async function canjearCodigo(
    */
   for (const type of ['signup', 'magiclink'] as const) {
     const { data, error } = await db.auth.verifyOtp({ email, token: codigo, type });
-    if (!error && data.session) {
+    if (!error && data.session && data.user) {
       return {
-        accessToken: data.session.access_token,
-        refreshToken: data.session.refresh_token,
+        sesion: {
+          accessToken: data.session.access_token,
+          refreshToken: data.session.refresh_token,
+        },
+        userId: data.user.id,
+        // **El email sale de acá y no del cuerpo de la petición.** Es el que
+        // Supabase acaba de verificar contra el código; el del formulario es un
+        // dato del navegador. La diferencia importa porque con este valor se
+        // decide a qué ficha de cliente se engancha la cuenta.
+        email: data.user.email ?? email,
       };
     }
   }
 
   return null;
+}
+
+export interface CanjeLogrado {
+  readonly sesion: SesionDeComprador;
+  readonly userId: string;
+  /** Verificado por Supabase, no el que vino del formulario. */
+  readonly email: string;
+}
+
+/**
+ * Engancha la cuenta con lo que esa persona compró como invitada.
+ *
+ * `customers` se identifica por `(store_id, email)` y `create_order` hace upsert
+ * por ahí desde la Fase 5, así que quien compró sin cuenta **ya tiene ficha**:
+ * entrar no crea un cliente nuevo, engancha el que estaba. Quien nunca compró no
+ * tiene ninguna y la función se la crea vacía, para que la cuenta exista igual.
+ *
+ * Corre con la secret key porque escribe en dos tablas que el comprador no puede
+ * tocar. Devuelve `null` si no se pudo vincular, y ahí la cuenta se ve vacía:
+ * ver el motivo en la migración.
+ */
+export async function vincularCuenta(userId: string, email: string): Promise<string | null> {
+  const db = clienteDelStorefront();
+  const { storeId } = await tiendaActual();
+
+  const { data, error } = await db.rpc('link_customer_account', {
+    p_store_id: storeId,
+    p_user_id: userId,
+    p_email: email,
+  });
+
+  if (error) throw new Error(`No se pudo vincular la cuenta: ${error.message}`);
+  return data;
+}
+
+/**
+ * Los pedidos de quien está mirando.
+ *
+ * **Con el JWT del comprador, no con la secret key.** Es el único camino del
+ * storefront donde la base decide de verdad quién ve qué: `customer_orders` es
+ * security invoker y lo acota RLS por `app.current_customer(store_id)`. Pasar
+ * por `clienteDelStorefront()` acá devolvería los pedidos de toda la tienda
+ * (ADR-121).
+ */
+export async function misPedidos(accessToken: string, pagina = 1): Promise<PaginaDePedidos> {
+  const { storeId } = await tiendaActual();
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+  const { data, error } = await db.rpc('customer_orders', {
+    p_store_id: storeId,
+    p_page: pagina,
+    p_per_page: POR_PAGINA,
+  });
+
+  if (error) throw new Error(`No se pudieron leer los pedidos: ${error.message}`);
+  return data as unknown as PaginaDePedidos;
+}
+
+/** Cuántos pedidos por página. El techo de la función es 50. */
+export const POR_PAGINA = 10;
+
+export interface PedidoDeLaCuenta {
+  readonly id: string;
+  readonly number: number;
+  readonly createdAt: string;
+  readonly status: string;
+  readonly paymentStatus: string;
+  readonly total: Money;
+  readonly itemCount: number;
+}
+
+export interface PaginaDePedidos {
+  readonly items: readonly PedidoDeLaCuenta[];
+  readonly total: number;
+  readonly page: number;
+  readonly perPage: number;
+  readonly pageCount: number;
 }

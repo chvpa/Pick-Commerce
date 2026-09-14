@@ -1,0 +1,100 @@
+---
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import { AccountLogin } from '@pick/commerce-ui/account/AccountLogin';
+import { ETIQUETA_ESTADO_PAGO, ETIQUETA_ESTADO_PEDIDO, formatMoney } from '@pick/commerce-core';
+import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
+import Base from '../layouts/Base.astro';
+import { MINUTOS_DEL_CODIGO, misPedidos, type PaginaDePedidos } from '../lib/cuenta.ts';
+import { tiendaActual } from '../lib/db.ts';
+import { tokenDelComprador } from '../lib/sesion.ts';
+
+/*
+ * On-demand, como todo lo que depende de la sesión.
+ *
+ * Con Workers Assets una página prerenderizada se sirve desde el disco **sin
+ * ejecutar el Worker**: no correría el middleware ni se leería la cookie, así
+ * que esta página se vería bien en `astro dev` y al desplegarse saldría igual
+ * para todos —la de alguien, cacheada—. Ver ADR-099.
+ */
+export const prerender = false;
+
+const { locale } = await tiendaActual();
+const token = await tokenDelComprador(Astro.cookies);
+
+/*
+ * Si la lectura falla no se cae la página: se muestra la cuenta sin pedidos y el
+ * motivo queda en el log del Worker. Un token vencido entre el refresco y la
+ * consulta es el caso corriente, y no es un error que la persona pueda resolver.
+ */
+let pedidos: PaginaDePedidos | null = null;
+if (token) {
+  try {
+    pedidos = await misPedidos(token);
+  } catch (error) {
+    console.error('[cuenta] no se pudieron leer los pedidos', error);
+  }
+}
+
+const fecha = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
+---
+
+<Base title="Mi cuenta" description="Tus pedidos y tus datos." noindex>
+  <Container class="flex max-w-3xl flex-col gap-8 py-12">
+    <h1 class="font-display text-2xl font-semibold tracking-tight">Mi cuenta</h1>
+
+    {
+      !token ? (
+        <div class="rounded-md border border-border p-5">
+          {/* `client:load`: quien entra acá viene a entrar, no puede esperar a
+              que el browser se desocupe. */}
+          <AccountLogin minutos={MINUTOS_DEL_CODIGO} client:load />
+        </div>
+      ) : (
+        <>
+          <section class="flex flex-col gap-4">
+            <h2 class="text-lg font-medium">Tus pedidos</h2>
+
+            {pedidos && pedidos.items.length > 0 ? (
+              <ul class="flex flex-col gap-3">
+                {pedidos.items.map((pedido) => (
+                  <li class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-4 py-3">
+                    <div class="flex flex-col gap-0.5">
+                      <span class="font-medium">Pedido #{pedido.number}</span>
+                      <span class="text-sm text-fg-muted">
+                        {fecha.format(new Date(pedido.createdAt))} ·{' '}
+                        {pedido.itemCount === 1 ? '1 producto' : `${pedido.itemCount} productos`}
+                      </span>
+                    </div>
+                    <div class="flex flex-col items-end gap-0.5">
+                      <span class="font-medium">{formatMoney(pedido.total, locale)}</span>
+                      <span class="text-sm text-fg-muted">
+                        {ETIQUETA_ESTADO_PEDIDO[pedido.status as OrderStatus] ?? pedido.status} ·{' '}
+                        {ETIQUETA_ESTADO_PAGO[pedido.paymentStatus as PaymentStatus] ??
+                          pedido.paymentStatus}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p class="rounded-md border border-border px-4 py-6 text-center text-sm text-fg-muted">
+                Todavía no hiciste ningún pedido con este correo.
+              </p>
+            )}
+          </section>
+
+          {/* Un formulario de verdad, sin JavaScript: la ruta contesta con una
+              redirección. Salir tiene que funcionar aunque el island no cargue. */}
+          <form method="post" action="/api/cuenta/salir" class="self-start">
+            <button
+              type="submit"
+              class="cursor-pointer text-sm text-fg-muted underline underline-offset-4 hover:text-fg"
+            >
+              Salir
+            </button>
+          </form>
+        </>
+      )
+    }
+  </Container>
+</Base>

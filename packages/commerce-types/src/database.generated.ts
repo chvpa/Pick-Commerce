@@ -1849,6 +1849,10 @@ export type Database = {
         Args: { p_productos: Json; p_store_id: string }
         Returns: Json
       }
+      link_customer_account: {
+        Args: { p_email: string; p_store_id: string; p_user_id: string }
+        Returns: string
+      }
       mark_notification_sent: {
         Args: { p_id: string; p_store_id: string }
         Returns: undefined

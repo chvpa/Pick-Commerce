@@ -5412,14 +5412,29 @@ apostar a no olvidarse nunca.
   Fase 11— y hace justo esto: crea el cliente con la publishable key y el
   `Authorization: Bearer` de quien consulta. Viene con `persistSession: false` y
   `autoRefreshToken: false`, que acá es lo correcto: **el refresh lo hace el
-  middleware**, no el SDK, porque en un Worker no hay nada que persista entre
+  servidor**, no el SDK, porque en un Worker no hay nada que persista entre
   peticiones.
+  **Corrección de la implementación:** este ADR decía «el middleware» y quedó en
+  otro lado, a propósito. El middleware corre en cada página, así que ahí el
+  refresco saldría a renovar la sesión también para quien está mirando el
+  catálogo, que no la usa. Vive en `tokenDelComprador()` —`src/lib/sesion.ts`—,
+  que lo pide quien necesita leer: `setSession` mira el `exp` del token **sin
+  salir a la red** y sólo pide uno nuevo cuando venció, así que el costo de una
+  visita a la cuenta con sesión vigente es cero. Y corre sobre un cliente de un
+  solo uso, por lo mismo que `verifyOtp`: `setSession` deja la sesión puesta en
+  el cliente sobre el que se llama, y el del storefront está memoizado por
+  isolate.
 - **`SUPABASE_PUBLISHABLE_KEY` es un secreto nuevo del Worker del storefront**,
   que hoy declara `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `STOREFRONT_DOMAIN` y
   `PAYMENT_WEBHOOK_SECRET`. Va declarado `secret` y `optional` como los otros
   —Astro valida **todos** los secretos declarados al cargar `astro:env/server`
   aunque nadie los importe, y uno ausente es un 500 con el cuerpo vacío que no
-  dice qué falta— y comprobado en `middleware.ts`, que sí puede decirlo.
+  dice qué falta—. **No** se comprueba en `middleware.ts` junto a los otros, que
+  es lo que este ADR había previsto: eso tumbaría la tienda entera por una
+  credencial que sólo hace falta para entrar a una cuenta. Lo comprueba
+  `faltaParaLasCuentas()`, y sin ella las rutas de `/api/cuenta/` responden 503
+  nombrando lo que falta mientras el catálogo, el carrito y el checkout siguen
+  vendiendo con la secret key.
 - **Las políticas de comprador nunca usan `app.current_tenants()`.** Esa función
   lee `memberships` y significa «staff del comercio»; copiar el patrón del Admin
   le daría a un comprador la tienda entera. Va `app.current_customer(p_store)`,

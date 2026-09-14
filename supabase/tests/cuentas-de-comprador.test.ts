@@ -33,6 +33,10 @@ const VARIANTE_B = 'b4000000-0000-4000-8000-000000000000';
 const ANA = 'c1000000-0000-4000-8000-000000000001';
 const BETO = 'c1000000-0000-4000-8000-000000000002';
 const CARLA = 'c1000000-0000-4000-8000-000000000003';
+/** Dina compra como invitada y se hace cuenta después; Elías y Fran nunca compraron. */
+const DINA = 'c1000000-0000-4000-8000-000000000004';
+const ELIAS = 'c1000000-0000-4000-8000-000000000005';
+const FRAN = 'c1000000-0000-4000-8000-000000000006';
 /** Y el dueño del comercio A, para comprobar que no le rompimos nada. */
 const DUENO_A = 'd1000000-0000-4000-8000-000000000001';
 
@@ -78,6 +82,9 @@ before(async () => {
       ('${ANA}', 'ana@compra.test'),
       ('${BETO}', 'beto@compra.test'),
       ('${CARLA}', 'carla@compra.test'),
+      ('${DINA}', 'dina@compra.test'),
+      ('${ELIAS}', 'elias@compra.test'),
+      ('${FRAN}', 'fran@compra.test'),
       ('${DUENO_A}', 'dueno@a.test');
 
     insert into organizations (id, name, slug) values
@@ -204,6 +211,106 @@ test('`customer_orders` tiene techo de página', async () => {
   assert.equal(r[0]!.j.perPage, 50);
 });
 
+// --- El vínculo con el historial de invitado ---------------------------------
+
+test('`link_customer_account` engancha la ficha que ya existía', async () => {
+  // Dina compró como invitada y recién después se hizo cuenta. Su pedido tiene
+  // que aparecer sin mover una fila: `customers` es único por (tienda, email) y
+  // `create_order` hace upsert por ahí desde la Fase 5.
+  const pedido = await comprar(TIENDA_A, VARIANTE_A, 'dina@compra.test');
+
+  const antes = await comoServicio<{ id: string; name: string }>(
+    db,
+    `select id, name from customers where store_id = '${TIENDA_A}' and email = 'dina@compra.test'`,
+  );
+
+  const r = await comoServicio<{ id: string | null }>(
+    db,
+    `select link_customer_account('${TIENDA_A}', '${DINA}', 'dina@compra.test') as id`,
+  );
+
+  assert.equal(r[0]!.id, antes[0]!.id, 'creó una ficha nueva en vez de enganchar la que estaba');
+
+  const despues = await comoServicio<{ n: number; name: string }>(
+    db,
+    `select count(*)::int as n, max(name) as name from customers
+     where store_id = '${TIENDA_A}' and email = 'dina@compra.test'`,
+  );
+  assert.equal(despues[0]!.n, 1, 'duplicó el cliente');
+  assert.equal(despues[0]!.name, antes[0]!.name, 'le pisó el nombre a la ficha que ya estaba');
+
+  // Y con eso Dina ve su pedido.
+  const suyos = await como<{ id: string }>(db, DINA, 'select id from orders');
+  assert.deepEqual(
+    suyos.map((o) => o.id),
+    [pedido],
+  );
+});
+
+test('`link_customer_account` es idempotente', async () => {
+  // Se llama en cada login, así que entrar dos veces no puede fallar ni
+  // multiplicar vínculos.
+  for (let i = 0; i < 2; i++) {
+    await comoServicio(
+      db,
+      `select link_customer_account('${TIENDA_A}', '${DINA}', 'dina@compra.test')`,
+    );
+  }
+
+  const r = await comoServicio<{ n: number }>(
+    db,
+    `select count(*)::int as n from customer_accounts
+     where store_id = '${TIENDA_A}' and user_id = '${DINA}'`,
+  );
+  assert.equal(r[0]!.n, 1);
+});
+
+test('`link_customer_account` no entrega una ficha que ya es de otra cuenta', async () => {
+  /*
+   * El caso real: un usuario de Auth borrado y vuelto a crear con el mismo
+   * correo llega con otro `user_id`, y la ficha sigue enganchada al viejo.
+   * `unique (store_id, customer_id)` impide el segundo vínculo, y lo que se
+   * comprueba acá es que la función **no devuelva igual el customer**: si lo
+   * hiciera, esta persona vería los pedidos de aquella.
+   */
+  const r = await comoServicio<{ id: string | null }>(
+    db,
+    `select link_customer_account('${TIENDA_A}', '${ELIAS}', 'ana@compra.test') as id`,
+  );
+  assert.equal(r[0]!.id, null, 'le entregó a Elías la ficha de Ana');
+
+  const ve = await como<{ n: number }>(db, ELIAS, 'select count(*)::int as n from orders');
+  assert.equal(ve[0]!.n, 0, 'Elías terminó viendo pedidos ajenos');
+});
+
+test('`link_customer_account` le crea la ficha a quien nunca compró', async () => {
+  const r = await comoServicio<{ id: string | null }>(
+    db,
+    `select link_customer_account('${TIENDA_A}', '${FRAN}', 'FRAN@Compra.Test') as id`,
+  );
+  assert.ok(r[0]!.id, 'no creó la ficha, así que la cuenta no existiría');
+
+  // En minúsculas: `customers` es único por (tienda, email) y `create_order`
+  // guarda así. Con mayúsculas, la primera compra crearía una ficha aparte.
+  const ficha = await comoServicio<{ email: string; name: string }>(
+    db,
+    `select email, name from customers where id = '${r[0]!.id}'`,
+  );
+  assert.equal(ficha[0]!.email, 'fran@compra.test');
+  assert.equal(ficha[0]!.name, '', 'el nombre lo llena la primera compra, no esto');
+});
+
+test('sólo la secret key puede vincular', async () => {
+  // Si `authenticated` pudiera llamarla, cualquiera se colgaría de la ficha de
+  // otro pasando su email: es la función que decide de quién son los pedidos.
+  const r = await intentar(
+    db,
+    ELIAS,
+    `select link_customer_account('${TIENDA_A}', '${ELIAS}', 'ana@compra.test')`,
+  );
+  assert.equal(r.ok, false, 'un usuario autenticado puede vincularse a la ficha que quiera');
+});
+
 // --- Las direcciones ---------------------------------------------------------
 
 test('una dirección se guarda en la cuenta propia y no en la de otro', async () => {
@@ -234,5 +341,19 @@ test('el staff del comercio sigue viendo los pedidos de su tienda', async () => 
   // sobre la misma tabla se combinan con OR. Si alguien las reemplazara en vez
   // de agregarlas, el Admin se quedaría sin pedidos y esto lo caza.
   const delDueno = await como<{ n: number }>(db, DUENO_A, 'select count(*)::int as n from orders');
-  assert.equal(delDueno[0]!.n, 2, 'el dueño de A dejó de ver los dos pedidos de su tienda');
+
+  // Contra lo que hay de verdad y no contra un número escrito: cualquier caso
+  // que agregue una compra a la tienda A movería un literal, y el test pasaría a
+  // fallar por el motivo equivocado.
+  const deLaTienda = await comoServicio<{ n: number }>(
+    db,
+    `select count(*)::int as n from orders where store_id = '${TIENDA_A}'`,
+  );
+
+  assert.equal(
+    delDueno[0]!.n,
+    deLaTienda[0]!.n,
+    'el dueño de A dejó de ver todos los pedidos de su tienda',
+  );
+  assert.ok(deLaTienda[0]!.n >= 2, 'el seed dejó menos de dos pedidos: el caso no prueba nada');
 });
