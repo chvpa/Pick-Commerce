@@ -268,3 +268,44 @@ export async function anuncio(): Promise<string | null> {
   const tienda = await tiendaActual();
   return anuncioDeEnvio(await envio(), tienda.currency as 'PYG', tienda.locale);
 }
+
+/**
+ * Lo que este navegador vino mirando.
+ *
+ * **Cero tracking nuevo**: el evento `product_view` ya se registra del lado del
+ * servidor desde la Fase 10, sin una línea de JavaScript. Esto sólo lo lee.
+ *
+ * Sin `deviceId` —alguien que apagó la personalización, o un bot, o una
+ * precarga— devuelve vacío sin consultar nada. Y un fallo no puede tumbar la
+ * portada: se cae a vacío y la tira no se dibuja.
+ */
+export async function vistosRecientemente(
+  deviceId: string | undefined,
+  limite = 8,
+): Promise<readonly ProductoVisto[]> {
+  if (!deviceId) return [];
+
+  try {
+    const { storeId } = await tiendaActual();
+    const { data, error } = await db().rpc('recently_viewed', {
+      p_store_id: storeId,
+      p_device_id: deviceId,
+      p_limit: limite,
+    });
+
+    if (error) throw new Error(error.message);
+    return data as unknown as readonly ProductoVisto[];
+  } catch (error) {
+    console.error('[vistos] no se pudieron leer', error);
+    return [];
+  }
+}
+
+export interface ProductoVisto {
+  readonly id: string;
+  readonly handle: string;
+  readonly title: string;
+  readonly brand: string | null;
+  readonly image: { url: string; alt: string | null; width: number; height: number } | null;
+  readonly viewedAt: string;
+}

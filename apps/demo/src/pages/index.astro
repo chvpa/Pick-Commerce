@@ -12,7 +12,7 @@ import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astr
 import ProductCarousel from '@pick/commerce-astro/product/ProductCarousel.astro';
 import { categoriasDeLaSeccion, organizationJsonLd } from '@pick/commerce-core';
 
-import { catalogo, categorias, contextoSeo, tiendaActual } from '../lib/db.ts';
+import { catalogo, categorias, contextoSeo, tiendaActual, vistosRecientemente } from '../lib/db.ts';
 import Base from '../layouts/Base.astro';
 
 /*
@@ -30,7 +30,26 @@ const tienda = await tiendaActual();
  * handle de la colección destacada, así que la vidriera de cualquier tienda era
  * la que este archivo dijera.
  */
-const [secciones, cats] = await Promise.all([catalogo().home(tienda.storeId), categorias()]);
+const [secciones, cats, vistos] = await Promise.all([
+  catalogo().home(tienda.storeId),
+  categorias(),
+  /*
+   * Lo que este navegador vino mirando. Va en el mismo `Promise.all` que el
+   * resto: es una consulta más y no puede sumarle un viaje en serie a la
+   * portada.
+   *
+   * `Astro.locals.deviceId` lo pone el middleware, y es `undefined` para quien
+   * apagó la personalización, para un bot y para una precarga. En los tres
+   * casos la tira no existe y no se consulta nada (ADR-124).
+   */
+  vistosRecientemente(Astro.locals.deviceId),
+]);
+
+/*
+ * Con menos de tres no se dibuja. Uno o dos productos no son un historial: son
+ * la página que la persona acaba de ver, devuelta como si fuera una sección.
+ */
+const HAY_HISTORIAL = 3;
 
 /**
  * Las categorías, con su enlace al catálogo filtrado.
@@ -181,5 +200,35 @@ const seo = await contextoSeo();
         </Container>
       );
     })
+  }
+
+  {
+    /*
+    Va al final, después de lo que el comercio compuso. La vidriera la decide la
+    tienda; esto es una ayuda para retomar, no una sección más.
+
+    Sin precio, y es deliberado: hay un solo lugar donde se calcula lo que paga
+    el comprador, y un segundo camino que lo calcule distinto es el bug que ya
+    costó un ciclo acá. El precio está a un toque, en el PDP.
+  */
+  }
+  {
+    vistos.length >= HAY_HISTORIAL && (
+      <Container class="py-10">
+        <ProductCarousel label="Seguí viendo" controles id="pista-vistos">
+          {vistos.map((p) => (
+            <ProductCard>
+              <ProductCardMedia
+                image={p.image ? { ...p.image, alt: p.image.alt ?? p.title } : undefined}
+              />
+              <ProductCardBody>
+                {p.brand && <p class="text-xs text-fg-subtle">{p.brand}</p>}
+                <ProductCardTitle href={`/productos/${p.handle}`}>{p.title}</ProductCardTitle>
+              </ProductCardBody>
+            </ProductCard>
+          ))}
+        </ProductCarousel>
+      </Container>
+    )
   }
 </Base>

@@ -1963,6 +1963,10 @@ export type Database = {
         Returns: undefined
       }
       order_json: { Args: { p_order_id: string }; Returns: Json }
+      recently_viewed: {
+        Args: { p_device_id: string; p_limit?: number; p_store_id: string }
+        Returns: Json
+      }
       record_payment: {
         Args: {
           p_note?: string

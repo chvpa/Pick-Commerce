@@ -991,7 +991,7 @@ numeración es secuencial y sería enumerable—.
 
 ## Fase 2 — El sustrato de preferencias, que la wishlist estrena
 
-**Avance: 90%**
+**Avance: 100%**
 
 Objetivo: que cada cosa que un visitante hace quede atada a algo que dura más
 que media hora, porque **el dato que no se captura se pierde para siempre**:
@@ -1032,12 +1032,12 @@ sesión y encontrarlo después de entrar funciona, la identidad funciona.
       los `product_view` de un visitante es hoy un scan sobre la tabla que más
       crece del esquema, en la portada y en la PLP. Es el patrón que ya produjo
       los 2,3 segundos del catálogo.
-- [~] «Vistos recientemente», derivado de `store_events.product_view` cruzado por
-  `session_identities`. **No es una feature, es el checkpoint del sustrato**:
-  es una consulta sobre la misma tabla que van a leer las preferencias, así
-  que si esto sale bien el resto tiene de dónde comer, y si sale mal se sabe
-  antes de construir la Fase 4 encima. Cero tracking nuevo: el evento ya se
-  registra del lado del servidor sin una línea de JavaScript.
+- [x] «Vistos recientemente», derivado de `store_events.product_view` cruzado por
+      `session_identities`. **No es una feature, es el checkpoint del sustrato**:
+      es una consulta sobre la misma tabla que van a leer las preferencias, así
+      que si esto sale bien el resto tiene de dónde comer, y si sale mal se sabe
+      antes de construir la Fase 4 encima. Cero tracking nuevo: el evento ya se
+      registra del lado del servidor sin una línea de JavaScript.
 - [x] **El perfil es anónimo por dispositivo y se fusiona con la cuenta al
       iniciar sesión.** Decidido así y no «sólo para quien tenga cuenta»: casi
       nadie se registra antes de comprar, y un perfil que arranca en el registro
@@ -1057,6 +1057,19 @@ sesión y encontrarlo después de entrar funciona, la identidad funciona.
       el beacon de Cloudflare Web Analytics que la zona inyecta en el HTML—,
       «esa cookie no se cruza con tus datos de cliente» y «se borra sola a la
       media hora». Está en `apps/*/src/lib/contenido.ts`.
+
+> **«Seguí viendo» no pasa por `catalog_search`, y no es un atajo.** Esa función
+> acota a **un** producto con `p_handle` y no tiene filtro por lista; agregarle
+> uno duplica el costo del listado, medido, y seis llamadas en paralelo son seis
+> veces 355 ms. La salida fue la misma que ya había tomado la wishlist: una
+> función chica que **no devuelve precio**. Hay un solo lugar donde se calcula lo
+> que paga el comprador, y un segundo camino que lo calcule distinto es el bug
+> que ya está en el backlog. El precio está a un toque, en el PDP.
+>
+> Y va **por dispositivo, no cruzado con la cuenta**: `session_identities` existe
+> y el cruce es media hora de trabajo, pero hoy el texto de privacidad promete
+> que lo que mirás no se cruza con quién sos. Ese texto cambia antes que la
+> tienda, no después.
 
 > **Dos cosas que el plan daba por ciertas y no lo eran.** La primera, que no
 > hacía falta una cookie nueva: `pick_sid` es el denominador del embudo, así que
@@ -1080,6 +1093,9 @@ sesión y encontrarlo después de entrar funciona, la identidad funciona.
       — y verificado con sabotaje en las dos capas: sacándole el `with check` a la
       política y el filtro de identidad a `wishlist_products`, los casos se ponen
       en rojo
+- [x] un visitante que vuelve encuentra lo que vino mirando, y apagando la
+      personalización deja de encontrarlo — medido contra el proyecto real, seis
+      comprobaciones incluida la de que un producto sin stock sale de la tira
 - [~] `wishlist_add` aparece en `store_events` —medido, y sin contar dos veces el
   mismo corazón— pero **no suma en el panel**: `admin_dashboard` cuenta los
   pasos del embudo por nombre y guardar no es uno de ellos. Sumarlo es
@@ -1855,27 +1871,26 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-14 | v2 Fase 1: la sesión sirve para leer, y lo que se compró como invitada aparece. `/cuenta` lista los pedidos **con el JWT del comprador**, no con la secret key: es el primer lugar del storefront donde la base decide quién ve qué, y está medido —8 pedidos en la tienda, 1 en la página—. El refresco del token **no** quedó en el middleware, que era el plan: ahí correría en cada visita al catálogo para renovar una sesión que esa página no usa; va en `tokenDelComprador()`, y `setSession` sólo sale a la red cuando el token venció. `link_customer_account` engancha la cuenta a la ficha de cliente que ya existía —`customers` es única por (tienda, email) desde la Fase 5, así que no hay nada que migrar— y `create_order` no se tocó. Dos decisiones que son de seguridad y no de comodidad: el email que se vincula es el que devolvió Supabase y nunca el del formulario, y si la ficha ya es de otra cuenta la función devuelve null en vez del cliente — la cuenta se ve vacía en lugar de mostrar los pedidos de otra persona                                                                                                                                                                                                                                                          | v2 Fase 1 |          57% |            72% |
 | 2026-09-14 | **v2 Fase 1 entregada al 100%.** Una persona entra a su cuenta con un código que le llega por correo —sin contraseña—, ve sus pedidos, abre el detalle de cualquiera, guarda direcciones y compra con su correo ya puesto y fijo. Lo que se cerró en este tramo: el interruptor por tienda en `store_settings`, apagado por defecto, con «Mi cuenta» en el encabezado colgando de él y `/cuenta` respondiendo 404 en las tiendas que no lo prendieron; `/cuenta/pedidos/[id]`, que no necesitó función nueva —`order_json` es security invoker y lo filtra RLS—; `/cuenta/direcciones`, con formularios planos y sin una línea de JavaScript; y el checkout con el correo de la sesión en `readonly`, que era el único agujero funcional que quedaba. El Admin gana la sección para prenderlo, con un límite escrito en vez de disimulado: **no puede comprobar que el dominio esté verificado** —la clave de Resend es de sólo envío— así que pide una confirmación explícita. Tres capas de prueba, cada una para lo que las otras no alcanzan: PGlite, `pnpm rls:verificar` con JWTs firmados (22 comprobaciones) y `e2e/cuenta.spec.ts` para lo que sólo se ve en un navegador. Y el texto de privacidad cambió **antes** que la tienda, como estaba prometido: el caso que lo exigía se puso en rojo solo | v2 Fase 1 |          72% |           100% |
 | 2026-09-14 | v2 Fase 2: el sustrato de preferencias, que la wishlist estrena. `wishlist_items` con el `unique` que hace **idempotente por construcción** la fusión de lo guardado sin cuenta; `session_identities`, la tabla que `store_events` dejó prometida en su propio comentario y que PROJECT.md §23 exige separada del log anónimo; y un índice por sesión, porque leer «lo que hizo este visitante» era un scan sobre la tabla que más crece del esquema. El corazón **le pega al servidor aunque no haya sesión**: si sólo llamara para quien ya se registró, `wishlist_add` existiría para casi nadie y estaría contando otra cosa que el resto del embudo. La fusión va en el momento del login y en ningún otro lado, que es el único en que existen a la vez el `localStorage` de quien venía sin cuenta y la sesión recién abierta. Tres hallazgos, y los tres los encontró comprobar en vez de leer: **dos tests que pasaban por el motivo equivocado** —uno de la Fase 1, que llevaba así desde entonces— y una función `security invoker` que devolvía vacío siempre, porque entraba a `products`, que no tiene política de comprador. La pantalla decía «no guardaste nada» con filas en la base y sin un error en ningún lado                                                                           | v2 Fase 2 |           0% |            60% |
+| 2026-09-15 | **v2 Fase 2 entregada al 100%.** «Seguí viendo» en la portada cierra el checkpoint del sustrato: corre sobre la misma tabla que van a leer las preferencias de la Fase 4, así que si esta consulta sale bien el resto tiene de dónde comer. **Cero tracking nuevo** —el `product_view` ya se registraba del lado del servidor desde la Fase 10— y **cero paso por `catalog_search`**, que se decidió no tocar: la tira no muestra precio, por lo mismo que la wishlist. Va por dispositivo y no cruzada con la cuenta, que es lo que el texto de privacidad promete hoy. Con la personalización apagada no existe, y un producto que se queda sin stock sale de ella — lo contrario que en la wishlist, donde lo guardado se muestra y se dice: una es algo que la persona eligió, la otra es una ayuda para seguir navegando                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | v2 Fase 2 |          90% |           100% |
 
 ---
 
 # Próximo paso recomendado
 
-v1, la Fase 0 y la Fase 1 de v2 están cerradas. La identidad del comprador
-existe y funciona de punta a punta; lo que sigue es lo que se apoya en ella.
+v1 y las fases 0, 1 y 2 de v2 están cerradas y desplegadas. El comprador tiene
+identidad, la tienda tiene memoria, y las dos se pueden apagar.
 
-1. **Fase 2 — el sustrato de preferencias.** Es lo que la Fase 1 habilitó y lo
-   que la Fase 4 va a consumir: hoy `store_events` guarda el id de sesión y
-   nada lo ata a `customer_accounts`, a propósito y dicho en el texto de
-   privacidad de cada tienda. Atarlos es una decisión de producto que se toma y
-   se anuncia, no un efecto colateral.
-2. Del usuario, y es lo último que queda de la Fase 0: abrir uno de los tres
-   correos de prueba y confirmar `spf/dkim/dmarc=pass` y el `From:`.
-3. Desplegar. El storefront de la demo sale con el push; **Treeshop y el Admin
-   son a mano** (INFRAESTRUCTURA §10). Antes hay que cargar
-   `SUPABASE_PUBLISHABLE_KEY` como secreto de cada Worker del storefront, o las
-   rutas de `/api/cuenta/` responden 503.
-4. Prender las cuentas en Treeshop, si se quiere: Configuración → Cuentas de
-   comprador. Viene apagado y la tienda vende igual sin tocarlo.
+1. **Fase 3 — el buscador que encuentra.** Es la siguiente y no depende de nada
+   pendiente.
+2. **El costo de `catalog_search`**, que es lo más caro que hay anotado: el PDP
+   de Treeshop está en 355 ms y el listado en 600, y se sabe por qué. Está en
+   `Backlog / Retroactividad` con las dos salidas medidas. Se decidió no tocarlo
+   sobre la marcha; es una sesión propia.
+3. Cruzar lo que alguien mira con su cuenta, si se quiere: `session_identities`
+   ya existe y ya se escribe al entrar. Son media hora de trabajo y **el texto de
+   privacidad cambia antes**, que es el compromiso que está publicado.
+4. Del usuario, lo último que queda de la Fase 0: abrir uno de los tres correos
+   de prueba y confirmar `spf/dkim/dmarc=pass` y el `From:`.
 
 ---
 
