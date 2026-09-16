@@ -653,9 +653,8 @@ los desbloquea. Están todos en `Backlog / Retroactividad` con su fase destino.
 
 ## Fase 0 — Cerrar `authenticated` antes de abrirlo
 
-**Avance: 100%** — los dieciocho ítems entregados. La fase **cierra** cuando el
-usuario confirme las cabeceras del correo de prueba, que es la única línea de la
-Definition of Done que no se puede comprobar desde acá.
+**Avance: 100%** — cerrada el 2026-09-16, con la última línea de su Definition
+of Done confirmada por el dueño del proyecto leyendo las cabeceras del correo.
 
 Objetivo: que existir como usuario autenticado sin ser miembro de ningún comercio
 no dé acceso a nada, y con un test que lo afirme en vez de una coincidencia que
@@ -828,8 +827,12 @@ por lo que se saltea.
 
 - [x] un usuario autenticado sin membresía no llega a ninguna fila ni a ninguna
       función, y hay un test que lo comprueba rompiéndolo a propósito
-- [ ] un correo de prueba llega a una dirección que no es la del dueño de la
-      cuenta de Resend, verificado leyendo las cabeceras
+- [x] un correo de prueba llega a una dirección que no es la del dueño de la
+      cuenta de Resend, verificado leyendo las cabeceras — en «Mostrar original»
+      de Gmail: **SPF, DKIM y DMARC en PASS**, con el DKIM firmado por
+      `sontres.shop` y no por el proveedor, que es lo que hace pasar a DMARC; `De:
+    noreply@sontres.shop`; entregado en un segundo y en la bandeja de entrada, no
+      en Spam
 - [x] `pnpm e2e` corre contra Treeshop y no deja rastro en el proyecto real
 - [x] ninguna respuesta del storefront lleva un campo que el comprador no pueda
       ver, y el catálogo tiene quien lo afirme
@@ -1872,6 +1875,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-14 | **v2 Fase 1 entregada al 100%.** Una persona entra a su cuenta con un código que le llega por correo —sin contraseña—, ve sus pedidos, abre el detalle de cualquiera, guarda direcciones y compra con su correo ya puesto y fijo. Lo que se cerró en este tramo: el interruptor por tienda en `store_settings`, apagado por defecto, con «Mi cuenta» en el encabezado colgando de él y `/cuenta` respondiendo 404 en las tiendas que no lo prendieron; `/cuenta/pedidos/[id]`, que no necesitó función nueva —`order_json` es security invoker y lo filtra RLS—; `/cuenta/direcciones`, con formularios planos y sin una línea de JavaScript; y el checkout con el correo de la sesión en `readonly`, que era el único agujero funcional que quedaba. El Admin gana la sección para prenderlo, con un límite escrito en vez de disimulado: **no puede comprobar que el dominio esté verificado** —la clave de Resend es de sólo envío— así que pide una confirmación explícita. Tres capas de prueba, cada una para lo que las otras no alcanzan: PGlite, `pnpm rls:verificar` con JWTs firmados (22 comprobaciones) y `e2e/cuenta.spec.ts` para lo que sólo se ve en un navegador. Y el texto de privacidad cambió **antes** que la tienda, como estaba prometido: el caso que lo exigía se puso en rojo solo | v2 Fase 1 |          72% |           100% |
 | 2026-09-14 | v2 Fase 2: el sustrato de preferencias, que la wishlist estrena. `wishlist_items` con el `unique` que hace **idempotente por construcción** la fusión de lo guardado sin cuenta; `session_identities`, la tabla que `store_events` dejó prometida en su propio comentario y que PROJECT.md §23 exige separada del log anónimo; y un índice por sesión, porque leer «lo que hizo este visitante» era un scan sobre la tabla que más crece del esquema. El corazón **le pega al servidor aunque no haya sesión**: si sólo llamara para quien ya se registró, `wishlist_add` existiría para casi nadie y estaría contando otra cosa que el resto del embudo. La fusión va en el momento del login y en ningún otro lado, que es el único en que existen a la vez el `localStorage` de quien venía sin cuenta y la sesión recién abierta. Tres hallazgos, y los tres los encontró comprobar en vez de leer: **dos tests que pasaban por el motivo equivocado** —uno de la Fase 1, que llevaba así desde entonces— y una función `security invoker` que devolvía vacío siempre, porque entraba a `products`, que no tiene política de comprador. La pantalla decía «no guardaste nada» con filas en la base y sin un error en ningún lado                                                                           | v2 Fase 2 |           0% |            60% |
 | 2026-09-15 | **v2 Fase 2 entregada al 100%.** «Seguí viendo» en la portada cierra el checkpoint del sustrato: corre sobre la misma tabla que van a leer las preferencias de la Fase 4, así que si esta consulta sale bien el resto tiene de dónde comer. **Cero tracking nuevo** —el `product_view` ya se registraba del lado del servidor desde la Fase 10— y **cero paso por `catalog_search`**, que se decidió no tocar: la tira no muestra precio, por lo mismo que la wishlist. Va por dispositivo y no cruzada con la cuenta, que es lo que el texto de privacidad promete hoy. Con la personalización apagada no existe, y un producto que se queda sin stock sale de ella — lo contrario que en la wishlist, donde lo guardado se muestra y se dice: una es algo que la persona eligió, la otra es una ayuda para seguir navegando                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | v2 Fase 2 |          90% |           100% |
+| 2026-09-16 | **v2 Fase 0 cerrada.** La última línea de su Definition of Done era la única que no se podía comprobar desde el repo: que un correo de la tienda llegue a una casilla ajena y autenticado. Confirmado leyendo las cabeceras en Gmail —SPF, DKIM y DMARC en PASS, el DKIM firmado por `sontres.shop` y no por el proveedor, `De: noreply@sontres.shop`, entregado en un segundo a Recibidos—. Importa más que antes de la Fase 1: ese canal ya no lleva sólo avisos de pedido, lleva el código para entrar a la cuenta                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | v2 Fase 0 |         100% |           100% |
 
 ---
 
@@ -1889,8 +1893,6 @@ identidad, la tienda tiene memoria, y las dos se pueden apagar.
 3. Cruzar lo que alguien mira con su cuenta, si se quiere: `session_identities`
    ya existe y ya se escribe al entrar. Son media hora de trabajo y **el texto de
    privacidad cambia antes**, que es el compromiso que está publicado.
-4. Del usuario, lo último que queda de la Fase 0: abrir uno de los tres correos
-   de prueba y confirmar `spf/dkim/dmarc=pass` y el `From:`.
 
 ---
 
