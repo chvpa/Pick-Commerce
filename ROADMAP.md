@@ -830,9 +830,9 @@ por lo que se saltea.
 - [x] un correo de prueba llega a una dirección que no es la del dueño de la
       cuenta de Resend, verificado leyendo las cabeceras — en «Mostrar original»
       de Gmail: **SPF, DKIM y DMARC en PASS**, con el DKIM firmado por
-      `sontres.shop` y no por el proveedor, que es lo que hace pasar a DMARC; `De:
-    noreply@sontres.shop`; entregado en un segundo y en la bandeja de entrada, no
-      en Spam
+      `sontres.shop` y no por el proveedor, que es lo que hace pasar a DMARC; el
+      remitente es `noreply@sontres.shop`; entregado en un segundo y en la
+      bandeja de entrada, no en Spam
 - [x] `pnpm e2e` corre contra Treeshop y no deja rastro en el proyecto real
 - [x] ninguna respuesta del storefront lleva un campo que el comprador no pueda
       ver, y el catálogo tiene quien lo afirme
