@@ -289,6 +289,41 @@ export async function recomendados(
 }
 
 /**
+ * Lo mismo que `recomendados`, pero a partir de variantes.
+ *
+ * El carrito guarda `variantId` —es lo que se agrega y lo que se revalida—, así
+ * que el mapeo a producto se hace acá, en una consulta, y no en el navegador:
+ * pedirle al cliente que sepa a qué producto pertenece cada variante sería
+ * darle una respuesta que ya tenemos.
+ *
+ * Un id inventado no rompe nada: no aparece en `product_variants` y el arreglo
+ * de anclas queda más corto.
+ */
+export async function recomendadosParaVariantes(
+  variantIds: readonly string[],
+  limite = 3,
+): Promise<readonly Product[]> {
+  if (variantIds.length === 0) return [];
+
+  try {
+    const { storeId } = await tiendaActual();
+    const { data, error } = await db()
+      .from('product_variants')
+      .select('product_id, products!inner(store_id)')
+      .in('id', [...variantIds])
+      .eq('products.store_id', storeId);
+
+    if (error) throw new Error(error.message);
+
+    const anclas = [...new Set((data ?? []).map((v) => v.product_id))];
+    return await recomendados(anclas, limite);
+  } catch (error) {
+    console.error('[recomendados] no se pudieron mapear las variantes', error);
+    return [];
+  }
+}
+
+/**
  * Quién dice el sitio que es.
  *
  * El nombre sale de la base y no de una constante. Estuvo fijo en «Pick Demo»

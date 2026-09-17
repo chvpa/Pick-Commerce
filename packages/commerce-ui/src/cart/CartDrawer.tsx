@@ -3,6 +3,7 @@ import { cn } from '../lib/cn.ts';
 import { buttonVariants } from '../recipes/button.ts';
 import { ADD_TO_CART_EVENT } from './add-to-cart.ts';
 import { CartContents } from './CartContents.tsx';
+import { CartRecommendations } from './CartRecommendations.tsx';
 import {
   CART_TOGGLE_EVENT,
   getLines,
@@ -92,6 +93,8 @@ export function CartDrawer({ locale, checkoutHref = '/checkout', className }: Ca
         </header>
 
         <CartContents lines={lines} locale={locale} checkoutHref={checkoutHref} />
+        {/* Debajo del resumen: primero lo que la persona vino a hacer. */}
+        <CartRecommendations locale={locale} activo={open} />
       </div>
     </dialog>
   );

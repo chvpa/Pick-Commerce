@@ -60,3 +60,40 @@ test('sin relacionados no hay tira: ni título ni carrusel vacío', async ({ pag
   // Si el fixture le dejó relacionados, al menos no puede estar vacía.
   await expect(tira.getByRole('link')).not.toHaveCount(0);
 });
+
+test('el carrito sugiere lo que suele mirarse con lo que hay adentro', async ({ page }) => {
+  const problemas = vigilar(page);
+
+  await page.goto(`/productos/${ANCLA}/`);
+  // Sin esperar la hidratación, el click llega antes que el handler y el drawer
+  // no abre: es la carrera que `navegacion.spec.ts` ya cubre con esta espera.
+  await expect(page.locator('astro-island[ssr]')).toHaveCount(0);
+  await page.getByRole('button', { name: /agregar al carrito/i }).click();
+
+  const drawer = page.locator('dialog[open]');
+  await expect(drawer).toBeVisible();
+
+  // La tira vive del lado del cliente porque el carrito también: el servidor no
+  // sabe qué hay adentro hasta que el navegador se lo dice.
+  const tira = drawer.getByRole('heading', { name: /suele mirarse con esto/i });
+  await expect(tira).toBeVisible();
+  await expect(drawer.getByRole('link', { name: /campera cortaviento/i })).toBeVisible();
+
+  expect(problemas).toEqual([]);
+});
+
+test('el endpoint no se cae con ids inventados ni cruza tiendas', async ({ request }) => {
+  const basura = await request.get('/api/recomendados?v=no-es-un-uuid,otra-cosa');
+  expect(basura.status()).toBe(200);
+  expect(await basura.json()).toEqual({ productos: [] });
+
+  const vacio = await request.get('/api/recomendados');
+  expect(vacio.status()).toBe(200);
+  expect(await vacio.json()).toEqual({ productos: [] });
+
+  // Un uuid bien formado pero de otra tienda: la variante existe en la base y no
+  // en esta tienda, así que el mapeo a producto no la alcanza.
+  const ajeno = await request.get('/api/recomendados?v=00000000-0000-4000-8000-0000000000ff');
+  expect(ajeno.status()).toBe(200);
+  expect(await ajeno.json()).toEqual({ productos: [] });
+});

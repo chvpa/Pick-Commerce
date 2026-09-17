@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { CartContents } from './CartContents.tsx';
+import { CartRecommendations } from './CartRecommendations.tsx';
 import { getLines, subscribe, type CartLine } from './store.ts';
 
 export interface CartViewProps {
@@ -23,6 +24,14 @@ export function CartView({ locale, checkoutHref, className }: CartViewProps) {
   }, []);
 
   return (
-    <CartContents lines={lines} locale={locale} checkoutHref={checkoutHref} className={className} />
+    <>
+      <CartContents
+        lines={lines}
+        locale={locale}
+        checkoutHref={checkoutHref}
+        className={className}
+      />
+      <CartRecommendations locale={locale} limite={4} />
+    </>
   );
 }

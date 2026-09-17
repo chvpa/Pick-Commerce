@@ -15,6 +15,7 @@
     "./product/VariantSelector": "./src/product/VariantSelector.tsx",
     "./cart/CartView": "./src/cart/CartView.tsx",
     "./cart/CartContents": "./src/cart/CartContents.tsx",
+    "./cart/CartRecommendations": "./src/cart/CartRecommendations.tsx",
     "./cart/add-to-cart": "./src/cart/add-to-cart.ts",
     "./checkout/CheckoutForm": "./src/checkout/CheckoutForm.tsx",
     "./checkout/OrderConfirmation": "./src/checkout/OrderConfirmation.tsx",

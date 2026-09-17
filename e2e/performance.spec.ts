@@ -82,7 +82,13 @@ const PAGINAS = [
   { ruta: '/politicas', que: 'una página de contenido', js: 25 * 1024 },
   { ruta: '/', que: 'la home', js: 25 * 1024 },
   { ruta: '/productos/campera-cortaviento', que: 'el PDP', js: 25 * 1024 },
-  { ruta: '/catalogo', que: 'el catálogo', js: 28 * 1024 },
+  /*
+   * 29 y no 28 desde la v2 Fase 4: la tira de recomendados del carrito son unos
+   * 300 bytes en el island del drawer, que viaja en todas las páginas. Se sube
+   * el número con el motivo, que es lo que ADR-106 pide hacer cuando el
+   * presupuesto avisa de algo que vale la pena.
+   */
+  { ruta: '/catalogo', que: 'el catálogo', js: 29 * 1024 },
 ];
 
 for (const { ruta, que, js } of PAGINAS) {
