@@ -917,3 +917,146 @@ test('sugerencias: sólo las pide el servidor', async () => {
     assert.equal(r.rows[0]!.puede, false, `${rol} puede pedir sugerencias`);
   }
 });
+
+// --- El documento compartido: `app.catalog_items` --------------------------------
+
+/*
+ * ADR-127: las tiras de recomendados no entran por `p_ids` en `catalog_search`.
+ * Comparten la serialización con `app.catalog_items`, que son **dos copias del
+ * mismo jsonb**. Estos tests son la única defensa contra que se separen: el modo
+ * de fallo es silencioso —una promoción que se aplica de un lado y no del otro
+ * muestra otro precio y no rompe nada (ADR-050)—.
+ */
+
+/** El ítem del catálogo para un handle, tal como lo sirve la PLP. */
+async function itemDelCatalogo(handle: string, tienda = STORE): Promise<unknown> {
+  const r = await db.query<{ j: { items: unknown[] } }>(
+    `select catalog_search($1::uuid, '{}'::jsonb, '', 'relevance', 1, 1, null, null, $2) as j`,
+    [tienda, handle],
+  );
+  return r.rows[0]!.j.items[0];
+}
+
+/** Los ítems por id, en el orden pedido. */
+async function itemsPorId(ids: readonly string[], tienda = STORE): Promise<Array<{ id: string }>> {
+  const r = await db.query<{ j: Array<{ id: string }> }>(
+    `select app.catalog_items($1::uuid, $2::uuid[]) as j`,
+    [tienda, `{${ids.join(',')}}`],
+  );
+  return r.rows[0]!.j;
+}
+
+/** El id de un producto del fixture, por su handle. */
+function idDe(handle: string): string {
+  const i = CATALOGO.findIndex((p) => p.handle === handle);
+  assert.ok(i >= 0, `el fixture no tiene ${handle}`);
+  return uuid('d1', i);
+}
+
+test('el documento por id es idéntico al del catálogo, con y sin promoción', async () => {
+  for (const handle of ['p1', 'p2', 'p3', 'p4']) {
+    const [porId] = await itemsPorId([idDe(handle)]);
+    assert.deepEqual(porId, await itemDelCatalogo(handle), `divergen los dos caminos en ${handle}`);
+  }
+
+  /*
+   * Con una promoción vigente cambian `price` y `compareAtPrice` de cada
+   * variante: es donde una copia desactualizada se notaría en plata. Se prueban
+   * los dos alcances que se resuelven distinto —toda la tienda y una categoría—
+   * porque quitar la rama de categoría no ponía nada en rojo: medido.
+   */
+  const ALCANCES: [string, string][] = [
+    ['toda la tienda', '{"kind": "all"}'],
+    ['una categoría', `{"kind": "category", "ids": ["${uuid('c1', 0)}"]}`],
+  ];
+
+  for (const [nombre, target] of ALCANCES) {
+    await db.exec(
+      `insert into promotions (id, tenant_id, store_id, title, status, discount_type, discount_value, target)
+       values ('fa000000-0000-4000-8000-000000000000', '${TENANT}', '${STORE}', 'Promo',
+               'active', 'percentage', 1000, '${target}'::jsonb)`,
+    );
+    try {
+      for (const handle of ['p1', 'p2', 'p3', 'p4']) {
+        const [porId] = await itemsPorId([idDe(handle)]);
+        assert.deepEqual(
+          porId,
+          await itemDelCatalogo(handle),
+          `divergen los dos caminos en ${handle} con una promoción de ${nombre}`,
+        );
+      }
+    } finally {
+      await db.exec(`delete from promotions where id = 'fa000000-0000-4000-8000-000000000000'`);
+    }
+  }
+});
+
+test('devuelve los productos en el orden del arreglo, no en el del catálogo', async () => {
+  const pedidos = [idDe('p3'), idDe('p1'), idDe('p2')];
+  assert.deepEqual(
+    (await itemsPorId(pedidos)).map((p) => p.id),
+    pedidos,
+  );
+
+  // Sin ids no hay consulta que hacer, y el contrato sigue siendo una lista.
+  assert.deepEqual(await itemsPorId([]), []);
+});
+
+test('omite lo que el catálogo esconde: borrador, agotado y sin foto', async () => {
+  const borrador = uuid('d1', CATALOGO.length); // `BORRADOR`, que se insertó al final
+  assert.deepEqual(await itemsPorId([borrador]), [], 'un borrador llegó a una tira');
+
+  // Sin stock: la misma regla que el listado, y por el mismo motivo —recomendar
+  // lo que no hay es el modo de falla por defecto de una tira—.
+  await db.exec(
+    `update inventory_levels set available = 0
+      where variant_id in (select id from product_variants where product_id = '${idDe('p3')}')`,
+  );
+  try {
+    assert.deepEqual(await itemsPorId([idDe('p3')]), [], 'se recomendó un producto agotado');
+  } finally {
+    await db.exec(
+      `update inventory_levels set available = 5
+        where variant_id in (select id from product_variants where product_id = '${idDe('p3')}')`,
+    );
+  }
+
+  // Sin foto sólo se esconde si la tienda lo pide: el fixture no tiene ninguna.
+  assert.equal((await itemsPorId([idDe('p3')])).length, 1);
+  await db.exec(
+    `insert into store_settings (store_id, tenant_id, settings)
+     values ('${STORE}', '${TENANT}', '{"catalog": {"hideWithoutImage": true}}'::jsonb)
+     on conflict (store_id) do update set settings = excluded.settings`,
+  );
+  try {
+    assert.deepEqual(await itemsPorId([idDe('p3')]), [], 'se recomendó un producto sin foto');
+  } finally {
+    await db.exec(`delete from store_settings where store_id = '${STORE}'`);
+  }
+});
+
+test('un id de otra tienda no devuelve nada, ni pidiéndolo por su id exacto', async () => {
+  /*
+   * El test adversarial que el backlog dice que faltó en `catalog_search`. Acá
+   * importa más: los ids llegan de una tabla de afinidad y de las preferencias de
+   * un visitante, así que un id equivocado es el camino natural del fallo, no una
+   * hipótesis.
+   */
+  const AJENO = 'df000000-0000-4000-8000-000000000000';
+  assert.deepEqual(await itemsPorId([AJENO]), [], 'se alcanzó un producto de otra tienda');
+
+  // Y mezclado con uno propio: el propio sale, el ajeno no.
+  assert.deepEqual(
+    (await itemsPorId([idDe('p1'), AJENO])).map((p) => p.id),
+    [idDe('p1')],
+  );
+});
+
+test('las tiras no las puede pedir el navegador', async () => {
+  for (const rol of ['anon', 'authenticated']) {
+    const r = await db.query<{ puede: boolean }>(
+      `select has_function_privilege('${rol}', 'app.catalog_items(uuid, uuid[])', 'execute') as puede`,
+    );
+    assert.equal(r.rows[0]!.puede, false, `${rol} puede pedir ítems por id`);
+  }
+});
