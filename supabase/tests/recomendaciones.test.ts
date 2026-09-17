@@ -282,14 +282,31 @@ test('el recálculo y sus tablas no están al alcance del navegador', async () =
     );
     assert.equal(puede, false, `${rol} puede disparar el recálculo`);
 
-    for (const tabla of ['product_affinity', 'product_trending']) {
-      const [{ lee }] = await comoServicio<{ lee: boolean }>(
-        db,
-        `select has_table_privilege('${rol}', '${tabla}', 'select') as lee`,
-      );
-      assert.equal(lee, false, `${rol} puede leer ${tabla}`);
-    }
+    const [{ lee }] = await comoServicio<{ lee: boolean }>(
+      db,
+      `select has_table_privilege('${rol}', 'product_affinity', 'select') as lee`,
+    );
+    assert.equal(lee, false, `${rol} puede leer product_affinity`);
   }
+
+  /*
+   * `product_trending` sí la lee `authenticated`, y no es un descuido: el Admin
+   * llama a `catalog_search` con la publishable key para traer las facetas, y esa
+   * función es `security invoker`. Sin este permiso, dos pantallas del Admin
+   * responden «permission denied» —lo encontró esta suite, no el typecheck ni el
+   * e2e, que corren con la secret key—. Lo que la acota es RLS por tenant.
+   */
+  const [{ tendencia }] = await comoServicio<{ tendencia: boolean }>(
+    db,
+    `select has_table_privilege('authenticated', 'product_trending', 'select') as tendencia`,
+  );
+  assert.equal(tendencia, true, 'el Admin no puede resolver el catálogo con tendencia');
+
+  const [{ anonimo }] = await comoServicio<{ anonimo: boolean }>(
+    db,
+    `select has_table_privilege('anon', 'product_trending', 'select') as anonimo`,
+  );
+  assert.equal(anonimo, false, 'el navegador puede leer la tendencia');
 
   // `affinity_runs` sí la lee el Admin, y RLS la acota a su organización.
   const [{ lee }] = await comoServicio<{ lee: boolean }>(
@@ -402,4 +419,98 @@ test('pide de más porque el catálogo esconde: una tira de uno no queda vacía'
   } finally {
     await db.exec(`update inventory_levels set available = 3 where variant_id = '${v(2)}'`);
   }
+});
+
+// --- «Tendencia», el orden que se arma solo -------------------------------------
+
+async function porTendencia(tienda = TIENDA): Promise<string[]> {
+  const filas = await comoServicio<{ j: { items: Array<{ id: string }> } }>(
+    db,
+    `select catalog_search('${tienda}'::uuid, '{}'::jsonb, '', 'trending', 1, 24) as j`,
+  );
+  return filas[0]!.j.items.map((x) => x.id);
+}
+
+const RECIEN_LLEGADO = 'd1aaaaaa-0000-4000-8000-000000000000';
+
+test('«Tendencia» pone adelante lo que más se movió esta semana', async () => {
+  /*
+   * El producto se carga **último** —así queda al final del orden del catálogo—
+   * y se mira desde doce visitas distintas —más que el puntaje de p0, que suma
+   * una compra y por eso vale 5 de entrada—. Sin esa asimetría el test pasaba
+   * aunque se quitara el orden entero: el más movido ya venía primero por fecha,
+   * medido.
+   */
+  await db.exec(`
+    insert into products (id, tenant_id, store_id, handle, title, status, created_at)
+      values ('${RECIEN_LLEGADO}', '${TENANT}', '${TIENDA}', 'recien', 'Recién llegado',
+              'active', now());
+    insert into product_variants (id, tenant_id, product_id, sku, title, price, currency, position)
+      values ('e1aaaaaa-0000-4000-8000-000000000000', '${TENANT}', '${RECIEN_LLEGADO}',
+              'SKU-RECIEN', 'Única', 100, 'PYG', 0);
+    insert into inventory_levels (tenant_id, variant_id, location_id, available)
+      values ('${TENANT}', 'e1aaaaaa-0000-4000-8000-000000000000', '${SUCURSAL}', 5);
+  `);
+  for (let i = 20; i < 32; i++) await db.exec(vista(sesion(i), RECIEN_LLEGADO));
+
+  await recalcular();
+
+  const [lider] = await comoServicio<{ product_id: string }>(
+    db,
+    `select product_id from product_trending
+      where store_id = '${TIENDA}' order by score desc limit 1`,
+  );
+  assert.equal(lider!.product_id, RECIEN_LLEGADO, 'el fixture no dejó al recién llegado arriba');
+
+  assert.equal((await porTendencia())[0], RECIEN_LLEGADO, 'el más movido no salió primero');
+
+  // Y por el orden del catálogo va último, que es lo que hace que el caso
+  // distinga entre ordenar por tendencia y no ordenar.
+  const porCatalogo = await comoServicio<{ j: { items: Array<{ id: string }> } }>(
+    db,
+    `select catalog_search('${TIENDA}'::uuid, '{}'::jsonb, '', 'relevance', 1, 300) as j`,
+  );
+  const ids = porCatalogo[0]!.j.items.map((x) => x.id);
+  assert.equal(ids[ids.length - 1], RECIEN_LLEGADO);
+});
+
+test('una tienda sin tráfico no se queda sin colección: cae al orden del catálogo', async () => {
+  /*
+   * Es el escalón de respaldo de la cascada, y la línea del DoD que dice que una
+   * sección con un orden automático se ve llena igual. Sale sin un `if` en
+   * ninguna parte: con la tabla vacía todos empatan en cero y desempata el orden
+   * de alta.
+   */
+  const conSenal = await porTendencia();
+
+  await db.exec('begin');
+  try {
+    await db.exec(`delete from product_trending where store_id = '${TIENDA}'`);
+    const sinSenal = await porTendencia();
+
+    assert.equal(sinSenal.length, conSenal.length, 'sin tendencia la colección se vació');
+
+    const porCatalogo = await comoServicio<{ j: { items: Array<{ id: string }> } }>(
+      db,
+      `select catalog_search('${TIENDA}'::uuid, '{}'::jsonb, '', 'relevance', 1, 24) as j`,
+    );
+    assert.deepEqual(
+      sinSenal,
+      porCatalogo[0]!.j.items.map((x) => x.id),
+      'sin tendencia el orden tendría que ser el del catálogo',
+    );
+  } finally {
+    await db.exec('rollback');
+  }
+});
+
+test('la tendencia de una tienda no ordena la colección de otra', async () => {
+  // `product_trending` se lee acotada por tienda dentro de `catalog_search`. Sin
+  // ese filtro, el puntaje de un comercio movería el catálogo de otro.
+  const [{ n }] = await comoServicio<{ n: number }>(
+    db,
+    `select count(*)::int as n from product_trending where store_id = '${OTRA_TIENDA}'`,
+  );
+  assert.equal(n, 0);
+  assert.deepEqual(await porTendencia(OTRA_TIENDA), []);
 });

@@ -12,7 +12,16 @@ export type CatalogSort =
   /** Lo último que entró al catálogo. `relevance` es lo mismo al revés. */
   | 'newest'
   /** Por unidades vendidas, sin contar cancelados. */
-  | 'best-selling';
+  | 'best-selling'
+  /**
+   * Lo que se está moviendo esta semana, según `product_trending` (ADR-127).
+   *
+   * **Sólo existe en SQL**: `queryCatalog` recibe productos, no la señal de la
+   * tienda, así que no puede ordenar por esto. La paridad de ADR-055 ya quedó
+   * acotada a lo que no es el término de búsqueda (ADR-126); esto es lo segundo
+   * que vive de un lado solo, y tiene sus tests propios.
+   */
+  | 'trending';
 
 export interface CatalogQuery {
   readonly filters?: CatalogFilters;

@@ -29,4 +29,5 @@ export const ETIQUETA_ORDEN: Partial<Record<string, string>> = {
   'price-asc': 'precio, menor a mayor',
   'price-desc': 'precio, mayor a menor',
   'title-asc': 'título',
+  trending: 'tendencia',
 };

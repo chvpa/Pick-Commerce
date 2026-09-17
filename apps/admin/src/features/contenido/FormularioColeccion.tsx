@@ -39,6 +39,17 @@ const ORDENES: readonly { valor: CatalogSort; label: string }[] = [
 ];
 
 /**
+ * Los órdenes que se arman solos con lo que hace la gente.
+ *
+ * Van separados y con su propia etiqueta porque no son lo mismo que los de
+ * arriba: éstos cambian sin que nadie toque nada, y eso hay que decirlo antes de
+ * que el comercio se pregunte por qué su colección se ve distinta hoy.
+ */
+const ORDENES_AUTOMATICOS: readonly { valor: CatalogSort; label: string }[] = [
+  { valor: 'trending', label: 'Tendencia (lo que se está moviendo)' },
+];
+
+/**
  * Alta y edición de una colección.
  *
  * Manual o dinámica, y la diferencia es lo único que cambia el formulario: la
@@ -295,12 +306,18 @@ function ReglasDinamicas({
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="sort">Orden</Label>
         <Selector id="sort" value={sort} onValueChange={(valor) => onSort(valor as CatalogSort)}>
-          {ORDENES.map((o) => (
+          {[...ORDENES, ...ORDENES_AUTOMATICOS].map((o) => (
             <SelectItem key={o.valor} value={o.valor}>
               {o.label}
             </SelectItem>
           ))}
         </Selector>
+        {sort === 'trending' && (
+          <span className="text-muted-foreground text-xs">
+            Se arma solo con lo que la gente miró y compró esta semana. Si todavía no hay datos
+            suficientes, se muestra el orden del catálogo: la colección nunca queda vacía.
+          </span>
+        )}
         {sort === 'best-selling' && (
           <span className="text-muted-foreground text-xs">
             Con la tienda todavía sin ventas, todos los productos empatan en cero y el orden queda

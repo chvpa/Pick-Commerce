@@ -221,6 +221,41 @@ test.describe('Admin', () => {
     expect(problemas, problemas.join('\n')).toEqual([]);
   });
 
+  test('el orden «Tendencia» se elige como cualquier otro y dice qué pasa sin datos', async ({
+    page,
+  }) => {
+    /*
+     * Un orden que se arma solo es el primero que el comercio va a mirar con
+     * desconfianza: la línea de ayuda existe para que no tenga que preguntar qué
+     * ve alguien cuando la tienda todavía no tiene tráfico (v2 Fase 4).
+     */
+    const problemas = vigilar(page);
+    await entrar(page);
+    await abrirSidebar(page);
+
+    await irAContenido(page, 'Colecciones');
+    await page.getByRole('link', { name: 'Nueva colección' }).click();
+
+    const titulo = `Tendencia del smoke ${Date.now()}`;
+    await page.locator('#title').fill(titulo);
+    await elegir(
+      page,
+      desplegable(page, '[aria-label="Cómo se arma la colección"]'),
+      'Se arma sola, con una regla',
+    );
+    await elegir(page, desplegable(page, '#sort'), 'Tendencia (lo que se está moviendo)');
+
+    await expect(page.getByText(/se muestra el orden del catálogo/i)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Crear colección' }).click();
+
+    const fila = page.getByRole('listitem').filter({ hasText: titulo });
+    await expect(fila).toBeVisible({ timeout: 15_000 });
+    await expect(fila).toContainText('tendencia');
+
+    expect(problemas, problemas.join('\n')).toEqual([]);
+  });
+
   test('las migas devuelven a la lista desde una pantalla de detalle', async ({ page }) => {
     /*
      * Existen por un problema concreto: al entrar a editar no había forma de

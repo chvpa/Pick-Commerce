@@ -174,6 +174,13 @@ async function limpiar(): Promise<void> {
  */
 async function ponerAlgoEnElCarrito(page: Page): Promise<void> {
   await page.goto('/productos/zapatilla-urbana/');
+  /*
+   * Esperar la hidratación antes de tocar: el botón existe en el HTML del
+   * servidor y el handler llega después, así que un click temprano no abre nada.
+   * Es la misma espera que usa `navegacion.spec.ts`; acá faltaba y la corrida en
+   * paralelo la ponía en rojo cada tanto.
+   */
+  await expect(page.locator('astro-island[ssr]')).toHaveCount(0);
   await page.getByRole('button', { name: /agregar al carrito/i }).click();
   await expect(page.locator('dialog[open]')).toBeVisible();
 }
