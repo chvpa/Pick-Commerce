@@ -221,6 +221,13 @@ before(async () => {
       values ('ef000000-0000-4000-8000-000000000000', '${OTRO_TENANT}',
               'df000000-0000-4000-8000-000000000000', 'SKU-AJENO', 'Única',
               99999999, 'PYG', 0, '{"color": "ColorAjeno"}'::jsonb);
+    -- Con stock. Sin él lo ocultaba el filtro de stock por su cuenta, y «ítems,
+    -- facetas y precios» seguía en verde con el filtro de tienda quitado: medido.
+    insert into locations (id, tenant_id, store_id, name) values
+      ('cf100000-0000-4000-8000-000000000000', '${OTRO_TENANT}', '${OTRO_STORE}', 'Ajeno');
+    insert into inventory_levels (tenant_id, variant_id, location_id, available) values
+      ('${OTRO_TENANT}', 'ef000000-0000-4000-8000-000000000000',
+       'cf100000-0000-4000-8000-000000000000', 3);
   `);
 });
 
@@ -275,12 +282,10 @@ const CASOS: [string, CatalogQuery][] = [
   ['faceta de categoría', { filters: { categoria: ['camperas'] } }],
   ['filtro sin resultados', { filters: { color: ['Fucsia'] } }],
   ['tres facetas a la vez', { filters: { color: ['Negro'], brand: ['Norte'], size: ['M'] } }],
-  ['búsqueda simple', { search: 'campera' }],
-  ['búsqueda multi-término', { search: 'campera negra' }],
-  ['búsqueda por SKU', { search: 'SKU-c' }],
-  ['búsqueda sin resultados', { search: 'inexistente' }],
+  // La búsqueda con término ya no es de paridad (ADR-126): tolera tipeos y
+  // ordena por relevancia, y eso vive sólo en SQL. Tiene sus propios tests al
+  // final del archivo. Un término vacío sí: tiene que ser el listado de siempre.
   ['búsqueda con espacios', { search: '   ' }],
-  ['búsqueda más filtro', { search: 'campera', filters: { color: ['Negro'] } }],
   ['orden por precio ascendente', { sort: 'price-asc' }],
   ['orden por precio descendente', { sort: 'price-desc' }],
   ['orden por título', { sort: 'title-asc' }],
@@ -700,4 +705,126 @@ test('un producto sin foto se lista, salvo que la tienda pida ocultarlo', async 
   } finally {
     await db.exec(`delete from store_settings where store_id = '${STORE}'`);
   }
+});
+
+// --- La búsqueda --------------------------------------------------------------
+
+/*
+ * Fuera de la paridad (ADR-126): tolerar tipeos y ordenar por relevancia vive
+ * sólo en SQL, así que acá las expectativas se escriben a mano.
+ *
+ * En una tienda propia, con stock, para no mover los números de los tests de
+ * arriba. El orden de alta importa: «Sapatilla importada» se carga **primero**,
+ * así que sin ranking saldría antes que «Zapatilla trail».
+ */
+const TIENDA_BUSQUEDA = 'b5000000-0000-4000-8000-000000000000';
+const SUCURSAL_BUSQUEDA = 'c5000000-0000-4000-8000-000000000000';
+
+const PARA_BUSCAR: [handle: string, titulo: string, marca: string, sku: string, color: string][] = [
+  ['sapatilla-importada', 'Sapatilla importada', 'Lejos', 'IMP-01', 'Blanco'],
+  ['zapatilla-trail', 'Zapatilla trail', 'Ruta', 'ZAP-TR-41', 'Negro'],
+  ['zapatilla-urbana', 'Zapatilla urbana', 'Ruta', 'ZAP-UR-40', 'Blanco'],
+  ['mochila-tecnica', 'Mochila técnica 28 L', 'Andes', 'MOC-28', 'Verde'],
+  ['buzo-nino', 'Buzo NIÑO', 'Andes', 'BUZ-8', 'Azul'],
+];
+
+let busquedaSembrada: Promise<void> | undefined;
+
+function sembrarBusqueda(): Promise<void> {
+  return (busquedaSembrada ??= (async () => {
+    await db.exec(`
+      insert into stores (id, tenant_id, name, slug) values
+        ('${TIENDA_BUSQUEDA}', '${TENANT}', 'Búsqueda', 'busqueda');
+      insert into locations (id, tenant_id, store_id, name) values
+        ('${SUCURSAL_BUSQUEDA}', '${TENANT}', '${TIENDA_BUSQUEDA}', 'Depósito');
+    `);
+    for (const [i, [handle, titulo, marca, sku, color]] of PARA_BUSCAR.entries()) {
+      const producto = uuid('d5', i);
+      const variante = uuid('e5', i);
+      await db.exec(`
+        insert into products (id, tenant_id, store_id, handle, title, brand, status, created_at)
+          values ('${producto}', '${TENANT}', '${TIENDA_BUSQUEDA}', ${sql(handle)}, ${sql(titulo)},
+                  ${sql(marca)}, 'active', '2026-02-${String(i + 1).padStart(2, '0')}T00:00:00Z');
+        insert into product_variants (id, tenant_id, product_id, sku, title, price, currency, position, attributes)
+          values ('${variante}', '${TENANT}', '${producto}', ${sql(sku)}, 'Única', 100, 'PYG', 0,
+                  '{"color": ${JSON.stringify(color)}}'::jsonb);
+        insert into inventory_levels (tenant_id, variant_id, location_id, available)
+          values ('${TENANT}', '${variante}', '${SUCURSAL_BUSQUEDA}', 4);
+      `);
+    }
+  })());
+}
+
+async function buscar(
+  q: string,
+  { tienda = TIENDA_BUSQUEDA, filtros = {} }: { tienda?: string; filtros?: object } = {},
+): Promise<string[]> {
+  await sembrarBusqueda();
+  const r = await db.query<{ j: CatalogResult }>(
+    `select catalog_search($1::uuid, $2::jsonb, $3, 'relevance', 1, 24) as j`,
+    [tienda, JSON.stringify(filtros), q],
+  );
+  return r.rows[0]!.j.items.map((p) => p.handle);
+}
+
+test('búsqueda: lo literal encuentra, sin importar mayúsculas', async () => {
+  assert.deepEqual(await buscar('MOCHILA'), ['mochila-tecnica']);
+  assert.deepEqual(await buscar('inexistente'), []);
+});
+
+test('búsqueda: los acentos no importan, en ninguna dirección', async () => {
+  assert.deepEqual(await buscar('tecnica'), ['mochila-tecnica']);
+  assert.deepEqual(await buscar('TÉCNICA'), ['mochila-tecnica']);
+  // La eñe se pliega: quien no la tiene en el teclado escribe «nino».
+  assert.deepEqual(await buscar('nino'), ['buzo-nino']);
+  assert.deepEqual(await buscar('niño'), ['buzo-nino']);
+});
+
+test('búsqueda: un tipeo encuentra', async () => {
+  const r = await buscar('zapatila');
+  assert.ok(r.includes('zapatilla-trail') && r.includes('zapatilla-urbana'), r.join());
+});
+
+test('búsqueda: un término de menos de cuatro letras no tolera tipeos', async () => {
+  // «trl» se parece lo suficiente a «trail» por trigramas. Con tres letras eso
+  // es ruido, así que sólo vale lo literal.
+  assert.deepEqual(await buscar('trl'), []);
+  assert.deepEqual(await buscar('zap'), ['zapatilla-trail', 'zapatilla-urbana']);
+});
+
+test('búsqueda: tienen que coincidir todos los términos', async () => {
+  assert.deepEqual(await buscar('zapatilla trail'), ['zapatilla-trail']);
+  assert.deepEqual(await buscar('mochila andes'), ['mochila-tecnica']);
+  assert.deepEqual(await buscar('zapatilla mochila'), []);
+});
+
+test('búsqueda: el SKU coincide por prefijo, no por subcadena', async () => {
+  assert.deepEqual(await buscar('zap-tr'), ['zapatilla-trail']);
+  // Por subcadena «TR-41» lo encontraba; por prefijo no, a propósito (ADR-125).
+  assert.deepEqual(await buscar('tr-41'), []);
+});
+
+test('búsqueda: lo literal sale antes que lo parecido', async () => {
+  // «Sapatilla importada» coincide por parecido y se cargó primero: sin ranking
+  // encabezaría la lista.
+  assert.deepEqual(await buscar('zapatilla'), [
+    'zapatilla-trail',
+    'zapatilla-urbana',
+    'sapatilla-importada',
+  ]);
+});
+
+test('búsqueda: se combina con las facetas', async () => {
+  assert.deepEqual(await buscar('zapatilla', { filtros: { color: ['Negro'] } }), [
+    'zapatilla-trail',
+  ]);
+});
+
+test('búsqueda: no cruza tiendas, ni por título, ni por parecido, ni por SKU', async () => {
+  const propios = new Set(CATALOGO.map((p) => p.handle));
+  for (const q of ['zapatilla', 'zapatila', 'zap-tr', 'secreto', 'sku-ajeno']) {
+    const ajenos = (await buscar(q, { tienda: STORE })).filter((h) => !propios.has(h));
+    assert.deepEqual(ajenos, [], `«${q}» trajo productos de otra tienda`);
+  }
+  assert.deepEqual(await buscar('campera'), [], 'la tienda de búsqueda vio las camperas de otra');
 });

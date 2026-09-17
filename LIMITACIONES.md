@@ -246,16 +246,20 @@ filas que se citaban acá no son de ningún catálogo cargado: son las que manda
 ORDS de Estilo Sport, que nunca se importó entero. Importar ese volumen sigue sin
 medirse, y no estar medido es distinto de estar mal.
 
-### La búsqueda es coincidencia literal de subcadena
+### La búsqueda no mira la descripción ni la categoría, y el SKU va por prefijo
 
-`catalog_search` arma un texto con el título, la marca y los SKU del producto y
-exige que cada término aparezca ahí con `position()`. Eso quiere decir que no
-tolera un error de tipeo, no ignora los acentos, no busca en la descripción y no
-ordena por relevancia: con término de búsqueda, «relevancia» sigue siendo el
-orden de alta. No hay `tsvector`, `pg_trgm` ni `unaccent` en ninguna migración.
+La búsqueda tolera tipeos y acentos y ordena por relevancia (ADR-125), pero sólo
+sobre el **título y la marca**. La descripción no entra porque un texto largo
+diluye el parecido hasta no encontrar nada, y el nombre de la categoría tampoco
+entraba antes. Un término de menos de cuatro letras sólo encuentra coincidencias
+literales: con tres, el parecido es ruido.
 
-**Qué lo desbloquea:** la Fase 3 de v2 en el [ROADMAP](ROADMAP.md), que es donde
-viven el ranking y el manejo de errores de tipeo.
+El SKU se encuentra si se escribe **desde el principio**: «ZAP-TR» encuentra
+«ZAP-TR-41», pero «TR-41» no. Tampoco hay sinónimos ni plurales: «buzo» no
+encuentra «canguro».
+
+**Qué lo desbloquea:** la búsqueda semántica de la Fase 6 de v2 en el
+[ROADMAP](ROADMAP.md), que se suma a este score en vez de reemplazarlo.
 
 ### Analytics no cuenta las precargas de Safari
 

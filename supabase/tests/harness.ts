@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
+import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const MIGRACIONES = join(AQUI, '..', 'migrations');
@@ -20,7 +21,13 @@ const MIGRACIONES = join(AQUI, '..', 'migrations');
  * un proyecto real antes del piloto (T3).
  */
 export async function baseDePrueba(): Promise<PGlite> {
-  const db = new PGlite();
+  /*
+   * Con `pg_trgm` cargado, y no es un detalle: el buscador del catálogo la usa
+   * (ADR-125). Sin la extensión la migración que la crea no arranca, y si se la
+   * salteara el camino de búsqueda se probaría con un plan que no es el de
+   * producción. La extensión viene en el build de PGlite; sólo hay que pedirla.
+   */
+  const db = new PGlite({ extensions: { pg_trgm } });
 
   // Mínimo del entorno Supabase que las políticas asumen.
   await db.exec(`

@@ -1389,6 +1389,7 @@ export type Database = {
           id: string
           last_sync_at: string | null
           product_group_id: string | null
+          search_doc: string | null
           sku: string | null
           status: Database["public"]["Enums"]["product_status"]
           store_id: string
@@ -1410,6 +1411,7 @@ export type Database = {
           id?: string
           last_sync_at?: string | null
           product_group_id?: string | null
+          search_doc?: string | null
           sku?: string | null
           status?: Database["public"]["Enums"]["product_status"]
           store_id: string
@@ -1431,6 +1433,7 @@ export type Database = {
           id?: string
           last_sync_at?: string | null
           product_group_id?: string | null
+          search_doc?: string | null
           sku?: string | null
           status?: Database["public"]["Enums"]["product_status"]
           store_id?: string

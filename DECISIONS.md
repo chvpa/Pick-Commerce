@@ -1664,6 +1664,10 @@ cadena da un falso positivo.
 **Fecha:** 2026-08-26
 **Estado:** Accepted
 
+> **Acotado por ADR-126.** La paridad con `queryCatalog` sigue valiendo para todo
+> lo que no es el término de búsqueda. La búsqueda con término usa `pg_trgm` desde
+> ADR-125 y tiene tests propios, así que el «nada de `pg_trgm`» de abajo ya no rige.
+
 **Contexto**
 ADR-024 prohíbe traer el catálogo completo para filtrar en el browser, así que
 filtros, orden, paginación y facetas tienen que resolverse antes de devolver los
@@ -5730,3 +5734,118 @@ dos.
 - Queda **sin** resolver, y es decisión de producto: si lo que alguien mira se
   cruza con su cuenta. Hoy no se cruza y el texto de privacidad lo dice; el día
   que se cruce, ese texto cambia antes que la tienda.
+
+## ADR-125 — El buscador tolera tipeos con trigramas sobre un documento materializado
+
+**Fecha:** 2026-09-16
+**Estado:** Accepted
+
+**Contexto**
+`catalog_search` buscaba por coincidencia literal de subcadena: armaba
+`lower(title || brand || string_agg(skus))` **para cada producto en cada
+petición** —hubiera término o no— y comparaba con `position()`. «zapatila» daba
+cero resultados en Treeshop, «nino» no encontraba «Niños», y con término de
+búsqueda `sort=relevance` ordenaba por orden de alta.
+
+El plan de la fase dudaba entre un trigger sobre tres tablas y una tabla lateral,
+porque daba por hecho que los SKU y la categoría iban al mismo documento.
+
+**Decisión**
+
+- **Una columna generada**, `products.search_doc`, con título y marca
+  normalizados. Viven en la misma fila, así que Postgres la mantiene y nadie
+  tiene que acordarse de nada. Índice GIN de trigramas encima.
+- **Los SKU no entran al documento**: se buscan por **prefijo exacto** contra
+  `product_variants`. Por trigramas, «A12» traería medio catálogo.
+- **Acentos y mayúsculas con `translate()`**, en `app.normalizar_busqueda`, que es
+  inmutable de verdad. `unaccent` es STABLE: usarla en una columna generada
+  obligaba a envolverla en una función marcada IMMUTABLE a mano. Las mayúsculas
+  acentuadas se traducen explícitamente, porque con intercalación C `lower('Á')`
+  no las toca. La `ñ` se pliega a `n`.
+- **`pg_trgm` en el schema `extensions`**, la convención de Supabase. La suite de
+  aislamiento la carga en PGlite, así que el camino nuevo corre sobre Postgres real
+  en CI.
+- Un término coincide si aparece literal, si es prefijo de un SKU, o —**desde
+  cuatro letras**— si `word_similarity(término, documento) >= 0.5`. Todos los
+  términos tienen que coincidir, como antes. `word_similarity` y no `similarity`:
+  compara el término contra el mejor tramo del documento, no contra el título
+  entero, que con títulos largos diluye el puntaje hasta no encontrar nada.
+- **Relevancia**: suma por término de 1,2 si es SKU, 1,0 si es literal, o el
+  `word_similarity` si es parecido. Sin ranking, tolerar tipeos trae ruido sin
+  ordenarlo.
+
+**La firma no cambió**, así que fue `create or replace` y los grants se
+conservaron. Verificado después de aplicar: `authenticated` y `service_role`, sin
+`anon`.
+
+**Medido contra Treeshop** (3752 productos), mediana de cinco corridas
+intercaladas contra la definición anterior y un control de cuerpo idéntico:
+
+| caso               | anterior | control | nueva  |
+| ------------------ | -------- | ------- | ------ |
+| listado, página 1  | 625 ms   | 613 ms  | 581 ms |
+| listado, página 88 | 577 ms   | 571 ms  | 572 ms |
+| `zapatilla`        | 566 ms   | 530 ms  | 576 ms |
+| `zapatila`         | 474 ms   | 499 ms  | 614 ms |
+| PDP por handle     | 357 ms   | 358 ms  | 355 ms |
+
+El listado sin búsqueda quedó igual o mejor, que era la compuerta: quitar el
+`string_agg` por producto compensa lo que agregan los CTE nuevos. `zapatila` cuesta
+más porque antes no encontraba nada y ahora ordena 50 resultados.
+
+**Lo que ya encontraba lo sigue encontrando.** Once búsquedas reales comparadas
+contra la definición anterior, recorriendo todas las páginas: **cero productos
+perdidos**. `zapatila`, `nino` y `remra` pasan de 0 a 50, 58 y 562.
+
+**Lo que se pierde, a propósito**
+Un SKU ya no se encuentra por un tramo del medio: «407307» no encuentra
+«CH-407307-01». Lo que se busca por código se escribe desde el principio, y la
+subcadena era la que hacía imposible separar los SKU del documento difuso.
+Tampoco se busca en la descripción ni en el nombre de la categoría, que antes
+tampoco (LIMITACIONES.md).
+
+**Consecuencias**
+
+- El costo general de `catalog_search` —600 ms el listado, 355 el PDP— sigue en
+  el backlog: esta fase no lo empeoró, y no era suya.
+- `app.normalizar_busqueda` queda alcanzable por `authenticated`, clasificada como
+  pública en la suite: es pura sobre su argumento, y la columna generada la evalúa
+  con el rol de quien escribe el producto, así que revocarla rompería el Admin.
+
+## ADR-126 — La paridad con `queryCatalog` deja afuera el término de búsqueda
+
+**Fecha:** 2026-09-16
+**Estado:** Accepted — acota ADR-055
+
+**Contexto**
+ADR-055 fija `catalog_search(tienda, q) ≡ queryCatalog(activos(tienda), q)` y lo
+verifica corriendo los mismos casos por los dos caminos. Con ADR-125 la búsqueda
+tolera tipeos por trigramas y ordena por puntaje, y eso no tiene equivalente en
+TypeScript.
+
+**Decisión**
+La paridad se acota a todo lo que **no** es el término de búsqueda: filtros,
+facetas, órdenes, paginación, rango de precio y colecciones. De la tabla de
+paridad salen los cinco casos con término; se queda el término hecho sólo de
+espacios, que tiene que ser el listado de siempre.
+
+**Por qué no portar la matemática al core**
+Sería duplicar `word_similarity` en JavaScript, lógica difícil que nadie usa del
+lado del cliente, sólo para que un test la compare consigo misma. La paridad es la
+defensa del repo contra fallos silenciosos de facetas (ADR-050), y las facetas
+siguen cubiertas.
+
+**Cómo se cubre la búsqueda ahora**
+Nueve tests con expectativas escritas a mano, en una tienda propia con stock:
+literal, acentos en las dos direcciones y la eñe, tipeo, término corto sin
+tolerancia, AND de términos, SKU por prefijo y no por subcadena, orden por
+relevancia, búsqueda más faceta, y **aislamiento entre tiendas** por título,
+parecido y SKU.
+
+**Se comprobó que detectan**, rompiendo el SQL a propósito: quitar la tolerancia
+a tipeos tumba 2 tests, quitar el ranking 1, quitar el filtro de tienda 23.
+
+Y apareció algo de paso: el producto de la tienda ajena del fixture **no tenía
+stock**, así que lo ocultaba el filtro de stock por su cuenta. Con el filtro de
+tienda quitado, «la secret key tampoco cruza tiendas: ítems, facetas y precios»
+seguía en verde. Se le cargó stock.

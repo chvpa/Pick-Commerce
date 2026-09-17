@@ -1108,18 +1108,18 @@ sesión y encontrarlo después de entrar funciona, la identidad funciona.
 
 ## Fase 3 — El buscador que encuentra
 
-**Avance: 0%**
+**Avance: 70%**
 
 Objetivo: escribir «zapatila» encuentra zapatillas, buscar con acento o sin
 acento da lo mismo, y los resultados vienen ordenados por relevancia. Sin IA, sin
 costo por consulta, y con cobertura real en CI.
 
-- [ ] El punto de partida, medido y no supuesto: `catalog_search` arma el heno
+- [x] El punto de partida, medido y no supuesto: `catalog_search` arma el heno
       como `lower(title || brand || string_agg(skus))` **para cada producto activo
       de la tienda en cada petición** y compara con `position()`. No hay índice
       que pueda servir eso mientras se calcule ahí. El trabajo de 2287 a 233 ms
       arregló la paginación y la serialización, no el predicado: sigue entero.
-- [ ] ADR: el documento de búsqueda se **materializa**, y cómo. Una columna
+- [x] ADR: el documento de búsqueda se **materializa**, y cómo. Una columna
       generada sólo puede leer columnas de su propia fila, así que título, marca y
       descripción entran pero los SKU (`product_variants`) y la categoría
       (`categories`) no: o es una columna mantenida por trigger sobre tres tablas
@@ -1127,52 +1127,52 @@ costo por consulta, y con cobertura real en CI.
       Es un valor derivado con alguien que tiene que acordarse de actualizarlo,
       que es lo que el comentario de `vendidas` rechaza cinco líneas más arriba:
       hay que decir por qué acá sí.
-- [ ] El acento se pliega con `translate()` dentro de esa expresión, **no** con
+- [x] El acento se pliega con `translate()` dentro de esa expresión, **no** con
       `unaccent`. No es que falte —está en el build de PGlite que usa la suite—:
       es que `unaccent(text)` es STABLE y no IMMUTABLE, así que es ilegal en una
       columna generada y en un índice de expresión sin envolverla en una función
       propia marcada immutable a mano, una mentira que habría que asumir y
       registrar. `translate()` es core, immutable, indexable y se testea sin base.
-- [ ] Índice GIN de trigramas, con `pg_trgm` cargado en `supabase/tests/harness.ts`,
+- [x] Índice GIN de trigramas, con `pg_trgm` cargado en `supabase/tests/harness.ts`,
       que hoy construye `new PGlite()` sin extensiones. La extensión **está** en el
       build, así que son tres líneas y el buscador nuevo queda cubierto por
       Postgres real en CI. Sin eso el índice no existe en los tests y se probaría
       un plan que no es el de producción.
-- [ ] Ranking con `similarity()` y tolerancia a tipeo con el operador `%`, más
+- [x] Ranking con `similarity()` y tolerancia a tipeo con el operador `%`, más
       prefijo para quien todavía está escribiendo. Hoy `sort=relevance` con
       término de búsqueda ordena por `created_at`, o sea por orden de carga. Sin
       ranking, tolerar tipeos empeora el resultado: trae ruido sin ordenarlo, así
       que el ranking no es opcional dentro de la fase.
-- [ ] Los SKU van por coincidencia exacta o por prefijo, aparte del score difuso.
+- [x] Los SKU van por coincidencia exacta o por prefijo, aparte del score difuso.
       Un SKU no es difuso: meterlo en los trigramas hace que «A12» traiga medio
       catálogo, y las consultas por código son buena parte del tráfico real.
-- [ ] ADR que enmienda **ADR-055**, que fija el contrato literal
+- [x] ADR que enmienda **ADR-055**, que fija el contrato literal
       `catalog_search(tienda, q) ≡ queryCatalog(activos(tienda), q)` con 24 casos
       por los dos caminos y dice «nada de `pg_trgm`». Cambiar el predicado deja
       eso inexpresable en TypeScript: hay que elegir entre portar la matemática de
       trigramas al core —duplicar lógica difícil— o acotar la paridad a todo lo
       que no es el término de búsqueda. Recomendado lo segundo, dicho por escrito:
       la paridad es la única defensa del repo contra fallos silenciosos de facetas
-      (ADR-050).
+      (ADR-050). Acotada en ADR-126.
 - [ ] Cero resultados deja de ser una página vacía: sugerencia más lo más vendido.
       `search_no_results` ya se registra y ya hay panel, así que el acierto de
       esta línea se mide con datos propios.
 - [ ] Sugerencias mientras se escribe: un RPC chico sobre el mismo índice, con
       tope y debounce. El diálogo del buscador ya existe y hoy envía a ciegas a
       `/catalogo?q=`.
-- [ ] El corte de página sigue yendo antes de armar el documento, y se mide la
+- [x] El corte de página sigue yendo antes de armar el documento, y se mide la
       página 100 y no la 1: Postgres 17 empuja sólo el límite superior del
       `row_number()`. Y se mide con los 2096 productos de Treeshop, no con la
       demo: el problema del catálogo grande apareció recién con volumen.
-- [ ] El test adversarial que el backlog dice que faltó: el camino de búsqueda
+- [x] El test adversarial que el backlog dice que faltó: el camino de búsqueda
       nuevo contra datos de otra tienda. `p_store_id` es un parámetro más y
       olvidarlo no rompe nada visible — ni el typecheck, ni el e2e, ni la pantalla.
 
 **Definition of Done**
 
-- [ ] «zapatila» y «café» sin acento encuentran lo que tienen que encontrar
-- [ ] la primera página y la 100 siguen planas con el catálogo grande, con `explain analyze` a la vista
-- [ ] la suite de aislamiento arranca y cubre el camino nuevo con `pg_trgm` cargado
+- [x] «zapatila» y «café» sin acento encuentran lo que tienen que encontrar
+- [x] la primera página y la 100 siguen planas con el catálogo grande, con `explain analyze` a la vista
+- [x] la suite de aislamiento arranca y cubre el camino nuevo con `pg_trgm` cargado
 - [ ] cero resultados nunca devuelve una página vacía
 
 ---

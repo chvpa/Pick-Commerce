@@ -123,6 +123,9 @@ const PUBLICAS = [
   'app.current_tenants', // devuelve vacío para quien no es de ningún comercio
   'app.es_mi_pedido', // devuelve false
   'app.has_permission', // devuelve false
+  // Pliega mayúsculas y acentos de su argumento. Además la evalúa la columna
+  // generada `products.search_doc` con el rol de quien escribe el producto.
+  'app.normalizar_busqueda',
   'app.paso_del_embudo',
   'app.promo_discount',
 ] as const;
