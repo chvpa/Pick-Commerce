@@ -5866,3 +5866,82 @@ Y apareció algo de paso: el producto de la tienda ajena del fixture **no tenía
 stock**, así que lo ocultaba el filtro de stock por su cuenta. Con el filtro de
 tienda quitado, «la secret key tampoco cruza tiendas: ítems, facetas y precios»
 seguía en verde. Se le cargó stock.
+
+## ADR-127 — Las recomendaciones no entran por `p_ids`: una serialización compartida y dos tablas materializadas
+
+**Fecha:** 2026-09-17
+**Estado:** Accepted
+
+**Contexto**
+La v2 Fase 4 pide tiras de recomendados en el PDP y en el carrito, y un orden de
+colección que se adapte a quien mira. El ROADMAP abría la fase con «`p_ids
+uuid[]` en `catalog_search`, el cambio más chico que habilita las cuatro
+pantallas»: sin él, cada lista recomendada tendría su propia serialización del
+producto y divergiría en silencio del catálogo —otra promoción, otro tachado, otro
+stock, otras reglas de publicación—.
+
+**Decisión: `p_ids` se descarta**, y no por prudencia abstracta. Hay dos
+mediciones en el repo:
+
+- Un filtro análogo —`p_handles text[]`, una línea, constante con el parámetro en
+  null— llevó el listado de Treeshop de 601/612/589 ms a 1205/1361/1151 ms,
+  intercalado en la misma sesión, y se revirtió
+  (`20260914165331_revertir_lista_de_handles.sql`). La causa diagnosticada fue una
+  mala estimación de selectividad, que no depende de la forma del filtro.
+- Aunque fuera gratis para el listado, **una llamada acotada cuesta ~355 ms**:
+  `promos_producto`, `precios` y `pav` se calculan sobre la tienda entera aunque se
+  pida un solo producto. Una tira en el PDP sería 355 + 355 en la página que vende.
+
+**Lo que se hace en su lugar**
+Se extrae a `app.catalog_items(p_store_id, p_ids uuid[])` lo único que no se puede
+duplicar —el predicado de visibilidad y el documento del ítem— con sus CTE
+acotados a los ids pedidos. Las tiras pagan por ocho productos, no por la tienda.
+Devuelve los ítems **en el orden del arreglo** y **omite** lo que el catálogo
+esconde, así que «ninguna lista recomendada muestra un producto escondido» es una
+propiedad de la función y no una regla que cada llamador tenga que recordar.
+
+Queda una segunda copia de la serialización, y eso es deuda. La defensa es un test
+de equivalencia: para el mismo producto, `app.catalog_items` tiene que devolver el
+mismo documento que el ítem de `catalog_search`. Es lo que ADR-050 pide cuando el
+modo de fallo es silencioso.
+
+**Lo que sí toca `catalog_search`, con compuerta**
+El orden nuevo: un `left join` a `product_trending` y un parámetro `p_prefiere
+jsonb` que **no filtra filas**, sólo pesa el `order by`. Por eso no repite el error
+de septiembre, que era de selectividad. Antes de desplegar se mide intercalado
+contra la definición anterior y un control, como en ADR-125; si el listado empeora
+más de un 5 %, el orden se resuelve en el adapter sobre la página ya traída, con su
+pérdida escrita.
+
+**El perfil es el parámetro, no una tabla de órdenes**
+El ROADMAP proponía precomputar un orden por bucket y entrarlo como `p_ids`. Con
+`p_ids` descartado, el bucket —las dos marcas y categorías que alguien viene
+mirando— viaja como `p_prefiere` y se resuelve en el `order by` sobre columnas que
+la consulta ya tiene. Sin tabla de órdenes, sin job que la mantenga, y explicable
+al comercio en una frase: «primero Nike, porque lo viene mirando».
+
+**Dos tablas, no una**
+`product_affinity` guarda pares —producto, relacionado, co-vistas, co-compras,
+score— y `product_trending` un número por producto. Tendencia no es un par, y
+meterla como un par consigo mismo es lo que alguien descifra a las 3 de la mañana.
+Las dos con FK compuestas por `(id, tenant_id)`: el aislamiento entre comercios es
+estructural (ADR-063), no un `where` bien escrito.
+
+**El recálculo lo decide la base, no el isolate**
+No hay scheduler en el repo y `pg_cron` no está en PGlite, así que el recálculo va
+donde ya va la purga: oportunista, desde el middleware, con `waitUntil`. Pero
+`ultimaPurga` es memoria del isolate, y con muchos isolates muchos creen que les
+toca. El candado es un `insert … on conflict … where started_at < now() - p_cada`
+sobre `affinity_runs`, que es un solo statement atómico y **se puede testear en
+PGlite**, que es el punto.
+
+**Consecuencias**
+
+- Las tiras del PDP y del carrito funcionan **sin identidad**: dependen de qué se
+  mira, no de quién mira. Andan con las cuentas apagadas y con la personalización
+  apagada.
+- La cascada del orden —preferencias → tendencia → orden del catálogo— es un solo
+  `order by`, así que el arranque en frío no es un camino aparte que nadie prueba:
+  es la misma consulta con el parámetro vacío.
+- El costo de fondo de `catalog_search` sigue en el backlog. Esta fase no lo
+  empeora y tampoco lo arregla.
