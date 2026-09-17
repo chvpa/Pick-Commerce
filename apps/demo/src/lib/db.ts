@@ -25,6 +25,7 @@ import {
   type ResolucionTenant,
   type SeoContexto,
 } from '@pick/commerce-core';
+import type { Product } from '@pick/commerce-types';
 import { SITE_URL } from './store-config.ts';
 
 /**
@@ -251,6 +252,38 @@ export async function sugerenciasDeBusqueda(q: string): Promise<readonly string[
     return data as unknown as readonly string[];
   } catch (error) {
     console.error('[sugerencias] no se pudieron leer', error);
+    return [];
+  }
+}
+
+/**
+ * Lo que se mira junto con esto, para la tira del PDP y la del carrito.
+ *
+ * El documento del producto sale del mismo lugar que el del catálogo
+ * (`app.catalog_items`), así que la tarjeta es la misma: mismo precio con
+ * promoción, mismo tachado, mismo stock, y sin lo que el catálogo esconde.
+ *
+ * Un fallo devuelve la lista vacía y la tira no se dibuja. Una recomendación es
+ * ayuda, no contenido: la página de producto tiene que seguir vendiendo.
+ */
+export async function recomendados(
+  anclas: readonly string[],
+  limite = 8,
+): Promise<readonly Product[]> {
+  if (anclas.length === 0) return [];
+
+  try {
+    const { storeId } = await tiendaActual();
+    const { data, error } = await db().rpc('recommended_products', {
+      p_store_id: storeId,
+      p_anchor_ids: [...anclas],
+      p_limit: limite,
+    });
+
+    if (error) throw new Error(error.message);
+    return data as unknown as readonly Product[];
+  } catch (error) {
+    console.error('[recomendados] no se pudieron leer', error);
     return [];
   }
 }

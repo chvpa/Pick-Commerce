@@ -10,6 +10,7 @@ import {
   anotar,
   cuentaComoVisita,
   purgar,
+  recalcularAfinidad,
   tocaPurgar,
   volcar,
 } from './lib/analytics.ts';
@@ -148,6 +149,17 @@ function guardarLosEventos(locals: App.Locals): void {
   );
 
   if (!tocaPurgar()) return;
+
+  /*
+   * Y el recálculo de lo que se mira junto, en la misma ventana. Quien decide de
+   * verdad es la base: acá alcanza con proponerlo (ADR-127).
+   */
+  enSegundoPlano(
+    locals,
+    recalcularAfinidad().catch((error: unknown) => {
+      console.error('[afinidad] no se pudo recalcular', error);
+    }),
+  );
   void enSegundoPlano(
     locals,
     purgar().catch((error: unknown) => {

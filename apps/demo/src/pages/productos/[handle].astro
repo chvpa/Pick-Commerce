@@ -3,11 +3,17 @@ import Breadcrumb from '@pick/commerce-astro/navigation/Breadcrumb.astro';
 import JsonLd from '@pick/commerce-astro/seo/JsonLd.astro';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import ProductGallery from '@pick/commerce-astro/product/ProductGallery.astro';
+import ProductCard from '@pick/commerce-astro/product/ProductCard.astro';
+import ProductCardBody from '@pick/commerce-astro/product/ProductCardBody.astro';
+import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astro';
+import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
+import ProductCarousel from '@pick/commerce-astro/product/ProductCarousel.astro';
+import Price from '@pick/commerce-astro/product/Price.astro';
 import { ProductPurchase } from '@pick/commerce-ui/product/ProductPurchase';
 import WishlistHeart from '@pick/commerce-astro/wishlist/WishlistHeart.astro';
 import { productJsonLd } from '@pick/commerce-core';
 
-import { catalogo, contextoSeo, tiendaActual } from '../../lib/db.ts';
+import { catalogo, contextoSeo, recomendados, tiendaActual } from '../../lib/db.ts';
 import { anotar } from '../../lib/analytics.ts';
 import { misFavoritos } from '../../lib/cuenta.ts';
 import { paginaDeCuenta } from '../../lib/sesion.ts';
@@ -69,6 +75,13 @@ const COLOR_SWATCHES = { Azul: '#2f4858', Negro: '#26262b', Blanco: '#e8e6e1', V
 
 /* Una oferta por variante, con su precio y stock reales. Ver ADR-047. */
 const jsonLd = productJsonLd(product, await contextoSeo());
+
+/*
+ * La tira de relacionados. Va después del producto porque necesita su id, y no
+ * bloquea nada más: si falla, `recomendados()` devuelve vacío y la página sigue
+ * siendo la que vende.
+ */
+const relacionados = await recomendados([product.id]);
 ---
 
 <Base
@@ -129,4 +142,38 @@ const jsonLd = productJsonLd(product, await contextoSeo());
       />
     </div>
   </Container>
+
+  {
+    /*
+     * Lo que miró quien miró esto (v2 Fase 4, ADR-127).
+     *
+     * **Con precio**, al revés que «Seguí viendo»: ahí la tira es un atajo a algo
+     * que la persona ya vio, acá es una vitrina, y una vitrina sin precio no
+     * vende. Sale del mismo documento que el catálogo, así que la promoción y el
+     * tachado son los mismos.
+     *
+     * **Sin datos no hay tira**, ni título ni carrusel vacío: una tienda recién
+     * abierta no tiene co-vistas, y el arreglo llega vacío.
+     */
+  }
+  {
+    relacionados.length > 0 && (
+      <Container class="pb-12">
+        <ProductCarousel label="Quien vio esto, vio" controles id="pista-relacionados">
+          {relacionados.map((p) => (
+            <ProductCard>
+              <ProductCardMedia image={p.images[0]} />
+              <ProductCardBody>
+                {p.brand && <p class="text-xs text-fg-subtle">{p.brand}</p>}
+                <ProductCardTitle href={`/productos/${p.handle}`}>{p.title}</ProductCardTitle>
+                {p.variants[0] && (
+                  <Price value={p.variants[0].price} compareAt={p.variants[0].compareAtPrice} />
+                )}
+              </ProductCardBody>
+            </ProductCard>
+          ))}
+        </ProductCarousel>
+      </Container>
+    )
+  }
 </Base>

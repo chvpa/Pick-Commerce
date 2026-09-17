@@ -2120,6 +2120,10 @@ export type Database = {
         Args: { p_device_id: string; p_limit?: number; p_store_id: string }
         Returns: Json
       }
+      recommended_products: {
+        Args: { p_anchor_ids: string[]; p_limit?: number; p_store_id: string }
+        Returns: Json
+      }
       recompute_affinity: {
         Args: {
           p_cada?: string

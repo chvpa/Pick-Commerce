@@ -2,6 +2,7 @@ import { destinoSupabase } from '@pick/adapter-supabase';
 import {
   esNavegacionDePersona,
   esPrecarga,
+  PESOS_DE_AFINIDAD,
   type AnalyticsDestination,
   type EventoDeTienda,
   type TipoDeEvento,
@@ -169,4 +170,28 @@ export async function purgar(): Promise<void> {
   const { tenantId, storeId } = await tiendaActual();
   const borrados = await analytics(tenantId).purgar(storeId, DIAS_DE_RETENCION);
   if (borrados > 0) console.log(`[analytics] purgados ${borrados} eventos`);
+}
+
+/**
+ * Recalcula lo que se mira junto, si le toca a esta visita.
+ *
+ * Va pegado a la purga y por el mismo motivo: no hay planificador en el proyecto
+ * y el trabajo periódico viaja con el tráfico. La diferencia es **quién decide**:
+ * `tocaPurgar()` mira una variable de este isolate, y con muchos isolates muchos
+ * creen que les toca. El turno lo reclama la base con un solo statement atómico
+ * (ADR-127), así que esta llamada puede dispararse de más sin consecuencia: la
+ * que no consigue el turno vuelve en cero sin tocar nada.
+ */
+export async function recalcularAfinidad(): Promise<void> {
+  const { storeId } = await tiendaActual();
+  const { data, error } = await clienteDelStorefront().rpc('recompute_affinity', {
+    p_store_id: storeId,
+    p_peso_vista: PESOS_DE_AFINIDAD.coVista,
+    p_peso_compra: PESOS_DE_AFINIDAD.coCompra,
+  });
+
+  if (error) throw new Error(error.message);
+  if (typeof data === 'number' && data > 0) {
+    console.log(`[afinidad] ${data} pares recalculados`);
+  }
 }

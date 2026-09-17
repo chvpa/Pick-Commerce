@@ -25,6 +25,7 @@ const OTRA_TIENDA = 'bf000000-0000-4000-8000-000000000000';
 
 /** Productos de la tienda A: `p(0)`, `p(1)`… y el de la tienda B, `AJENO`. */
 const p = (n: number) => `d1${String(n).padStart(6, '0')}-0000-4000-8000-000000000000`;
+const v = (n: number) => `e1${String(n).padStart(6, '0')}-0000-4000-8000-000000000000`;
 const AJENO = 'df000000-0000-4000-8000-000000000000';
 const PRODUCTOS = 4;
 
@@ -52,11 +53,20 @@ before(async () => {
       ('${SUCURSAL}', '${TENANT}', '${TIENDA}', 'Central');
   `);
 
+  /*
+   * Cada producto con una variante y stock: sin eso `app.catalog_items` los
+   * esconde —recomendar lo agotado es el modo de falla por defecto de una tira—
+   * y la suite probaría el filtro en vez de la recomendación.
+   */
   for (let i = 0; i < PRODUCTOS; i++) {
-    await db.exec(
-      `insert into products (id, tenant_id, store_id, handle, title, status)
-       values ('${p(i)}', '${TENANT}', '${TIENDA}', 'p${i}', 'Producto ${i}', 'active')`,
-    );
+    await db.exec(`
+      insert into products (id, tenant_id, store_id, handle, title, status)
+        values ('${p(i)}', '${TENANT}', '${TIENDA}', 'p${i}', 'Producto ${i}', 'active');
+      insert into product_variants (id, tenant_id, product_id, sku, title, price, currency, position)
+        values ('${v(i)}', '${TENANT}', '${p(i)}', 'SKU-${i}', 'Única', 100, 'PYG', 0);
+      insert into inventory_levels (tenant_id, variant_id, location_id, available)
+        values ('${TENANT}', '${v(i)}', '${SUCURSAL}', 3);
+    `);
   }
 
   await db.exec(
@@ -112,17 +122,13 @@ test('una compra junta pesa más que una mirada junta, y los pesos son los del c
     values ('a0000000-0000-4000-8000-000000000000', '${TENANT}', '${TIENDA}', 1001,
             gen_random_uuid(), 'received', 'bank_transfer', '{}'::jsonb, '{}'::jsonb, 100, 'PYG');
   `);
-  for (const [i, producto] of [p(0), p(2)].entries()) {
-    await db.exec(`
-      insert into product_variants (id, tenant_id, product_id, sku, title, price, currency, position)
-        values ('e1${String(i).padStart(6, '0')}-0000-4000-8000-000000000000', '${TENANT}',
-                '${producto}', 'SKU-${i}', 'Única', 100, 'PYG', 0);
-      insert into order_items (tenant_id, order_id, variant_id, title, sku, unit_price,
-                               currency, quantity, position)
-        values ('${TENANT}', 'a0000000-0000-4000-8000-000000000000',
-                'e1${String(i).padStart(6, '0')}-0000-4000-8000-000000000000',
-                'Producto', 'SKU-${i}', 100, 'PYG', 1, ${i});
-    `);
+  for (const [i, indice] of [0, 2].entries()) {
+    await db.exec(
+      `insert into order_items (tenant_id, order_id, variant_id, title, sku, unit_price,
+                                currency, quantity, position)
+       values ('${TENANT}', 'a0000000-0000-4000-8000-000000000000', '${v(indice)}',
+               'Producto', 'SKU-${indice}', 100, 'PYG', 1, ${i})`,
+    );
   }
 
   await recalcular();
@@ -291,4 +297,109 @@ test('el recálculo y sus tablas no están al alcance del navegador', async () =
     `select has_table_privilege('authenticated', 'affinity_runs', 'select') as lee`,
   );
   assert.equal(lee, true, 'el Admin no puede ver cuándo se recalculó');
+});
+
+// --- La tira que se ve ----------------------------------------------------------
+
+async function recomendados(ancla: string, limite = 8, tienda = TIENDA) {
+  const filas = await comoServicio<{ j: Array<{ id: string; variants: unknown[] }> }>(
+    db,
+    `select recommended_products('${tienda}'::uuid, array['${ancla}']::uuid[], ${limite}) as j`,
+  );
+  return filas[0]!.j;
+}
+
+test('la tira trae los relacionados, con el documento del catálogo y sin el ancla', async () => {
+  await recalcular();
+  const tira = await recomendados(p(0));
+
+  assert.ok(tira.length > 0, 'la tira salió vacía con afinidad cargada');
+  assert.equal(
+    tira.some((x) => x.id === p(0)),
+    false,
+    'el producto que se está mirando apareció entre sus propias recomendaciones',
+  );
+  // Mismo documento que el catálogo: si esto fuera una serialización propia,
+  // `variants` no existiría o vendría sin precio.
+  assert.ok(Array.isArray(tira[0]!.variants), 'la tira no trae el documento del producto');
+});
+
+test('un producto sin relacionados devuelve una lista vacía, no un error', async () => {
+  assert.deepEqual(await recomendados(p(3)), []);
+  assert.deepEqual(await recomendados('d1999999-0000-4000-8000-000000000000'), []);
+});
+
+test('la tira no cruza tiendas ni pidiéndola con el ancla de otra', async () => {
+  assert.deepEqual(await recomendados(p(0), 8, OTRA_TIENDA), [], 'la tira cruzó de comercio');
+  assert.deepEqual(await recomendados(AJENO), [], 'un ancla ajena devolvió productos');
+});
+
+test('un producto agotado sale de la tira del otro', async () => {
+  // La regla vive en `app.catalog_items`, y esto lo comprueba de punta a punta:
+  // recomendar lo que no hay es el modo de falla por defecto de una tira.
+  assert.ok(
+    (await recomendados(p(0))).some((x) => x.id === p(1)),
+    'con stock tendría que estar en la tira',
+  );
+
+  await db.exec(
+    `update inventory_levels set available = 0
+      where variant_id = '${v(1)}'`,
+  );
+  try {
+    assert.equal(
+      (await recomendados(p(0))).some((x) => x.id === p(1)),
+      false,
+      'se recomendó un producto agotado',
+    );
+  } finally {
+    await db.exec(
+      `update inventory_levels set available = 3
+        where variant_id = '${v(1)}'`,
+    );
+  }
+});
+
+test('la tira tampoco la puede pedir el navegador', async () => {
+  for (const rol of ['anon', 'authenticated']) {
+    const [{ puede }] = await comoServicio<{ puede: boolean }>(
+      db,
+      `select has_function_privilege('${rol}', 'public.recommended_products(uuid, uuid[], integer)', 'execute') as puede`,
+    );
+    assert.equal(puede, false, `${rol} puede pedir recomendaciones`);
+  }
+});
+
+test('con varios anclas —el carrito— no se recomienda lo que ya está adentro', async () => {
+  /*
+   * Con un solo ancla esto no se puede notar: `product_affinity` no guarda el par
+   * consigo mismo. Con dos sí, y es el caso real del carrito: p0 y p2 se
+   * compraron juntos, así que cada uno es «relacionado» del otro.
+   */
+  await recalcular();
+  const filas = await comoServicio<{ j: Array<{ id: string }> }>(
+    db,
+    `select recommended_products('${TIENDA}'::uuid, array['${p(0)}', '${p(2)}']::uuid[], 8) as j`,
+  );
+  const ids = filas[0]!.j.map((x) => x.id);
+
+  assert.equal(ids.includes(p(0)), false, 'se recomendó algo que ya está en el carrito');
+  assert.equal(ids.includes(p(2)), false, 'se recomendó algo que ya está en el carrito');
+  assert.ok(ids.includes(p(1)), 'no quedó ninguna recomendación de verdad');
+});
+
+test('pide de más porque el catálogo esconde: una tira de uno no queda vacía', async () => {
+  /*
+   * `app.catalog_items` descarta lo agotado **después** de elegir los candidatos.
+   * Sin pedir de más, una tira de uno cuyo mejor candidato está agotado sale
+   * vacía en vez de mostrar el segundo.
+   */
+  await db.exec(`update inventory_levels set available = 0 where variant_id = '${v(2)}'`);
+  try {
+    const tira = await recomendados(p(0), 1);
+    assert.equal(tira.length, 1, 'la tira quedó vacía por un candidato escondido');
+    assert.equal(tira[0]!.id, p(1));
+  } finally {
+    await db.exec(`update inventory_levels set available = 3 where variant_id = '${v(2)}'`);
+  }
 });
