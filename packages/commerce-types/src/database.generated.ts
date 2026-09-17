@@ -1980,6 +1980,10 @@ export type Database = {
         }
         Returns: Json
       }
+      search_suggest: {
+        Args: { p_limit?: number; p_q: string; p_store_id: string }
+        Returns: Json
+      }
       wishlist_products: { Args: { p_store_id: string }; Returns: Json }
     }
     Enums: {

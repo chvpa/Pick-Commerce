@@ -607,9 +607,14 @@ después lo tiene sin que nadie se acuerde.
   { "name": "CHECKOUT_LIMITE", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } },
   { "name": "CARRITO_LIMITE", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } },
   { "name": "CODIGO_LIMITE", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } },
-  { "name": "ENTRAR_LIMITE", "namespace_id": "1004", "simple": { "limit": 15, "period": 60 } }
+  { "name": "ENTRAR_LIMITE", "namespace_id": "1004", "simple": { "limit": 15, "period": 60 } },
+  { "name": "BUSQUEDA_LIMITE", "namespace_id": "1005", "simple": { "limit": 180, "period": 60 } }
 ]
 ```
+
+`BUSQUEDA_LIMITE` es el único que frena un GET: `/api/busqueda/sugerencias`, que
+el buscador pide en cada pausa al escribir. Por eso es el más holgado, y por eso
+no anota eventos —una búsqueda por pausa inflaría `search`—.
 
 Los dos de la cuenta van más ajustados que el del checkout: pedir un código es a
 la vez la superficie de enumeración de cuentas y la de abuso de correo —cada

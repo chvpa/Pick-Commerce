@@ -5804,13 +5804,30 @@ subcadena era la que hacía imposible separar los SKU del documento difuso.
 Tampoco se busca en la descripción ni en el nombre de la categoría, que antes
 tampoco (LIMITACIONES.md).
 
+**Las sugerencias y el cero resultados**
+`search_suggest` devuelve hasta ocho **títulos** —no productos: Treeshop repite
+el mismo título en varias filas— con un umbral más bajo, 0,3: mientras se escribe
+«zapat» tiene que proponer algo, y cuando la búsqueda no encontró nada es lo que
+alimenta «¿Quisiste decir…?». Lo literal y lo que empieza por lo escrito van
+primero. Aplica las mismas reglas de visibilidad que el catálogo —sugerir un
+título que después da cero sería peor que no sugerir— y la llama sólo
+`service_role`. Sobre Treeshop tarda entre 40 y 78 ms.
+
+La ruta que la sirve **no anota eventos**: se pide en cada pausa al escribir, y
+contarla como `search` inflaría las búsquedas con palabras a medio escribir.
+
+Cero resultados muestra, además de la corrección, lo más vendido **si hubo
+ventas**. Sin pedidos, «más vendidos» ordena por orden de alta —lo más viejo
+primero— y titularlo así sería mentir: ahí van las novedades, con su nombre.
+
 **Consecuencias**
 
 - El costo general de `catalog_search` —600 ms el listado, 355 el PDP— sigue en
   el backlog: esta fase no lo empeoró, y no era suya.
 - `app.normalizar_busqueda` queda alcanzable por `authenticated`, clasificada como
   pública en la suite: es pura sobre su argumento, y la columna generada la evalúa
-  con el rol de quien escribe el producto, así que revocarla rompería el Admin.
+  con el rol de quien escribe el producto: sin ese permiso el dueño no puede crear
+  uno, medido.
 
 ## ADR-126 — La paridad con `queryCatalog` deja afuera el término de búsqueda
 

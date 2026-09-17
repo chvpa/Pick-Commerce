@@ -409,6 +409,13 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
   ningún lado: lo encontró mirar la página, no el tipo ni el test. Cuando hace
   falta cruzar una tabla del comprador con una del catálogo, va `definer` con el
   filtro de identidad escrito en una línea.
+- **Una función usada por una columna generada la evalúa el rol que escribe la
+  fila**, no el dueño de la tabla. `app.normalizar_busqueda` arma
+  `products.search_doc`: sin el `execute` de `authenticated`, el dueño no puede
+  crear un producto y Postgres responde «permission denied for function», medido
+  en PGlite. Por eso figura como pública en la suite de aislamiento. Y `pg_trgm`
+  vive en el schema `extensions`, así que una función que lo use lo necesita en
+  su `search_path`; la suite lo carga en PGlite (ADR-125).
 - Un importador que reimporta **pisa lo que la tienda editó** si no mira el
   dueño de cada campo: `field_sources` declara el origen y sólo los campos
   marcados como del ERP se sobreescriben. Y el borrado de medios se acota a los

@@ -843,10 +843,11 @@ AI no debe inventar silenciosamente:
 
 > **Diseño de producto, no estado del sistema.** Lo construido lo declaran
 > `CLAUDE.md` § «Estado actual» y [ROADMAP.md](ROADMAP.md). Hoy buscar es un
-> `?q=` del PLP que exige que todos los términos aparezcan en el texto del
-> producto, resuelto en Postgres con `position()` sobre un campo normalizado:
-> sin entendimiento de intención, sin vectores y sin ranking más allá del orden
-> del catálogo. La búsqueda con LLM quedó explícitamente afuera de la Fase 11.
+> `?q=` del PLP resuelto en Postgres: la parte _keyword_ del diagrama de abajo,
+> con tolerancia a tipeos y acentos por trigramas, SKU por prefijo, orden por
+> relevancia y sugerencias mientras se escribe (ADR-125). Sin entendimiento de
+> intención y sin vectores. La búsqueda con LLM quedó explícitamente afuera de
+> la Fase 11.
 
 No usar un LLM completo para cada búsqueda.
 

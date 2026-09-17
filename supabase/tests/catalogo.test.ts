@@ -828,3 +828,92 @@ test('búsqueda: no cruza tiendas, ni por título, ni por parecido, ni por SKU',
   }
   assert.deepEqual(await buscar('campera'), [], 'la tienda de búsqueda vio las camperas de otra');
 });
+
+// --- Las sugerencias ------------------------------------------------------------
+
+async function sugerir(q: string, tienda = TIENDA_BUSQUEDA): Promise<string[]> {
+  await sembrarBusqueda();
+  const r = await db.query<{ s: string[] }>(`select search_suggest($1::uuid, $2) as s`, [
+    tienda,
+    q,
+  ]);
+  return r.rows[0]!.s;
+}
+
+test('sugerencias: lo que empieza por lo escrito va primero, y lo parecido después', async () => {
+  assert.deepEqual(await sugerir('zapat'), [
+    'Zapatilla trail',
+    'Zapatilla urbana',
+    'Sapatilla importada',
+  ]);
+});
+
+test('sugerencias: con menos de dos letras no sugiere nada', async () => {
+  assert.deepEqual(await sugerir('z'), []);
+  assert.deepEqual(await sugerir('   '), []);
+});
+
+/** Corre `fn` con un producto más, con stock, en la tienda de búsqueda, y lo deshace. */
+async function conProducto(titulo: string, fn: () => Promise<void>): Promise<void> {
+  await sembrarBusqueda();
+  await db.exec('begin');
+  try {
+    await db.exec(`
+      insert into products (id, tenant_id, store_id, handle, title, status)
+        values ('d5999999-0000-4000-8000-000000000000', '${TENANT}', '${TIENDA_BUSQUEDA}',
+                'temporal', ${sql(titulo)}, 'active');
+      insert into product_variants (id, tenant_id, product_id, sku, title, price, currency, position)
+        values ('e5999999-0000-4000-8000-000000000000', '${TENANT}',
+                'd5999999-0000-4000-8000-000000000000', 'TMP-1', 'Única', 100, 'PYG', 0);
+      insert into inventory_levels (tenant_id, variant_id, location_id, available)
+        values ('${TENANT}', 'e5999999-0000-4000-8000-000000000000', '${SUCURSAL_BUSQUEDA}', 1);
+    `);
+    await fn();
+  } finally {
+    await db.exec('rollback');
+  }
+}
+
+test('sugerencias: un título repetido se sugiere una sola vez', async () => {
+  await conProducto('ZAPATILLA TRAIL', async () => {
+    const r = await sugerir('trail');
+    assert.deepEqual(r.length, 1, r.join(' · '));
+  });
+});
+
+test('sugerencias: entre dos literales, gana el que empieza por lo escrito', async () => {
+  // Los dos coinciden literal y valen 1. Sin la preferencia por el prefijo
+  // desempata el alfabeto, que pone «Buzo NIÑO» primero.
+  await conProducto('Niño club', async () => {
+    assert.deepEqual((await sugerir('nino')).slice(0, 2), ['Niño club', 'Buzo NIÑO']);
+  });
+});
+
+test('sugerencias: no sugiere lo que no se puede comprar ni lo de otra tienda', async () => {
+  // `p1` tiene una variante sin stock, pero la otra tiene: se sugiere. El
+  // producto ajeno tiene stock y es de otra tienda: no.
+  assert.equal((await sugerir('campera azul', STORE))[0], 'Campera azul');
+  assert.deepEqual(await sugerir('secreto', STORE), []);
+
+  await db.exec(
+    `update inventory_levels set available = 0
+      where variant_id in (select id from product_variants where sku = 'SKU-d')`,
+  );
+  try {
+    assert.deepEqual(await sugerir('mochila', STORE), []);
+  } finally {
+    await db.exec(
+      `update inventory_levels set available = 5
+        where variant_id in (select id from product_variants where sku = 'SKU-d')`,
+    );
+  }
+});
+
+test('sugerencias: sólo las pide el servidor', async () => {
+  for (const rol of ['anon', 'authenticated']) {
+    const r = await db.query<{ puede: boolean }>(
+      `select has_function_privilege('${rol}', 'public.search_suggest(uuid, text, integer)', 'execute') as puede`,
+    );
+    assert.equal(r.rows[0]!.puede, false, `${rol} puede pedir sugerencias`);
+  }
+});

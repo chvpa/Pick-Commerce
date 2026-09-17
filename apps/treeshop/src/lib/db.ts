@@ -238,6 +238,24 @@ export async function hayCuentas(): Promise<boolean> {
 }
 
 /**
+ * Títulos que se parecen a lo que se está escribiendo, para el buscador.
+ *
+ * Un fallo devuelve la lista vacía: sin sugerencias el formulario sigue buscando
+ * igual, así que no hay motivo para mostrarle un error a nadie.
+ */
+export async function sugerenciasDeBusqueda(q: string): Promise<readonly string[]> {
+  try {
+    const { storeId } = await tiendaActual();
+    const { data, error } = await db().rpc('search_suggest', { p_store_id: storeId, p_q: q });
+    if (error) throw new Error(error.message);
+    return data as unknown as readonly string[];
+  } catch (error) {
+    console.error('[sugerencias] no se pudieron leer', error);
+    return [];
+  }
+}
+
+/**
  * Quién dice el sitio que es.
  *
  * El nombre sale de la base y no de una constante. Estuvo fijo en «Pick Demo»

@@ -23,6 +23,8 @@
     // holgados para una persona: nadie pide diez códigos en un minuto.
     { "name": "CODIGO_LIMITE", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } },
     { "name": "ENTRAR_LIMITE", "namespace_id": "1004", "simple": { "limit": 15, "period": 60 } },
+    // Las sugerencias del buscador: una por pausa al escribir, así que holgado.
+    { "name": "BUSQUEDA_LIMITE", "namespace_id": "1005", "simple": { "limit": 180, "period": 60 } },
   ],
   // El entry del Worker y los assets los inyecta @astrojs/cloudflare al construir.
 }

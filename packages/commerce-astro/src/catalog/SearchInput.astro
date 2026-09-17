@@ -21,25 +21,46 @@ const {
   id = 'q',
   class: className,
 } = Astro.props;
+
+const lista = `${id}-sugerencias`;
 ---
 
 {
   /*
   Formulario GET nativo: busca sin JavaScript y deja la consulta en la URL, así
   se puede compartir y recargar. `role="search"` la expone como landmark.
+
+  Con JavaScript el campo es además un combobox con sugerencias (patrón de la
+  APG de WAI-ARIA, «list autocomplete»): el foco se queda en el campo y la opción
+  activa se anuncia con `aria-activedescendant`. Sin JavaScript nada de eso
+  existe y el formulario busca igual.
 */
 }
 <form method="get" action={action} role="search" class={cn('flex gap-2', className)}>
   <label class="sr-only" for={id}>Buscar productos</label>
-  <input
-    id={id}
-    type="search"
-    name="q"
-    value={value}
-    placeholder={placeholder}
-    autocomplete="off"
-    class="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
-  />
+  <div class="relative min-w-0 flex-1" data-buscador>
+    <input
+      id={id}
+      type="search"
+      name="q"
+      value={value}
+      placeholder={placeholder}
+      autocomplete="off"
+      role="combobox"
+      aria-autocomplete="list"
+      aria-expanded="false"
+      aria-controls={lista}
+      class="h-10 w-full rounded-md border border-border bg-surface px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
+    />
+    <ul
+      id={lista}
+      role="listbox"
+      aria-label="Sugerencias"
+      hidden
+      class="absolute inset-x-0 top-full z-30 mt-1 max-h-80 overflow-y-auto rounded-md border border-border bg-surface py-1 text-sm text-fg shadow-lg aria-busy:opacity-60"
+    >
+    </ul>
+  </div>
   <button
     type="submit"
     class="h-10 cursor-pointer rounded-md border border-border px-4 text-sm font-medium hover:border-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -47,3 +68,167 @@ const {
     Buscar
   </button>
 </form>
+
+<script>
+  /*
+   * Uno solo para todos los buscadores de la página —el del header y el del
+   * catálogo pueden convivir—, escuchando por delegación desde el documento:
+   * sirve igual para lo que traiga el `ClientRouter` en la navegación siguiente.
+   */
+  const RUTA = '/api/busqueda/sugerencias';
+  const ESPERA_MS = 150;
+  const MINIMO = 2;
+
+  interface Estado {
+    temporizador?: ReturnType<typeof setTimeout>;
+    pedido?: AbortController;
+    activa: number;
+  }
+  const estados = new WeakMap<HTMLInputElement, Estado>();
+
+  function partes(campo: HTMLInputElement) {
+    const caja = campo.closest<HTMLElement>('[data-buscador]');
+    const lista = caja?.querySelector<HTMLUListElement>('[role="listbox"]');
+    let estado = estados.get(campo);
+    if (!estado) estados.set(campo, (estado = { activa: -1 }));
+    return lista ? { lista, estado } : undefined;
+  }
+
+  function opciones(lista: HTMLUListElement): HTMLLIElement[] {
+    return [...lista.querySelectorAll<HTMLLIElement>('[role="option"]')];
+  }
+
+  function cerrar(campo: HTMLInputElement): void {
+    const p = partes(campo);
+    if (!p) return;
+    p.lista.hidden = true;
+    p.estado.activa = -1;
+    campo.setAttribute('aria-expanded', 'false');
+    campo.removeAttribute('aria-activedescendant');
+  }
+
+  function marcar(campo: HTMLInputElement, indice: number): void {
+    const p = partes(campo);
+    if (!p) return;
+    const todas = opciones(p.lista);
+    if (todas.length === 0) return;
+    // Da la vuelta en los dos extremos, como un `<select>`.
+    p.estado.activa = (indice + todas.length) % todas.length;
+    for (const [i, op] of todas.entries()) {
+      op.setAttribute('aria-selected', String(i === p.estado.activa));
+    }
+    const activa = todas[p.estado.activa]!;
+    campo.setAttribute('aria-activedescendant', activa.id);
+    activa.scrollIntoView({ block: 'nearest' });
+  }
+
+  function pintar(campo: HTMLInputElement, sugerencias: readonly string[]): void {
+    const p = partes(campo);
+    if (!p) return;
+    p.lista.replaceChildren(
+      ...sugerencias.map((texto, i) => {
+        const op = document.createElement('li');
+        op.id = `${p.lista.id}-${i}`;
+        op.setAttribute('role', 'option');
+        op.setAttribute('aria-selected', 'false');
+        op.className = 'cursor-pointer px-3 py-2 hover:bg-current/5 aria-selected:bg-current/10';
+        // `textContent` y no `innerHTML`: el título lo escribió el comercio.
+        op.textContent = texto;
+        return op;
+      }),
+    );
+    p.estado.activa = -1;
+    campo.removeAttribute('aria-activedescendant');
+    const hay = sugerencias.length > 0;
+    p.lista.hidden = !hay;
+    campo.setAttribute('aria-expanded', String(hay));
+  }
+
+  async function pedir(campo: HTMLInputElement): Promise<void> {
+    const p = partes(campo);
+    if (!p) return;
+    const q = campo.value.trim();
+
+    // La respuesta de una consulta vieja no puede pisar a la nueva.
+    p.estado.pedido?.abort();
+    if (q.length < MINIMO) {
+      cerrar(campo);
+      return;
+    }
+
+    const pedido = (p.estado.pedido = new AbortController());
+    p.lista.setAttribute('aria-busy', 'true');
+    try {
+      const r = await fetch(`${RUTA}?q=${encodeURIComponent(q)}`, { signal: pedido.signal });
+      if (!r.ok) throw new Error(String(r.status));
+      const { sugerencias } = (await r.json()) as { sugerencias: string[] };
+      // El campo pudo perder el foco mientras se esperaba.
+      if (document.activeElement === campo) pintar(campo, sugerencias);
+    } catch {
+      // Abortado o fallido: sin sugerencias el formulario busca igual.
+    } finally {
+      if (p.estado.pedido === pedido) p.lista.removeAttribute('aria-busy');
+    }
+  }
+
+  function elegir(campo: HTMLInputElement, op: HTMLLIElement): void {
+    campo.value = op.textContent ?? '';
+    cerrar(campo);
+    campo.form?.requestSubmit();
+  }
+
+  function campoDe(objetivo: EventTarget | null): HTMLInputElement | undefined {
+    return objetivo instanceof HTMLInputElement && objetivo.closest('[data-buscador]')
+      ? objetivo
+      : undefined;
+  }
+
+  document.addEventListener('input', (evento) => {
+    const campo = campoDe(evento.target);
+    const p = campo && partes(campo);
+    if (!campo || !p) return;
+    clearTimeout(p.estado.temporizador);
+    p.estado.temporizador = setTimeout(() => void pedir(campo), ESPERA_MS);
+  });
+
+  document.addEventListener('keydown', (evento) => {
+    const campo = campoDe(evento.target);
+    const p = campo && partes(campo);
+    if (!campo || !p) return;
+
+    const abierta = !p.lista.hidden;
+    if (evento.key === 'ArrowDown' || evento.key === 'ArrowUp') {
+      if (!abierta) return;
+      evento.preventDefault();
+      marcar(campo, p.estado.activa + (evento.key === 'ArrowDown' ? 1 : -1));
+    } else if (evento.key === 'Enter' && abierta && p.estado.activa >= 0) {
+      evento.preventDefault();
+      elegir(campo, opciones(p.lista)[p.estado.activa]!);
+    } else if (evento.key === 'Escape' && abierta) {
+      // Primero cierra la lista. Lo que sigue lo hace el navegador: vaciar el
+      // campo y, con otro Escape, cerrar el diálogo que lo contenga.
+      evento.preventDefault();
+      evento.stopPropagation();
+      cerrar(campo);
+    }
+  });
+
+  // `mousedown` y no `click`: el click llega después del `focusout`, que ya
+  // habría cerrado la lista.
+  document.addEventListener('mousedown', (evento) => {
+    const op = (evento.target as Element | null)?.closest<HTMLLIElement>(
+      '[data-buscador] [role="option"]',
+    );
+    const campo = op
+      ?.closest('[data-buscador]')
+      ?.querySelector<HTMLInputElement>('input[role="combobox"]');
+    if (!op || !campo) return;
+    evento.preventDefault();
+    elegir(campo, op);
+  });
+
+  document.addEventListener('focusout', (evento) => {
+    const campo = campoDe(evento.target);
+    if (campo) cerrar(campo);
+  });
+</script>

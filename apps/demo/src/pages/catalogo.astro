@@ -18,7 +18,13 @@ import {
   type CatalogSort,
 } from '@pick/commerce-core';
 
-import { catalogo, contextoSeo, facetasFiltrables, tiendaActual } from '../lib/db.ts';
+import {
+  catalogo,
+  contextoSeo,
+  facetasFiltrables,
+  sugerenciasDeBusqueda,
+  tiendaActual,
+} from '../lib/db.ts';
 import WishlistHeart from '@pick/commerce-astro/wishlist/WishlistHeart.astro';
 import { anotar } from '../lib/analytics.ts';
 import { misFavoritos } from '../lib/cuenta.ts';
@@ -136,6 +142,40 @@ if (termino !== '') {
     anotar(Astro.locals, 'search_no_results', url.pathname, { term: termino });
   }
 }
+
+/*
+ * Una búsqueda sin resultados no termina en una página vacía (Fase 3).
+ *
+ * Dos cosas, en paralelo: «¿Quisiste decir…?» con la sugerencia más cercana,
+ * y productos para seguir mirando. Sólo con término: un filtro sin resultados
+ * ya tiene su salida, que es quitar el filtro.
+ *
+ * Los productos son lo más vendido **si hubo ventas**. Una tienda sin pedidos
+ * ordena «más vendidos» por orden de alta, o sea lo más viejo primero, y
+ * titularlo así sería mentir: ahí van las novedades, con su nombre.
+ */
+let sugerencia: string | undefined;
+let rescate: { titulo: string; items: typeof result.items } | undefined;
+if (termino !== '' && result.total === 0) {
+  const vitrina = (sort: CatalogSort) =>
+    catalogo()
+      .buscar(tienda.storeId, { sort, perPage: 8 })
+      .then((r) => r.items)
+      .catch((error: unknown) => {
+        console.error('[catalogo] no se pudo armar la vitrina de cero resultados', error);
+        return [];
+      });
+
+  const [sugerencias, vendidos] = await Promise.all([
+    sugerenciasDeBusqueda(search),
+    vitrina('best-selling'),
+  ]);
+  sugerencia = sugerencias[0];
+  rescate = vendidos.some((p) => (p.unitsSold ?? 0) > 0)
+    ? { titulo: 'Lo más vendido', items: vendidos }
+    : { titulo: 'Novedades', items: await vitrina('newest') };
+}
+const productos = result.total > 0 ? result.items : (rescate?.items ?? []);
 
 /*
  * Tramos de precio sobre el mínimo y el máximo del catálogo entero —no del
@@ -368,7 +408,9 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
           <p class="text-sm text-fg-muted" aria-live="polite">
             {
               result.total === 0
-                ? 'No encontramos productos con esos filtros'
+                ? termino !== '' && activeCount === 0
+                  ? `No encontramos resultados para «${search.trim()}»`
+                  : 'No encontramos productos con esos filtros'
                 : `${result.total} ${result.total === 1 ? 'producto' : 'productos'}`
             }
           </p>
@@ -386,8 +428,20 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
         }
         <div id="plp-resultados">
           {
-            result.total === 0 ? (
+            result.total === 0 && (
               <div class="flex flex-col items-start gap-3 rounded-md border border-border p-6">
+                {sugerencia && (
+                  <p class="text-sm">
+                    ¿Quisiste decir{' '}
+                    <a
+                      href={`/catalogo?q=${encodeURIComponent(sugerencia)}`}
+                      class="font-medium underline"
+                    >
+                      {sugerencia}
+                    </a>
+                    ?
+                  </p>
+                )}
                 <p class="text-sm text-fg-muted">
                   Probá quitar algún filtro o buscar con otras palabras.
                 </p>
@@ -395,9 +449,17 @@ const noindex = activeCount > 0 || search !== '' || page > 1;
                   Ver todo el catálogo
                 </a>
               </div>
-            ) : (
+            )
+          }
+          {
+            rescate && rescate.items.length > 0 && (
+              <h2 class="mt-8 mb-4 font-display text-lg font-semibold">{rescate.titulo}</h2>
+            )
+          }
+          {
+            productos.length > 0 && (
               <ProductGrid>
-                {result.items.map((product, index) => {
+                {productos.map((product, index) => {
                   const variant = product.variants[0];
                   if (!variant) return null;
                   // Nada vendible, y no `=== 0`: el espejo del ERP puede venir

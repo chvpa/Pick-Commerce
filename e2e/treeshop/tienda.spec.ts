@@ -112,6 +112,38 @@ test('el menú en teléfono abre, navega y cierra con Escape', async ({ page }) 
   expect(problemasDe(page)).toEqual([]);
 });
 
+test('el buscador del encabezado sugiere, y Escape cierra primero la lista', async ({ page }) => {
+  await page.goto('/');
+
+  const dialogo = page.locator('dialog#ts-buscar');
+  await page.getByRole('link', { name: 'Buscar productos' }).click();
+  await expect(dialogo).toBeVisible();
+
+  const campo = dialogo.getByRole('combobox', { name: 'Buscar productos' });
+  await campo.pressSequentially('tecnic', { delay: 30 });
+  const lista = dialogo.getByRole('listbox', { name: 'Sugerencias' });
+  // La lista cuelga por debajo del campo y sale del diálogo: si el diálogo la
+  // recortara, no sería visible.
+  await expect(lista.getByRole('option', { name: /mochila técnica/i })).toBeVisible();
+
+  /*
+   * Escape va de lo más chico a lo más grande: el primero cierra la lista y deja
+   * lo escrito; el segundo lo usa el navegador para vaciar un campo
+   * `type="search"`, y recién el tercero cierra el diálogo.
+   */
+  await page.keyboard.press('Escape');
+  await expect(lista).toBeHidden();
+  await expect(campo).toHaveValue('tecnic');
+  await expect(dialogo).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(campo).toHaveValue('');
+  await expect(dialogo).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialogo).toBeHidden();
+
+  expect(problemasDe(page)).toEqual([]);
+});
+
 test('se puede comprar de punta a punta', async ({ page }) => {
   await page.goto(`/productos/${HANDLE}/`);
   await page.getByRole('button', { name: /agregar al carrito/i }).click();

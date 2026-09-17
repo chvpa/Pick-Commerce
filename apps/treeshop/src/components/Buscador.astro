@@ -89,6 +89,8 @@ const { consulta = '', class: className } = Astro.props;
     margin-top: 5rem;
     width: min(40rem, calc(100vw - 2rem));
     max-height: none;
+    /* Las sugerencias cuelgan por debajo del campo y salen del diálogo. */
+    overflow: visible;
     padding: 0;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-xl);

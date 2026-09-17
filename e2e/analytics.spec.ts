@@ -57,7 +57,7 @@ test('la navegación de la tienda llega al panel del Admin', async ({ page }) =>
    */
   await page.goto('/');
   await page.goto(`/catalogo?q=${encodeURIComponent(SIN_RESULTADOS)}`);
-  await expect(page.getByText(/no encontramos productos/i).first()).toBeVisible();
+  await expect(page.getByText(/no encontramos resultados/i).first()).toBeVisible();
 
   await page.goto('/catalogo?q=zapatilla');
   await page.goto(`/productos/${HANDLE}/`);
