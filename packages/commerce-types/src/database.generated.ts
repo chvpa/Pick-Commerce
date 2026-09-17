@@ -21,6 +21,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      affinity_runs: {
+        Row: {
+          computed_at: string | null
+          pairs_count: number
+          products_count: number
+          started_at: string
+          store_id: string
+          tenant_id: string
+        }
+        Insert: {
+          computed_at?: string | null
+          pairs_count?: number
+          products_count?: number
+          started_at?: string
+          store_id: string
+          tenant_id: string
+        }
+        Update: {
+          computed_at?: string | null
+          pairs_count?: number
+          products_count?: number
+          started_at?: string
+          store_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affinity_runs_store_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "affinity_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_credentials: {
         Row: {
           ciphertext: string
@@ -1209,6 +1251,68 @@ export type Database = {
         }
         Relationships: []
       }
+      product_affinity: {
+        Row: {
+          co_orders: number
+          co_views: number
+          computed_at: string
+          product_id: string
+          related_id: string
+          score: number
+          store_id: string
+          tenant_id: string
+        }
+        Insert: {
+          co_orders?: number
+          co_views?: number
+          computed_at?: string
+          product_id: string
+          related_id: string
+          score: number
+          store_id: string
+          tenant_id: string
+        }
+        Update: {
+          co_orders?: number
+          co_views?: number
+          computed_at?: string
+          product_id?: string
+          related_id?: string
+          score?: number
+          store_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_affinity_product_fkey"
+            columns: ["product_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "product_affinity_related_fkey"
+            columns: ["related_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "product_affinity_store_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "product_affinity_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_groups: {
         Row: {
           created_at: string
@@ -1295,6 +1399,52 @@ export type Database = {
           },
           {
             foreignKeyName: "product_media_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_trending: {
+        Row: {
+          computed_at: string
+          product_id: string
+          score: number
+          store_id: string
+          tenant_id: string
+        }
+        Insert: {
+          computed_at?: string
+          product_id: string
+          score: number
+          store_id: string
+          tenant_id: string
+        }
+        Update: {
+          computed_at?: string
+          product_id?: string
+          score?: number
+          store_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_trending_product_fkey"
+            columns: ["product_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "product_trending_store_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "product_trending_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1969,6 +2119,15 @@ export type Database = {
       recently_viewed: {
         Args: { p_device_id: string; p_limit?: number; p_store_id: string }
         Returns: Json
+      }
+      recompute_affinity: {
+        Args: {
+          p_cada?: string
+          p_peso_compra?: number
+          p_peso_vista?: number
+          p_store_id: string
+        }
+        Returns: number
       }
       record_payment: {
         Args: {
