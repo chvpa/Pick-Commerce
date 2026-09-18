@@ -14,7 +14,11 @@ import { IDS } from './seed-data.ts';
  *    lugar de donde puede salir ese texto es `stores.name`.
  * 2. **Un envío configurado.** Sin él no hay línea de envío que mirar en el
  *    checkout, y el caso de «envío gratis desde» no se ejercita nunca.
- * 3. **Dos co-vistas y el recálculo corrido.** La tira de recomendados sale de
+ * 3. **Una sección de portada con el orden «Preferencias»**, que es lo que el
+ *    Definition of Done pide ver lleno por los tres caminos de la cascada. La
+ *    siembra el seed sin orden automático porque ése es el default de un
+ *    comercio; acá se le pone el que el smoke necesita.
+ * 4. **Dos co-vistas y el recálculo corrido.** La tira de recomendados sale de
  *    `product_affinity`, que se llena con el tráfico real: dejarla librada a lo
  *    que haya quedado de otras corridas haría que el caso pase o falle según el
  *    día. Con esto la relación entre la zapatilla y la campera es un hecho del
@@ -43,6 +47,12 @@ export const ENVIO_E2E = { mode: 'flat', amount: 35_000, freeFrom: 1_000_000 } a
 
 /** Los dos productos que el smoke espera ver relacionados. */
 export const RELACIONADOS_E2E = ['zapatilla-urbana', 'campera-cortaviento'] as const;
+
+/** La sección de la portada que ordena por preferencias. La borra `limpiar-e2e`. */
+export const SECCION_PREFERENCIAS = {
+  id: '5eed0000-0000-4000-8000-0000000000af',
+  title: 'Para vos',
+} as const;
 
 if (existsSync('.env')) process.loadEnvFile('.env');
 
@@ -77,6 +87,30 @@ if (!url || !secretKey) {
     .from('store_settings')
     .upsert({ store_id: IDS.store, tenant_id: IDS.tenant, settings });
   if (errorAjustes) throw new Error(`No se pudo configurar el envío: ${errorAjustes.message}`);
+
+  /*
+   * La sección con el orden automático, sobre la colección dinámica que ya
+   * siembra el seed: una regla de marca más un orden, que es exactamente lo que
+   * un comercio arma desde el Admin.
+   */
+  const { error: errorOrden } = await db
+    .from('collections')
+    .update({ sort: 'preferencias' })
+    .eq('id', IDS.coleccionDinamica);
+  if (errorOrden) throw new Error(`No se pudo ordenar la colección: ${errorOrden.message}`);
+
+  const { error: errorSeccion } = await db.from('home_sections').upsert({
+    id: SECCION_PREFERENCIAS.id,
+    tenant_id: IDS.tenant,
+    store_id: IDS.store,
+    type: 'products',
+    title: SECCION_PREFERENCIAS.title,
+    layout: 'slider',
+    collection_id: IDS.coleccionDinamica,
+    position: 90,
+    published: true,
+  });
+  if (errorSeccion) throw new Error(`No se pudo crear la sección: ${errorSeccion.message}`);
 
   /*
    * La co-vista: una misma visita que mira los dos productos. `session_id` fijo

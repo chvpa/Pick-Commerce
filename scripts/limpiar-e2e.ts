@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
 import { clienteDeServidor } from '@pick/adapter-supabase';
 import { ADMIN_E2E, TIENDA_E2E } from './datos-admin-e2e.ts';
-import { CONFIGURACION, TIENDA } from './seed-data.ts';
+import { CONFIGURACION, IDS, TIENDA } from './seed-data.ts';
+import { SECCION_PREFERENCIAS } from './preparar-storefront-e2e.ts';
 
 /**
  * Borra lo que una corrida de e2e dejó en el proyecto de desarrollo.
@@ -119,6 +120,14 @@ if (url && secretKey) {
     await db
       .from('store_settings')
       .upsert({ store_id: TIENDA.id, tenant_id: TIENDA.tenant_id, settings: ajustes });
+
+    /*
+     * La sección y el orden automático que sembró `preparar-storefront-e2e`. La
+     * portada de la demo vuelve a ser la del seed: una corrida de test no puede
+     * dejarle una sección puesta a lo que se le muestra a alguien.
+     */
+    await db.from('home_sections').delete().eq('id', SECCION_PREFERENCIAS.id);
+    await db.from('collections').update({ sort: null }).eq('id', IDS.coleccionDinamica);
 
     console.log(`  tienda de la demo restituida: «${TIENDA.name}», sin el envío del smoke`);
   } catch (error) {

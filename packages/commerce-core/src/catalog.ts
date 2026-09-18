@@ -21,7 +21,23 @@ export type CatalogSort =
    * acotada a lo que no es el término de búsqueda (ADR-126); esto es lo segundo
    * que vive de un lado solo, y tiene sus tests propios.
    */
-  | 'trending';
+  | 'trending'
+  /**
+   * Lo que se adapta a quien mira: primero sus marcas y categorías, después lo
+   * que se está moviendo, y si no hay nada de eso, el orden del catálogo. La
+   * cascada entera es un `order by` (ADR-127).
+   */
+  | 'preferencias';
+
+/**
+ * Las marcas y categorías que alguien viene mirando.
+ *
+ * Es lo que devuelve `visitor_preferences` y lo único que el storefront le pasa
+ * al catálogo sobre quién está del otro lado. Vacío —un visitante nuevo, un
+ * crawler, alguien con la personalización apagada— es el caso normal, y entonces
+ * el orden cae solo al escalón siguiente.
+ */
+export type PreferenciasDelVisitante = Readonly<Record<string, readonly string[]>>;
 
 export interface CatalogQuery {
   readonly filters?: CatalogFilters;
@@ -308,6 +324,8 @@ export interface RepositorioCatalogo {
     handle: string,
     limite: number,
     sort?: CatalogSort,
+    /** Sólo lo usa el orden «preferencias». Vacío es el caso normal. */
+    prefiere?: PreferenciasDelVisitante,
   ): Promise<readonly Product[]>;
 
   /**
@@ -318,7 +336,15 @@ export interface RepositorioCatalogo {
    * completar. Así la página dibuja y no decide, y cualquier storefront que use
    * el Core obtiene la misma home sin repetir la orquestación.
    */
-  home(storeId: string): Promise<readonly SeccionResuelta[]>;
+  home(
+    storeId: string,
+    /**
+     * Lo que viene mirando quien pide la portada. Va acá y no adentro del
+     * adapter porque el dispositivo lo conoce el Worker —lee la cookie— y no la
+     * base.
+     */
+    prefiere?: PreferenciasDelVisitante,
+  ): Promise<readonly SeccionResuelta[]>;
   categorias(storeId: string): Promise<readonly CategoriaCatalogo[]>;
   /** Sólo las declaradas `filterable`: es lo que decide qué facetas ve la PLP. */
   facetasFiltrables(storeId: string): Promise<readonly DefinicionFaceta[]>;

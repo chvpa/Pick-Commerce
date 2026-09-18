@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { RELACIONADOS_E2E } from '../scripts/preparar-storefront-e2e.ts';
+import { RELACIONADOS_E2E, SECCION_PREFERENCIAS } from '../scripts/preparar-storefront-e2e.ts';
 
 /**
  * «Quien vio esto, vio»: la tira del PDP (v2 Fase 4, ADR-127).
@@ -17,6 +17,11 @@ function vigilar(page: Page): string[] {
   page.on('pageerror', (e) => problemas.push(`excepción: ${e.message}`));
   page.on('response', (r) => r.status() >= 400 && problemas.push(`HTTP ${r.status()} ${r.url()}`));
   return problemas;
+}
+
+/** El carrusel de la sección que ordena por preferencias, por su etiqueta. */
+function seccionDePreferencias(page: Page) {
+  return page.getByRole('group', { name: `Carrusel de ${SECCION_PREFERENCIAS.title}` });
 }
 
 test('el PDP muestra lo que miró quien miró esto, con precio', async ({ page }) => {
@@ -96,4 +101,38 @@ test('el endpoint no se cae con ids inventados ni cruza tiendas', async ({ reque
   const ajeno = await request.get('/api/recomendados?v=00000000-0000-4000-8000-0000000000ff');
   expect(ajeno.status()).toBe(200);
   expect(await ajeno.json()).toEqual({ productos: [] });
+});
+
+test('la sección con orden automático se ve llena para quien llega por primera vez', async ({
+  browser,
+}) => {
+  /*
+   * El arranque en frío, que es la mitad del tráfico y lo que ve un buscador:
+   * contexto nuevo, sin una sola cookie. La cascada tiene que resolverlo sin que
+   * el storefront elija ningún camino —es la misma consulta con el parámetro
+   * vacío— y la sección no puede quedar vacía.
+   */
+  const contexto = await browser.newContext();
+  const page = await contexto.newPage();
+
+  await page.goto('/');
+  await expect(seccionDePreferencias(page).getByRole('link').first()).toBeVisible();
+
+  await contexto.close();
+});
+
+test('y también para quien viene mirando una marca', async ({ browser }) => {
+  const contexto = await browser.newContext();
+  const page = await contexto.newPage();
+
+  // Tres vistas, que es el mínimo con el que el perfil existe. Las cookies del
+  // contexto son las que lo atan: `pick_did` la pone el middleware.
+  for (const handle of ['campera-cortaviento', 'remera-algodon', 'campera-cortaviento']) {
+    await page.goto(`/productos/${handle}/`);
+  }
+
+  await page.goto('/');
+  await expect(seccionDePreferencias(page).getByRole('link').first()).toBeVisible();
+
+  await contexto.close();
 });

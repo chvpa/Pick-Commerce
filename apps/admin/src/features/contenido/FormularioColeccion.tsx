@@ -47,6 +47,7 @@ const ORDENES: readonly { valor: CatalogSort; label: string }[] = [
  */
 const ORDENES_AUTOMATICOS: readonly { valor: CatalogSort; label: string }[] = [
   { valor: 'trending', label: 'Tendencia (lo que se está moviendo)' },
+  { valor: 'preferencias', label: 'Preferencias (se adapta a cada visitante)' },
 ];
 
 /**
@@ -312,6 +313,13 @@ function ReglasDinamicas({
             </SelectItem>
           ))}
         </Selector>
+        {sort === 'preferencias' && (
+          <span className="text-muted-foreground text-xs">
+            Cada visitante ve primero las marcas y categorías que viene mirando. Si es su primera
+            visita, ve lo que se está moviendo; y si la tienda todavía no tiene tráfico, el orden
+            del catálogo. Nunca queda vacía.
+          </span>
+        )}
         {sort === 'trending' && (
           <span className="text-muted-foreground text-xs">
             Se arma solo con lo que la gente miró y compró esta semana. Si todavía no hay datos

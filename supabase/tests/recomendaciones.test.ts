@@ -514,3 +514,111 @@ test('la tendencia de una tienda no ordena la colección de otra', async () => {
   assert.equal(n, 0);
   assert.deepEqual(await porTendencia(OTRA_TIENDA), []);
 });
+
+// --- «Preferencias» y la cascada -------------------------------------------------
+
+const DISPOSITIVO = 'd0000000-0000-4000-8000-0000000000d1';
+const CATEGORIA = 'c0000000-0000-4000-8000-000000000001';
+/** Dos productos con marca, que es sobre lo que se arma el bucket. */
+const CON_MARCA = ['d1bbbbbb-0000-4000-8000-000000000000', 'd1cccccc-0000-4000-8000-000000000000'];
+
+/** Una vista atada a un dispositivo, que es lo que mira `visitor_preferences`. */
+function vistaDeDispositivo(producto: string, sesion: string): string {
+  return `insert into store_events (tenant_id, store_id, session_id, device_id, type, data)
+          values ('${TENANT}', '${TIENDA}', '${sesion}', '${DISPOSITIVO}', 'product_view',
+                  '{"productId": "${producto}"}'::jsonb)`;
+}
+
+async function bucket(
+  dispositivo = DISPOSITIVO,
+  tienda = TIENDA,
+): Promise<Record<string, string[]>> {
+  const filas = await comoServicio<{ j: Record<string, string[]> }>(
+    db,
+    `select visitor_preferences('${tienda}'::uuid, '${dispositivo}'::uuid) as j`,
+  );
+  return filas[0]!.j;
+}
+
+async function porPreferencias(prefiere: object, tienda = TIENDA): Promise<string[]> {
+  const filas = await comoServicio<{ j: { items: Array<{ id: string }> } }>(
+    db,
+    `select catalog_search('${tienda}'::uuid, '{}'::jsonb, '', 'preferencias', 1, 24,
+                           null, null, null, null, '${JSON.stringify(prefiere)}'::jsonb) as j`,
+  );
+  return filas[0]!.j.items.map((x) => x.id);
+}
+
+test('el bucket necesita tres vistas: con dos no hay preferencia, hay casualidad', async () => {
+  await db.exec(`
+    insert into categories (id, tenant_id, store_id, name, slug, position)
+      values ('${CATEGORIA}', '${TENANT}', '${TIENDA}', 'Calzado', 'calzado', 0);
+  `);
+  for (const [i, id] of CON_MARCA.entries()) {
+    await db.exec(`
+      insert into products (id, tenant_id, store_id, handle, title, brand, category_id, status, created_at)
+        values ('${id}', '${TENANT}', '${TIENDA}', 'marca-${i}', 'Con marca ${i}', 'Ruta',
+                '${CATEGORIA}', 'active', now());
+      insert into product_variants (id, tenant_id, product_id, sku, title, price, currency, position)
+        values ('e1bbbb0${i}-0000-4000-8000-000000000000', '${TENANT}', '${id}', 'SKU-M${i}',
+                'Única', 100, 'PYG', 0);
+      insert into inventory_levels (tenant_id, variant_id, location_id, available)
+        values ('${TENANT}', 'e1bbbb0${i}-0000-4000-8000-000000000000', '${SUCURSAL}', 4);
+    `);
+  }
+
+  await db.exec(vistaDeDispositivo(CON_MARCA[0]!, sesion(40)));
+  await db.exec(vistaDeDispositivo(CON_MARCA[1]!, sesion(40)));
+  assert.deepEqual(await bucket(), {}, 'con dos vistas ya había preferencia');
+
+  await db.exec(vistaDeDispositivo(CON_MARCA[0]!, sesion(41)));
+  assert.deepEqual(await bucket(), { brand: ['Ruta'], categoria: ['calzado'] });
+});
+
+test('el bucket no se arma con lo que se miró en otra tienda', async () => {
+  assert.deepEqual(await bucket(DISPOSITIVO, OTRA_TIENDA), {});
+});
+
+test('sin dispositivo conocido no hay bucket', async () => {
+  assert.deepEqual(await bucket('d0000000-0000-4000-8000-0000000000ff'), {});
+});
+
+test('la cascada: con señal manda la preferencia, sin señal la tendencia, sin nada el catálogo', async () => {
+  await recalcular();
+
+  // 1. Con señal: la marca que viene mirando va primero, aunque no sea lo más
+  //    movido de la tienda.
+  const conSenal = await porPreferencias({ brand: ['Ruta'] });
+  assert.ok(CON_MARCA.includes(conSenal[0]!), `no priorizó la marca preferida: ${conSenal[0]}`);
+
+  // 2. Sin señal: el mismo orden que «Tendencia», sin un `if` de por medio.
+  assert.deepEqual(await porPreferencias({}), await porTendencia());
+
+  // 3. Sin tendencia tampoco: el orden del catálogo, y la colección no queda vacía.
+  await db.exec('begin');
+  try {
+    await db.exec(`delete from product_trending where store_id = '${TIENDA}'`);
+    const sinNada = await porPreferencias({});
+    const porCatalogo = await comoServicio<{ j: { items: Array<{ id: string }> } }>(
+      db,
+      `select catalog_search('${TIENDA}'::uuid, '{}'::jsonb, '', 'relevance', 1, 24) as j`,
+    );
+    assert.deepEqual(
+      sinNada,
+      porCatalogo[0]!.j.items.map((x) => x.id),
+    );
+    assert.ok(sinNada.length > 0, 'la colección quedó vacía en el arranque en frío');
+  } finally {
+    await db.exec('rollback');
+  }
+});
+
+test('el bucket no lo puede pedir el navegador', async () => {
+  for (const rol of ['anon', 'authenticated']) {
+    const [{ puede }] = await comoServicio<{ puede: boolean }>(
+      db,
+      `select has_function_privilege('${rol}', 'public.visitor_preferences(uuid, uuid)', 'execute') as puede`,
+    );
+    assert.equal(puede, false, `${rol} puede leer el perfil de un visitante`);
+  }
+});

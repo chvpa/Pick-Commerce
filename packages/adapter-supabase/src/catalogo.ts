@@ -77,7 +77,7 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
       return mapearResultadoCatalogo(data).items[0] ?? null;
     },
 
-    async porColeccion(storeId, handle, limite, sort) {
+    async porColeccion(storeId, handle, limite, sort, prefiere) {
       const { data, error } = await db.rpc('catalog_search', {
         p_store_id: storeId,
         p_filters: {},
@@ -86,13 +86,16 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
         p_page: 1,
         p_per_page: limite,
         p_collection: handle,
+        // Sólo lo mira el orden «preferencias»; para el resto es un parámetro
+        // que no filtra nada, así que no hay dos caminos que mantener.
+        ...(prefiere ? { p_prefiere: prefiere } : {}),
       });
 
       if (error) throw new Error(`No se pudo leer la colección ${handle}: ${error.message}`);
       return mapearResultadoCatalogo(data).items;
     },
 
-    async home(storeId): Promise<readonly SeccionResuelta[]> {
+    async home(storeId, prefiere): Promise<readonly SeccionResuelta[]> {
       /*
        * Dos consultas para todas las secciones y sus piezas, y después una por
        * cada carrusel de productos.
@@ -199,6 +202,7 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
                 coleccion.handle,
                 PRODUCTOS_POR_SECCION,
                 (coleccion.sort as CatalogSort | null) ?? undefined,
+                prefiere,
               ),
             };
           }),

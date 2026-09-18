@@ -2066,6 +2066,7 @@ export type Database = {
           p_handle?: string
           p_page?: number
           p_per_page?: number
+          p_prefiere?: Json
           p_price_max?: number
           p_price_min?: number
           p_search?: string
@@ -2145,6 +2146,10 @@ export type Database = {
       }
       search_suggest: {
         Args: { p_limit?: number; p_q: string; p_store_id: string }
+        Returns: Json
+      }
+      visitor_preferences: {
+        Args: { p_device_id: string; p_store_id: string }
         Returns: Json
       }
       wishlist_products: { Args: { p_store_id: string }; Returns: Json }

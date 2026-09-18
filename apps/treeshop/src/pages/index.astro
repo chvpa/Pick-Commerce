@@ -13,7 +13,14 @@ import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astr
 import ProductCarousel from '@pick/commerce-astro/product/ProductCarousel.astro';
 import { categoriasDeLaSeccion, organizationJsonLd } from '@pick/commerce-core';
 
-import { catalogo, categorias, contextoSeo, tiendaActual, vistosRecientemente } from '../lib/db.ts';
+import {
+  catalogo,
+  categorias,
+  contextoSeo,
+  preferenciasDelVisitante,
+  tiendaActual,
+  vistosRecientemente,
+} from '../lib/db.ts';
 import Base from '../layouts/Base.astro';
 
 /*
@@ -31,8 +38,16 @@ const tienda = await tiendaActual();
  * handle de la colección destacada, así que la vidriera de cualquier tienda era
  * la que este archivo dijera.
  */
+/*
+ * Lo que este navegador viene mirando. Va **antes** que la portada porque la
+ * portada lo necesita: una sección con el orden «preferencias» ordena con esto.
+ * Es una consulta chica por el índice de dispositivo, y sin `deviceId` —bot,
+ * precarga o personalización apagada— no sale a la base.
+ */
+const prefiere = await preferenciasDelVisitante(Astro.locals.deviceId);
+
 const [secciones, cats, vistos] = await Promise.all([
-  catalogo().home(tienda.storeId),
+  catalogo().home(tienda.storeId, prefiere),
   categorias(),
   /*
    * Lo que este navegador vino mirando. Va en el mismo `Promise.all` que el

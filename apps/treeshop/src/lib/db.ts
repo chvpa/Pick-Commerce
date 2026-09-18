@@ -16,6 +16,7 @@ import {
   esTiendaDemo,
   resolverTenant,
   type CategoriaCatalogo,
+  type PreferenciasDelVisitante,
   type ConfiguracionDeEnvio,
   type ConfiguracionDePagos,
   type RepositorioCatalogo,
@@ -320,6 +321,34 @@ export async function recomendadosParaVariantes(
   } catch (error) {
     console.error('[recomendados] no se pudieron mapear las variantes', error);
     return [];
+  }
+}
+
+/**
+ * Lo que este navegador viene mirando, en dos marcas y dos categorías.
+ *
+ * Es todo lo que el catálogo llega a saber de quien pide la página, y sólo lo usa
+ * el orden «preferencias». Sin dispositivo —personalización apagada, bot o
+ * precarga— no se consulta nada y el orden cae a tendencia, que es el escalón
+ * siguiente de la cascada (ADR-127).
+ */
+export async function preferenciasDelVisitante(
+  deviceId: string | undefined,
+): Promise<PreferenciasDelVisitante | undefined> {
+  if (!deviceId) return undefined;
+
+  try {
+    const { storeId } = await tiendaActual();
+    const { data, error } = await db().rpc('visitor_preferences', {
+      p_store_id: storeId,
+      p_device_id: deviceId,
+    });
+
+    if (error) throw new Error(error.message);
+    return data as unknown as PreferenciasDelVisitante;
+  } catch (error) {
+    console.error('[preferencias] no se pudieron leer', error);
+    return undefined;
   }
 }
 

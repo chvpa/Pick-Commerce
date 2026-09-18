@@ -30,4 +30,5 @@ export const ETIQUETA_ORDEN: Partial<Record<string, string>> = {
   'price-desc': 'precio, mayor a menor',
   'title-asc': 'título',
   trending: 'tendencia',
+  preferencias: 'preferencias de cada visitante',
 };
