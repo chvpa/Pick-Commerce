@@ -12,6 +12,17 @@ import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { ETIQUETA_TIPO } from './etiquetas';
 
+/** Fecha y hora cortas: «17/09/26, 22:14». Un recálculo de ayer no es lo mismo que uno de hoy. */
+function cuando(iso: string, locale: string): string {
+  return new Date(iso).toLocaleString(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 /**
  * Los bloques de la portada, en el orden en que se ven.
  *
@@ -36,6 +47,17 @@ export function Secciones() {
     queryKey: ['colecciones', tienda.id, 'todas'],
     queryFn: () =>
       repositorioContenido(db).colecciones(tienda.id, { perPage: TOPE_DE_COLECCIONES }),
+  });
+
+  /*
+   * Cuándo se recalcularon las recomendaciones. Los órdenes «Tendencia» y
+   * «Preferencias» se arman solos, así que el comercio tiene que poder ver que
+   * se armaron —y cuándo—: sin eso, una sección que no cambia parece rota y una
+   * que cambia parece arbitraria (ADR-127).
+   */
+  const recomendaciones = useQuery({
+    queryKey: ['recomendaciones', tienda.id],
+    queryFn: () => repositorioContenido(db).estadoDeRecomendaciones(tienda.id),
   });
 
   const refrescar = () => queryClient.invalidateQueries({ queryKey: ['secciones', tienda.id] });
@@ -183,6 +205,31 @@ export function Secciones() {
             ))}
           </ul>
         )}
+      </Tarjeta>
+
+      {/*
+        Dos cosas que un orden automático necesita para no dar miedo: cuándo se
+        armó, y cómo se ve para alguien que llega por primera vez —que es la
+        mitad del tráfico y lo que ve un buscador—.
+      */}
+      <Tarjeta>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-muted-foreground text-sm">
+            {recomendaciones.data?.computedAt
+              ? `Recomendaciones actualizadas el ${cuando(recomendaciones.data.computedAt, tienda.locale)} · ${recomendaciones.data.productsCount} productos con señal, ${recomendaciones.data.pairsCount} relaciones.`
+              : 'Las recomendaciones se calculan solas con el tráfico de la tienda. Todavía no corrieron.'}
+          </p>
+          {tienda.domain && (
+            <a
+              href={`https://${tienda.domain}/?frio=1`}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              Ver la portada como un visitante nuevo
+            </a>
+          )}
+        </div>
       </Tarjeta>
     </PaginaAdmin>
   );

@@ -221,6 +221,24 @@ export function repositorioContenido(db: PickSupabaseClient): RepositorioConteni
 
     // --- Secciones -----------------------------------------------------------
 
+    async estadoDeRecomendaciones(storeId) {
+      const { data, error } = await db
+        .from('affinity_runs')
+        .select('computed_at, products_count, pairs_count')
+        .eq('store_id', storeId)
+        .maybeSingle();
+
+      if (error)
+        throw new Error(`No se pudo leer el estado de las recomendaciones: ${error.message}`);
+      if (!data) return null;
+
+      return {
+        computedAt: data.computed_at,
+        productsCount: data.products_count,
+        pairsCount: data.pairs_count,
+      };
+    },
+
     async secciones(storeId): Promise<readonly SeccionDeHome[]> {
       const { data, error } = await db
         .from('home_sections')

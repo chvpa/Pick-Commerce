@@ -973,9 +973,16 @@ v2 una persona puede entrar a su cuenta en una tienda con un código que le lleg
 por correo —sin contraseña: el código _es_ la verificación—, y la cuenta guarda
 sus pedidos y sus direcciones. Lo que **no** guarda es qué miró: `store_events`
 sigue anotando el identificador de sesión y nada lo ata a `customer_accounts`.
-Atarlos es lo que habilita recomendar por historial, y es una decisión de
-producto que se toma y se anuncia aparte, no un efecto colateral de que ahora
-haya cuentas. El texto de privacidad de cada tienda lo dice en esos términos.
+Atarlos es lo que habilita recomendar por historial **cruzando dispositivos**, y
+es una decisión de producto que se toma y se anuncia aparte, no un efecto
+colateral de que ahora haya cuentas. El texto de privacidad de cada tienda lo
+dice en esos términos.
+
+Lo que sí existe desde la v2 Fase 4 es recomendar **por navegador**: `pick_did`
+alcanza para saber que este navegador viene mirando zapatillas de una marca, y
+con eso la vitrina se ordena sola (ADR-127). No hay nombre, ni correo, ni nada
+que sobreviva a apagar la personalización o a cambiar de dispositivo. La
+diferencia entre las dos cosas es exactamente la línea que este capítulo protege.
 
 Y una consecuencia del esquema que ordena todo lo demás: hay **un solo**
 `auth.users` para todos los comercios, así que la pertenencia a una tienda vive

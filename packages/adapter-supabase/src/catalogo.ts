@@ -86,9 +86,20 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
         p_page: 1,
         p_per_page: limite,
         p_collection: handle,
-        // Sólo lo mira el orden «preferencias»; para el resto es un parámetro
-        // que no filtra nada, así que no hay dos caminos que mantener.
-        ...(prefiere ? { p_prefiere: prefiere } : {}),
+        /*
+         * Sólo lo mira el orden «preferencias»; para el resto es un parámetro que
+         * no filtra nada, así que no hay dos caminos que mantener.
+         *
+         * Se copia a arreglos mutables porque el tipo `Json` que genera Supabase
+         * no acepta `readonly`, y el contrato del core sí lo es a propósito.
+         */
+        ...(prefiere
+          ? {
+              p_prefiere: Object.fromEntries(
+                Object.entries(prefiere).map(([faceta, valores]) => [faceta, [...valores]]),
+              ),
+            }
+          : {}),
       });
 
       if (error) throw new Error(`No se pudo leer la colección ${handle}: ${error.message}`);

@@ -1181,7 +1181,7 @@ costo por consulta, y con cobertura real en CI.
 
 ## Fase 4 — Recomendaciones y portada por visitante
 
-**Avance: 0%**
+**Avance: 90%**
 
 Objetivo: «quien vio esto vio» y «suele comprarse con» donde está la intención
 —el PDP y el carrito— y sólo después una portada que cambia según quién la mira.
@@ -1189,7 +1189,7 @@ La portada **ya varía por comercio** desde ADR-094, que la compone por seccione
 administrables; lo que falta es que varíe por **quién la mira**. Sin esa
 distinción se construía dos veces lo mismo.
 
-- [ ] Pedir «estos productos, en este orden» sin que aparezcan dos
+- [x] Pedir «estos productos, en este orden» sin que aparezcan dos
       serializaciones divergentes del producto —otra promoción, otro tachado, otro
       stock, otras reglas de publicación—. **No por `p_ids` en `catalog_search`**:
       ese filtro ya se midió en su forma análoga y duplicó el costo del listado, y
@@ -1201,7 +1201,7 @@ distinción se construía dos veces lo mismo.
       ids salen de las preferencias privadas de un comprador —la garantía de que
       son de _ese_ comprador la da el Worker, y eso se dice en el ADR de sesión de
       la Fase 0.
-- [ ] Item-a-item primero, que **no necesita identidad**: co-vistas y co-compras
+- [x] Item-a-item primero, que **no necesita identidad**: co-vistas y co-compras
       agregadas desde `store_events` y `order_items` a una tabla
       `product_affinity` con tenant, tienda, producto, relacionado, score y
       `computed_at`. Cubre
@@ -1209,28 +1209,32 @@ distinción se construía dos veces lo mismo.
       entregar con las cuentas apagadas. **Con `tenant_id` y `store_id`**: una
       tabla de afinidad sin store scope recomienda productos de un comercio dentro
       de otro.
-- [ ] El recálculo va donde ya va la purga, **no en un cron nuevo**. No hay
+- [x] El recálculo va donde ya va la purga, **no en un cron nuevo**. No hay
       scheduler en el repo: ningún `triggers`/`crons` en ningún `wrangler.jsonc`,
       ningún `pg_cron` en las migraciones, y lo único agendado es el latido, que
       hace GETs de uptime. El patrón que el repo ya usa para trabajo periódico es
       `purgar()` disparada oportunísticamente desde el middleware con `waitUntil`.
       `pg_cron` no está en PGlite y dejaría la suite de aislamiento sin arrancar,
       que es la cuarta repetición de la misma trampa.
-- [ ] Recomendaciones en el PDP y en el carrito, en ese orden, **antes** que la
+- [x] Recomendaciones en el PDP y en el carrito, en ese orden, **antes** que la
       portada: la portada es una impresión, el PDP y el carrito están en el momento
       de la intención, y ahí una recomendación se convierte en la segunda línea del
       pedido.
-- [ ] Perfil por cuenta: `customer_preferences` con pesos por categoría, marca y
+- [ ] **Diferido con su motivo** (backlog): perfil por cuenta.
+      `customer_preferences` con pesos por categoría, marca y
       rango de precio, derivado de `product_view`, `add_to_cart`, `wishlist_add` y
       `orders`. **Materializado, no calculado por request**: `store_events` es la
       tabla de más volumen y se purga a los 180 días, así que el perfil tiene que
       sobrevivir a la purga y el cálculo no puede estar en el camino de la
-      respuesta.
-- [ ] Contar, no entrenar. Pesos explícitos en `commerce-core` con tests, que se
+      respuesta. Lo que se entregó va por `pick_did`, la cookie de dispositivo,
+      que cubre a casi todo el tráfico sin cruzar lo que alguien mira con quién
+      es: cruzarlo cambia el texto de privacidad **antes**, y eso es decisión de
+      producto (ADR-124).
+- [x] Contar, no entrenar. Pesos explícitos en `commerce-core` con tests, que se
       pueden explicar cuando el comercio pregunte por qué aparece algo. Con este
       volumen no hay forma de evaluar un modelo y sí de explicar un peso, y no hay
       dos implementaciones reales que justifiquen un adapter.
-- [ ] **Dos órdenes nuevos en la colección, y nada más.** Una colección ya es
+- [x] **Dos órdenes nuevos en la colección, y nada más.** Una colección ya es
       `rules` —qué entra al pozo— más `sort` —en qué orden—, y ya se combinan:
       «Best sellers» de Treeshop es `rules: {brand, color, categoria}` con
       `sort: best-selling`. El desplegable que el Admin ya muestra tiene seis
@@ -1247,7 +1251,7 @@ distinción se construía dos veces lo mismo.
       apuntando a una colección, `home_sections_coleccion_coherente` no hay
       que tocarlo.
 
-- [ ] **La cascada por sección, que es lo que hace la promesa honesta.** El
+- [x] **La cascada por sección, que es lo que hace la promesa honesta.** El
       comercio elige «Preferencias» y el storefront resuelve en orden: visitante
       con señal → orden personalizado; visitante sin señal → **tendencia**;
       tienda sin tráfico suficiente → el orden de respaldo que el comercio
@@ -1255,40 +1259,40 @@ distinción se construía dos veces lo mismo.
       debajo del desplegable para que nadie se sorprenda. `Tendencia` se entrega
       **antes** que `Preferencias`: funciona con cientos de sesiones, no necesita
       identidad, no tiene costo de privacidad y es el respaldo de la otra.
-- [ ] **Tres anclas, una sola tabla.** Portada y PLP se anclan al **visitante**;
+- [x] **Tres anclas, una sola tabla.** Portada y PLP se anclan al **visitante**;
       el PDP se ancla al **producto** —«quien vio esto vio», «suele comprarse
       con»— y recién encima se reordena por las preferencias de quien mira; el
       carrito se ancla al **carrito**. Es `product_affinity` leída con tres
       claves distintas. Si no se nombran por separado, «recomendados» suena a una
       cosa y son tres.
-- [ ] **El perfil se reduce a un bucket de afinidad** —sus dos o tres marcas y
+- [x] **El perfil se reduce a un bucket de afinidad** —sus dos o tres marcas y
       categorías— y el orden se precomputa por bucket. Un orden por persona
       calculado en cada petición mata el caché y reabre la consulta del catálogo
       que ya costó cuatro migraciones: el storefront hace un _lookup_ y lo entra a
       `catalog_search` como `p_ids`.
-- [ ] Arranque en frío por un solo camino de código, obligatorio: sin señal
+- [x] Arranque en frío por un solo camino de código, obligatorio: sin señal
       suficiente —una tienda sin historia, un visitante nuevo, un crawler— se sirve
       **siempre** la misma portada determinista, con su `h1` y su hero. La mitad de
       los visitantes va a caer ahí, y un carrusel de recomendados vacío es peor que
       no tenerlo. Ya pasó una vez al sacar el hero fijo.
-- [ ] Caché: una portada por persona no puede tener `cache-control: public`, y las
+- [x] Caché: una portada por persona no puede tener `cache-control: public`, y las
       precargas del `ClientRouter` se descartan por `Sec-Purpose` y `X-moz` como ya
       hace analytics — si no, cada hover cuenta como visita y contamina la señal.
-- [ ] Todo lo que salga de acá pasa por `catalog_search`, que ya esconde sin stock
+- [x] Todo lo que salga de acá pasa por `catalog_search`, que ya esconde sin stock
       y opcionalmente sin foto (ADR-112): recomendar lo que no hay es el modo de
       falla por defecto de esta fase.
-- [ ] En el Admin: **poder ver qué se le muestra a un visitante nuevo**, que es
+- [x] En el Admin: **poder ver qué se le muestra a un visitante nuevo**, que es
       el caso que nadie prueba y el que ve Google. Y una línea de resultado por
       sección —cuántos clics, cuánto vendió—: sin eso el comercio no puede saber
       si la sección funciona y va a asumir que no.
 
 **Definition of Done**
 
-- [ ] un visitante nuevo y un crawler ven una portada completa y estable, con `h1`
-- [ ] ninguna lista recomendada muestra un producto que el catálogo esconde
-- [ ] `product_affinity` no cruza tiendas, con su test de aislamiento
-- [ ] el recálculo corre solo y su `computed_at` se puede ver en el Admin
-- [ ] una sección con `sort: preferencias` se ve llena para un visitante nuevo,
+- [x] un visitante nuevo y un crawler ven una portada completa y estable, con `h1`
+- [x] ninguna lista recomendada muestra un producto que el catálogo esconde
+- [x] `product_affinity` no cruza tiendas, con su test de aislamiento
+- [x] el recálculo corre solo y su `computed_at` se puede ver en el Admin
+- [x] una sección con `sort: preferencias` se ve llena para un visitante nuevo,
       para uno con perfil y para una tienda sin tráfico, por los tres caminos de
       la cascada
 
@@ -1885,16 +1889,18 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-15 | **v2 Fase 2 entregada al 100%.** «Seguí viendo» en la portada cierra el checkpoint del sustrato: corre sobre la misma tabla que van a leer las preferencias de la Fase 4, así que si esta consulta sale bien el resto tiene de dónde comer. **Cero tracking nuevo** —el `product_view` ya se registraba del lado del servidor desde la Fase 10— y **cero paso por `catalog_search`**, que se decidió no tocar: la tira no muestra precio, por lo mismo que la wishlist. Va por dispositivo y no cruzada con la cuenta, que es lo que el texto de privacidad promete hoy. Con la personalización apagada no existe, y un producto que se queda sin stock sale de ella — lo contrario que en la wishlist, donde lo guardado se muestra y se dice: una es algo que la persona eligió, la otra es una ayuda para seguir navegando                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | v2 Fase 2 |          90% |           100% |
 | 2026-09-16 | **v2 Fase 0 cerrada.** La última línea de su Definition of Done era la única que no se podía comprobar desde el repo: que un correo de la tienda llegue a una casilla ajena y autenticado. Confirmado leyendo las cabeceras en Gmail —SPF, DKIM y DMARC en PASS, el DKIM firmado por `sontres.shop` y no por el proveedor, `De: noreply@sontres.shop`, entregado en un segundo a Recibidos—. Importa más que antes de la Fase 1: ese canal ya no lleva sólo avisos de pedido, lleva el código para entrar a la cuenta                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | v2 Fase 0 |         100% |           100% |
 | 2026-09-16 | **v2 Fase 3 entregada al 100%.** «zapatila» encuentra zapatillas, «nino» encuentra «Niños» y la búsqueda ordena por relevancia. El documento de búsqueda es una **columna generada** con título y marca —no un trigger: los SKU van por prefijo aparte, y lo demás vive en la fila— con trigramas de `pg_trgm`, que la suite carga en PGlite. `catalog_search` conservó su firma y **no se volvió más lento**: medido contra Treeshop, intercalado con la definición anterior y un control, el listado quedó en 581 ms contra 613–625; en once búsquedas reales no se perdió ningún producto. Sugerencias mientras se escribe, sin island y sin eventos; cero resultados propone «¿Quisiste decir…?» y productos para seguir. La paridad con `queryCatalog` dejó afuera el término (ADR-126), y los tests que la reemplazan se comprobaron rompiendo el SQL a propósito. De paso apareció que el test de aislamiento de ítems y facetas seguía verde sin el filtro de tienda                                                                                                                                                                                                                                                                                                                                   | v2 Fase 3 |           0% |           100% |
+| 2026-09-17 | **v2 Fase 4 al 90%: recomendaciones y portada por visitante.** El ROADMAP abría la fase con `p_ids` en `catalog_search` y se descartó con dos mediciones del propio repo: el filtro análogo duplicó el listado en septiembre, y el camino acotado cuesta 355 ms porque calcula la tienda entera. En su lugar `app.catalog_items` comparte el documento del producto acotado a los ids —15 ms una tira de ocho— con un test de equivalencia que falla si las dos copias divergen (ADR-127). `product_affinity` y `product_trending` las escribe un recálculo oportunista cuyo turno **lo reclama la base**, no la variable de módulo del isolate. La tira del PDP y la del carrito funcionan sin identidad; los órdenes «Tendencia» y «Preferencias» son dos desplegables que el comercio ya sabía usar, y la cascada —preferencia, tendencia, catálogo— es un solo `order by`, así que el arranque en frío no es una rama que nadie prueba. Las dos compuertas de medición dieron neutro. La suite de aislamiento encontró lo que el typecheck y el e2e no pueden: `catalog_search` es security invoker y el Admin la llama con la clave publicable. Quedan en el backlog, con su motivo, el perfil por cuenta y la línea de resultado por sección                                                             | v2 Fase 4 |           0% |            90% |
 
 ---
 
 # Próximo paso recomendado
 
-v1 y las fases 0 a 3 de v2 están cerradas y desplegadas. El comprador tiene
-identidad, la tienda tiene memoria, y el buscador encuentra lo que se escribe mal.
+v1 y las fases 0 a 4 de v2 están cerradas y desplegadas —la 4 al 90%, con dos
+ítems diferidos y anotados—. El comprador tiene identidad, la tienda tiene
+memoria, el buscador encuentra lo que se escribe mal y la vitrina se ordena
+sola con lo que la gente mira.
 
-1. **Fase 4 — recomendaciones y portada por visitante.** Es la siguiente, y la
-   Fase 2 ya le dejó de dónde comer.
+1. **Fase 5 — devolver a la vitrina lo que no se ve.** Es la siguiente.
 2. **El costo de `catalog_search`**, que es lo más caro que hay anotado: el PDP
    de Treeshop está en 355 ms y el listado en 600, y se sabe por qué. Está en
    `Backlog / Retroactividad` con las dos salidas medidas. Se decidió no tocarlo

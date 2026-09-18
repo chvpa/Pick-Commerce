@@ -261,6 +261,30 @@ encuentra «canguro».
 **Qué lo desbloquea:** la búsqueda semántica de la Fase 6 de v2 en el
 [ROADMAP](ROADMAP.md), que se suma a este score en vez de reemplazarlo.
 
+### Las recomendaciones cuentan, no aprenden
+
+«Quien vio esto, vio» y los órdenes automáticos salen de dos conteos con dos
+pesos explícitos —una co-compra vale cinco co-vistas (ADR-127)—, no de un modelo.
+Con el volumen de un comercio chico eso es una ventaja: se puede explicar por qué
+aparece algo. Pero no hay similitud por contenido, así que **un producto recién
+cargado no se recomienda hasta que alguien lo mire junto a otro**, y una tienda
+sin tráfico no tiene recomendaciones: la tira del PDP no se dibuja y los órdenes
+automáticos caen al orden del catálogo.
+
+El recálculo **viaja con el tráfico**, como la purga: corre como mucho cada seis
+horas, disparado por una visita. Una tienda sin visitas no recalcula —tampoco
+tendría con qué—, y lo que se compró hace un minuto puede tardar hasta seis horas
+en aparecer.
+
+**El perfil es del navegador, no de la persona.** Va por `pick_did`, así que no
+sigue a nadie del teléfono al escritorio, y con la personalización apagada no
+existe: se ve lo que se está moviendo, que es lo mismo que ve alguien que llega
+por primera vez.
+
+**Qué lo desbloquea:** el perfil por cuenta está en el backlog del
+[ROADMAP](ROADMAP.md), y cruzar lo que alguien mira con quién es cambia el texto
+de privacidad **antes** que la tienda.
+
 ### Analytics no cuenta las precargas de Safari
 
 Chrome manda `Sec-Purpose: prefetch` y Firefox `X-moz`, y las dos se descartan.

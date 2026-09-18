@@ -44,7 +44,14 @@ const tienda = await tiendaActual();
  * Es una consulta chica por el índice de dispositivo, y sin `deviceId` —bot,
  * precarga o personalización apagada— no sale a la base.
  */
-const prefiere = await preferenciasDelVisitante(Astro.locals.deviceId);
+/*
+ * `?frio=1` fuerza el camino de un visitante nuevo. Existe para que el comercio
+ * pueda **ver lo que ve alguien que llega por primera vez** desde el Admin, que
+ * es el caso que nadie prueba y el que ve un buscador (v2 Fase 4). No apaga
+ * ninguna medición: la visita se anota igual.
+ */
+const enFrio = Astro.url.searchParams.has('frio');
+const prefiere = enFrio ? undefined : await preferenciasDelVisitante(Astro.locals.deviceId);
 
 const [secciones, cats, vistos] = await Promise.all([
   catalogo().home(tienda.storeId, prefiere),

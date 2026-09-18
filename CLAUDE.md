@@ -416,6 +416,11 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
   en PGlite. Por eso figura como pública en la suite de aislamiento. Y `pg_trgm`
   vive en el schema `extensions`, así que una función que lo use lo necesita en
   su `search_path`; la suite lo carga en PGlite (ADR-125).
+- **Una tabla nueva que entre a `catalog_search` necesita permiso para
+  `authenticated`**, porque esa función es `security invoker` y el Admin la llama
+  con la publishable key para traer las facetas. `product_trending` nació sin
+  política y dejó dos pantallas del Admin con «permission denied»; lo encontró la
+  suite de aislamiento, no el typecheck ni el e2e, que corren con la secret key.
 - Un importador que reimporta **pisa lo que la tienda editó** si no mira el
   dueño de cada campo: `field_sources` declara el origen y sólo los campos
   marcados como del ERP se sobreescriben. Y el borrado de medios se acota a los

@@ -130,6 +130,13 @@ export interface PaginaColecciones {
  */
 export const TOPE_DE_COLECCIONES = 200;
 
+/** Lo que `affinity_runs` guarda de la última corrida (ADR-127). */
+export interface EstadoDeRecomendaciones {
+  readonly computedAt: string | null;
+  readonly productsCount: number;
+  readonly pairsCount: number;
+}
+
 export interface RepositorioContenido {
   colecciones(storeId: string, consulta?: ConsultaColecciones): Promise<PaginaColecciones>;
   coleccion(storeId: string, id: string): Promise<Coleccion | null>;
@@ -137,6 +144,14 @@ export interface RepositorioContenido {
   borrarColeccion(storeId: string, id: string): Promise<void>;
 
   secciones(storeId: string): Promise<readonly SeccionDeHome[]>;
+  /**
+   * Cuándo se recalcularon las recomendaciones de esta tienda y sobre cuánto.
+   *
+   * Nulo cuando todavía no corrió, que es el estado de una tienda recién
+   * abierta. Lo muestra el Admin: un orden que se arma solo tiene que poder
+   * decir cuándo se armó, o el comercio no sabe si mira algo viejo.
+   */
+  estadoDeRecomendaciones(storeId: string): Promise<EstadoDeRecomendaciones | null>;
   guardarSeccion(storeId: string, datos: DatosDeSeccion, id?: string): Promise<string>;
   borrarSeccion(storeId: string, id: string): Promise<void>;
 
