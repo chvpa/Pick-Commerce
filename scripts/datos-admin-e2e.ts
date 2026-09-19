@@ -25,3 +25,16 @@ export const TIENDA_E2E = {
   slug: 'e2e-segunda',
   name: 'Sucursal de prueba e2e',
 } as const;
+
+/**
+ * Un producto con stock y sin foto en la segunda tienda: el que el smoke
+ * fotografía desde «Sin foto» (v2 Fase 5). Vive en la tienda de la corrida, así
+ * que se va en cascada con ella y ninguna corrida hereda la foto de la anterior.
+ */
+export const PRODUCTO_SIN_FOTO_E2E = {
+  id: '5eede2e0-0000-4000-8000-0000000000f1',
+  varianteId: '5eede2e0-0000-4000-8000-0000000000f2',
+  sucursalId: '5eede2e0-0000-4000-8000-0000000000f3',
+  handle: 'sin-foto-del-smoke',
+  title: 'Producto sin foto del smoke',
+} as const;

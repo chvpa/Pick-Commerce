@@ -1,6 +1,7 @@
 import type {
   ConsultaProductos,
   PaginaProductos,
+  PaginaSinFoto,
   ProductoCargado,
   ProductoEditable,
   RepositorioAdminCatalogo,
@@ -87,6 +88,48 @@ export function repositorioAdminCatalogo(db: PickSupabaseClient): RepositorioAdm
 
       if (error) throw new Error(`No se pudieron listar los productos: ${error.message}`);
       return data as unknown as PaginaProductos;
+    },
+
+    async sinFoto(storeId, page, perPage = 20): Promise<PaginaSinFoto> {
+      const { data, error } = await db.rpc('admin_products_without_photo', {
+        p_store_id: storeId,
+        p_page: page,
+        p_per_page: perPage,
+      });
+
+      if (error) throw new Error(`No se pudo leer la cola de fotos: ${error.message}`);
+      return data as unknown as PaginaSinFoto;
+    },
+
+    async agregarFoto(tenantId, storeId, productId, foto): Promise<void> {
+      /*
+       * La posición es «después de la última». Se pregunta en vez de suponer
+       * cero: el producto puede haber recibido otra foto entre que se cargó la
+       * cola y ahora, y dos filas en la posición cero dejan indeterminado cuál
+       * sale primera en la vitrina.
+       */
+      const { data: ultima, error: errorUltima } = await db
+        .from('product_media')
+        .select('position, products!inner(store_id)')
+        .eq('product_id', productId)
+        .eq('products.store_id', storeId)
+        .order('position', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (errorUltima) throw new Error(`No se pudo leer las fotos: ${errorUltima.message}`);
+
+      const { error } = await db.from('product_media').insert({
+        tenant_id: tenantId,
+        product_id: productId,
+        url: foto.url,
+        alt: foto.alt,
+        width: foto.width,
+        height: foto.height,
+        position: ultima ? ultima.position + 1 : 0,
+      });
+
+      if (error) throw new Error(`No se pudo guardar la foto: ${error.message}`);
     },
 
     async porId(storeId, id): Promise<ProductoCargado | null> {

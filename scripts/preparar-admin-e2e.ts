@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { clienteDeServidor } from '@pick/adapter-supabase';
 import { IDS } from './seed-data.ts';
-import { ADMIN_E2E, TIENDA_E2E } from './datos-admin-e2e.ts';
+import { ADMIN_E2E, PRODUCTO_SIN_FOTO_E2E, TIENDA_E2E } from './datos-admin-e2e.ts';
 
 /**
  * Lo que el smoke del Admin necesita en la base y el seed no siembra.
@@ -72,6 +72,54 @@ if (!url || !secretKey) {
       console.error(`No se pudo crear la segunda tienda: ${errorTienda.message}`);
       process.exitCode = 1;
     } else {
+      /*
+       * El producto sin foto que fotografía el smoke, con stock para que encabece
+       * la cola. Se borra primero lo que quedó de una corrida cortada: si ya tiene
+       * foto, la cola no lo muestra y el caso no tendría qué fotografiar.
+       */
+      const P = PRODUCTO_SIN_FOTO_E2E;
+      await db.from('product_media').delete().eq('product_id', P.id);
+      const pasos = [
+        db.from('locations').upsert({
+          id: P.sucursalId,
+          tenant_id: IDS.tenant,
+          store_id: TIENDA_E2E.id,
+          name: 'Depósito del smoke',
+        }),
+        db.from('products').upsert({
+          id: P.id,
+          tenant_id: IDS.tenant,
+          store_id: TIENDA_E2E.id,
+          handle: P.handle,
+          title: P.title,
+          status: 'active',
+        }),
+        db.from('product_variants').upsert({
+          id: P.varianteId,
+          tenant_id: IDS.tenant,
+          product_id: P.id,
+          sku: 'SMOKE-SIN-FOTO',
+          title: 'Única',
+          price: 100_000,
+          currency: 'PYG',
+          position: 0,
+        }),
+        db.from('inventory_levels').upsert(
+          {
+            tenant_id: IDS.tenant,
+            variant_id: P.varianteId,
+            location_id: P.sucursalId,
+            available: 3,
+          },
+          { onConflict: 'variant_id,location_id' },
+        ),
+      ];
+      for (const paso of pasos) {
+        const { error: errorPaso } = await paso;
+        if (errorPaso)
+          throw new Error(`No se pudo sembrar el producto sin foto: ${errorPaso.message}`);
+      }
+
       console.log(`  admin del smoke: ${ADMIN_E2E.email} · segunda tienda: ${TIENDA_E2E.slug}`);
     }
   }

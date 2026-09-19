@@ -98,6 +98,45 @@ export interface ProductoCargado {
  */
 export type EstadoAlternable = Extract<ProductStatus, 'active' | 'archived'>;
 
+/** Un producto que espera su foto, con lo justo para encontrarlo en el depósito. */
+export interface ProductoSinFoto {
+  readonly id: string;
+  readonly handle: string;
+  readonly title: string;
+  readonly brand?: string;
+  readonly sku?: string;
+  readonly stock: number;
+}
+
+/**
+ * Cuánto de la vitrina se ve (v2 Fase 5). `listables` es «con foto y con stock»:
+ * lo que una tienda que oculta lo agotado y lo que no tiene foto termina
+ * mostrando.
+ */
+export interface CuentasDeVitrina {
+  readonly activos: number;
+  readonly listables: number;
+  readonly sinFotoConStock: number;
+  readonly recuperadosSemana: number;
+}
+
+export interface PaginaSinFoto {
+  readonly items: readonly ProductoSinFoto[];
+  readonly total: number;
+  readonly page: number;
+  readonly perPage: number;
+  readonly pageCount: number;
+  readonly cuentas: CuentasDeVitrina;
+}
+
+/** Una foto recién subida, lista para colgar de su producto. */
+export interface FotoNueva {
+  readonly url: string;
+  readonly alt: string;
+  readonly width: number;
+  readonly height: number;
+}
+
 export interface RepositorioAdminCatalogo {
   listar(storeId: string, consulta: ConsultaProductos): Promise<PaginaProductos>;
   porId(storeId: string, id: string): Promise<ProductoCargado | null>;
@@ -127,6 +166,17 @@ export interface RepositorioAdminCatalogo {
    * la tabla no trae variantes ni atributos.
    */
   completos(storeId: string, page: number, perPage: number): Promise<readonly ProductoEditable[]>;
+  /**
+   * Los productos activos sin foto, primero los que tienen stock, con las
+   * cuentas de la vitrina. Es la lista con la que se sale a fotografiar.
+   */
+  sinFoto(storeId: string, page: number, perPage?: number): Promise<PaginaSinFoto>;
+  /**
+   * Cuelga una foto de un producto, **al final** de las que tenga. No pasa por
+   * `guardar` a propósito: ése reescribe todos los medios del producto, y una
+   * foto sacada desde el teléfono no tiene por qué conocer las demás.
+   */
+  agregarFoto(tenantId: string, storeId: string, productId: string, foto: FotoNueva): Promise<void>;
   /**
    * Importa un lote. Cada producto es atómico por separado, así que el reporte
    * puede traer éxitos y fallos a la vez.

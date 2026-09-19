@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { clienteDeServidor } from '@pick/adapter-supabase';
-import { ADMIN_E2E, TIENDA_E2E } from './datos-admin-e2e.ts';
+import { ADMIN_E2E, PRODUCTO_SIN_FOTO_E2E, TIENDA_E2E } from './datos-admin-e2e.ts';
 import { CONFIGURACION, IDS, TIENDA } from './seed-data.ts';
 import { SECCION_PREFERENCIAS } from './preparar-storefront-e2e.ts';
 
@@ -100,6 +100,25 @@ if (url && secretKey) {
     console.log(`  eventos de la corrida borrados: ${eventos.data?.length ?? 0}`);
     console.log(`  promociones de prueba borradas: ${promos.data?.length ?? 0}`);
     console.log(`  colecciones de prueba borradas: ${colecciones.data?.length ?? 0}`);
+
+    /*
+     * La foto que el smoke le sacó al producto sin foto, **del bucket**. Borrar
+     * la tienda se lleva la fila de `product_media` en cascada, pero no el
+     * archivo: sin esto, cada corrida deja una foto huérfana en Storage para
+     * siempre. Se resuelve la ruta desde la URL, que es lo único que la fila
+     * guarda (ADR-082).
+     */
+    const { data: fotos } = await db
+      .from('product_media')
+      .select('url')
+      .eq('product_id', PRODUCTO_SIN_FOTO_E2E.id);
+
+    const rutas = (fotos ?? [])
+      .map((f) => f.url.split('/product-media/')[1])
+      .filter((ruta): ruta is string => Boolean(ruta));
+
+    if (rutas.length > 0) await db.storage.from('product-media').remove(rutas);
+    console.log(`  fotos del smoke borradas del bucket: ${rutas.length}`);
 
     // La segunda tienda y el usuario que el smoke del Admin necesita para que el
     // selector sea un menú. La membresía se va en cascada con el usuario.

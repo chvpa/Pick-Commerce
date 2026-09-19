@@ -3,6 +3,7 @@ import type { IconSvgElement } from '@hugeicons/react';
 import {
   ArrowDownIcon as ArrowDown,
   ArrowUpIcon as ArrowUp,
+  CameraIcon as Camera,
   ChartNoAxesColumnIcon as ChartNoAxesColumn,
   CheckIcon as Check,
   ChevronDownIcon as ChevronDown,
@@ -59,6 +60,7 @@ function icono(svg: IconSvgElement) {
 
 export const ArrowDownIcon = icono(ArrowDown);
 export const ArrowUpIcon = icono(ArrowUp);
+export const CameraIcon = icono(Camera);
 export const ChartNoAxesColumnIcon = icono(ChartNoAxesColumn);
 export const CheckIcon = icono(Check);
 export const ChevronDownIcon = icono(ChevronDown);

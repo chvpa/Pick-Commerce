@@ -2063,6 +2063,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_products_without_photo: {
+        Args: { p_page?: number; p_per_page?: number; p_store_id: string }
+        Returns: Json
+      }
       admin_save_ai_credential: {
         Args: {
           p_ciphertext: string

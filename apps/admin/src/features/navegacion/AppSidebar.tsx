@@ -9,6 +9,7 @@ import {
   LayoutTemplateIcon,
   LibraryBigIcon,
   LogOutIcon,
+  CameraIcon,
   PackageIcon,
   PercentIcon,
   ReceiptTextIcon,
@@ -79,6 +80,13 @@ interface Seccion {
 const SECCIONES: readonly Seccion[] = [
   { to: '/', label: 'Resumen', icono: LayoutDashboardIcon },
   { to: '/productos', label: 'Productos', icono: PackageIcon },
+  /*
+   * Una entrada propia y no un filtro del listado: es una tarea —salir a sacar
+   * fotos, desde el teléfono— y en el teléfono el sidebar es el único menú. Se
+   * ve con sólo pertenecer al comercio; subir la foto pide `catalog.write`, y
+   * eso lo decide la pantalla.
+   */
+  { to: '/productos/sin-foto', label: 'Sin foto', icono: CameraIcon },
   { to: '/pedidos', label: 'Pedidos', icono: ReceiptTextIcon },
   // Sin `permiso`: la lista se ve con sólo pertenecer a la organización, porque
   // saber qué campañas están corriendo es información operativa. Crear y editar

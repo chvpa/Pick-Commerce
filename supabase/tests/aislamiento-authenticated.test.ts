@@ -118,6 +118,9 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   // Y el borrado del perfil, por lo mismo: `definer` con el filtro de identidad
   // adentro. Para quien no tiene cuenta en esta tienda no borra nada.
   ['public.forget_my_preferences', `forget_my_preferences('${TIENDA}')`],
+  // La cola de productos sin foto: `security invoker`, la acota RLS sobre
+  // `products` y `product_media` (v2 Fase 5).
+  ['public.admin_products_without_photo', `admin_products_without_photo('${TIENDA}', 1, 20)`],
 ];
 
 /**
