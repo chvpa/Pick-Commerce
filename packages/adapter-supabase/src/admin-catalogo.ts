@@ -1,5 +1,7 @@
 import type {
   ConsultaProductos,
+  FotoParaLimpiar,
+  PaginaDePropuestas,
   PaginaProductos,
   PaginaSinFoto,
   ProductoCargado,
@@ -130,6 +132,98 @@ export function repositorioAdminCatalogo(db: PickSupabaseClient): RepositorioAdm
       });
 
       if (error) throw new Error(`No se pudo guardar la foto: ${error.message}`);
+    },
+
+    async fotosParaLimpiar(storeId, productIds) {
+      if (productIds.length === 0) return [];
+
+      const { data, error } = await db
+        .from('products')
+        .select('id, title, product_media(url, position)')
+        .eq('store_id', storeId)
+        .in('id', productIds as string[]);
+
+      if (error) throw new Error(`No se pudieron leer las fotos: ${error.message}`);
+
+      return (data ?? [])
+        .map((p) => {
+          // La primera por posición: es la que se ve en la vitrina, y es la que
+          // tiene sentido limpiar.
+          const primera = [...p.product_media].sort((a, b) => a.position - b.position)[0];
+          return primera ? { productId: p.id, title: p.title, url: primera.url } : null;
+        })
+        .filter((f): f is FotoParaLimpiar => f !== null);
+    },
+
+    async proponerFoto(tenantId, storeId, productId, urls): Promise<void> {
+      const { error } = await db.from('media_proposals').insert({
+        tenant_id: tenantId,
+        store_id: storeId,
+        product_id: productId,
+        original_url: urls.original,
+        proposed_url: urls.propuesta,
+      });
+
+      if (error) throw new Error(`No se pudo guardar la propuesta: ${error.message}`);
+    },
+
+    async propuestasPendientes(storeId, page, perPage = 12): Promise<PaginaDePropuestas> {
+      const desde = (Math.max(page, 1) - 1) * perPage;
+
+      const { data, error, count } = await db
+        .from('media_proposals')
+        .select('id, product_id, original_url, proposed_url, created_at, products!inner(title)', {
+          count: 'exact',
+        })
+        .eq('store_id', storeId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .range(desde, desde + perPage - 1);
+
+      if (error) throw new Error(`No se pudieron leer las propuestas: ${error.message}`);
+
+      const total = count ?? 0;
+      return {
+        items: (data ?? []).map((fila) => ({
+          id: fila.id,
+          productId: fila.product_id,
+          title: fila.products.title,
+          originalUrl: fila.original_url,
+          proposedUrl: fila.proposed_url,
+          createdAt: fila.created_at,
+        })),
+        total,
+        page: Math.max(page, 1),
+        perPage,
+        pageCount: Math.max(1, Math.ceil(total / perPage)),
+      };
+    },
+
+    async aprobarPropuestas(storeId, ids): Promise<number> {
+      if (ids.length === 0) return 0;
+
+      // Una función y no un update: publicar la foto y marcar la propuesta son
+      // dos tablas, y a medias dejarían la propuesta ofreciéndose de nuevo.
+      const { data, error } = await db.rpc('admin_apply_media_proposals', {
+        p_store_id: storeId,
+        p_ids: ids as string[],
+      });
+
+      if (error) throw new Error(`No se pudieron aprobar las fotos: ${error.message}`);
+      return (data as unknown as number) ?? 0;
+    },
+
+    async rechazarPropuestas(storeId, ids): Promise<void> {
+      if (ids.length === 0) return;
+
+      const { error } = await db
+        .from('media_proposals')
+        .update({ status: 'rejected', decided_at: new Date().toISOString() })
+        .eq('store_id', storeId)
+        .eq('status', 'pending')
+        .in('id', ids as string[]);
+
+      if (error) throw new Error(`No se pudieron descartar las fotos: ${error.message}`);
     },
 
     async porId(storeId, id): Promise<ProductoCargado | null> {

@@ -102,3 +102,30 @@ export function enriquecerProducto(
 ): Promise<{ propuesta: PropuestaDeIA }> {
   return pedir('/api/ia/enriquecer', { storeId, producto, categorias });
 }
+
+/** Lo que devuelve `/v1/images/edits`: la imagen en base64. */
+interface RespuestaDeImagen {
+  data?: { b64_json?: string }[];
+}
+
+/**
+ * Le pide a la IA la foto con el fondo limpio (ADR-130).
+ *
+ * El Worker reenvía la respuesta de OpenAI sin decodificarla, así que la imagen
+ * llega en base64 y se convierte acá, del lado del navegador, que es el que
+ * después la sube a Storage con el JWT de quien opera.
+ *
+ * Puede tardar: la documentación de OpenAI habla de hasta dos minutos por
+ * imagen. Quien la llame tiene que mostrarlo.
+ */
+export async function limpiarFondo(storeId: string, imagenUrl: string): Promise<File> {
+  const datos = await pedir<RespuestaDeImagen>('/api/ia/fondo', { storeId, imagenUrl });
+  const base64 = datos.data?.[0]?.b64_json;
+  if (!base64) throw new ErrorDeIA('La IA no devolvió ninguna imagen.', 'sin_imagen');
+
+  const binario = atob(base64);
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+
+  return new File([bytes], 'fondo-limpio.webp', { type: 'image/webp' });
+}

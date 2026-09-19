@@ -41,6 +41,8 @@ const ListaProductos = pantalla(
 );
 
 const SinFoto = pantalla(() => import('@/features/productos/SinFoto'), 'SinFoto');
+
+const RevisarFotos = pantalla(() => import('@/features/productos/RevisarFotos'), 'RevisarFotos');
 const FormularioProducto = pantalla<{ id?: string }>(
   () => import('@/features/productos/FormularioProducto'),
   'FormularioProducto',
@@ -248,6 +250,12 @@ const nuevoRoute = createRoute({
  * Estático y declarado: TanStack Router prefiere el segmento fijo sobre
  * `/productos/$id`, así que «sin-foto» nunca se lee como el id de un producto.
  */
+const fotosRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/productos/fotos',
+  component: RevisarFotos,
+});
+
 const sinFotoRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/productos/sin-foto',
@@ -473,6 +481,7 @@ const arbol = rootRoute.addChildren([
   nuevoRoute,
   importarRoute,
   sinFotoRoute,
+  fotosRoute,
   editarRoute,
   pedidosRoute,
   pedidoRoute,

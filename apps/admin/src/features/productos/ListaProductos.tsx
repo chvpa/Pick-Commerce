@@ -8,7 +8,7 @@ import {
   useReactTable,
   type RowSelectionState,
 } from '@tanstack/react-table';
-import { repositorioAdminCatalogo } from '@pick/adapter-supabase';
+import { repositorioAdminCatalogo, subirImagenDeProducto } from '@pick/adapter-supabase';
 import {
   ETIQUETA_ESTADO,
   formatMoney,
@@ -29,6 +29,8 @@ import {
   Tarjeta,
 } from '@/components/pagina';
 import { DialogoDeConfirmacion } from '@/components/acciones';
+import { limpiarFondo } from '@/lib/ia';
+import { TOPE_POR_TANDA, limpiarFondosEnLote } from './limpieza';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -98,6 +100,46 @@ export function ListaProductos() {
    */
   const [porArchivar, setPorArchivar] = useState<ResumenProducto | null>(null);
   const [lotePorConfirmar, setLotePorConfirmar] = useState<'active' | 'archived' | null>(null);
+  /*
+   * Los ids se guardan **al abrir** el diálogo, no al confirmar. La selección se
+   * limpia sola cuando la lista se refresca —al cambiar la búsqueda o la
+   * página—, y con el diálogo abierto eso dejaba la tanda en cero: decía «1
+   * foto» y no limpiaba ninguna. Medido.
+   */
+  const [limpiezaPorConfirmar, setLimpiezaPorConfirmar] = useState<readonly string[] | null>(null);
+  const [progreso, setProgreso] = useState<{ hechas: number; total: number } | null>(null);
+
+  /**
+   * La limpieza de fondos, en tanda (ADR-130).
+   *
+   * Se resuelven primero las fotos en el servidor —la tabla no las trae todas—,
+   * y después va una imagen por pedido al Worker del Admin. Nada se publica: lo
+   * que queda es una propuesta por producto, para revisar con la original al
+   * lado.
+   */
+  const limpieza = useMutation({
+    mutationFn: async (ids: readonly string[]) => {
+      const fotos = await repositorioAdminCatalogo(db).fotosParaLimpiar(tienda.id, ids);
+      setProgreso({ hechas: 0, total: Math.min(fotos.length, TOPE_POR_TANDA) });
+
+      return limpiarFondosEnLote(
+        fotos,
+        {
+          limpiar: (url) => limpiarFondo(tienda.id, url),
+          subir: async (archivo) =>
+            (await subirImagenDeProducto(db, tienda.tenantId, archivo, 'ia')).url,
+          proponer: (productId, urls) =>
+            repositorioAdminCatalogo(db).proponerFoto(tienda.tenantId, tienda.id, productId, urls),
+        },
+        (hechas, total) => setProgreso({ hechas, total }),
+      );
+    },
+    onSettled: () => {
+      setProgreso(null);
+      setSeleccion({});
+      void cliente.invalidateQueries({ queryKey: ['propuestas', tienda.id] });
+    },
+  });
 
   // La búsqueda va al servidor: sin esperar, cada tecla sería una consulta.
   useEffect(() => {
@@ -418,15 +460,56 @@ export function ListaProductos() {
               >
                 Publicar
               </Button>
+              {/*
+                Limpiar el fondo gasta la clave de OpenAI del comercio, así que
+                lo ve quien puede configurarla —owner y admin—, igual que el
+                enriquecimiento. Fotografiar, que es lo que recupera el producto,
+                no necesita esto.
+              */}
+              {puede('settings.write') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={limpieza.isPending}
+                  onClick={() => setLimpiezaPorConfirmar(marcados.map((p) => p.id))}
+                >
+                  Limpiar fondo con IA
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
                 disabled={enLote.isPending}
                 onClick={() => setSeleccion({})}
               >
-                Limpiar
+                Limpiar selección
               </Button>
             </div>
+          </div>
+        )}
+
+        {(progreso ?? limpieza.data ?? limpieza.error) && (
+          <div className="border-border border-b px-4 py-2.5 text-sm" aria-live="polite">
+            {progreso
+              ? `Limpiando fondos: ${progreso.hechas} de ${progreso.total}. Cada foto puede tardar hasta dos minutos.`
+              : limpieza.error
+                ? `No se pudo limpiar: ${(limpieza.error as Error).message}`
+                : `Listo: ${limpieza.data?.hechas ?? 0} ${(limpieza.data?.hechas ?? 0) === 1 ? 'propuesta' : 'propuestas'} para revisar${
+                    /*
+                     * Con el motivo, no sólo el nombre. La falla más común es
+                     * que la tienda no tenga credencial de OpenAI, y sin el
+                     * motivo el aviso decía «1 que falló: Remera» y dejaba a
+                     * alguien buscando el problema en la foto.
+                     */
+                    limpieza.data?.errores.length
+                      ? `. Falló ${limpieza.data.errores.length}: ${limpieza.data.errores[0]!.title} — ${limpieza.data.errores[0]!.motivo}`
+                      : ''
+                  }.`}
+            {!progreso && (limpieza.data?.hechas ?? 0) > 0 && (
+              <Link to="/productos/fotos" className="ml-2 underline">
+                Revisar
+              </Link>
+            )}
           </div>
         )}
 
@@ -533,6 +616,25 @@ export function ListaProductos() {
         onConfirmar={() => {
           if (porArchivar) cambiarEstado.mutate({ id: porArchivar.id, status: 'archived' });
           setPorArchivar(null);
+        }}
+      />
+
+      <DialogoDeConfirmacion
+        abierto={limpiezaPorConfirmar !== null}
+        onAbierto={(abierto) => !abierto && setLimpiezaPorConfirmar(null)}
+        titulo={`¿Limpiar el fondo de ${Math.min(limpiezaPorConfirmar?.length ?? 0, TOPE_POR_TANDA)} ${
+          Math.min(limpiezaPorConfirmar?.length ?? 0, TOPE_POR_TANDA) === 1 ? 'foto' : 'fotos'
+        }?`}
+        descripcion={`Usa la clave de OpenAI de la tienda: cada foto se paga en esa cuenta.${
+          (limpiezaPorConfirmar?.length ?? 0) > TOPE_POR_TANDA
+            ? ` De ${limpiezaPorConfirmar?.length} seleccionados, se hacen ${TOPE_POR_TANDA} por tanda.`
+            : ''
+        } No se publica nada: quedan como propuestas, con la original al lado, para aprobar una por una.`}
+        confirmar="Limpiar fondo"
+        pendiente={limpieza.isPending}
+        onConfirmar={() => {
+          if (limpiezaPorConfirmar) limpieza.mutate(limpiezaPorConfirmar);
+          setLimpiezaPorConfirmar(null);
         }}
       />
 

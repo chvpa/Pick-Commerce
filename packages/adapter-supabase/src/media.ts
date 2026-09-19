@@ -29,17 +29,29 @@ const EXTENSION: Readonly<Record<string, string>> = {
   'image/gif': 'gif',
 };
 
+/**
+ * Dónde vive cada cosa dentro de la carpeta del tenant.
+ *
+ * `ia` es lo que editó la IA (ADR-130): la procedencia se lee en la ruta, igual
+ * que `camelot/` y `erp/` en los importadores. Con eso, un importador que
+ * reemplaza lo suyo no toca una foto limpiada, y cualquiera puede saber cuál
+ * pasó por un modelo.
+ */
+export type CarpetaDeMedios = 'propia' | 'ia';
+
 export async function subirImagenDeProducto(
   db: PickSupabaseClient,
   tenantId: string,
   archivo: File,
+  carpeta: CarpetaDeMedios = 'propia',
 ): Promise<{ url: string }> {
   const extension = EXTENSION[archivo.type];
   if (!extension) {
     throw new Error(`Ese tipo de archivo no se admite: ${archivo.type || 'desconocido'}`);
   }
 
-  const ruta = `${tenantId}/${crypto.randomUUID()}.${extension}`;
+  const prefijo = carpeta === 'ia' ? `${tenantId}/ia` : tenantId;
+  const ruta = `${prefijo}/${crypto.randomUUID()}.${extension}`;
 
   const { error } = await db.storage.from(BUCKET).upload(ruta, archivo, {
     contentType: archivo.type,

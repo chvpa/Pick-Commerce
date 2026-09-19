@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { clienteDeServidor } from '@pick/adapter-supabase';
 import { IDS } from './seed-data.ts';
-import { ADMIN_E2E, PRODUCTO_SIN_FOTO_E2E, TIENDA_E2E } from './datos-admin-e2e.ts';
+import { ADMIN_E2E, PRODUCTO_SIN_FOTO_E2E, PROPUESTA_E2E, TIENDA_E2E } from './datos-admin-e2e.ts';
 
 /**
  * Lo que el smoke del Admin necesita en la base y el seed no siembra.
@@ -119,6 +119,57 @@ if (!url || !secretKey) {
         if (errorPaso)
           throw new Error(`No se pudo sembrar el producto sin foto: ${errorPaso.message}`);
       }
+
+      /*
+       * Y el producto que ya tiene foto, con una propuesta de la IA pendiente:
+       * el smoke de la revisión no llama a OpenAI —eso gastaría la clave del
+       * comercio en cada corrida—, así que la propuesta se siembra.
+       */
+      const Q = PROPUESTA_E2E;
+      await db.from('media_proposals').delete().eq('id', Q.propuestaId);
+      const conFoto = [
+        db.from('products').upsert({
+          id: Q.productoId,
+          tenant_id: IDS.tenant,
+          store_id: TIENDA_E2E.id,
+          handle: Q.handle,
+          title: Q.title,
+          status: 'active',
+        }),
+        db.from('product_variants').upsert({
+          id: Q.varianteId,
+          tenant_id: IDS.tenant,
+          product_id: Q.productoId,
+          sku: 'SMOKE-CON-FOTO',
+          title: 'Única',
+          price: 100_000,
+          currency: 'PYG',
+          position: 0,
+        }),
+      ];
+      for (const paso of conFoto) {
+        const { error: errorPaso } = await paso;
+        if (errorPaso) throw new Error(`No se pudo sembrar la propuesta: ${errorPaso.message}`);
+      }
+
+      await db.from('product_media').delete().eq('product_id', Q.productoId);
+      await db.from('product_media').insert({
+        tenant_id: IDS.tenant,
+        product_id: Q.productoId,
+        url: Q.original,
+        alt: Q.title,
+        width: 900,
+        height: 1200,
+        position: 0,
+      });
+      await db.from('media_proposals').insert({
+        id: Q.propuestaId,
+        tenant_id: IDS.tenant,
+        store_id: TIENDA_E2E.id,
+        product_id: Q.productoId,
+        original_url: Q.original,
+        proposed_url: Q.propuesta,
+      });
 
       console.log(`  admin del smoke: ${ADMIN_E2E.email} · segunda tienda: ${TIENDA_E2E.slug}`);
     }

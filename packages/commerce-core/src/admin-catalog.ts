@@ -98,6 +98,35 @@ export interface ProductoCargado {
  */
 export type EstadoAlternable = Extract<ProductStatus, 'active' | 'archived'>;
 
+/**
+ * Una foto con el fondo limpiado por la IA, esperando que alguien la mire
+ * (ADR-130). Viaja con la original al lado: aprobar sin verlas juntas sería
+ * publicar a ciegas.
+ */
+export interface PropuestaDeFoto {
+  readonly id: string;
+  readonly productId: string;
+  readonly title: string;
+  readonly originalUrl: string;
+  readonly proposedUrl: string;
+  readonly createdAt: string;
+}
+
+export interface PaginaDePropuestas {
+  readonly items: readonly PropuestaDeFoto[];
+  readonly total: number;
+  readonly page: number;
+  readonly perPage: number;
+  readonly pageCount: number;
+}
+
+/** Un producto que ya tiene foto y se le puede pedir la limpieza de fondo. */
+export interface FotoParaLimpiar {
+  readonly productId: string;
+  readonly title: string;
+  readonly url: string;
+}
+
 /** Un producto que espera su foto, con lo justo para encontrarlo en el depósito. */
 export interface ProductoSinFoto {
   readonly id: string;
@@ -177,6 +206,32 @@ export interface RepositorioAdminCatalogo {
    * foto sacada desde el teléfono no tiene por qué conocer las demás.
    */
   agregarFoto(tenantId: string, storeId: string, productId: string, foto: FotoNueva): Promise<void>;
+  /**
+   * La primera foto de cada producto pedido, para mandarla a limpiar. Se
+   * resuelve en el servidor: la lista de la tabla no trae las fotos de todos los
+   * productos seleccionados.
+   */
+  fotosParaLimpiar(
+    storeId: string,
+    productIds: readonly string[],
+  ): Promise<readonly FotoParaLimpiar[]>;
+  /** Guarda lo que devolvió la IA como propuesta pendiente (ADR-130). */
+  proponerFoto(
+    tenantId: string,
+    storeId: string,
+    productId: string,
+    urls: { readonly original: string; readonly propuesta: string },
+  ): Promise<void>;
+  /** Lo que espera revisión, lo último primero. */
+  propuestasPendientes(
+    storeId: string,
+    page: number,
+    perPage?: number,
+  ): Promise<PaginaDePropuestas>;
+  /** Publica las fotos aprobadas. Devuelve cuántas se aplicaron. */
+  aprobarPropuestas(storeId: string, ids: readonly string[]): Promise<number>;
+  /** Descarta propuestas sin tocar la foto publicada. */
+  rechazarPropuestas(storeId: string, ids: readonly string[]): Promise<void>;
   /**
    * Importa un lote. Cada producto es atómico por separado, así que el reporte
    * puede traer éxitos y fallos a la vez.

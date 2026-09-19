@@ -38,3 +38,20 @@ export const PRODUCTO_SIN_FOTO_E2E = {
   handle: 'sin-foto-del-smoke',
   title: 'Producto sin foto del smoke',
 } as const;
+
+/**
+ * Un producto **con** foto y una propuesta de la IA esperando revisión, para el
+ * smoke de «Fotos con fondo limpio» (v2 Fase 5). Las dos URLs son fotos reales
+ * del seed: la pantalla las muestra lado a lado y tienen que cargar.
+ */
+export const PROPUESTA_E2E = {
+  productoId: '5eede2e0-0000-4000-8000-0000000000f4',
+  varianteId: '5eede2e0-0000-4000-8000-0000000000f5',
+  propuestaId: '5eede2e0-0000-4000-8000-0000000000f6',
+  handle: 'con-propuesta-del-smoke',
+  title: 'Producto con propuesta del smoke',
+  original:
+    'https://snnbkqesjiooejaccqhg.supabase.co/storage/v1/object/public/product-media/5eed0000-0000-4000-8000-000000000001/seed/zapatilla.jpg',
+  propuesta:
+    'https://snnbkqesjiooejaccqhg.supabase.co/storage/v1/object/public/product-media/5eed0000-0000-4000-8000-000000000001/seed/campera.jpg',
+} as const;
