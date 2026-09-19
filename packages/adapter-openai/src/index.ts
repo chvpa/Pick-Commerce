@@ -118,7 +118,14 @@ export function proveedorOpenAI(): AIProvider {
             // PNG con transparencia pesa varias veces más por nada.
             background: 'opaque',
             output_format: 'webp',
-            input_fidelity: 'high',
+            /*
+             * Sin `input_fidelity`: la referencia de la API lo documenta, pero
+             * **este modelo lo rechaza** —«the model 'gpt-image-2.5-sunburst'
+             * does not support the 'input_fidelity' parameter», 400, medido
+             * contra la API real—. Lo que cuida el parecido acá es el pedido, y
+             * sobre todo que una persona compare las dos fotos antes de
+             * publicar (ADR-130).
+             */
           }),
         },
       };

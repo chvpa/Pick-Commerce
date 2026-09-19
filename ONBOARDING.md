@@ -114,6 +114,17 @@ Hay dos caminos, y el primero que hay que decidir es cuál:
 
 - [ ] **Marcar los atributos filtrables** para que la PLP tenga facetas.
 
+- [ ] **Fotografiar lo que quedó sin foto**, en Productos → Sin foto. La lista
+      viene ordenada por stock —una foto de algo agotado no vende hoy— y el botón
+      abre la cámara del teléfono. Apenas se sube, el producto vuelve a la
+      vitrina: no hay nada más que publicar. - Conviene sacarla **sobre algo liso y con luz pareja**: es lo que hace que
+      la foto sirva sin retoque. - La limpieza de fondo con IA es opcional y se pide desde el listado, con
+      los productos seleccionados. Usa la clave de OpenAI del comercio, así que
+      cada foto se paga en esa cuenta, y **nada se publica hasta aprobarlo**
+      viendo la original al lado (ADR-130). Ojo con los productos que tienen
+      textos o códigos impresos: ahí es donde la IA se equivoca
+      ([LIMITACIONES.md](LIMITACIONES.md)).
+
 > El catálogo está medido hasta 5006 productos con tiempos planos de la primera
 > página a la última; el detalle está en [LIMITACIONES.md](LIMITACIONES.md). El
 > más grande que hay en producción es el de Treeshop —3752 productos importados,

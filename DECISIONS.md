@@ -6093,6 +6093,25 @@ Y para no depender del plan de Cloudflare, **el Worker no decodifica la imagen**
 reenvía la respuesta de OpenAI tal cual y el navegador —que ya sube fotos con el
 JWT de quien opera— la decodifica y la sube.
 
+**Lo que se midió contra la API real, y por qué importa**
+Dos cosas aparecieron al probarlo con una foto de verdad, y ninguna se podía
+saber leyendo la documentación:
+
+1. **`input_fidelity` no existe para este modelo.** La referencia lo documenta,
+   pero `gpt-image-2.5-sunburst` responde 400: «the model does not support the
+   'input_fidelity' parameter». Así que el único resguardo técnico que había
+   contra el redibujado no está disponible.
+2. **El modelo cambió un texto impreso del producto.** Sobre una foto real del
+   piloto —unos guantes Puma—, la muñequera dice «2MM SUPERSOFT LATEX» y la
+   versión de la IA devolvió ese primer carácter deformado, ilegible como «2».
+   El resto de la foto salió muy parecido. Es exactamente el modo de fallo que
+   la regla original quería evitar, y ahora está medido: **no es hipotético**.
+
+Eso no cambia la decisión —es del dueño del producto— pero sí la consecuencia:
+la revisión con la original al lado **no es una formalidad**, es lo único que
+separa una foto limpia de una ficha que miente sobre el producto. Y va escrito
+en LIMITACIONES, que es lo que se le entrega a un comercio.
+
 **Consecuencias**
 
 - La limpieza con IA la puede pedir quien tiene `settings.write` (owner y admin),

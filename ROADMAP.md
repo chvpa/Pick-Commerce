@@ -1300,7 +1300,7 @@ distinción se construía dos veces lo mismo.
 
 ## Fase 5 — Devolver a la vitrina lo que no se ve
 
-**Avance: 0%**
+**Avance: 85%**
 
 Objetivo: recuperar como vendible alrededor de un tercio del catálogo del piloto.
 De 3752 productos importados el listado sirve 2096: 378 por falta de stock y el
@@ -1324,9 +1324,11 @@ cuenta ni recomendación puede vender un producto que la vitrina no muestra. Es 
       día. Resuelto en ADR-130: el lote lo orquesta el navegador, una imagen por
       pedido al Worker del Admin, que no tiene límite de duración mientras el
       cliente siga conectado. La clave no se mueve.
-- [ ] Captura desde el teléfono en el Admin: el producto sin foto se fotografía y
-      sube a Supabase Storage, que ya está en el stack (ADR-082).
-- [ ] **Enmendado por ADR-130**, por decisión del dueño del producto: la IA
+- [x] Captura desde el teléfono en el Admin: el producto sin foto se fotografía y
+      sube a Supabase Storage, que ya está en el stack (ADR-082). Pantalla «Sin
+      foto», con la cola ordenada por stock y la foto achicada en el navegador
+      antes de subir —una foto de teléfono pesa más que el tope del bucket—.
+- [x] **Enmendado por ADR-130**, por decisión del dueño del producto: la IA
       limpia el fondo —la documentación de OpenAI confirma que eso regenera la
       imagen— y **una persona aprueba**, viendo la original al lado, que nunca se
       borra. Lo que sigue es la regla original, que queda para el registro:
@@ -1334,18 +1336,26 @@ cuenta ni recomendación puede vender un producto que la vitrina no muestra. Es 
       un SKU real que el modelo nunca vio es una foto falsa de un producto que
       alguien va a recibir: eso es una devolución y un problema legal, no un
       feature. Misma regla que ADR-104: la IA propone, la persona aplica y publica.
-- [ ] Revisar, regenerar, aprobar y publicar **en lote** sobre la lista de
+- [x] Revisar, regenerar, aprobar y publicar **en lote** sobre la lista de
       productos sin foto: es una tanda de mil trescientos, no uno por uno. Y la
-      publicación respeta ADR-117: una reimportación no borra lo publicado.
+      publicación respeta ADR-117: una reimportación no borra lo publicado —de
+      paso se arregló `erp:imagenes`, que borraba **todas** las fotos de cada
+      producto tocado, incluidas las que subió el comercio—.
 
 Queda fuera, del «AI Product Studio» original: lo editorial, los modelos, la
 generación en lote de variantes, el multi-ángulo, el OCR y el código de barras.
 
 **Definition of Done**
 
-- [ ] el comercio fotografía y publica un producto oculto desde el teléfono, sin ayuda
-- [ ] una tanda de cien productos se revisa y publica en una sesión
-- [ ] la cuenta de productos listables sube, y se puede decir cuánto
+- [ ] el comercio fotografía y publica un producto oculto desde el teléfono, sin
+      ayuda. **Falta probarlo en un teléfono de verdad**: el e2e entra por el mismo
+      input que usa la cámara, pero la cámara no se emula
+- [ ] una tanda de cien productos se revisa y publica en una sesión. El camino
+      está entero y medido de a una —15 a 24 segundos por foto contra la API
+      real—; falta correr una tanda de verdad con la clave del comercio
+- [x] la cuenta de productos listables sube, y se puede decir cuánto: la pantalla
+      «Sin foto» dice cuántos esperan, cuántos se ven y cuántos se recuperaron en
+      la semana. Al empezar la fase: 1258 con stock esperando foto
 
 ---
 
@@ -1900,6 +1910,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-16 | **v2 Fase 3 entregada al 100%.** «zapatila» encuentra zapatillas, «nino» encuentra «Niños» y la búsqueda ordena por relevancia. El documento de búsqueda es una **columna generada** con título y marca —no un trigger: los SKU van por prefijo aparte, y lo demás vive en la fila— con trigramas de `pg_trgm`, que la suite carga en PGlite. `catalog_search` conservó su firma y **no se volvió más lento**: medido contra Treeshop, intercalado con la definición anterior y un control, el listado quedó en 581 ms contra 613–625; en once búsquedas reales no se perdió ningún producto. Sugerencias mientras se escribe, sin island y sin eventos; cero resultados propone «¿Quisiste decir…?» y productos para seguir. La paridad con `queryCatalog` dejó afuera el término (ADR-126), y los tests que la reemplazan se comprobaron rompiendo el SQL a propósito. De paso apareció que el test de aislamiento de ítems y facetas seguía verde sin el filtro de tienda                                                                                                                                                                                                                                                                                                                                   | v2 Fase 3 |           0% |           100% |
 | 2026-09-17 | **v2 Fase 4 al 90%: recomendaciones y portada por visitante.** El ROADMAP abría la fase con `p_ids` en `catalog_search` y se descartó con dos mediciones del propio repo: el filtro análogo duplicó el listado en septiembre, y el camino acotado cuesta 355 ms porque calcula la tienda entera. En su lugar `app.catalog_items` comparte el documento del producto acotado a los ids —15 ms una tira de ocho— con un test de equivalencia que falla si las dos copias divergen (ADR-127). `product_affinity` y `product_trending` las escribe un recálculo oportunista cuyo turno **lo reclama la base**, no la variable de módulo del isolate. La tira del PDP y la del carrito funcionan sin identidad; los órdenes «Tendencia» y «Preferencias» son dos desplegables que el comercio ya sabía usar, y la cascada —preferencia, tendencia, catálogo— es un solo `order by`, así que el arranque en frío no es una rama que nadie prueba. Las dos compuertas de medición dieron neutro. La suite de aislamiento encontró lo que el typecheck y el e2e no pueden: `catalog_search` es security invoker y el Admin la llama con la clave publicable. Quedan en el backlog, con su motivo, el perfil por cuenta y la línea de resultado por sección                                                             | v2 Fase 4 |           0% |            90% |
 | 2026-09-19 | **v2 Fase 4 al 100%.** Los dos ítems que quedaban diferidos. El perfil ahora sigue a la persona y no al navegador (ADR-128), y **el texto de privacidad cambió en el mismo commit**, que era lo prometido desde ADR-124. Un test encontró que borrar el resumen no alcanzaba: las visitas de ese navegador siguen 180 días en `store_events`, así que el recálculo lo rearmaba y el interruptor duraba seis horas; apagar ahora también le saca el `device_id` a lo ya guardado. Y cada sección de la portada dice si sirvió (ADR-129): el PDP anota `section_click` al ver `?s=` —sin una línea de JavaScript nueva— y la atribución va por visita, sin ninguna columna nueva. Dos huecos de los tests los encontró el sabotaje: contar dos veces la misma línea y atribuirle a la sección la compra de otro producto                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | v2 Fase 4 |          90% |           100% |
+| 2026-09-19 | **v2 Fase 5 al 85%: la vitrina recupera lo que no se ve.** Treeshop tenía 1258 productos con stock y sin foto, ocultos por ADR-112. La pantalla «Sin foto» es la cola para salir a fotografiarlos desde el teléfono —ordenada por stock, con la foto achicada en el navegador antes de subir— y el producto vuelve solo a la vitrina. La limpieza de fondo con IA la decidió el dueño del producto con el riesgo a la vista y quedó en ADR-130, que enmienda la regla «nunca invención»: la IA propone, una persona aprueba viendo la original al lado, y la original no se borra nunca. El lote lo orquesta el navegador, una imagen por pedido al Worker del Admin, que no tiene límite de duración mientras el cliente siga conectado: eso resolvió el ADR que el ROADMAP marcaba como bloqueante. Probado contra la API real aparecieron dos cosas que la documentación no decía: `input_fidelity` no existe para este modelo, y el modelo **cambió un texto impreso** del producto —«2MM SUPERSOFT LATEX» volvió ilegible—, que es justo lo que la revisión existe para atajar                                                                                                                                                                                                                            | v2 Fase 5 |           0% |            85% |
 
 ---
 
@@ -1909,7 +1920,8 @@ v1 y las fases 0 a 4 de v2 están cerradas y desplegadas. El comprador tiene ide
 memoria, el buscador encuentra lo que se escribe mal y la vitrina se ordena
 sola con lo que la gente mira.
 
-1. **Fase 5 — devolver a la vitrina lo que no se ve.** Es la siguiente.
+1. **Terminar la Fase 5**: falta probar la captura en un teléfono de verdad y
+   correr una tanda de cien con la clave del comercio. Lo demás está entregado.
 2. **El costo de `catalog_search`**, que es lo más caro que hay anotado: el PDP
    de Treeshop está en 355 ms y el listado en 600, y se sabe por qué. Está en
    `Backlog / Retroactividad` con las dos salidas medidas. Se decidió no tocarlo

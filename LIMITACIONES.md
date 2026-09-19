@@ -286,6 +286,21 @@ algo el lunes desde un carrusel y lo compra el jueves cuenta como entrada el
 lunes y como nada el jueves. Es el mismo criterio que el embudo, y es lo que hace
 que esos números y los de Analytics signifiquen lo mismo.
 
+### La IA limpia el fondo, pero redibuja la foto
+
+Quitar el fondo con IA **regenera la imagen entera**: la documentación de OpenAI
+dice que su enmascarado es por prompt y puede no respetar la forma exacta. Medido
+sobre una foto real del piloto: en unos guantes, el texto impreso «2MM SUPERSOFT
+LATEX» volvió con el primer carácter deformado. El resto salió casi idéntico.
+
+Por eso **nada se publica sin que una persona compare las dos fotos** (ADR-130),
+la original nunca se borra y siempre se puede volver a ella. Mirar cien fotos en
+una tanda es trabajo real: conviene hacerlo con la tanda chica cuando el producto
+tiene textos, códigos o etiquetas legibles.
+
+Y lo que la IA **no** hace, sin excepción: inventar la foto de un producto que
+nadie fotografió. Trabaja sobre una foto real o no trabaja.
+
 ### Analytics no cuenta las precargas de Safari
 
 Chrome manda `Sec-Purpose: prefetch` y Firefox `X-moz`, y las dos se descartan.

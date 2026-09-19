@@ -789,10 +789,14 @@ Módulos posteriores:
 > `CLAUDE.md` § «Estado actual» y [ROADMAP.md](ROADMAP.md). Lo que existe es el
 > enriquecimiento de un producto que ya está cargado: propone **cinco** campos
 > —título, descripción, marca, categoría y atributos—, mirando también las
-> fotos, no escribe nada y cada campo se aplica a mano (ADR-104). La cámara, el
-> OCR de etiqueta y la generación de imágenes no existen; tags, SEO y metadata
-> tampoco, porque el esquema de la respuesta no los declara y por eso la API no
-> los puede devolver (`packages/commerce-core/src/ai.ts`).
+> fotos, no escribe nada y cada campo se aplica a mano (ADR-104). Desde la v2
+> Fase 5 existe además **la cámara y la limpieza de fondo**: el producto sin foto
+> se fotografía desde el teléfono y vuelve solo a la vitrina, y la IA puede
+> proponer esa misma foto con el fondo limpio —sobre una foto real, nunca
+> inventada, y publicando sólo lo que una persona aprueba viendo la original al
+> lado (ADR-130)—. El OCR de etiqueta no existe; tags, SEO y metadata tampoco,
+> porque el esquema de la respuesta no los declara y por eso la API no los puede
+> devolver (`packages/commerce-core/src/ai.ts`).
 
 Flujo objetivo:
 

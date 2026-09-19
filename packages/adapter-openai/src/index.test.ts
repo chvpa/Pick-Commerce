@@ -63,7 +63,8 @@ test('la limpieza de fondo pide el modelo de edición y que no se toque el produ
 
   const cuerpo = JSON.parse(init.body as string) as Record<string, unknown>;
   assert.equal(cuerpo.model, MODELO_DE_IMAGEN);
-  assert.equal(cuerpo.input_fidelity, 'high');
+  // `input_fidelity` **no** va: la API lo rechaza con este modelo (400).
+  assert.equal(cuerpo.input_fidelity, undefined);
   assert.equal(cuerpo.background, 'opaque');
   assert.equal(cuerpo.output_format, 'webp');
   assert.deepEqual(cuerpo.images, [
