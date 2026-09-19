@@ -294,6 +294,52 @@ async function enriquecer(ctx: Contexto): Promise<Response> {
   return json({ propuesta: respuesta });
 }
 
+/**
+ * La limpieza de fondo de una foto (ADR-130).
+ *
+ * **Reenvía el cuerpo de OpenAI sin decodificarlo.** La respuesta trae la imagen
+ * en base64: decodificarla acá serían megabytes de CPU del Worker para después
+ * volver a codificarla, y el que la necesita es el navegador, que además ya sabe
+ * subir a Storage con el JWT de quien opera. Esperar a OpenAI —hasta dos
+ * minutos, dice su documentación— no consume CPU mientras el cliente siga
+ * conectado.
+ *
+ * Quien pide esto gasta la clave del comercio, así que pide `settings.write`,
+ * igual que el enriquecimiento: eso lo decide `ai_credential_secret`.
+ */
+async function limpiarFondo(ctx: Contexto): Promise<Response> {
+  const imagenUrl = ctx.cuerpo.imagenUrl;
+  if (typeof imagenUrl !== 'string' || !imagenUrl.startsWith('https://')) {
+    return error('bad_request', 'Falta la foto a limpiar.', 400);
+  }
+
+  const credencial = await credencialEnClaro(ctx);
+  if (credencial instanceof Response) return credencial;
+
+  const peticion = proveedorOpenAI().peticionDeLimpiezaDeFondo({
+    apiKey: credencial.apiKey,
+    imagenUrl,
+  });
+
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(peticion.url, peticion.init);
+  } catch (causa) {
+    return fallaDelProveedor('ia/fondo', causa);
+  }
+
+  /*
+   * El cuerpo viaja tal cual, con el status de OpenAI: si falló, el Admin
+   * muestra lo que dijo, que es lo que el operador necesita para entender por
+   * qué. Las cabeceras no se reenvían —traen cosas de OpenAI que no son del
+   * navegador— y se fija la única que importa.
+   */
+  return new Response(respuesta.body, {
+    status: respuesta.status,
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // El router
 // ---------------------------------------------------------------------------
@@ -302,6 +348,7 @@ const RUTAS: Record<string, (ctx: Contexto) => Promise<Response>> = {
   '/api/ia/credencial': guardarCredencial,
   '/api/ia/probar': probarCredencial,
   '/api/ia/enriquecer': enriquecer,
+  '/api/ia/fondo': limpiarFondo,
 };
 
 /**

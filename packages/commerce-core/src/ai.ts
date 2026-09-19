@@ -49,6 +49,32 @@ export function esModelo(valor: unknown): valor is ModeloDeIA {
   return MODELOS.some((m) => m.id === valor);
 }
 
+/**
+ * El modelo que limpia el fondo de una foto (ADR-130).
+ *
+ * No es el mismo que escribe la ficha: son dos familias distintas y el comercio
+ * elige una sola, la de texto. Ésta va fija porque la elección no es de gusto —
+ * la documentación dice «Sunburst para los casos donde la precisión de la
+ * edición importa más, Flare para generar rápido»— y acá lo que importa es que
+ * el producto salga igual a como entró. Confirmado contra `/v1/models`.
+ */
+export const MODELO_DE_IMAGEN = 'gpt-image-2.5-sunburst';
+
+/**
+ * Lo que se le pide, y todo lo que **no**.
+ *
+ * Una edición de GPT Image regenera la imagen: no hay forma de garantizar que un
+ * logo o un color queden intactos, y por eso nada de esto se publica sin que una
+ * persona lo apruebe viendo la original al lado (ADR-130). El pedido es lo más
+ * angosto posible para que haya poco que inventar.
+ */
+export const INSTRUCCION_DE_FONDO =
+  'Quitá el fondo y dejá el producto sobre fondo blanco liso. ' +
+  'No cambies el producto: ni su forma, ni sus colores, ni sus texturas, ' +
+  'ni los logos, ni los textos, ni las etiquetas. ' +
+  'No agregues sombras, reflejos, objetos ni decoración. ' +
+  'No recortes partes del producto ni lo muevas de lugar.';
+
 // ---------------------------------------------------------------------------
 // El puerto
 // ---------------------------------------------------------------------------
@@ -89,11 +115,30 @@ export interface PeticionDeEnriquecimiento {
  * permitidas, y porque el Worker no tiene por qué saber cómo se arma un cuerpo
  * de la Responses API.
  */
+export interface PeticionDeFondo {
+  readonly apiKey: string;
+  /** La foto original, ya publicada: viaja por URL y no como archivo. */
+  readonly imagenUrl: string;
+}
+
+/**
+ * Una petición armada y sin ejecutar.
+ *
+ * Existe porque quien la ejecuta no es quien sabe armarla: el Worker del Admin
+ * la manda y reenvía la respuesta al navegador sin decodificarla (ADR-130).
+ */
+export interface PeticionArmada {
+  readonly url: string;
+  readonly init: RequestInit;
+}
+
 export interface AIProvider {
   readonly id: string;
   /** Comprueba que la key sirva. No consume tokens. Lanza con el motivo. */
   probar(apiKey: string): Promise<void>;
   enriquecer(peticion: PeticionDeEnriquecimiento): Promise<PropuestaCruda>;
+  /** La petición que limpia el fondo de una foto. No la ejecuta. */
+  peticionDeLimpiezaDeFondo(peticion: PeticionDeFondo): PeticionArmada;
 }
 
 // ---------------------------------------------------------------------------

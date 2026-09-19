@@ -121,6 +121,9 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   // La cola de productos sin foto: `security invoker`, la acota RLS sobre
   // `products` y `product_media` (v2 Fase 5).
   ['public.admin_products_without_photo', `admin_products_without_photo('${TIENDA}', 1, 20)`],
+  // Aprobar una foto propuesta por la IA: invoker, y lo acota RLS sobre
+  // `media_proposals` y `product_media`, que piden `catalog.write` (ADR-130).
+  ['public.admin_apply_media_proposals', `admin_apply_media_proposals('${TIENDA}', '{}'::uuid[])`],
 ];
 
 /**

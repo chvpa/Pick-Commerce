@@ -1,10 +1,14 @@
 import {
   ESQUEMA_DE_PROPUESTA,
   INSTRUCCIONES,
+  INSTRUCCION_DE_FONDO,
+  MODELO_DE_IMAGEN,
   entradaDelProducto,
   soloCamposPermitidos,
   type AIProvider,
+  type PeticionArmada,
   type PeticionDeEnriquecimiento,
+  type PeticionDeFondo,
   type PropuestaCruda,
 } from '@pick/commerce-core';
 
@@ -85,6 +89,39 @@ export function proveedorOpenAI(): AIProvider {
         headers: { authorization: `Bearer ${apiKey}` },
       });
       if (!respuesta.ok) throw await fallo(respuesta, 'No se pudo verificar la credencial');
+    },
+
+    /*
+     * La limpieza de fondo devuelve **la petición armada**, no el resultado.
+     *
+     * Quien la ejecuta es el Worker del Admin, que reenvía el cuerpo de OpenAI
+     * al navegador sin decodificarlo: una imagen en base64 son megabytes, y
+     * decodificarla ahí gastaría CPU del Worker para nada (ADR-130). Acá queda
+     * lo que este paquete existe para saber: la URL, el modelo y el pedido.
+     */
+    peticionDeLimpiezaDeFondo({ apiKey, imagenUrl }: PeticionDeFondo): PeticionArmada {
+      return {
+        url: `${RAIZ}/images/edits`,
+        init: {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${apiKey}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: MODELO_DE_IMAGEN,
+            prompt: INSTRUCCION_DE_FONDO,
+            // La foto ya está publicada en Storage, así que viaja por URL y no
+            // como archivo: no hay que subirla dos veces.
+            images: [{ image_url: imagenUrl }],
+            // Fondo opaco y WebP: la vitrina muestra las fotos sobre blanco, y un
+            // PNG con transparencia pesa varias veces más por nada.
+            background: 'opaque',
+            output_format: 'webp',
+            input_fidelity: 'high',
+          }),
+        },
+      };
     },
 
     async enriquecer(peticion: PeticionDeEnriquecimiento): Promise<PropuestaCruda> {

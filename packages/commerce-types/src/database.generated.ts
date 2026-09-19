@@ -938,6 +938,70 @@ export type Database = {
           },
         ]
       }
+      media_proposals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          original_url: string
+          product_id: string
+          proposed_url: string
+          status: string
+          store_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          original_url: string
+          product_id: string
+          proposed_url: string
+          status?: string
+          store_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          original_url?: string
+          product_id?: string
+          proposed_url?: string
+          status?: string
+          store_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_proposals_product_fkey"
+            columns: ["product_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "media_proposals_store_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "media_proposals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memberships: {
         Row: {
           created_at: string
@@ -2011,6 +2075,10 @@ export type Database = {
       admin_analytics: {
         Args: { p_from: string; p_store_id: string; p_to: string }
         Returns: Json
+      }
+      admin_apply_media_proposals: {
+        Args: { p_ids: string[]; p_store_id: string }
+        Returns: number
       }
       admin_customers: {
         Args: {
