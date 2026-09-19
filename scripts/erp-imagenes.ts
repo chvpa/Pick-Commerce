@@ -211,14 +211,31 @@ async function main(): Promise<number> {
 
   if (filasMedia.length === 0) return fallos.length > 0 ? 1 : 0;
 
-  // Se reemplazan enteros los medios de los productos tocados: si el origen
-  // tiene menos fotos que la vez anterior, un upsert dejaría las viejas.
+  /*
+   * Se reemplazan las fotos **que trajo este importador** y nada más: si el
+   * origen tiene menos fotos que la vez anterior, un upsert dejaría las viejas.
+   *
+   * Hasta la v2 Fase 5 borraba **todas** las filas de cada producto, incluidas
+   * las que subió el comercio desde el Admin. Con la captura desde el teléfono
+   * eso dejó de ser una hipótesis: una reimportación se habría llevado las
+   * fotos que alguien sacó a mano. Es la regla de ADR-117, que Camelot ya
+   * cumplía por ruta, y la misma convención de ADR-082: lo del ERP vive bajo
+   * `/erp/`.
+   *
+   * Y el error del `delete` se revisa: antes se ignoraba, así que un fallo
+   * dejaba las fotos viejas y las nuevas juntas sin avisar.
+   */
   const tocados = [...new Set(filasMedia.map((f) => f.product_id as string))];
   for (let i = 0; i < tocados.length; i += 100) {
-    await db
+    const { error: errorBorrado } = await db
       .from('product_media')
       .delete()
-      .in('product_id', tocados.slice(i, i + 100));
+      .in('product_id', tocados.slice(i, i + 100))
+      .like('url', '%/erp/%');
+    if (errorBorrado) {
+      console.error(`No se pudieron reemplazar las fotos del ERP: ${errorBorrado.message}`);
+      return 1;
+    }
   }
 
   for (let i = 0; i < filasMedia.length; i += 200) {

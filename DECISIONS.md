@@ -6039,3 +6039,66 @@ sexto —el filtro de tienda— es redundante por construcción y queda escrito 
 tal. Dos huecos los encontró el sabotaje y no la revisión: contar dos veces la
 misma línea, y atribuirle a la sección una compra **de otro producto** hecha en
 la misma visita.
+
+## ADR-130 — La IA propone el fondo limpio, una persona aprueba, y el lote lo orquesta el navegador
+
+**Fecha:** 2026-09-19
+**Estado:** Accepted — enmienda la regla de la v2 Fase 5 «sólo limpieza de fondo y recorte, nunca invención»
+
+**Contexto**
+Treeshop tiene 1258 productos con stock y sin foto: la tienda los oculta
+(ADR-112), así que no se pueden vender. Las fotos del proveedor no existen. La
+fase los recupera con fotos sacadas desde el teléfono y una limpieza de fondo con
+IA.
+
+El ROADMAP escribió una regla dura: **sólo limpieza de fondo y recorte, nunca
+invención**, porque «una imagen generada de un SKU real es una foto falsa de un
+producto que alguien va a recibir». La documentación de OpenAI confirma que su
+edición de imágenes no puede prometer eso: «el enmascarado es enteramente por
+prompt; el modelo usa la máscara como guía, pero puede no seguir su forma exacta»
+([guía de generación de imágenes](https://developers.openai.com/api/docs/guides/image-generation)).
+Una edición regenera la imagen, y puede cambiar un logo o un color.
+
+**Decisión del dueño del producto, con el riesgo a la vista**
+Se le presentaron tres caminos —una IA que sólo avisa sin tocar la foto, una
+silueta de IA aplicada sobre los píxeles originales, o que la IA limpie y una
+persona apruebe— y eligió el tercero. Se registra así, y no como si la regla
+original siguiera vigente: la regla se enmienda, y lo que la reemplaza son estos
+resguardos, que son parte de la decisión y no detalles de implementación:
+
+- **La original no se borra nunca.** La versión de la IA es una _propuesta_
+  aparte. Aprobarla reemplaza la foto publicada; la original queda guardada para
+  volver atrás.
+- **Nada se publica sin que una persona lo apruebe**, viendo la original y la
+  propuesta lado a lado. Queda registrado quién y cuándo.
+- **La procedencia se lee en la ruta**, como en ADR-082 y ADR-117: lo que editó
+  la IA vive bajo `<tenant>/ia/`. Un importador que reemplaza lo suyo no lo toca,
+  y cualquiera puede saber qué foto pasó por la IA.
+- **El pedido a la IA está acotado**: quitar el fondo y no retocar el producto,
+  con `input_fidelity: high`.
+- **La IA sólo trabaja sobre una foto real.** Generar la foto de un producto que
+  nadie fotografió sigue fuera, sin excepción.
+
+**Dónde corre el lote, que era lo que el ROADMAP marcaba como bloqueante**
+La clave maestra vive sólo en el Worker del Admin (ADR-103, ADR-105), y ADR-085
+mandó el trabajo por lotes a un script de Node, que no tiene camino a la clave.
+El choque se resuelve sin mover la clave: **el lote lo orquesta el navegador,
+una imagen por pedido.** Cada pedido es un request del Worker del Admin, y la
+documentación de Cloudflare dice que «no hay límite de duración para un Worker
+disparado por HTTP mientras el cliente siga conectado»
+([límites de Workers](https://developers.cloudflare.com/workers/platform/limits/)):
+esperar a OpenAI no consume CPU.
+
+Y para no depender del plan de Cloudflare, **el Worker no decodifica la imagen**:
+reenvía la respuesta de OpenAI tal cual y el navegador —que ya sube fotos con el
+JWT de quien opera— la decodifica y la sube.
+
+**Consecuencias**
+
+- La limpieza con IA la puede pedir quien tiene `settings.write` (owner y admin),
+  igual que el enriquecimiento: no se amplía quién gasta la clave del comercio. La
+  captura desde el teléfono sólo necesita `catalog.write`.
+- El comercio paga cada imagen con su clave (BYOK): un lote pide confirmación con
+  la cantidad y tiene tope de cien por tanda.
+- El producto vuelve a la vitrina **apenas tiene una foto**, la original: la IA
+  es una mejora opcional encima, no una condición para vender.

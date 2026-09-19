@@ -79,11 +79,22 @@ if (url && secretKey) {
      * sin que nadie entienda por qué.
      *
      * Se borra por ventana de tiempo y no por marcador: un `page_view` no tiene
-     * dónde llevar uno, y todo lo de la última hora en desarrollo es de la
-     * corrida.
+     * dónde llevar uno.
+     *
+     * **Y sólo de la tienda de la demo.** Hasta la v2 Fase 5 borraba la última
+     * hora de **todas** las tiendas, con el argumento de que «todo lo de la
+     * última hora en desarrollo es de la corrida». Dejó de ser cierto el día que
+     * Treeshop salió a producción en el mismo proyecto: cada corrida borraba
+     * hasta una hora de visitas reales de sontres.shop, sin un error en ningún
+     * lado. Lo encontró mirar el panel de Analytics, no un test.
      */
     const desde = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const eventos = await db.from('store_events').delete().gte('occurred_at', desde).select('id');
+    const eventos = await db
+      .from('store_events')
+      .delete()
+      .eq('store_id', IDS.store)
+      .gte('occurred_at', desde)
+      .select('id');
 
     console.log(`  pedidos de prueba borrados: ${pedidos.data?.length ?? 0}`);
     console.log(`  eventos de la corrida borrados: ${eventos.data?.length ?? 0}`);
