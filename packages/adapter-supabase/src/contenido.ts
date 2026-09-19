@@ -1,5 +1,6 @@
 import { TOPE_DE_COLECCIONES } from '@pick/commerce-core';
 import type {
+  ResultadoPorSeccion,
   Banner,
   CatalogFilters,
   CatalogSort,
@@ -237,6 +238,16 @@ export function repositorioContenido(db: PickSupabaseClient): RepositorioConteni
         productsCount: data.products_count,
         pairsCount: data.pairs_count,
       };
+    },
+
+    async resultadoDeSecciones(storeId, dias = 30) {
+      const { data, error } = await db.rpc('admin_section_performance', {
+        p_store_id: storeId,
+        p_days: dias,
+      });
+
+      if (error) throw new Error(`No se pudo leer el resultado de las secciones: ${error.message}`);
+      return (data ?? {}) as unknown as ResultadoPorSeccion;
     },
 
     async secciones(storeId): Promise<readonly SeccionDeHome[]> {

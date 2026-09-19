@@ -5945,3 +5945,97 @@ PGlite**, que es el punto.
   es la misma consulta con el parámetro vacío.
 - El costo de fondo de `catalog_search` sigue en el backlog. Esta fase no lo
   empeora y tampoco lo arregla.
+
+## ADR-128 — El perfil sigue a la persona, y apagarlo borra lo que ya se había guardado
+
+**Fecha:** 2026-09-19
+**Estado:** Accepted
+
+**Contexto**
+La Fase 4 entregó la personalización por `pick_did`, la cookie de dispositivo:
+cubre casi todo el tráfico, pero no pasa del teléfono al escritorio y no
+sobrevive a la purga de `store_events`. El perfil por cuenta quedó diferido con
+un motivo escrito: cruzar lo que alguien mira con quién es era exactamente la
+línea que PROJECT.md §23 protegía, y el texto de privacidad prometía que ese
+cruce no existía y que **cambiaría antes que la tienda**.
+
+**Decisión**
+`customer_preferences` materializa por persona el mismo bucket que ya existía
+por navegador —dos marcas y dos categorías—, y el texto de privacidad se
+reescribió en el mismo cambio, antes de encenderlo.
+
+- **Lo escribe el recálculo que ya corría.** `recompute_affinity` gana un tercer
+  paso: sin job nuevo, sin cron nuevo, con el mismo candado y las mismas ventanas.
+- **Quién es quién lo dice `session_identities`**, que se escribe sólo al entrar
+  a la cuenta. Sin login no hay fila y no hay perfil.
+- **Se lee con el token del comprador**, por `my_preferences`, que es `definer`
+  con el filtro de identidad adentro —la tabla no tiene política de comprador, y
+  una función `invoker` habría devuelto vacío siempre, que es la trampa que
+  CLAUDE.md ya tenía anotada—.
+- El storefront prefiere el perfil de la cuenta, cae al del navegador, y de ahí a
+  tendencia: es un escalón más de la misma cascada de ADR-127, no un camino nuevo.
+
+**Lo que encontró un test, y cambió el diseño**
+Borrar el resumen al apagar la personalización **no alcanzaba**: las visitas de
+ese navegador siguen en `store_events` hasta 180 días, así que el recálculo
+siguiente lo armaba de nuevo. El interruptor habría durado seis horas, sin que
+nada fallara ni avisara.
+
+Así que apagar hace tres cosas, y las tres son parte de la promesa:
+
+1. borra la cookie del dispositivo, que corta la señal nueva (ADR-124);
+2. borra el resumen de la cuenta (`forget_my_preferences`);
+3. **le saca el `device_id` a lo ya guardado** (`forget_device`). El evento se
+   queda —la medición del comercio no depende de que le den permiso a nada— pero
+   deja de estar atado a ese navegador.
+
+Y el recálculo sólo mira visitas **con** `device_id`, que es lo que hace que
+apagar sostenga en vez de revertirse en la corrida siguiente.
+
+**Consecuencias**
+
+- El texto de privacidad dice ahora que, con la cuenta abierta, lo que se mira
+  ordena la vitrina también desde otro dispositivo; que se guarda un resumen y no
+  la lista; que sirve sólo para el orden; y que apagar borra las dos cosas.
+- El comercio **no** ve el perfil de nadie: `customer_preferences` no tiene
+  política para `authenticated`, así que el Admin no la alcanza. Lo que ve el
+  comercio es qué se mira y qué se vende en su tienda, que es lo que ya veía.
+- Un perfil sin señal no se guarda, y a quien deja de tener actividad se le borra
+  en la corrida siguiente: un perfil viejo ordena la vitrina con lo que a alguien
+  le interesaba hace un año.
+
+## ADR-129 — Una sección de la portada dice si sirvió, atribuyendo por visita
+
+**Fecha:** 2026-09-19
+**Estado:** Accepted
+
+**Contexto**
+El ROADMAP pedía «una línea de resultado por sección —cuántos clics, cuánto
+vendió—: sin eso el comercio no puede saber si la sección funciona y va a asumir
+que no». La Fase 4 la difirió porque no existía el evento que la alimenta.
+
+**Decisión**
+El enlace de una sección lleva `?s=<sección>` y el PDP —que ya corre en el
+Worker— anota `section_click` al verlo. **Cero JavaScript nuevo**, como el resto
+de los eventos (ADR-099). Se deduplica por visita, sección y producto: volver
+atrás y entrar otra vez no son dos clicks.
+
+**La atribución no necesitó una columna nueva.** Un pedido ya está atado a su
+visita por `checkout_completed`, así que la cadena es: alguien entró a un
+producto desde una sección y **en esa misma visita** compró ese producto. La
+alternativa era llevar la sección en el carrito y de ahí al pedido: dos campos
+nuevos para responder una pregunta de tablero.
+
+**Lo que esa decisión cuesta, dicho en el código y en el Admin:** no hay
+atribución entre visitas. Quien ve algo el lunes desde un carrusel y lo compra el
+jueves cuenta como click el lunes y como nada el jueves. Es el mismo criterio que
+el embudo, que se cuenta por sesión, y es lo que hace que estos números y los de
+Analytics signifiquen lo mismo.
+
+**Cómo se verifica**
+Nueve casos en PGlite sobre la atribución, que es donde un número equivocado no
+rompe nada y se cree igual. Seis sabotajes; cinco ponen un caso en rojo y el
+sexto —el filtro de tienda— es redundante por construcción y queda escrito como
+tal. Dos huecos los encontró el sabotaje y no la revisión: contar dos veces la
+misma línea, y atribuirle a la sección una compra **de otro producto** hecha en
+la misma visita.

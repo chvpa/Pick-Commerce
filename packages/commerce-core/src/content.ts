@@ -130,6 +130,18 @@ export interface PaginaColecciones {
  */
 export const TOPE_DE_COLECCIONES = 200;
 
+/**
+ * Lo que una sección trajo: entradas a un producto desde ella, pedidos de esas
+ * mismas visitas que incluyeron ese producto, y lo que se pagó por esas líneas.
+ */
+export interface ResultadoDeSeccion {
+  readonly clicks: number;
+  readonly orders: number;
+  readonly revenue: number;
+}
+
+export type ResultadoPorSeccion = Readonly<Record<string, ResultadoDeSeccion>>;
+
 /** Lo que `affinity_runs` guarda de la última corrida (ADR-127). */
 export interface EstadoDeRecomendaciones {
   readonly computedAt: string | null;
@@ -152,6 +164,14 @@ export interface RepositorioContenido {
    * decir cuándo se armó, o el comercio no sabe si mira algo viejo.
    */
   estadoDeRecomendaciones(storeId: string): Promise<EstadoDeRecomendaciones | null>;
+  /**
+   * Qué trajo cada sección de la portada en los últimos `dias`.
+   *
+   * Devuelve un mapa por id de sección, con ceros para las que no tuvieron nada:
+   * una sección que no aparece se lee como un error de la pantalla, y un cero se
+   * lee como lo que es.
+   */
+  resultadoDeSecciones(storeId: string, dias?: number): Promise<ResultadoPorSeccion>;
   guardarSeccion(storeId: string, datos: DatosDeSeccion, id?: string): Promise<string>;
   borrarSeccion(storeId: string, id: string): Promise<void>;
 

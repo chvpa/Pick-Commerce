@@ -57,10 +57,17 @@ if (url && secretKey) {
 
     // Ídem las colecciones: el smoke corre sobre la tienda activa, que suele ser
     // la de la demo, así que no se van en cascada con la tienda de prueba.
+    /*
+     * Dos prefijos: el del caso de novedades y el del orden automático. El
+     * segundo faltaba, y **eso rompió el smoke**: la lista de colecciones pagina
+     * de a veinte, así que una colección por corrida terminó empujando la recién
+     * creada fuera de la primera página. Un test que se ensucia a sí mismo falla
+     * por acumulación y no por un cambio de código.
+     */
     const colecciones = await db
       .from('collections')
       .delete()
-      .like('title', 'Novedades del smoke %')
+      .or('title.like.Novedades del smoke %,title.like.Tendencia del smoke %')
       .select('id');
 
     /*

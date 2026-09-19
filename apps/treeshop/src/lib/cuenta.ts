@@ -1,3 +1,4 @@
+import type { PreferenciasDelVisitante } from '@pick/commerce-core';
 import { getSecret } from 'astro:env/server';
 import { clienteDeAuth, clienteDeUsuario, type PickSupabaseClient } from '@pick/adapter-supabase';
 import { EVENTO_CODIGO } from '@pick/commerce-core';
@@ -350,6 +351,51 @@ export async function misFavoritos(accessToken: string): Promise<readonly string
 
   if (error) throw new Error(`No se pudieron leer los guardados: ${error.message}`);
   return (data ?? []).map((f) => f.product_id);
+}
+
+/**
+ * Las preferencias de quien entró a su cuenta.
+ *
+ * Es el mismo bucket que `visitor_preferences` —dos marcas y dos categorías—
+ * pero de la persona y no del navegador: sigue del teléfono al escritorio y
+ * sobrevive a la purga de eventos, porque está materializado (ADR-128).
+ *
+ * Va con el token del comprador, como lo guardado: la función es `definer` y
+ * filtra por la identidad de quien llama, así que nadie puede pedir el perfil de
+ * otro. Un fallo devuelve `{}` y la vitrina cae al escalón siguiente.
+ */
+export async function misPreferencias(
+  accessToken: string,
+): Promise<PreferenciasDelVisitante | undefined> {
+  try {
+    const { storeId } = await tiendaActual();
+    const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+    const { data, error } = await db.rpc('my_preferences', { p_store_id: storeId });
+    if (error) throw new Error(error.message);
+
+    const prefiere = data as unknown as PreferenciasDelVisitante;
+    return Object.keys(prefiere ?? {}).length > 0 ? prefiere : undefined;
+  } catch (error) {
+    console.error('[preferencias] no se pudo leer el perfil de la cuenta', error);
+    return undefined;
+  }
+}
+
+/**
+ * Borra el perfil de quien apagó la personalización.
+ *
+ * Lo llama el interruptor. La función filtra por la identidad de quien llama, y
+ * el recálculo no lo vuelve a armar porque sólo mira visitas con personalización
+ * prendida: sin esas dos cosas, apagar duraría hasta la próxima corrida
+ * (ADR-128).
+ */
+export async function olvidarMisPreferencias(accessToken: string): Promise<void> {
+  const { storeId } = await tiendaActual();
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+  const { error } = await db.rpc('forget_my_preferences', { p_store_id: storeId });
+  if (error) throw new Error(`No se pudo borrar el perfil: ${error.message}`);
 }
 
 export interface ProductoGuardado {

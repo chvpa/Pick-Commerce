@@ -195,3 +195,24 @@ export async function recalcularAfinidad(): Promise<void> {
     console.log(`[afinidad] ${data} pares recalculados`);
   }
 }
+
+/**
+ * Desata de este navegador lo que ya se había guardado.
+ *
+ * Es la otra mitad de apagar la personalización: borrar la cookie corta la señal
+ * nueva, y esto le saca el `device_id` a la vieja. Sin las dos, el perfil se
+ * rearmaba solo en el recálculo siguiente —lo encontró un test, no una
+ * revisión— y el interruptor habría durado seis horas.
+ *
+ * El evento se queda, sin dueño: la medición del comercio no depende de que le
+ * den permiso a nada (ADR-124).
+ */
+export async function olvidarEsteDispositivo(deviceId: string): Promise<void> {
+  const { storeId } = await tiendaActual();
+  const { error } = await clienteDelStorefront().rpc('forget_device', {
+    p_store_id: storeId,
+    p_device_id: deviceId,
+  });
+
+  if (error) throw new Error(error.message);
+}

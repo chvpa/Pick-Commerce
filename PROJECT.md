@@ -978,11 +978,19 @@ es una decisión de producto que se toma y se anuncia aparte, no un efecto
 colateral de que ahora haya cuentas. El texto de privacidad de cada tienda lo
 dice en esos términos.
 
-Lo que sí existe desde la v2 Fase 4 es recomendar **por navegador**: `pick_did`
-alcanza para saber que este navegador viene mirando zapatillas de una marca, y
-con eso la vitrina se ordena sola (ADR-127). No hay nombre, ni correo, ni nada
-que sobreviva a apagar la personalización o a cambiar de dispositivo. La
-diferencia entre las dos cosas es exactamente la línea que este capítulo protege.
+**Esa decisión se tomó, y se anunció.** Desde ADR-128 el perfil sigue a la
+persona cuando entró a su cuenta: las marcas y categorías que viene mirando
+ordenan la vitrina también desde otro dispositivo. Lo que se guarda es un
+**resumen** —dos marcas y dos categorías, rehecho con los últimos noventa días—,
+no la lista de lo que miró, y sirve para una sola cosa: en qué orden se muestran
+los productos. El comercio no lo ve: la tabla no tiene política para
+`authenticated`.
+
+Y el interruptor de personalización lo apaga entero. Apagarlo borra el resumen
+**y le saca el identificador de navegador a lo ya registrado**, porque borrar
+sólo el resumen habría durado hasta el recálculo siguiente. El texto de
+privacidad de cada tienda dice las tres cosas, y cambió en el mismo commit que
+encendió esto: era el compromiso publicado.
 
 Y una consecuencia del esquema que ordena todo lo demás: hay **un solo**
 `auth.users` para todos los comercios, así que la pertenencia a una tienda vive

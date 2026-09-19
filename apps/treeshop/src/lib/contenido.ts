@@ -87,7 +87,9 @@ export const POLITICAS = [
       'Contamos visitas, búsquedas y pasos de la compra para saber qué funciona de la tienda. Lo hacemos desde nuestro propio servidor: no usamos servicios de terceros, no hay publicidad y nada de esto sale de acá.',
       'Guardamos dos identificadores al azar, y hacen cosas distintas: uno distingue una visita de otra y se borra solo a la media hora de inactividad; el otro reconoce a este navegador durante seis meses, para poder ordenar mejor lo que te mostramos. Ninguno de los dos lleva tu nombre, tu correo ni tu dirección IP.',
       'El segundo lo podés apagar cuando quieras, acá abajo en «Personalización». Al apagarlo lo borramos: las visitas se siguen contando de forma anónima, como las de cualquiera.',
-      'Ese identificador no está atado a tu cuenta, ni siquiera cuando entrás: lo que mirás y lo que comprás se guardan por separado y nada los cruza. El día que eso cambie —para ordenar lo que te mostramos según lo que viste— vas a poder decidirlo, y este texto va a cambiar antes que la tienda, no después.',
+      'Si entrás a tu cuenta, ese reconocimiento deja de ser de este navegador y pasa a ser tuyo: las marcas y las categorías que venís mirando nos sirven para ordenar la vitrina cuando volvés, también desde otro dispositivo. Guardamos un resumen —dos marcas y dos categorías—, no la lista de lo que miraste, y lo rehacemos con lo de los últimos noventa días.',
+      'Sirve para una sola cosa: en qué orden te mostramos los productos. No cambia precios, no manda correos y no sale del sitio. El comercio ve qué se mira y qué se vende en su tienda, no qué mira cada persona.',
+      'Se apaga con el mismo interruptor de «Personalización» de acá abajo, y apagarlo borra las dos cosas: el identificador del navegador y el resumen de tu cuenta. Con eso apagado la vitrina se ordena igual para todos, con lo que más se está moviendo.',
     ],
   },
 ] as const;

@@ -1,5 +1,11 @@
 import type { APIRoute } from 'astro';
-import { COOKIE_DE_DISPOSITIVO, COOKIE_SIN_PERSONALIZACION } from '../../lib/analytics.ts';
+import {
+  COOKIE_DE_DISPOSITIVO,
+  COOKIE_SIN_PERSONALIZACION,
+  olvidarEsteDispositivo,
+} from '../../lib/analytics.ts';
+import { olvidarMisPreferencias } from '../../lib/cuenta.ts';
+import { paginaDeCuenta } from '../../lib/sesion.ts';
 
 export const prerender = false;
 
@@ -30,6 +36,38 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   const apagar = form.get('accion') === 'apagar';
 
   if (apagar) {
+    /*
+     * Y el resumen de la cuenta, si quien apaga entró a la suya. El texto de
+     * privacidad promete que apagar borra **las dos cosas**; que además no
+     * vuelva lo sostiene el recálculo, que ignora las visitas sin `device_id`.
+     *
+     * Un fallo acá no puede dejar el interruptor sin apagar: se registra y se
+     * sigue, porque la cookie —que es lo que corta la señal nueva— ya se borra
+     * abajo.
+     */
+    const { habilitado, token } = await paginaDeCuenta(cookies);
+    if (habilitado && token) {
+      try {
+        await olvidarMisPreferencias(token);
+      } catch (error) {
+        console.error('[preferencias] no se pudo borrar el perfil de la cuenta', error);
+      }
+    }
+
+    /*
+     * Y lo ya registrado de este navegador deja de estar atado a él. Sin esto el
+     * recálculo lo vuelve a armar con las visitas viejas, que siguen ahí hasta
+     * 180 días: apagar habría durado hasta la corrida siguiente.
+     */
+    const dispositivo = cookies.get(COOKIE_DE_DISPOSITIVO)?.value;
+    if (dispositivo) {
+      try {
+        await olvidarEsteDispositivo(dispositivo);
+      } catch (error) {
+        console.error('[preferencias] no se pudo desatar el dispositivo', error);
+      }
+    }
+
     cookies.set(COOKIE_SIN_PERSONALIZACION, '1', {
       path: '/',
       httpOnly: true,

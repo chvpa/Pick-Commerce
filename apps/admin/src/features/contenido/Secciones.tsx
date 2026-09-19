@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { repositorioContenido } from '@pick/adapter-supabase';
-import { TOPE_DE_COLECCIONES, moverEn, type SeccionDeHome } from '@pick/commerce-core';
+import { TOPE_DE_COLECCIONES, formatMoney, moverEn, type SeccionDeHome } from '@pick/commerce-core';
 import { GalleryVerticalEndIcon } from '@/components/iconos';
 import { buttonVariants } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -58,6 +58,16 @@ export function Secciones() {
   const recomendaciones = useQuery({
     queryKey: ['recomendaciones', tienda.id],
     queryFn: () => repositorioContenido(db).estadoDeRecomendaciones(tienda.id),
+  });
+
+  /*
+   * Qué trajo cada sección en el último mes. Va con las secciones y no en una
+   * pantalla aparte: la pregunta aparece mirando la lista —«¿esto sirve?»— y una
+   * métrica que hay que ir a buscar no se mira.
+   */
+  const resultado = useQuery({
+    queryKey: ['resultado-secciones', tienda.id],
+    queryFn: () => repositorioContenido(db).resultadoDeSecciones(tienda.id),
   });
 
   const refrescar = () => queryClient.invalidateQueries({ queryKey: ['secciones', tienda.id] });
@@ -169,6 +179,20 @@ export function Secciones() {
                     {ETIQUETA_TIPO[s.type]}
                     {(s.type === 'hero' || s.type === 'tiles') &&
                       ` · ${s.layout === 'slider' ? 'carrusel' : 'estático'}`}
+                    {/*
+                      Lo que trajo, en la misma línea que lo describe. Sólo en
+                      las de productos: un hero no tiene a dónde llevar que se
+                      pueda atribuir. Un cero se muestra —es información— y lo
+                      que no se midió todavía, no.
+                    */}
+                    {s.type === 'products' &&
+                      resultado.data?.[s.id] &&
+                      ` · ${resultado.data[s.id]!.clicks} ${
+                        resultado.data[s.id]!.clicks === 1 ? 'entrada' : 'entradas'
+                      } y ${formatMoney(
+                        { amount: resultado.data[s.id]!.revenue, currency: tienda.currency },
+                        tienda.locale,
+                      )} en 30 días`}
                   </span>
                 </div>
                 {/*

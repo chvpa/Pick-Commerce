@@ -70,6 +70,19 @@ anotar(Astro.locals, 'product_view', Astro.url.pathname, {
   productId: product.id,
 });
 
+/*
+ * Y de dónde vino, si vino de una sección de la portada. `?s=` lo pone el
+ * enlace; acá se comprueba que sea un uuid antes de anotarlo, porque llega de la
+ * URL y cualquiera puede escribir lo que quiera ahí.
+ */
+const desdeSeccion = Astro.url.searchParams.get('s') ?? '';
+if (/^[0-9a-f-]{36}$/i.test(desdeSeccion)) {
+  anotar(Astro.locals, 'section_click', Astro.url.pathname, {
+    sectionId: desdeSeccion,
+    productId: product.id,
+  });
+}
+
 /* Los swatches los aporta el storefront: el catálogo guarda "Azul", no un hex. */
 const COLOR_SWATCHES = { Azul: '#2f4858', Negro: '#26262b', Blanco: '#e8e6e1', Verde: '#3f5f46' };
 

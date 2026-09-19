@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
-import { baseDePrueba, como, comoServicio, intentar } from './harness.ts';
+import { baseDePrueba, como, comoAdmin, comoServicio, intentar } from './harness.ts';
 
 /**
  * Lo que ve un comprador, y lo que no.
@@ -125,10 +125,12 @@ before(async () => {
     -- El dueño es staff de A. Ninguno de los compradores es miembro de nada.
     insert into memberships (tenant_id, user_id, role) values ('${ORG_A}', '${DUENO_A}', 'owner');
 
-    insert into products (id, tenant_id, store_id, handle, title, status) values
-      ('${PRODUCTO_A}', '${ORG_A}', '${TIENDA_A}', 'p-a', 'Producto de A', 'active'),
-      ('${PRODUCTO_A2}', '${ORG_A}', '${TIENDA_A}', 'p-a2', 'Otro producto de A', 'active'),
-      ('${PRODUCTO_B}', '${ORG_B}', '${TIENDA_B}', 'p-b', 'Producto de B', 'active');
+    -- Con marca: el perfil de la Fase 4 se arma sobre marca y categoría, así que
+    -- sin marca los casos del perfil probarían el caso vacío y nada más.
+    insert into products (id, tenant_id, store_id, handle, title, brand, status) values
+      ('${PRODUCTO_A}', '${ORG_A}', '${TIENDA_A}', 'p-a', 'Producto de A', 'Norte', 'active'),
+      ('${PRODUCTO_A2}', '${ORG_A}', '${TIENDA_A}', 'p-a2', 'Otro producto de A', 'Lejos', 'active'),
+      ('${PRODUCTO_B}', '${ORG_B}', '${TIENDA_B}', 'p-b', 'Producto de B', 'Sur', 'active');
 
     insert into product_variants (id, tenant_id, product_id, sku, title, price, currency, position) values
       ('${VARIANTE_A}', '${ORG_A}', '${PRODUCTO_A}', 'SKU-A', 'U', 100000, 'PYG', 0),
@@ -557,4 +559,153 @@ test('el staff del comercio sigue viendo los pedidos de su tienda', async () => 
     'el dueño de A dejó de ver todos los pedidos de su tienda',
   );
   assert.ok(deLaTienda[0]!.n >= 2, 'el seed dejó menos de dos pedidos: el caso no prueba nada');
+});
+
+// --- El perfil que sigue a la persona ----------------------------------------
+
+/**
+ * `customer_preferences` (ADR-128): lo mismo que el bucket del navegador, pero
+ * de quien entró a su cuenta.
+ *
+ * Lo que hay que defender acá es **de quién es cada perfil**. Un perfil que se
+ * filtra al de al lado no rompe nada visible: ordena mal una vitrina, y quien
+ * mira no tiene forma de saber que está viendo lo que otro venía mirando.
+ */
+
+/*
+ * Un navegador por persona, con la personalización prendida: sin `device_id` no
+ * hay perfil que armar. Son dos y no uno porque apagar la personalización
+ * **desata lo ya guardado de ese navegador**, y con uno compartido apagar el de
+ * Ana borraba también el perfil de Beto dentro del test.
+ */
+const DISPOSITIVO = '5e000000-0000-4000-8000-0000000000d1';
+const DISPOSITIVO_DE_BETO = '5e000000-0000-4000-8000-0000000000d2';
+const SESION_DE_ANA = '5e000000-0000-4000-8000-00000000000a';
+const SESION_DE_BETO = '5e000000-0000-4000-8000-00000000000b';
+
+/** Una vista de producto de una sesión ya atada a una persona. */
+async function mirar(
+  sesion: string,
+  producto: string,
+  veces: number,
+  dispositivo = DISPOSITIVO,
+): Promise<void> {
+  for (let i = 0; i < veces; i++) {
+    await comoServicio(
+      db,
+      `insert into store_events (tenant_id, store_id, session_id, device_id, type, data)
+       values ('${ORG_A}', '${TIENDA_A}', '${sesion}', '${dispositivo}', 'product_view',
+               '{"productId": "${producto}"}'::jsonb)`,
+    );
+  }
+}
+
+async function misPreferencias(
+  usuario: string,
+  tienda = TIENDA_A,
+): Promise<Record<string, string[]>> {
+  const filas = await como<{ j: Record<string, string[]> }>(
+    db,
+    usuario,
+    `select my_preferences('${tienda}'::uuid) as j`,
+  );
+  return filas[0]!.j;
+}
+
+test('el perfil sale de lo que miró esa persona, y necesita tres vistas', async () => {
+  await comoServicio(
+    db,
+    `insert into session_identities (session_id, tenant_id, store_id, customer_id)
+     values ('${SESION_DE_ANA}', '${ORG_A}', '${TIENDA_A}', '${await fichaDe(ANA)}')
+     on conflict do nothing`,
+  );
+
+  // Dos vistas no alcanzan: es el mismo mínimo que el bucket del navegador.
+  await mirar(SESION_DE_ANA, PRODUCTO_A, 2);
+  await comoServicio(db, `select recompute_affinity('${TIENDA_A}'::uuid, interval '0 seconds')`);
+  assert.deepEqual(await misPreferencias(ANA), {}, 'con dos vistas ya había perfil');
+
+  await mirar(SESION_DE_ANA, PRODUCTO_A, 1);
+  await comoServicio(db, `select recompute_affinity('${TIENDA_A}'::uuid, interval '0 seconds')`);
+
+  // La marca **que ella miró**, y ninguna otra: los dos productos de la tienda
+  // tienen marcas distintas a propósito. Sin eso, atar las vistas a la persona
+  // podía romperse sin que ningún caso se pusiera en rojo (medido).
+  assert.deepEqual(await misPreferencias(ANA), { brand: ['Norte'] });
+});
+
+test('el perfil de una persona no se le muestra a otra de la misma tienda', async () => {
+  /*
+   * Beto compra en la misma tienda y tiene cuenta. La función es `definer` —la
+   * tabla no tiene política de comprador— así que lo único que lo separa del
+   * perfil de Ana es el filtro por identidad escrito adentro.
+   */
+  assert.deepEqual(await misPreferencias(BETO), {}, 'Beto vio el perfil de Ana');
+
+  await comoServicio(
+    db,
+    `insert into session_identities (session_id, tenant_id, store_id, customer_id)
+     values ('${SESION_DE_BETO}', '${ORG_A}', '${TIENDA_A}', '${await fichaDe(BETO)}')
+     on conflict do nothing`,
+  );
+  await mirar(SESION_DE_BETO, PRODUCTO_A2, 3, DISPOSITIVO_DE_BETO);
+  await comoServicio(db, `select recompute_affinity('${TIENDA_A}'::uuid, interval '0 seconds')`);
+
+  // Ahora los dos tienen perfil, y cada uno recibe **el suyo**: Ana miró la
+  // marca Norte y Beto la marca Lejos, y ninguno ve la del otro.
+  assert.deepEqual(await misPreferencias(ANA), { brand: ['Norte'] });
+  assert.deepEqual(await misPreferencias(BETO), { brand: ['Lejos'] });
+});
+
+test('quien no entró a su cuenta no tiene perfil que pedir', async () => {
+  // `ELIAS` existe en `auth.users` y nunca compró ni vinculó cuenta.
+  assert.deepEqual(await misPreferencias(ELIAS), {});
+});
+
+test('el perfil no cruza tiendas: en la tienda B, Ana no es nadie', async () => {
+  assert.deepEqual(await misPreferencias(ANA, TIENDA_B), {});
+});
+
+test('nadie puede leer la tabla del perfil, ni el comercio', async () => {
+  for (const usuario of [ANA, DUENO_A, null]) {
+    const lectura = await intentar(db, usuario, 'select * from customer_preferences');
+    assert.equal(lectura.filas, 0, `${usuario ?? 'anon'} leyó el perfil de alguien`);
+  }
+});
+
+test('apagar la personalización borra el perfil, y el recálculo no lo vuelve a armar', async () => {
+  /*
+   * Las dos mitades de la misma promesa. Borrar es lo fácil; lo que costaría
+   * caro es que la próxima corrida lo reconstruya, porque el interruptor
+   * seguiría apagado y el perfil estaría de vuelta sin que nadie se entere.
+   */
+  // `comoAdmin` y no `como`: el segundo hace rollback siempre, así que un
+  // borrado hecho con él no se ve después. Cuesta un rato descubrirlo.
+  await comoAdmin(db, ANA, `select forget_my_preferences('${TIENDA_A}'::uuid)`);
+  assert.deepEqual(await misPreferencias(ANA), {}, 'el perfil no se borró');
+
+  /*
+   * Y lo viejo deja de estar atado a este navegador. Sin esta llamada el
+   * recálculo rearmaba el perfil con las visitas de antes —siguen ahí hasta 180
+   * días— y el interruptor duraba seis horas: lo encontró este test.
+   */
+  await comoServicio(db, `select forget_device('${TIENDA_A}'::uuid, '${DISPOSITIVO}'::uuid)`);
+
+  // Una visita con la personalización apagada: el evento se guarda igual, sin
+  // `device_id` (ADR-124).
+  await comoServicio(
+    db,
+    `insert into store_events (tenant_id, store_id, session_id, type, data)
+     values ('${ORG_A}', '${TIENDA_A}', '${SESION_DE_ANA}', 'product_view',
+             '{"productId": "${PRODUCTO_A}"}'::jsonb)`,
+  );
+  await comoServicio(db, `select recompute_affinity('${TIENDA_A}'::uuid, interval '0 seconds')`);
+
+  assert.deepEqual(await misPreferencias(ANA), {}, 'el recálculo revivió un perfil apagado');
+});
+
+test('nadie puede borrar el perfil de otro', async () => {
+  // Beto sigue con el suyo después de que alguien más llame a la función.
+  await comoAdmin(db, ELIAS, `select forget_my_preferences('${TIENDA_A}'::uuid)`);
+  assert.deepEqual(await misPreferencias(BETO), { brand: ['Lejos'] });
 });

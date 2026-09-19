@@ -106,6 +106,18 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   // Los productos guardados, por lo mismo: `security invoker` y RLS sobre
   // `wishlist_items`, que es del comprador.
   ['public.wishlist_products', `wishlist_products('${TIENDA}')`],
+  // El resultado de cada sección de la portada: es el tablero del comercio, y
+  // `security invoker` con RLS sobre `store_events` y `orders` lo acota.
+  ['public.admin_section_performance', `admin_section_performance('${TIENDA}', 30)`],
+  /*
+   * El perfil de quien entró a su cuenta. Es `definer` —la tabla no tiene
+   * política de comprador— con el filtro de identidad adentro, así que para
+   * cualquier otro devuelve `{}` (ADR-128).
+   */
+  ['public.my_preferences', `my_preferences('${TIENDA}')`],
+  // Y el borrado del perfil, por lo mismo: `definer` con el filtro de identidad
+  // adentro. Para quien no tiene cuenta en esta tienda no borra nada.
+  ['public.forget_my_preferences', `forget_my_preferences('${TIENDA}')`],
 ];
 
 /**

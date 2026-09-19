@@ -20,6 +20,8 @@ import {
   tiendaActual,
   vistosRecientemente,
 } from '../lib/db.ts';
+import { misPreferencias } from '../lib/cuenta.ts';
+import { paginaDeCuenta } from '../lib/sesion.ts';
 import Base from '../layouts/Base.astro';
 
 /*
@@ -50,7 +52,24 @@ const tienda = await tiendaActual();
  * ninguna medición: la visita se anota igual.
  */
 const enFrio = Astro.url.searchParams.has('frio');
-const prefiere = enFrio ? undefined : await preferenciasDelVisitante(Astro.locals.deviceId);
+
+/*
+ * De quién es el perfil que ordena la vitrina, en este orden:
+ *
+ * 1. de **la persona**, si entró a su cuenta: sigue del teléfono al escritorio;
+ * 2. del **navegador**, si no;
+ * 3. de nadie, y entonces manda la tendencia (ADR-127).
+ *
+ * El interruptor de personalización apaga los dos: sin `deviceId` no hay bucket
+ * de navegador, y la consulta de la cuenta tampoco se hace.
+ */
+const { habilitado: hayCuenta, token: tokenDeCuenta } = await paginaDeCuenta(Astro.cookies);
+const personaliza = !enFrio && Astro.locals.deviceId !== undefined;
+
+const prefiere = !personaliza
+  ? undefined
+  : ((hayCuenta && tokenDeCuenta ? await misPreferencias(tokenDeCuenta) : undefined) ??
+    (await preferenciasDelVisitante(Astro.locals.deviceId)));
 
 const [secciones, cats, vistos] = await Promise.all([
   catalogo().home(tienda.storeId, prefiere),
@@ -210,7 +229,14 @@ const seo = await contextoSeo();
                 <ProductCard>
                   <ProductCardMedia image={product.images[0]} />
                   <ProductCardBody>
-                    <ProductCardTitle href={`/productos/${product.handle}`}>
+                    {/*
+                      `?s=` es de dónde vino el click. Lo anota el PDP —que ya
+                      corre en el Worker— y con eso el Admin puede decir si una
+                      sección sirvió, sin una línea de JavaScript nueva
+                      (ADR-099). El canonical del producto no lo lleva, así que
+                      no multiplica URLs para un buscador.
+                    */}
+                    <ProductCardTitle href={`/productos/${product.handle}?s=${seccion.id}`}>
                       {product.title}
                     </ProductCardTitle>
                     <Price value={variant.price} compareAt={variant.compareAtPrice} />

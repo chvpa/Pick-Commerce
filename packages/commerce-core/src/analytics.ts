@@ -38,6 +38,14 @@ export const TIPOS_DE_EVENTO = [
   'coupon_applied',
   'begin_checkout',
   'checkout_completed',
+  /**
+   * Entrar a un producto **desde una sección de la portada**.
+   *
+   * Lo anota el PDP, no el click: el enlace de una sección lleva `?s=<id>` y la
+   * página de producto —que ya corre en el Worker— lo ve llegar. Cero JavaScript
+   * nuevo, como el resto (ADR-099).
+   */
+  'section_click',
 ] as const;
 
 export type TipoDeEvento = (typeof TIPOS_DE_EVENTO)[number];
@@ -213,6 +221,20 @@ export function claveDeDeduplicacion(
   if (tipo === 'wishlist_add') {
     const producto = data?.productId;
     return typeof producto === 'string' ? `${sessionId}:${producto}` : undefined;
+  }
+
+  /*
+   * Entrar dos veces al mismo producto desde la misma sección en la misma visita
+   * es una sola intención: volver atrás y volver a entrar no son dos clicks. Sin
+   * esta clave, un ida y vuelta contaría doble y la sección parecería mejor de
+   * lo que es.
+   */
+  if (tipo === 'section_click') {
+    const seccion = data?.sectionId;
+    const producto = data?.productId;
+    return typeof seccion === 'string' && typeof producto === 'string'
+      ? `${sessionId}:${seccion}:${producto}`
+      : undefined;
   }
 
   // `page_view`, `product_view`, `add_to_cart` y `begin_checkout`: repetirse es

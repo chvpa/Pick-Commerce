@@ -566,6 +566,52 @@ export type Database = {
           },
         ]
       }
+      customer_preferences: {
+        Row: {
+          computed_at: string
+          customer_id: string
+          prefiere: Json
+          store_id: string
+          tenant_id: string
+        }
+        Insert: {
+          computed_at?: string
+          customer_id: string
+          prefiere?: Json
+          store_id: string
+          tenant_id: string
+        }
+        Update: {
+          computed_at?: string
+          customer_id?: string
+          prefiere?: Json
+          store_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_preferences_customer_fkey"
+            columns: ["customer_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "customer_preferences_store_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "customer_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           created_at: string
@@ -2034,6 +2080,10 @@ export type Database = {
         Args: { p_audit?: Json; p_settings: Json; p_store_id: string }
         Returns: Json
       }
+      admin_section_performance: {
+        Args: { p_days?: number; p_store_id: string }
+        Returns: Json
+      }
       admin_set_order_status: {
         Args: {
           p_note?: string
@@ -2104,6 +2154,14 @@ export type Database = {
         Args: { p_page?: number; p_per_page?: number; p_store_id: string }
         Returns: Json
       }
+      forget_device: {
+        Args: { p_device_id: string; p_store_id: string }
+        Returns: number
+      }
+      forget_my_preferences: {
+        Args: { p_store_id: string }
+        Returns: undefined
+      }
       import_products: {
         Args: { p_productos: Json; p_store_id: string }
         Returns: Json
@@ -2116,6 +2174,7 @@ export type Database = {
         Args: { p_id: string; p_store_id: string }
         Returns: undefined
       }
+      my_preferences: { Args: { p_store_id: string }; Returns: Json }
       order_json: { Args: { p_order_id: string }; Returns: Json }
       recently_viewed: {
         Args: { p_device_id: string; p_limit?: number; p_store_id: string }

@@ -276,14 +276,15 @@ horas, disparado por una visita. Una tienda sin visitas no recalcula —tampoco
 tendría con qué—, y lo que se compró hace un minuto puede tardar hasta seis horas
 en aparecer.
 
-**El perfil es del navegador, no de la persona.** Va por `pick_did`, así que no
-sigue a nadie del teléfono al escritorio, y con la personalización apagada no
-existe: se ve lo que se está moviendo, que es lo mismo que ve alguien que llega
-por primera vez.
+**El perfil sigue a la persona sólo si entró a su cuenta** (ADR-128). Sin cuenta
+va por `pick_did`, así que no pasa del teléfono al escritorio; y con la
+personalización apagada no existe de ninguna de las dos formas: se ve lo que se
+está moviendo, igual que alguien que llega por primera vez.
 
-**Qué lo desbloquea:** el perfil por cuenta está en el backlog del
-[ROADMAP](ROADMAP.md), y cruzar lo que alguien mira con quién es cambia el texto
-de privacidad **antes** que la tienda.
+**Lo que una sección de la portada informa es por visita** (ADR-129): quien ve
+algo el lunes desde un carrusel y lo compra el jueves cuenta como entrada el
+lunes y como nada el jueves. Es el mismo criterio que el embudo, y es lo que hace
+que esos números y los de Analytics signifiquen lo mismo.
 
 ### Analytics no cuenta las precargas de Safari
 

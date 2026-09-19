@@ -146,6 +146,9 @@ test('el buscador del encabezado sugiere, y Escape cierra primero la lista', asy
 
 test('se puede comprar de punta a punta', async ({ page }) => {
   await page.goto(`/productos/${HANDLE}/`);
+  // La hidratación primero: el botón está en el HTML del servidor y el handler
+  // llega después, así que un click temprano no abre el drawer.
+  await expect(page.locator('astro-island[ssr]')).toHaveCount(0);
   await page.getByRole('button', { name: /agregar al carrito/i }).click();
 
   const drawer = page.locator('dialog[open]');
@@ -185,20 +188,23 @@ test('las políticas son las de este comercio y no las de la demo', async ({ pag
    * `contenido.ts` es de la app, no de la base: es lo único de esta página que
    * Treeshop no comparte con la demo, y hasta ahora no lo miraba nadie.
    *
-   * **Este caso ya se puso en rojo una vez y funcionó.** Decía «todavía no hay
-   * cuentas en la tienda», con el compromiso escrito de cambiar el texto antes
-   * que la tienda; la Fase 1 entregó las cuentas y el caso falló, que es
-   * exactamente lo que tenía que pasar. Lo que se afirma ahora es lo que la v2
-   * sí sostiene: existe la cuenta, y lo que mirás sigue sin cruzarse con ella
-   * —`store_events` guarda el id de sesión y nada lo ata a `customer_accounts`—.
+   * **Este caso ya se puso en rojo dos veces, y las dos funcionó.** Decía
+   * «todavía no hay cuentas en la tienda» y la Fase 1 lo rompió; después decía
+   * que lo que mirás «no está atado a tu cuenta», y lo rompió el perfil por
+   * cuenta de ADR-128. Las dos veces el texto cambió antes que la tienda, que es
+   * el compromiso publicado, y este caso es lo que lo obliga.
    *
-   * La frase vieja se sigue exigiendo ausente: es la que la v2 rompería primero
-   * si alguien la reescribiera de memoria.
+   * Lo que se afirma ahora es lo que el sistema sí hace: con la cuenta abierta
+   * el perfil la sigue, se guarda un resumen y no la lista, y apagarlo borra las
+   * dos cosas. Las frases viejas se exigen **ausentes**: son las que alguien
+   * reescribiría de memoria.
    */
-  await expect(page.getByText(/no está atado a tu cuenta/i)).toBeVisible();
+  await expect(page.getByText(/también desde otro dispositivo/i)).toBeVisible();
+  await expect(page.getByText(/apagarlo borra las dos cosas/i)).toBeVisible();
   await expect(page.getByText(/entrás con un código que te mandamos por correo/i)).toBeVisible();
   await expect(page.getByText(/todavía no hay cuentas en la tienda/i)).toHaveCount(0);
   await expect(page.getByText(/no se cruza con tus datos de cliente/i)).toHaveCount(0);
+  await expect(page.getByText(/no está atado a tu cuenta/i)).toHaveCount(0);
 
   expect(problemasDe(page)).toEqual([]);
 });
