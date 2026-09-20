@@ -258,7 +258,7 @@ El SKU se encuentra si se escribe **desde el principio**: «ZAP-TR» encuentra
 «ZAP-TR-41», pero «TR-41» no. Tampoco hay sinónimos ni plurales: «buzo» no
 encuentra «canguro».
 
-**Qué lo desbloquea:** la búsqueda semántica de la Fase 6 de v2 en el
+**Qué lo desbloquea:** la búsqueda semántica de la Fase 7 de v2 en el
 [ROADMAP](ROADMAP.md), que se suma a este score en vez de reemplazarlo.
 
 ### Las recomendaciones cuentan, no aprenden
@@ -299,7 +299,25 @@ una tanda es trabajo real: conviene hacerlo con la tanda chica cuando el product
 tiene textos, códigos o etiquetas legibles.
 
 Y lo que la IA **no** hace, sin excepción: inventar la foto de un producto que
-nadie fotografió. Trabaja sobre una foto real o no trabaja.
+nadie fotografió. Trabaja sobre una foto real o no trabaja. Tampoco genera otros
+ángulos: es la misma regla, y es una decisión tomada, no algo que falte.
+
+### Lo que la IA lee de una etiqueta hay que mirarlo
+
+En el alta con la cámara, la IA copia el precio, el SKU y el código de barras
+**si están impresos y se leen** en alguna de las fotos (ADR-131). Puede leer mal
+un dígito: por eso el valor se muestra junto a lo que estaba impreso —«Leído de
+la etiqueta: Gs. 250.000»— y no entra a ningún campo hasta que alguien toca
+«Usarlo».
+
+Lo que no se puede leer mal sin que se note es el código de barras: si su dígito
+verificador no cierra, no se ofrece. Y con más de un talle no se carga en
+ninguna variante, porque el código que se fotografió es el de **una** de ellas.
+
+El precio no tiene esa red. Es un número plausible mire quien lo mire, así que
+al cargar una tanda conviene revisarlo contra la prenda que se tiene en la mano,
+que es donde está la persona igual. Si la etiqueta no se ve, no se ofrece nada y
+se escribe a mano, como siempre.
 
 ### Analytics no cuenta las precargas de Safari
 

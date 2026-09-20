@@ -117,13 +117,28 @@ Hay dos caminos, y el primero que hay que decidir es cuál:
 - [ ] **Fotografiar lo que quedó sin foto**, en Productos → Sin foto. La lista
       viene ordenada por stock —una foto de algo agotado no vende hoy— y el botón
       abre la cámara del teléfono. Apenas se sube, el producto vuelve a la
-      vitrina: no hay nada más que publicar. - Conviene sacarla **sobre algo liso y con luz pareja**: es lo que hace que
-      la foto sirva sin retoque. - La limpieza de fondo con IA es opcional y se pide desde el listado, con
-      los productos seleccionados. Usa la clave de OpenAI del comercio, así que
-      cada foto se paga en esa cuenta, y **nada se publica hasta aprobarlo**
-      viendo la original al lado (ADR-130). Ojo con los productos que tienen
-      textos o códigos impresos: ahí es donde la IA se equivoca
-      ([LIMITACIONES.md](LIMITACIONES.md)).
+      vitrina: no hay nada más que publicar.
+
+  Conviene sacarla **sobre algo liso y con luz pareja**: es lo que hace que la
+  foto sirva sin retoque.
+
+  La limpieza de fondo con IA es opcional. Se pide desde el listado con los
+  productos seleccionados, o foto por foto dentro del producto. Usa la clave de
+  OpenAI del comercio, así que cada foto se paga en esa cuenta, y **nada se
+  publica hasta aprobarlo** viendo la original al lado (ADR-130). Ojo con los
+  productos que tienen textos o códigos impresos: ahí es donde la IA se equivoca
+  ([LIMITACIONES.md](LIMITACIONES.md)).
+
+- [ ] **Para la mercadería que llega después**, Productos → Cargar con la cámara.
+      Se le sacan una o dos fotos —con la etiqueta a la vista en alguna— y la IA
+      propone el nombre, la descripción, la categoría y los talles; el precio, el
+      SKU y el código de barras los ofrece sólo si los lee impresos, y hay que
+      aceptarlos de a uno (ADR-131). El producto se guarda publicado y la pantalla
+      vuelve al paso uno para el siguiente, repitiendo la marca, la categoría y el
+      precio.
+
+  Lo que más cambia el resultado: que la etiqueta salga **enfocada y derecha** en
+  una de las fotos. Si no se lee, no se ofrece nada y se escribe a mano.
 
 > El catálogo está medido hasta 5006 productos con tiempos planos de la primera
 > página a la última; el detalle está en [LIMITACIONES.md](LIMITACIONES.md). El

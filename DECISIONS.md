@@ -6074,8 +6074,9 @@ resguardos, que son parte de la decisión y no detalles de implementación:
 - **La procedencia se lee en la ruta**, como en ADR-082 y ADR-117: lo que editó
   la IA vive bajo `<tenant>/ia/`. Un importador que reemplaza lo suyo no lo toca,
   y cualquiera puede saber qué foto pasó por la IA.
-- **El pedido a la IA está acotado**: quitar el fondo y no retocar el producto,
-  con `input_fidelity: high`.
+- **El pedido a la IA está acotado**: quitar el fondo y no retocar el producto.
+  Se planeaba además `input_fidelity: high`; la medición de más abajo lo descartó,
+  porque el modelo lo rechaza.
 - **La IA sólo trabaja sobre una foto real.** Generar la foto de un producto que
   nadie fotografió sigue fuera, sin excepción.
 
@@ -6121,3 +6122,83 @@ en LIMITACIONES, que es lo que se le entrega a un comercio.
   la cantidad y tiene tope de cien por tanda.
 - El producto vuelve a la vitrina **apenas tiene una foto**, la original: la IA
   es una mejora opcional encima, no una condición para vender.
+
+---
+
+## ADR-131 — El alta con la cámara lee la etiqueta: leer lo impreso no es inventarlo
+
+**Fecha:** 2026-09-19
+**Estado:** Accepted — enmienda, sólo para el alta, la prohibición de ADR-104
+
+**Contexto**
+Cargar un producto nuevo son doce campos a mano. Un comercio que recibe veinte
+vestidos no lo hace: los vende sin cargarlos, o los carga a medias. La Fase 5
+dejó el camino de la cámara construido —achicar en el navegador, subir a
+Storage, limpiar el fondo con IA— pero sólo para **recuperar** un producto que ya
+existía sin foto. Lo que faltaba era lo inverso: que de la foto salga el
+producto.
+
+**El choque con ADR-104**
+ADR-104 dejó una garantía estructural: el esquema del enriquecimiento **no
+declara** `price`, `sku`, `barcode`, `stock` ni `cost`, así que la API no los
+puede devolver. El motivo escrito sigue siendo cierto: «un precio inventado no se
+nota al leerlo —es un número plausible— y se descubre cuando alguien compra algo
+a un precio que no es».
+
+Pero ese motivo habla de un modelo que **no puede saber** el dato. Cuando el
+precio está impreso en la etiqueta que se acaba de fotografiar, el modelo no lo
+deduce: lo transcribe. La regla se enmienda en ese punto exacto y en ningún otro.
+
+**Decisión**
+
+- **Dos esquemas, no uno ensanchado.** `ESQUEMA_DE_PROPUESTA` —el del
+  enriquecimiento de un producto que ya existe— queda intacto, con
+  `CAMPOS_PROHIBIDOS` y su test. Lo que lee la etiqueta es `ESQUEMA_DE_FICHA`, que
+  sólo usa el alta. Así la garantía de ADR-104 sigue siendo estructural donde
+  siempre valió, y la enmienda no se puede filtrar al otro camino por descuido.
+- **Copiar, nunca deducir.** Las instrucciones lo dicen con todas las letras:
+  el precio, el SKU y el código de barras se copian sólo si están impresos y se
+  leen con claridad; ante la duda van null. Un precio estimado por lo que parece
+  valer la prenda es justamente lo que ADR-104 prohíbe, y se ve igual que uno
+  leído.
+- **Se ofrece, no se escribe.** Lo leído aparece como sugerencia con el valor
+  **tal como estaba impreso** —«Leído de la etiqueta: Gs. 250.000»— y hay que
+  tocar «Usarlo» para que entre al campo. La evidencia al lado es lo que hace
+  honesto aceptarlo de un toque.
+- **El código de barras se verifica.** EAN-8, UPC-A, EAN-13 y GTIN-14 tienen
+  dígito verificador: uno que no cierra **no se ofrece**. Un dígito mal leído no
+  falla al guardarlo, falla meses después en la pistola del depósito o en el
+  catálogo de un marketplace. Y con más de un talle el código leído no se aplica
+  a ninguna variante: un GTIN identifica un artículo concreto, y copiarlo a los
+  otros dos talles sería inventarlo.
+- **La ficha se lee sobre las fotos originales**, nunca sobre la versión con el
+  fondo limpio: esa está regenerada, y ADR-130 midió al modelo deformando un
+  texto impreso. Leer una etiqueta redibujada sería leer una etiqueta inventada.
+
+**Lo que no cambia**
+
+- **Nada se guarda sin que una persona mire la pantalla.** El wizard termina en
+  un formulario que hay que confirmar.
+- **No se generan perspectivas.** Se preguntó y se descartó: una foto de un
+  ángulo que nadie fotografió es una foto falsa de un producto que alguien va a
+  recibir. Varias fotos **reales** sí, y mejoran la ficha.
+- **La limpieza de fondo sigue siendo la de ADR-130**, con su comparación contra
+  la original.
+
+**Consecuencias**
+
+- El alta pide `settings.write`, como el resto de lo que gasta la clave del
+  comercio: la credencial la entrega `ai_credential_secret`, que ya exige ese
+  permiso, y ensancharlo sería ampliar quién puede gastarle plata al comercio sin
+  un techo que todavía no existe —llega con la búsqueda semántica—. Se evaluó
+  darle `catalog.write` para que lo usara el personal del depósito; queda anotado
+  para cuando haya un caso real y un presupuesto por tienda.
+- **Sin credencial la pantalla sirve igual**, sin los pasos de IA: cámara y
+  formulario corto. Una tienda sin clave no se queda sin la herramienta.
+- **Ninguna tabla nueva.** El alta guarda por el mismo camino que el formulario
+  completo, y la conversión a unidades mínimas se mudó a `productoParaGuardar`
+  para que viva en un solo lugar: un precio convertido dos veces, o ninguna, es
+  una tienda vendiendo a cien veces su precio.
+- El SKU es obligatorio en el catálogo, así que cuando la etiqueta no lo trae se
+  propone desde el handle y el talle, editable. Dejarlo vacío no es una opción:
+  sin SKU no hay variante, y sin variante no hay nada que vender.

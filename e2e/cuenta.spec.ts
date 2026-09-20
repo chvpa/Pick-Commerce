@@ -203,6 +203,14 @@ test('pedir el código lleva al segundo paso sin decir si la cuenta existe', asy
    * silencio deja a la persona tocando un botón que no hace nada, y ese es el
    * modo de fallo que este repo persigue.
    */
+  /*
+   * Esperar a que la island hidrate antes de escribir. Sin esto, `fill` le gana a
+   * la hidratación: el valor se pierde, el click no dispara nada y la prueba
+   * falla diciendo que no hay alerta —vista una vez, con el campo vacío y la
+   * página todavía en el primer paso—.
+   */
+  await expect(page.locator('astro-island[ssr]')).toHaveCount(0);
+
   await page.getByLabel('Tu correo').fill('alguien@ejemplo.test');
   await page.getByRole('button', { name: /mandarme el código/i }).click();
 

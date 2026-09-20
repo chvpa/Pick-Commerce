@@ -41,6 +41,10 @@ const ListaProductos = pantalla(
 );
 
 const SinFoto = pantalla(() => import('@/features/productos/SinFoto'), 'SinFoto');
+const CargarConCamara = pantalla(
+  () => import('@/features/productos/CargarConCamara'),
+  'CargarConCamara',
+);
 
 const RevisarFotos = pantalla(() => import('@/features/productos/RevisarFotos'), 'RevisarFotos');
 const FormularioProducto = pantalla<{ id?: string }>(
@@ -262,6 +266,12 @@ const sinFotoRoute = createRoute({
   component: SinFoto,
 });
 
+const camaraRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/productos/camara',
+  component: CargarConCamara,
+});
+
 const importarRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/productos/importar',
@@ -478,6 +488,7 @@ const configuracionRoute = createRoute({
 const arbol = rootRoute.addChildren([
   indexRoute,
   productosRoute,
+  camaraRoute,
   nuevoRoute,
   importarRoute,
   sinFotoRoute,

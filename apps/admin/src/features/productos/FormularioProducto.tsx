@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useFieldArray, useForm, useWatch, type UseFormRegister } from 'react-hook-form';
+import {
+  useFieldArray,
+  useForm,
+  useWatch,
+  type Control,
+  type UseFormRegister,
+  type UseFormSetValue,
+} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -11,7 +18,6 @@ import {
 import {
   ETIQUETA_ESTADO,
   esEditable,
-  money,
   slugify,
   toMajorUnits,
   type FieldSources,
@@ -34,10 +40,12 @@ import { db } from '@/lib/supabase';
 import {
   formatearAtributos,
   parsearAtributos,
+  productoParaGuardar,
   productoSchema,
   type FormularioProducto as Valores,
   type ProductoValidado,
 } from './esquema';
+import { LimpiezaDeFoto } from './LimpiezaDeFoto';
 import { SugerenciasDeIA, type CampoAplicable } from './SugerenciasDeIA';
 import { SelectItem } from '@/components/ui/select';
 
@@ -236,34 +244,8 @@ export function FormularioProducto({ id }: { id?: string }) {
   }, [title, id, getFieldState, setValue]);
 
   const guardar = useMutation({
-    mutationFn: async (valores: ProductoValidado) => {
-      const moneda = tienda.currency as 'PYG';
-      return repo.guardar(tienda.id, {
-        ...(valores.id ? { id: valores.id } : {}),
-        handle: valores.handle,
-        title: valores.title,
-        ...(valores.description ? { description: valores.description } : {}),
-        ...(valores.brand ? { brand: valores.brand } : {}),
-        ...(valores.categoryId ? { categoryId: valores.categoryId } : {}),
-        status: valores.status,
-        variants: valores.variantes.map((v) => ({
-          ...(v.id ? { id: v.id } : {}),
-          sku: v.sku,
-          title: v.title,
-          ...(v.barcode ? { barcode: v.barcode } : {}),
-          // El operador escribe en unidades mayores; el catálogo guarda mínimas.
-          price: money(v.precio, moneda).amount,
-          currency: moneda,
-          ...(v.precioAnterior === undefined
-            ? {}
-            : { compareAtPrice: money(v.precioAnterior, moneda).amount }),
-          ...(v.costo === undefined ? {} : { cost: money(v.costo, moneda).amount }),
-          attributes: parsearAtributos(v.atributos),
-          ...(v.stock === undefined ? {} : { stock: v.stock }),
-        })),
-        media: valores.media,
-      });
-    },
+    mutationFn: async (valores: ProductoValidado) =>
+      repo.guardar(tienda.id, productoParaGuardar(valores, tienda.currency as 'PYG')),
     onSuccess: async () => {
       await cliente.invalidateQueries({ queryKey: ['productos', tienda.id] });
       await navegar({ to: '/productos' });
@@ -542,30 +524,34 @@ export function FormularioProducto({ id }: { id?: string }) {
               {medios.fields.map((campo, i) => (
                 <div
                   key={campo.id}
-                  className="border-border grid gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_5rem_5rem_auto]"
+                  className="border-border flex flex-col gap-3 rounded-lg border p-4"
                 >
-                  <Campo label="URL" error={errors.media?.[i]?.url?.message}>
-                    <Input {...register(`media.${i}.url`)} placeholder="/products/foto.jpg" />
-                  </Campo>
-                  <Campo label="Texto alternativo" error={errors.media?.[i]?.alt?.message}>
-                    <Input {...register(`media.${i}.alt`)} />
-                  </Campo>
-                  <Campo label="Ancho" error={errors.media?.[i]?.width?.message}>
-                    <Input {...register(`media.${i}.width`)} inputMode="numeric" />
-                  </Campo>
-                  <Campo label="Alto" error={errors.media?.[i]?.height?.message}>
-                    <Input {...register(`media.${i}.height`)} inputMode="numeric" />
-                  </Campo>
-                  <div className="flex items-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => medios.remove(i)}
-                    >
-                      Quitar
-                    </Button>
+                  <div className="grid gap-3 sm:grid-cols-[1fr_1fr_5rem_5rem_auto]">
+                    <Campo label="URL" error={errors.media?.[i]?.url?.message}>
+                      <Input {...register(`media.${i}.url`)} placeholder="/products/foto.jpg" />
+                    </Campo>
+                    <Campo label="Texto alternativo" error={errors.media?.[i]?.alt?.message}>
+                      <Input {...register(`media.${i}.alt`)} />
+                    </Campo>
+                    <Campo label="Ancho" error={errors.media?.[i]?.width?.message}>
+                      <Input {...register(`media.${i}.width`)} inputMode="numeric" />
+                    </Campo>
+                    <Campo label="Alto" error={errors.media?.[i]?.height?.message}>
+                      <Input {...register(`media.${i}.height`)} inputMode="numeric" />
+                    </Campo>
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => medios.remove(i)}
+                      >
+                        Quitar
+                      </Button>
+                    </div>
                   </div>
+
+                  <FotoDelProducto control={control} indice={i} setValue={setValue} />
                 </div>
               ))}
             </div>
@@ -656,5 +642,35 @@ function FilaVariante({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * La limpieza de fondo de una foto del producto (ADR-131).
+ *
+ * Existe como componente para poder leer la URL de **esa** fila con `useWatch`:
+ * un hook no se puede llamar dentro del `map`, y sin leerla en vivo el botón
+ * limpiaría la foto que estaba cuando se montó el formulario.
+ */
+function FotoDelProducto({
+  control,
+  indice,
+  setValue,
+}: {
+  control: Control<Valores, unknown, ProductoValidado>;
+  indice: number;
+  setValue: UseFormSetValue<Valores>;
+}) {
+  const url = useWatch({ control, name: `media.${indice}.url` }) ?? '';
+
+  return (
+    <LimpiezaDeFoto
+      url={url}
+      onAplicar={(foto) => {
+        setValue(`media.${indice}.url`, foto.url, { shouldDirty: true });
+        setValue(`media.${indice}.width`, String(foto.width) as never, { shouldDirty: true });
+        setValue(`media.${indice}.height`, String(foto.height) as never, { shouldDirty: true });
+      }}
+    />
   );
 }

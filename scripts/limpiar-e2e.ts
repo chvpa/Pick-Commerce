@@ -113,7 +113,23 @@ if (url && secretKey) {
       .select('url')
       .eq('product_id', PRODUCTO_SIN_FOTO_E2E.id);
 
-    const rutas = (fotos ?? [])
+    /*
+     * Y las del alta con la cámara (v2 Fase 6), que crea productos **nuevos** en
+     * la segunda tienda: no tienen un id conocido, así que se buscan por tienda.
+     * Cada corrida sube una original y, si hubiera credencial, una versión
+     * limpia.
+     */
+    const { data: productosDeLaTienda } = await db
+      .from('products')
+      .select('id')
+      .eq('store_id', TIENDA_E2E.id);
+
+    const idsDeLaTienda = (productosDeLaTienda ?? []).map((p) => p.id);
+    const { data: fotosDelAlta } = idsDeLaTienda.length
+      ? await db.from('product_media').select('url').in('product_id', idsDeLaTienda)
+      : { data: [] };
+
+    const rutas = [...(fotos ?? []), ...(fotosDelAlta ?? [])]
       .map((f) => f.url.split('/product-media/')[1])
       .filter((ruta): ruta is string => Boolean(ruta));
 

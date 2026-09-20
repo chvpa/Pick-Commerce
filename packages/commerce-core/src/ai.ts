@@ -139,6 +139,8 @@ export interface AIProvider {
   enriquecer(peticion: PeticionDeEnriquecimiento): Promise<PropuestaCruda>;
   /** La petición que limpia el fondo de una foto. No la ejecuta. */
   peticionDeLimpiezaDeFondo(peticion: PeticionDeFondo): PeticionArmada;
+  /** La ficha de un producto que todavía no existe, mirando sus fotos (ADR-131). */
+  ficha(peticion: PeticionDeFicha): Promise<FichaCruda>;
 }
 
 // ---------------------------------------------------------------------------
@@ -490,4 +492,242 @@ export interface RepositorioCredencialDeIA {
     credencial: { ciphertext: string; last4: string; model: ModeloDeIA },
   ): Promise<EstadoDeCredencial>;
   quitar(storeId: string): Promise<EstadoDeCredencial>;
+}
+
+// ---------------------------------------------------------------------------
+// El alta con la cámara
+// ---------------------------------------------------------------------------
+
+/**
+ * La ficha de un producto que todavía no existe (ADR-131).
+ *
+ * El enriquecimiento de ADR-104 mira un producto cargado y **no puede** devolver
+ * precio, SKU ni código de barras: su esquema no los declara, así que la API no
+ * tiene dónde ponerlos. Acá el caso es otro y la regla se enmienda en un punto:
+ * cuando el dato está **impreso en la etiqueta que se fotografió**, leerlo no es
+ * inventarlo. Lo que no cambia es quién decide: el valor leído se ofrece, nunca
+ * se aplica solo, y nada se guarda sin que una persona mire la pantalla.
+ *
+ * Por eso vive en un esquema aparte en vez de ensanchar el otro: la garantía de
+ * ADR-104 sobre un producto ya cargado sigue siendo estructural.
+ */
+export interface PeticionDeFicha {
+  readonly apiKey: string;
+  readonly modelo: ModeloDeIA;
+  /** URLs públicas de las fotos recién subidas. */
+  readonly imagenes: readonly string[];
+  readonly categorias: readonly CategoriaConocida[];
+}
+
+/** Lo que se leyó de la etiqueta, si se leyó. */
+export interface EtiquetaLeida {
+  /** En unidades mayores, que es como lo escribe el operador. */
+  readonly price?: number;
+  /** El precio tal como está impreso. Es la evidencia que hace honesto aceptarlo. */
+  readonly printedPrice?: string;
+  readonly sku?: string;
+  /** Sólo si el dígito verificador cierra. */
+  readonly barcode?: string;
+}
+
+export interface FichaCruda extends PropuestaCruda {
+  /** Talles leídos en la etiqueta o en la prenda. Uno por variante. */
+  readonly sizes?: readonly string[];
+  readonly label?: EtiquetaLeida;
+}
+
+/**
+ * El esquema de la ficha, para structured outputs con `strict: true`.
+ *
+ * `label` es un objeto siempre presente con sus cuatro campos anulables, y no un
+ * objeto anulable: el modo estricto expresa lo opcional con `["tipo", "null"]` y
+ * un objeto entero en null es la forma que la documentación no promete.
+ */
+export const ESQUEMA_DE_FICHA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['title', 'description', 'brand', 'category', 'attributes', 'sizes', 'label'],
+  properties: {
+    title: {
+      type: ['string', 'null'],
+      description: 'Nombre comercial del producto, sin la marca adelante.',
+    },
+    description: {
+      type: ['string', 'null'],
+      description: 'Dos o tres frases sobre qué es y para qué sirve. Sin promesas ni precios.',
+    },
+    brand: {
+      type: ['string', 'null'],
+      description: 'Sólo si se lee en la foto. Null si no consta.',
+    },
+    category: {
+      type: ['string', 'null'],
+      description: 'Exactamente una de las categorías listadas, o null si ninguna corresponde.',
+    },
+    attributes: {
+      type: 'array',
+      description: 'Rasgos descriptivos: material, color, género, temporada. Vacío si no constan.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['nombre', 'valor'],
+        properties: { nombre: { type: 'string' }, valor: { type: 'string' } },
+      },
+    },
+    sizes: {
+      type: 'array',
+      description:
+        'Talles escritos en la etiqueta o en la prenda, uno por elemento, tal como figuran. Vacío si no se lee ninguno.',
+      items: { type: 'string' },
+    },
+    label: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['price', 'printedPrice', 'sku', 'barcode'],
+      description: 'Lo que está impreso en la etiqueta. Todo null si no hay etiqueta legible.',
+      properties: {
+        price: {
+          type: ['number', 'null'],
+          description: 'El precio en unidades enteras, sin separadores ni símbolo de moneda.',
+        },
+        printedPrice: {
+          type: ['string', 'null'],
+          description: 'El precio tal como está impreso, con su símbolo y sus separadores.',
+        },
+        sku: {
+          type: ['string', 'null'],
+          description: 'El código interno impreso, si se lee con claridad.',
+        },
+        barcode: {
+          type: ['string', 'null'],
+          description: 'Los dígitos del código de barras, sin espacios. Null si no se leen todos.',
+        },
+      },
+    },
+  },
+} as const;
+
+/**
+ * Las instrucciones del alta.
+ *
+ * La regla del medio es la que sostiene la enmienda a ADR-104: **copiar lo
+ * impreso, nunca deducirlo**. Un precio estimado por lo que parece valer la
+ * prenda es exactamente lo que ADR-104 prohíbe, y se ve igual que uno leído.
+ */
+/* Literal y no un `.join()`, por el mismo motivo que `INSTRUCCIONES`. */
+export const INSTRUCCIONES_DE_FICHA = `Sos quien carga productos nuevos en una tienda online, mirando las fotos que le acaban de sacar.
+Escribís en español rioplatense, sin signos de exclamación y sin lenguaje publicitario.
+
+Reglas:
+- Describís lo que se ve en las fotos. Nada más.
+- Los talles salen de lo que esté escrito en la etiqueta o en la prenda. Si no se lee ninguno, la lista va vacía.
+- El precio, el SKU y el código de barras se copian SÓLO si están impresos y se leen con claridad. No se deducen, no se estiman, no se completan por parecido con otro producto: ante la duda, van null.
+- El precio va dos veces: el número en unidades enteras y el texto tal como está impreso.
+- La categoría sale de la lista que te dan, escrita igual. Si ninguna corresponde, va null.
+- Si un dato no consta, va null o vacío. No completar es la respuesta correcta.`;
+
+/** El texto que acompaña a las fotos: lo único que la visión no puede ver. */
+export function entradaDeLaFicha(categorias: readonly CategoriaConocida[]): string {
+  return [
+    'Producto nuevo, sin datos cargados. Todo sale de las fotos.',
+    '',
+    categorias.length > 0
+      ? `Categorías disponibles: ${categorias.map((c) => c.nombre).join(' | ')}`
+      : 'Categorías disponibles: ninguna, la tienda no tiene categorías cargadas.',
+  ].join('\n');
+}
+
+/**
+ * ¿Los dígitos cierran con su dígito verificador?
+ *
+ * EAN-8, UPC-A, EAN-13 y GTIN-14 usan el mismo algoritmo: pesos 3 y 1 alternados
+ * desde la derecha, y el verificador completa la decena. Existe para que un
+ * dígito mal leído en una foto **no se ofrezca**: un código de barras casi
+ * correcto no falla al guardarlo, falla meses después en la pistola del
+ * depósito o en el catálogo de un marketplace.
+ */
+export function esCodigoDeBarras(valor: string): boolean {
+  const digitos = valor.trim();
+  if (!/^(\d{8}|\d{12}|\d{13}|\d{14})$/.test(digitos)) return false;
+
+  const numeros = [...digitos].map(Number);
+  const verificador = numeros.pop()!;
+  let suma = 0;
+  let peso = 3;
+  for (let i = numeros.length - 1; i >= 0; i -= 1) {
+    suma += numeros[i]! * peso;
+    peso = peso === 3 ? 1 : 3;
+  }
+  return (10 - (suma % 10)) % 10 === verificador;
+}
+
+/**
+ * Recorta la ficha a lo que se puede ofrecer.
+ *
+ * Reusa `soloCamposPermitidos` para la parte que comparte con el
+ * enriquecimiento —incluido el filtro de atributos, que es la puerta de atrás
+ * por donde un precio se cuela como rasgo descriptivo— y agrega lo propio del
+ * alta.
+ */
+export function soloCamposDeFicha(bruto: unknown): FichaCruda {
+  const base = soloCamposPermitidos(bruto);
+  if (typeof bruto !== 'object' || bruto === null) return base;
+  const entrada = bruto as Record<string, unknown>;
+
+  const sizes = Array.isArray(entrada.sizes)
+    ? [
+        ...new Set(
+          entrada.sizes
+            .filter((t): t is string => typeof t === 'string')
+            .map((t) => t.trim())
+            .filter((t) => t !== ''),
+        ),
+      ]
+    : [];
+
+  const cruda =
+    typeof entrada.label === 'object' && entrada.label !== null
+      ? (entrada.label as Record<string, unknown>)
+      : {};
+
+  const texto = (valor: unknown): string | undefined => {
+    if (typeof valor !== 'string') return undefined;
+    const limpio = valor.trim();
+    return limpio === '' ? undefined : limpio;
+  };
+
+  const price =
+    typeof cruda.price === 'number' && Number.isFinite(cruda.price) && cruda.price > 0
+      ? cruda.price
+      : undefined;
+  const printedPrice = texto(cruda.printedPrice);
+  const sku = texto(cruda.sku);
+  const barcode = texto(cruda.barcode);
+
+  const label: EtiquetaLeida = {
+    ...(price === undefined ? {} : { price }),
+    ...(printedPrice ? { printedPrice } : {}),
+    ...(sku ? { sku } : {}),
+    ...(barcode && esCodigoDeBarras(barcode) ? { barcode } : {}),
+  };
+
+  return {
+    ...base,
+    ...(sizes.length > 0 ? { sizes } : {}),
+    ...(Object.keys(label).length > 0 ? { label } : {}),
+  };
+}
+
+/**
+ * El SKU que se propone cuando la etiqueta no trae uno.
+ *
+ * El catálogo lo exige y es único por tienda, así que dejarlo vacío no es una
+ * opción: sin SKU no hay variante, y sin variante no hay nada que vender. Sale
+ * del handle y del talle porque son los dos datos que ya se decidieron en la
+ * pantalla, y queda editable.
+ */
+export function skuSugerido(handle: string, talle?: string): string {
+  return slugify([handle, talle].filter((parte) => parte && parte.trim() !== '').join('-'))
+    .toUpperCase()
+    .replace(/-+/g, '-');
 }

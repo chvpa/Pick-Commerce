@@ -794,9 +794,15 @@ Módulos posteriores:
 > se fotografía desde el teléfono y vuelve solo a la vitrina, y la IA puede
 > proponer esa misma foto con el fondo limpio —sobre una foto real, nunca
 > inventada, y publicando sólo lo que una persona aprueba viendo la original al
-> lado (ADR-130)—. El OCR de etiqueta no existe; tags, SEO y metadata tampoco,
-> porque el esquema de la respuesta no los declara y por eso la API no los puede
-> devolver (`packages/commerce-core/src/ai.ts`).
+> lado (ADR-130)—. Desde la v2 Fase 6 existe el **alta con la cámara**: de las
+> fotos sale un producto nuevo, y ahí —y **sólo** ahí— la IA lee lo que está
+> impreso en la etiqueta: precio, SKU y código de barras, ofrecidos junto al
+> valor tal como estaba impreso y aplicados de a uno (ADR-131). Sobre un producto
+> que ya existe la prohibición sigue siendo estructural: el esquema del
+> enriquecimiento no declara esos campos, así que la API no los puede devolver
+> (`packages/commerce-core/src/ai.ts`). Tags, SEO y metadata tampoco existen, por
+> el mismo motivo. Generar una foto de un ángulo que nadie fotografió queda
+> fuera, y es una decisión, no una tarea pendiente.
 
 Flujo objetivo:
 

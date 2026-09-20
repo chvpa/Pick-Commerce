@@ -3,10 +3,11 @@ import { db } from './supabase.ts';
 /**
  * Las llamadas al Worker del Admin.
  *
- * Sólo tres cosas pasan por acá, y son las que necesitan la clave maestra de
- * cifrado: guardar la credencial, probarla y enriquecer un producto. Leer si hay
- * credencial y quitarla van directo por RPC como todo lo demás del Admin —no
- * tocan el secreto— y por eso no están en este archivo.
+ * Por acá pasa lo que necesita la clave maestra de cifrado: guardar la
+ * credencial, probarla, enriquecer un producto, leer la ficha de uno nuevo y
+ * limpiar el fondo de una foto. Leer si hay credencial y quitarla van directo
+ * por RPC como todo lo demás del Admin —no tocan el secreto— y por eso no están
+ * en este archivo.
  *
  * Mismo origen que la app, así que la ruta va relativa y no hay CORS: en
  * producción el Worker atiende `/api/*` antes que los assets, y en `pnpm dev` lo
@@ -101,6 +102,30 @@ export function enriquecerProducto(
   categorias: { id: string; nombre: string }[],
 ): Promise<{ propuesta: PropuestaDeIA }> {
   return pedir('/api/ia/enriquecer', { storeId, producto, categorias });
+}
+
+export interface FichaDeIA extends PropuestaDeIA {
+  sizes?: string[];
+  label?: {
+    price?: number;
+    printedPrice?: string;
+    sku?: string;
+    barcode?: string;
+  };
+}
+
+/**
+ * La ficha de un producto que todavía no existe, leída de sus fotos (ADR-131).
+ *
+ * Lo de `label` es lo que estaba impreso en la etiqueta. Llega como propuesta:
+ * la pantalla lo ofrece y lo aplica quien carga, nunca se escribe solo.
+ */
+export function fichaDesdeFotos(
+  storeId: string,
+  imagenes: string[],
+  categorias: { id: string; nombre: string }[],
+): Promise<{ ficha: FichaDeIA }> {
+  return pedir('/api/ia/ficha', { storeId, imagenes, categorias });
 }
 
 /** Lo que devuelve `/v1/images/edits`: la imagen en base64. */

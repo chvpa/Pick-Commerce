@@ -340,6 +340,56 @@ async function limpiarFondo(ctx: Contexto): Promise<Response> {
   });
 }
 
+/**
+ * La ficha de un producto que todavía no existe, leída de sus fotos (ADR-131).
+ *
+ * A diferencia del enriquecimiento, acá no hay producto que describir: entran
+ * fotos y sale una ficha para revisar, con lo que esté impreso en la etiqueta.
+ * Mismo camino que las demás —JWT, `ai_credential_secret`, descifrar—, así que
+ * pide `settings.write` por el mismo motivo: gasta la clave del comercio.
+ */
+async function ficha(ctx: Contexto): Promise<Response> {
+  const imagenes = Array.isArray(ctx.cuerpo.imagenes)
+    ? ctx.cuerpo.imagenes.filter(
+        (url): url is string => typeof url === 'string' && url.startsWith('https://'),
+      )
+    : [];
+  if (imagenes.length === 0) {
+    return error('bad_request', 'Falta al menos una foto para leer.', 400);
+  }
+
+  const categorias = Array.isArray(ctx.cuerpo.categorias)
+    ? (ctx.cuerpo.categorias as CategoriaConocida[])
+    : [];
+
+  const credencial = await credencialEnClaro(ctx);
+  if (credencial instanceof Response) return credencial;
+
+  let leida;
+  try {
+    leida = await proveedorOpenAI().ficha({
+      apiKey: credencial.apiKey,
+      modelo: credencial.modelo,
+      imagenes,
+      categorias,
+    });
+  } catch (causa) {
+    return fallaDelProveedor('ia/ficha', causa);
+  }
+
+  // Igual que en el enriquecimiento: una categoría que la tienda no tiene se
+  // descarta acá, no en el navegador.
+  const categoria = resolverCategoria(leida.category, categorias);
+  const { category: _leida, ...resto } = leida;
+
+  return json({
+    ficha: {
+      ...resto,
+      ...(categoria ? { categoryId: categoria.id, category: categoria.nombre } : {}),
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // El router
 // ---------------------------------------------------------------------------
@@ -348,6 +398,7 @@ const RUTAS: Record<string, (ctx: Contexto) => Promise<Response>> = {
   '/api/ia/credencial': guardarCredencial,
   '/api/ia/probar': probarCredencial,
   '/api/ia/enriquecer': enriquecer,
+  '/api/ia/ficha': ficha,
   '/api/ia/fondo': limpiarFondo,
 };
 

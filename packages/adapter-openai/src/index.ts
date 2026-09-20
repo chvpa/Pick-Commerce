@@ -1,13 +1,19 @@
 import {
+  ESQUEMA_DE_FICHA,
   ESQUEMA_DE_PROPUESTA,
   INSTRUCCIONES,
+  INSTRUCCIONES_DE_FICHA,
   INSTRUCCION_DE_FONDO,
   MODELO_DE_IMAGEN,
+  entradaDeLaFicha,
   entradaDelProducto,
+  soloCamposDeFicha,
   soloCamposPermitidos,
   type AIProvider,
+  type FichaCruda,
   type PeticionArmada,
   type PeticionDeEnriquecimiento,
+  type PeticionDeFicha,
   type PeticionDeFondo,
   type PropuestaCruda,
 } from '@pick/commerce-core';
@@ -134,46 +140,94 @@ export function proveedorOpenAI(): AIProvider {
     async enriquecer(peticion: PeticionDeEnriquecimiento): Promise<PropuestaCruda> {
       const { apiKey, modelo, producto, categorias } = peticion;
 
-      const respuesta = await fetch(`${RAIZ}/responses`, {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${apiKey}`,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: modelo,
-          max_output_tokens: MAXIMO_DE_TOKENS,
-          input: [
-            { role: 'system', content: INSTRUCCIONES },
-            {
-              role: 'user',
-              content: [
-                { type: 'input_text', text: entradaDelProducto(producto, categorias) },
-                ...producto.imagenes.slice(0, MAXIMO_DE_IMAGENES).map((url) => ({
-                  type: 'input_image',
-                  image_url: url,
-                  detail: 'auto',
-                })),
-              ],
-            },
-          ],
-          text: {
-            format: {
-              type: 'json_schema',
-              name: 'propuesta_de_producto',
-              strict: true,
-              schema: ESQUEMA_DE_PROPUESTA,
-            },
-          },
-        }),
+      const bruto = await conEsquema({
+        apiKey,
+        modelo,
+        instrucciones: INSTRUCCIONES,
+        texto: entradaDelProducto(producto, categorias),
+        imagenes: producto.imagenes,
+        esquema: ESQUEMA_DE_PROPUESTA,
+        nombre: 'propuesta_de_producto',
+        quehacer: 'OpenAI no pudo generar la propuesta',
       });
+      return soloCamposPermitidos(bruto);
+    },
 
-      if (!respuesta.ok) throw await fallo(respuesta, 'OpenAI no pudo generar la propuesta');
+    /*
+     * La ficha de un producto que todavía no existe (ADR-131).
+     *
+     * Mismo endpoint y mismo mecanismo que el enriquecimiento, con **otro
+     * esquema**: éste sí declara lo que está impreso en la etiqueta. Son dos
+     * esquemas y no uno ensanchado justamente para que la prohibición de
+     * ADR-104 siga siendo estructural donde corresponde.
+     */
+    async ficha(peticion: PeticionDeFicha): Promise<FichaCruda> {
+      const { apiKey, modelo, imagenes, categorias } = peticion;
 
-      const cuerpo = (await respuesta.json()) as RespuestaDeOpenAI;
-      return soloCamposPermitidos(JSON.parse(textoDeLaRespuesta(cuerpo)));
+      const bruto = await conEsquema({
+        apiKey,
+        modelo,
+        instrucciones: INSTRUCCIONES_DE_FICHA,
+        texto: entradaDeLaFicha(categorias),
+        imagenes,
+        esquema: ESQUEMA_DE_FICHA,
+        nombre: 'ficha_de_producto',
+        quehacer: 'OpenAI no pudo leer la ficha',
+      });
+      return soloCamposDeFicha(bruto);
     },
   };
+}
+
+/** Una respuesta con salida estructurada, que es lo único que este paquete pide. */
+async function conEsquema(peticion: {
+  apiKey: string;
+  modelo: string;
+  instrucciones: string;
+  texto: string;
+  imagenes: readonly string[];
+  esquema: unknown;
+  nombre: string;
+  quehacer: string;
+}): Promise<unknown> {
+  const respuesta = await fetch(`${RAIZ}/responses`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${peticion.apiKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: peticion.modelo,
+      max_output_tokens: MAXIMO_DE_TOKENS,
+      input: [
+        { role: 'system', content: peticion.instrucciones },
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: peticion.texto },
+            ...peticion.imagenes.slice(0, MAXIMO_DE_IMAGENES).map((url) => ({
+              type: 'input_image',
+              image_url: url,
+              detail: 'auto',
+            })),
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: peticion.nombre,
+          strict: true,
+          schema: peticion.esquema,
+        },
+      },
+    }),
+  });
+
+  if (!respuesta.ok) throw await fallo(respuesta, peticion.quehacer);
+
+  const cuerpo = (await respuesta.json()) as RespuestaDeOpenAI;
+  return JSON.parse(textoDeLaRespuesta(cuerpo));
 }
 
 /**

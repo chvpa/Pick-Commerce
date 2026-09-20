@@ -16,7 +16,7 @@ import {
   type ResumenProducto,
 } from '@pick/commerce-core';
 import type { ProductStatus } from '@pick/commerce-types';
-import { PackageIcon } from '@/components/iconos';
+import { PackageIcon, SparklesIcon } from '@/components/iconos';
 import { Badge } from '@/components/ui/badge';
 import {
   BarraDeFiltros,
@@ -375,6 +375,21 @@ export function ListaProductos() {
             >
               Importar / exportar
             </Link>
+            {/*
+              El alta con la cámara va al lado del alta a mano y no la reemplaza:
+              un producto sin foto —o uno que se copia de otro— se sigue cargando
+              por el formulario completo. Se muestra sólo a quien puede gastar la
+              clave del comercio, que es lo que esa pantalla necesita (ADR-131).
+            */}
+            {puede('settings.write') && (
+              <Link
+                to="/productos/camara"
+                className={buttonVariants({ variant: 'outline', size: 'lg' })}
+              >
+                <SparklesIcon aria-hidden="true" />
+                Cargar con la cámara
+              </Link>
+            )}
             <Link to="/productos/nuevo" className={buttonVariants({ size: 'lg' })}>
               Nuevo producto
             </Link>

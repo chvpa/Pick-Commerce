@@ -14,6 +14,7 @@ import {
   PercentIcon,
   ReceiptTextIcon,
   SettingsIcon,
+  SparklesIcon,
   StoreIcon,
   TagsIcon,
   UsersIcon,
@@ -87,6 +88,17 @@ const SECCIONES: readonly Seccion[] = [
    * eso lo decide la pantalla.
    */
   { to: '/productos/sin-foto', label: 'Sin foto', icono: CameraIcon },
+  /*
+   * Otra tarea de teléfono, y por eso también está acá: en el teléfono el
+   * sidebar es el único menú. Pide `settings.write` porque gasta la clave de
+   * OpenAI del comercio (ADR-131), a diferencia de «Sin foto».
+   */
+  {
+    to: '/productos/camara',
+    label: 'Cargar con la cámara',
+    icono: SparklesIcon,
+    permiso: 'settings.write',
+  },
   { to: '/pedidos', label: 'Pedidos', icono: ReceiptTextIcon },
   // Sin `permiso`: la lista se ve con sólo pertenecer a la organización, porque
   // saber qué campañas están corriendo es información operativa. Crear y editar

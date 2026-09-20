@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { slugify } from '@pick/commerce-core';
+import { money, slugify } from '@pick/commerce-core';
 
 /**
  * Validación del formulario de producto.
@@ -85,3 +85,42 @@ export const productoSchema = z.object({
 
 export type FormularioProducto = z.input<typeof productoSchema>;
 export type ProductoValidado = z.output<typeof productoSchema>;
+
+/**
+ * De los valores validados a lo que espera el repositorio.
+ *
+ * Está acá y no en el formulario porque **dos pantallas guardan productos**: la
+ * ficha completa y el alta con la cámara (ADR-131). La conversión a unidades
+ * mínimas es el paso que no puede vivir en dos lados: un precio convertido dos
+ * veces, o ninguna, es una tienda vendiendo a cien veces su precio.
+ */
+export function productoParaGuardar(
+  valores: ProductoValidado,
+  moneda: Parameters<typeof money>[1],
+) {
+  return {
+    ...(valores.id ? { id: valores.id } : {}),
+    handle: valores.handle,
+    title: valores.title,
+    ...(valores.description ? { description: valores.description } : {}),
+    ...(valores.brand ? { brand: valores.brand } : {}),
+    ...(valores.categoryId ? { categoryId: valores.categoryId } : {}),
+    status: valores.status,
+    variants: valores.variantes.map((v) => ({
+      ...(v.id ? { id: v.id } : {}),
+      sku: v.sku,
+      title: v.title,
+      ...(v.barcode ? { barcode: v.barcode } : {}),
+      // El operador escribe en unidades mayores; el catálogo guarda mínimas.
+      price: money(v.precio, moneda).amount,
+      currency: moneda,
+      ...(v.precioAnterior === undefined
+        ? {}
+        : { compareAtPrice: money(v.precioAnterior, moneda).amount }),
+      ...(v.costo === undefined ? {} : { cost: money(v.costo, moneda).amount }),
+      attributes: parsearAtributos(v.atributos),
+      ...(v.stock === undefined ? {} : { stock: v.stock }),
+    })),
+    media: valores.media,
+  };
+}

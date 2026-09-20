@@ -2,12 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CAMPOS_PROHIBIDOS,
+  ESQUEMA_DE_FICHA,
   ESQUEMA_DE_PROPUESTA,
   cifrar,
   descifrar,
+  entradaDeLaFicha,
   entradaDelProducto,
+  esCodigoDeBarras,
   esModelo,
   resolverCategoria,
+  skuSugerido,
+  soloCamposDeFicha,
   soloCamposPermitidos,
   ultimosCuatro,
 } from './ai.ts';
@@ -179,4 +184,124 @@ test('sólo se aceptan los modelos de la lista', () => {
   assert.ok(esModelo('gpt-5.6-luna'));
   assert.ok(!esModelo('gpt-4'));
   assert.ok(!esModelo(undefined));
+});
+
+// ---------------------------------------------------------------------------
+// El alta con la cámara (ADR-131)
+// ---------------------------------------------------------------------------
+
+/*
+ * Lo que se prueba acá es dónde está el límite de la enmienda a ADR-104: se
+ * copia lo impreso, y un dato que no se puede verificar no se ofrece.
+ */
+
+test('el dígito verificador acepta los tres formatos que existen en una etiqueta', () => {
+  assert.ok(esCodigoDeBarras('9780306406157')); // EAN-13
+  assert.ok(esCodigoDeBarras('036000291452')); // UPC-A
+  assert.ok(esCodigoDeBarras('96385074')); // EAN-8
+  assert.ok(esCodigoDeBarras(' 9780306406157 '));
+});
+
+test('un dígito mal leído no pasa el verificador', () => {
+  // Es el caso real: la foto tiene el código completo y el modelo confunde un
+  // dígito. Sin esta comprobación, el código entra y falla meses después.
+  assert.ok(!esCodigoDeBarras('9780306406158'));
+  assert.ok(!esCodigoDeBarras('978030640615'));
+  assert.ok(!esCodigoDeBarras('97803064O6157'));
+  assert.ok(!esCodigoDeBarras(''));
+});
+
+test('la ficha ofrece lo que se leyó de la etiqueta', () => {
+  const ficha = soloCamposDeFicha({
+    title: 'Vestido midi de lino',
+    description: 'Vestido de lino con tiras.',
+    brand: null,
+    category: null,
+    attributes: [{ nombre: 'material', valor: 'Lino' }],
+    sizes: ['S', 'M', 'M', ' L '],
+    label: {
+      price: 250000,
+      printedPrice: 'Gs. 250.000',
+      sku: 'VD-449',
+      barcode: '9780306406157',
+    },
+  });
+
+  assert.equal(ficha.title, 'Vestido midi de lino');
+  assert.deepEqual(ficha.sizes, ['S', 'M', 'L']);
+  assert.deepEqual(ficha.label, {
+    price: 250000,
+    printedPrice: 'Gs. 250.000',
+    sku: 'VD-449',
+    barcode: '9780306406157',
+  });
+});
+
+test('un código de barras que no cierra se descarta y el resto de la etiqueta queda', () => {
+  const ficha = soloCamposDeFicha({
+    sizes: [],
+    label: { price: 90000, printedPrice: '90.000', sku: null, barcode: '9780306406158' },
+  });
+
+  assert.equal(ficha.label?.barcode, undefined);
+  assert.equal(ficha.label?.price, 90000);
+  assert.equal(ficha.sizes, undefined);
+});
+
+test('la ficha filtra los atributos prohibidos, igual que el enriquecimiento', () => {
+  // La puerta de atrás: el precio tiene su campo, así que uno metido como rasgo
+  // descriptivo es ruido que nadie pidió.
+  const ficha = soloCamposDeFicha({
+    attributes: [
+      { nombre: 'color', valor: 'Azul' },
+      { nombre: 'precio', valor: '250.000' },
+    ],
+    sizes: ['U'],
+    label: {},
+  });
+
+  assert.deepEqual(ficha.attributes, { color: 'Azul' });
+  assert.equal(ficha.label, undefined);
+});
+
+test('un precio que no es un número positivo no se ofrece', () => {
+  for (const price of [0, -1, 'mucho', null, Number.NaN]) {
+    const ficha = soloCamposDeFicha({ sizes: [], label: { price } });
+    assert.equal(ficha.label?.price, undefined);
+  }
+});
+
+test('el SKU propuesto sale del handle y del talle, y se puede leer', () => {
+  assert.equal(skuSugerido('vestido-midi-lino', 'M'), 'VESTIDO-MIDI-LINO-M');
+  assert.equal(skuSugerido('vestido-midi-lino'), 'VESTIDO-MIDI-LINO');
+  assert.equal(skuSugerido('Vestido Midi', 'Talle 38'), 'VESTIDO-MIDI-TALLE-38');
+});
+
+test('la entrada de la ficha dice que no hay datos cargados', () => {
+  const texto = entradaDeLaFicha(CATEGORIAS);
+  assert.match(texto, /Todo sale de las fotos/);
+  assert.match(texto, /Camperas \| Calzado deportivo/);
+});
+
+test('el esquema de la ficha no deja lugar para inventar fuera de la etiqueta', () => {
+  // Es la misma garantía estructural de ADR-104, corrida un paso: lo que el
+  // modelo puede devolver son estos campos y ningún otro.
+  assert.equal(ESQUEMA_DE_FICHA.additionalProperties, false);
+  assert.deepEqual(Object.keys(ESQUEMA_DE_FICHA.properties.label.properties), [
+    'price',
+    'printedPrice',
+    'sku',
+    'barcode',
+  ]);
+  for (const campo of ['stock', 'cost', 'compare_at_price', 'tax', 'currency']) {
+    assert.ok(!(campo in ESQUEMA_DE_FICHA.properties));
+  }
+});
+
+test('el esquema del enriquecimiento sigue sin poder devolver un precio', () => {
+  // La enmienda es del alta, no del producto ya cargado. Si esto se rompe, se
+  // rompió ADR-104 sin que nadie lo haya decidido.
+  for (const campo of CAMPOS_PROHIBIDOS) {
+    assert.ok(!(campo in ESQUEMA_DE_PROPUESTA.properties));
+  }
 });
