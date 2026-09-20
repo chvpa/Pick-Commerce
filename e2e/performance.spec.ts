@@ -81,7 +81,14 @@ function kb(bytes: number): string {
 const PAGINAS = [
   { ruta: '/politicas', que: 'una página de contenido', js: 25 * 1024 },
   { ruta: '/', que: 'la home', js: 25 * 1024 },
-  { ruta: '/productos/campera-cortaviento', que: 'el PDP', js: 25 * 1024 },
+  /*
+   * 26 y no 25 desde el arreglo del carrito: el mensaje que cuenta lo que ya
+   * está guardado —«queda uno solo y ya lo tenés»— son 114 bytes en el island
+   * de «Agregar al carrito», que viaja en el PDP. ADR-106 pide subir el número
+   * con el motivo antes que torcer el diseño por ciento y pico de bytes, y lo
+   * que compran esos bytes es que nadie ponga en el carrito más de lo que hay.
+   */
+  { ruta: '/productos/campera-cortaviento', que: 'el PDP', js: 26 * 1024 },
   /*
    * 29 y no 28 desde la v2 Fase 4: la tira de recomendados del carrito son unos
    * 300 bytes en el island del drawer, que viaja en todas las páginas. Se sube

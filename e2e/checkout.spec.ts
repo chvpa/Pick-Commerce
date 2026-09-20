@@ -156,11 +156,20 @@ test('un reintento con la misma clave no crea un segundo pedido', async ({ page,
 test('el checkout revalida el stock y corrige el carrito', async ({ page, request }) => {
   const variantId = await sembrarCarrito(page, 500);
 
-  // Por la UI: el checkout avisa y ajusta.
+  /*
+   * Por la UI: el checkout avisa, **recorta y no borra**.
+   *
+   * Que el producto siga en la lista es la parte que importa: antes la línea
+   * quedaba afuera entera, así que un carrito con más unidades de las que había
+   * terminaba sin ese producto y se perdía la venta de las que sí existían.
+   * Reportado comprando en Treeshop.
+   */
   await page.goto('/checkout');
-  await expect(
-    page.getByText(/ajustamos tu carrito|ya no tiene el stock|quitamos de tu carrito/i).first(),
-  ).toBeVisible();
+  await expect(page.getByText(/dejamos \d+ de|quitamos «/i).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ver el catálogo' })).toHaveCount(
+    0,
+    'el checkout quedó vacío: la línea se descartó entera en vez de recortarse',
+  );
 
   // Y por la API, sin pasar por la pantalla: el pedido se rechaza.
   const respuesta = await request.post('/api/checkout', {
