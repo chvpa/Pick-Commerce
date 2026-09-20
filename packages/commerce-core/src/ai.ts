@@ -105,6 +105,16 @@ export interface PeticionDeEnriquecimiento {
   readonly modelo: ModeloDeIA;
   readonly producto: ProductoParaEnriquecer;
   readonly categorias: readonly CategoriaConocida[];
+  /**
+   * Cuántas fotos mirar. Por defecto las tres que admite el proveedor.
+   *
+   * Existe para el lote de descripciones: la imagen es casi todo el costo de
+   * esta llamada, y mirar tres ángulos del mismo producto no cambia una
+   * descripción. Con 3674 productos, tres fotos son USD 4,5 y una sola USD 1,7.
+   * En el enriquecimiento de a uno siguen yendo las tres, que es donde hay
+   * alguien mirando y la diferencia sí se nota.
+   */
+  readonly maximoDeImagenes?: number;
 }
 
 /**

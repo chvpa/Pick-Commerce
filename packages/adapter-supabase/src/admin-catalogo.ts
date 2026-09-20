@@ -3,6 +3,8 @@ import type {
   FotoParaLimpiar,
   PaginaDePropuestas,
   PaginaProductos,
+  PaginaDeDescripciones,
+  PaginaSinDescripcion,
   PaginaSinFoto,
   ProductoCargado,
   ProductoEditable,
@@ -224,6 +226,119 @@ export function repositorioAdminCatalogo(db: PickSupabaseClient): RepositorioAdm
         .in('id', ids as string[]);
 
       if (error) throw new Error(`No se pudieron descartar las fotos: ${error.message}`);
+    },
+
+    // --- Descripciones (v2 Fase 8) ----------------------------------------
+
+    async sinDescripcion(storeId, page, perPage = 20): Promise<PaginaSinDescripcion> {
+      const { data, error } = await db.rpc('admin_products_without_description', {
+        p_store_id: storeId,
+        p_page: page,
+        p_per_page: perPage,
+      });
+
+      if (error) throw new Error(`No se pudo leer la cola de descripciones: ${error.message}`);
+      return data as unknown as PaginaSinDescripcion;
+    },
+
+    async productosParaDescribir(storeId, productIds) {
+      if (productIds.length === 0) return [];
+
+      const { data, error } = await db
+        .from('products')
+        .select(
+          'id, title, brand, categories(name), product_media(url, position), product_variants(title, attributes, position)',
+        )
+        .eq('store_id', storeId)
+        .in('id', productIds as string[]);
+
+      if (error) throw new Error(`No se pudieron leer los productos: ${error.message}`);
+
+      return (data ?? []).map((fila) => ({
+        productId: fila.id,
+        title: fila.title,
+        ...(fila.brand ? { brand: fila.brand } : {}),
+        ...(fila.categories?.name ? { categoria: fila.categories.name } : {}),
+        /*
+         * Las fotos van en orden y quien llama decide cuántas mirar: la imagen
+         * es casi todo el costo de la llamada, y mirar tres ángulos del mismo
+         * producto no cambia una descripción.
+         */
+        imagenes: [...fila.product_media].sort((a, b) => a.position - b.position).map((m) => m.url),
+        variantes: [...fila.product_variants]
+          .sort((a, b) => a.position - b.position)
+          .map((v) => ({
+            title: v.title,
+            atributos: (v.attributes ?? {}) as Record<string, string>,
+          })),
+      }));
+    },
+
+    async proponerDescripcion(tenantId, storeId, productId, texto): Promise<void> {
+      const { error } = await db.from('description_proposals').insert({
+        tenant_id: tenantId,
+        store_id: storeId,
+        product_id: productId,
+        proposed: texto,
+      });
+
+      if (error) throw new Error(`No se pudo guardar la propuesta: ${error.message}`);
+    },
+
+    async descripcionesPendientes(storeId, page, perPage = 10): Promise<PaginaDeDescripciones> {
+      const desde = (Math.max(page, 1) - 1) * perPage;
+
+      const { data, error, count } = await db
+        .from('description_proposals')
+        .select('id, product_id, proposed, created_at, products!inner(title)', { count: 'exact' })
+        .eq('store_id', storeId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .range(desde, desde + perPage - 1);
+
+      if (error) throw new Error(`No se pudieron leer las propuestas: ${error.message}`);
+
+      const total = count ?? 0;
+      return {
+        items: (data ?? []).map((fila) => ({
+          id: fila.id,
+          productId: fila.product_id,
+          title: fila.products.title,
+          proposed: fila.proposed,
+          createdAt: fila.created_at,
+        })),
+        total,
+        page: Math.max(page, 1),
+        perPage,
+        pageCount: Math.max(1, Math.ceil(total / perPage)),
+      };
+    },
+
+    async aprobarDescripciones(storeId, ids): Promise<number> {
+      if (ids.length === 0) return 0;
+
+      // Función y no update: escribir la descripción y cerrar la propuesta son
+      // dos tablas, y a medias la propuesta volvería a ofrecerse.
+      const { data, error } = await db.rpc('admin_apply_description_proposals', {
+        p_store_id: storeId,
+        p_ids: ids as string[],
+      });
+
+      if (error) throw new Error(`No se pudieron aprobar las descripciones: ${error.message}`);
+      return (data as unknown as number) ?? 0;
+    },
+
+    async rechazarDescripciones(storeId, ids): Promise<void> {
+      if (ids.length === 0) return;
+
+      const { error } = await db
+        .from('description_proposals')
+        .update({ status: 'rejected', decided_at: new Date().toISOString() })
+        .eq('store_id', storeId)
+        .eq('status', 'pending')
+        .in('id', ids as string[]);
+
+      if (error) throw new Error(`No se pudieron descartar las descripciones: ${error.message}`);
     },
 
     async porId(storeId, id): Promise<ProductoCargado | null> {

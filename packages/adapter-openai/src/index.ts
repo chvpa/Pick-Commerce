@@ -150,6 +150,7 @@ export function proveedorOpenAI(): AIProvider {
         instrucciones: INSTRUCCIONES,
         texto: entradaDelProducto(producto, categorias),
         imagenes: producto.imagenes,
+        maximoDeImagenes: peticion.maximoDeImagenes,
         esquema: ESQUEMA_DE_PROPUESTA,
         nombre: 'propuesta_de_producto',
         quehacer: 'OpenAI no pudo generar la propuesta',
@@ -243,6 +244,7 @@ async function conEsquema(peticion: {
   esquema: unknown;
   nombre: string;
   quehacer: string;
+  maximoDeImagenes?: number;
 }): Promise<unknown> {
   const respuesta = await fetch(`${RAIZ}/responses`, {
     method: 'POST',
@@ -259,11 +261,13 @@ async function conEsquema(peticion: {
           role: 'user',
           content: [
             { type: 'input_text', text: peticion.texto },
-            ...peticion.imagenes.slice(0, MAXIMO_DE_IMAGENES).map((url) => ({
-              type: 'input_image',
-              image_url: url,
-              detail: 'auto',
-            })),
+            ...peticion.imagenes
+              .slice(0, Math.max(1, peticion.maximoDeImagenes ?? MAXIMO_DE_IMAGENES))
+              .map((url) => ({
+                type: 'input_image',
+                image_url: url,
+                detail: 'auto',
+              })),
           ],
         },
       ],

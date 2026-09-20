@@ -264,6 +264,11 @@ devuelve campera, calzas y joggers aunque ninguna de esas palabras figure. Se
 suma al score léxico en vez de reemplazarlo, y una coincidencia exacta nunca
 queda debajo de un parecido (ADR-132).
 
+Y hay una herramienta para subir ese techo: Productos → Descripciones le pide a
+la IA que escriba las que faltan, de a cien, y nada se publica sin que alguien lo
+lea. Una descripción que administra el ERP no se pisa, aunque se apruebe: la
+próxima importación la borraría.
+
 Lo que lo limita ahora no es el buscador: es **cuánto texto tiene el catálogo**.
 El vector se arma con el título, la marca, la categoría y los atributos, y en
 Treeshop sólo 78 de 3752 productos tienen descripción. Por eso «ropa de abrigo

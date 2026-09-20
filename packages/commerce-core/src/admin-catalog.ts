@@ -158,6 +158,71 @@ export interface PaginaSinFoto {
   readonly cuentas: CuentasDeVitrina;
 }
 
+// ---------------------------------------------------------------------------
+// Descripciones (v2 Fase 8)
+// ---------------------------------------------------------------------------
+
+/**
+ * Un producto sin descripción.
+ *
+ * Es el techo del buscador y no una cuestión de prolijidad: `search_doc` es
+ * título más marca, y el vector semántico se arma con eso más categoría y
+ * atributos. Sin una línea que diga qué es, no hay con qué encontrarlo cuando
+ * alguien lo pide con otras palabras.
+ */
+export interface ProductoSinDescripcion {
+  readonly id: string;
+  readonly handle: string;
+  readonly title: string;
+  readonly brand?: string;
+  readonly stock: number;
+}
+
+/** Cuánto del catálogo se puede encontrar, y si el trabajo avanza. */
+export interface CuentasDeDescripcion {
+  readonly activos: number;
+  readonly conDescripcion: number;
+  readonly sinDescripcion: number;
+  readonly pendientes: number;
+  readonly escritasSemana: number;
+}
+
+export interface PaginaSinDescripcion {
+  readonly items: readonly ProductoSinDescripcion[];
+  readonly total: number;
+  readonly page: number;
+  readonly perPage: number;
+  readonly pageCount: number;
+  readonly cuentas: CuentasDeDescripcion;
+}
+
+/** Todo lo que la IA necesita mirar para escribir una descripción. */
+export interface ProductoParaDescribir {
+  readonly productId: string;
+  readonly title: string;
+  readonly brand?: string;
+  readonly categoria?: string;
+  readonly variantes: readonly { title: string; atributos: Record<string, string> }[];
+  readonly imagenes: readonly string[];
+}
+
+/** Una descripción propuesta, esperando que alguien la lea. */
+export interface PropuestaDeDescripcion {
+  readonly id: string;
+  readonly productId: string;
+  readonly title: string;
+  readonly proposed: string;
+  readonly createdAt: string;
+}
+
+export interface PaginaDeDescripciones {
+  readonly items: readonly PropuestaDeDescripcion[];
+  readonly total: number;
+  readonly page: number;
+  readonly perPage: number;
+  readonly pageCount: number;
+}
+
 /** Una foto recién subida, lista para colgar de su producto. */
 export interface FotoNueva {
   readonly url: string;
@@ -232,6 +297,28 @@ export interface RepositorioAdminCatalogo {
   aprobarPropuestas(storeId: string, ids: readonly string[]): Promise<number>;
   /** Descarta propuestas sin tocar la foto publicada. */
   rechazarPropuestas(storeId: string, ids: readonly string[]): Promise<void>;
+
+  /** La cola de productos sin descripción, primero los que tienen stock. */
+  sinDescripcion(storeId: string, page: number, perPage?: number): Promise<PaginaSinDescripcion>;
+  /** Lo que la IA mira para escribir: ficha, variantes y fotos. */
+  productosParaDescribir(
+    storeId: string,
+    productIds: readonly string[],
+  ): Promise<readonly ProductoParaDescribir[]>;
+  proponerDescripcion(
+    tenantId: string,
+    storeId: string,
+    productId: string,
+    texto: string,
+  ): Promise<void>;
+  descripcionesPendientes(
+    storeId: string,
+    page: number,
+    perPage?: number,
+  ): Promise<PaginaDeDescripciones>;
+  /** Devuelve cuántas se escribieron: las que administra el ERP no se pisan. */
+  aprobarDescripciones(storeId: string, ids: readonly string[]): Promise<number>;
+  rechazarDescripciones(storeId: string, ids: readonly string[]): Promise<void>;
   /**
    * Importa un lote. Cada producto es atómico por separado, así que el reporte
    * puede traer éxitos y fallos a la vez.

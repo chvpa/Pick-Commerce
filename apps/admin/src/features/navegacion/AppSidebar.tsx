@@ -99,6 +99,19 @@ const SECCIONES: readonly Seccion[] = [
     icono: SparklesIcon,
     permiso: 'settings.write',
   },
+  /*
+   * Descripciones. Va acá y no en el encabezado del listado porque es una
+   * tarea con su propia cola —3674 productos en el piloto—, no una acción
+   * sobre lo que está seleccionado. Se ve con `catalog.write`: leerlas y
+   * aprobarlas es trabajo de catálogo; pedirle a la IA que las escriba gasta la
+   * clave, y eso lo decide la pantalla.
+   */
+  {
+    to: '/productos/descripciones',
+    label: 'Descripciones',
+    icono: SparklesIcon,
+    permiso: 'catalog.write',
+  },
   { to: '/pedidos', label: 'Pedidos', icono: ReceiptTextIcon },
   // Sin `permiso`: la lista se ve con sólo pertenecer a la organización, porque
   // saber qué campañas están corriendo es información operativa. Crear y editar

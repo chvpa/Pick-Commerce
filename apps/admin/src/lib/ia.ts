@@ -100,8 +100,14 @@ export function enriquecerProducto(
     imagenes: string[];
   },
   categorias: { id: string; nombre: string }[],
+  maximoDeImagenes?: number,
 ): Promise<{ propuesta: PropuestaDeIA }> {
-  return pedir('/api/ia/enriquecer', { storeId, producto, categorias });
+  return pedir('/api/ia/enriquecer', {
+    storeId,
+    producto,
+    categorias,
+    ...(maximoDeImagenes === undefined ? {} : { maximoDeImagenes }),
+  });
 }
 
 export interface FichaDeIA extends PropuestaDeIA {

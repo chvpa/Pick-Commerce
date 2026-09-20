@@ -278,6 +278,14 @@ async function enriquecer(ctx: Contexto): Promise<Response> {
         imagenes: Array.isArray(producto.imagenes) ? producto.imagenes : [],
       },
       categorias,
+      /*
+       * Cuántas fotos mirar. Lo decide quien llama porque el lote de
+       * descripciones manda una sola: la imagen es casi todo el costo, y tres
+       * ángulos del mismo producto no cambian una descripción.
+       */
+      ...(typeof ctx.cuerpo.maximoDeImagenes === 'number'
+        ? { maximoDeImagenes: ctx.cuerpo.maximoDeImagenes }
+        : {}),
     });
   } catch (causa) {
     return fallaDelProveedor('ia/enriquecer', causa);

@@ -711,6 +711,67 @@ export type Database = {
           },
         ]
       }
+      description_proposals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          product_id: string
+          proposed: string
+          status: string
+          store_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          product_id: string
+          proposed: string
+          status?: string
+          store_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          product_id?: string
+          proposed?: string
+          status?: string
+          store_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "description_proposals_product_fkey"
+            columns: ["product_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "description_proposals_store_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "description_proposals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       erp_sync_runs: {
         Row: {
           adapter: string
@@ -2218,6 +2279,10 @@ export type Database = {
         Args: { p_from: string; p_store_id: string; p_to: string }
         Returns: Json
       }
+      admin_apply_description_proposals: {
+        Args: { p_ids: string[]; p_store_id: string }
+        Returns: number
+      }
       admin_apply_media_proposals: {
         Args: { p_ids: string[]; p_store_id: string }
         Returns: number
@@ -2271,6 +2336,10 @@ export type Database = {
           p_status?: string
           p_store_id: string
         }
+        Returns: Json
+      }
+      admin_products_without_description: {
+        Args: { p_page?: number; p_per_page?: number; p_store_id: string }
         Returns: Json
       }
       admin_products_without_photo: {

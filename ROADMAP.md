@@ -1491,7 +1491,34 @@ clave de OpenAI sigue teniendo el buscador de la Fase 3, completo.
 
 ## Fase 8 — Operación avanzada: lo que quedaba del v2 escrito
 
-**Avance: 0%**
+**Avance: 15%**
+
+> **Ninguno de los cinco bloques escritos se pudo empezar, y está medido.** Tres
+> los bloquea su propio Definition of Done —B2B, multi-location y los presets
+> esperan un cliente real que los pida—. Los otros dos los bloquean los datos:
+> cohortes y RFM se calcularían sobre **4 clientes con pedidos, 2 recurrentes y
+> todos de la demo sembrada**, y entender la consulta sobre **11 búsquedas
+> históricas**. Construir cualquiera sería shipear una pantalla que no se puede
+> validar contra nada, que es justo lo que se acababa de arreglar en Analytics.
+>
+> Lo que sí tenía un número detrás entró primero, y es lo que sigue.
+
+- [x] **Descripciones en lote.** De los 3752 productos activos del piloto, 3674
+      no tienen descripción, y eso es el techo del buscador que la Fase 7 acaba
+      de construir: `search_doc` es título más marca, y el vector semántico se
+      arma con eso más categoría y atributos. Sin una línea que diga qué es el
+      producto, no hay con qué encontrarlo cuando alguien lo pide con otras
+      palabras — LIMITACIONES ya lo decía con esas palabras.
+      No hace falta nada nuevo: la IA de ADR-104 ya propone descripciones, el
+      patrón de «propone en lote y una persona aprueba» es el de ADR-130, y el
+      techo y el contador son los de ADR-132. Lo que se agregó es la cola, la
+      tabla de propuestas y una pantalla.
+      Dos cosas que no son obvias: **aprobar no pisa una descripción que
+      administra el ERP** (ADR-117) —lo haría desaparecer sola en la próxima
+      importación, sin error en ningún lado— y el lote mira **una sola foto** por
+      producto, porque la imagen es casi todo el costo y tres ángulos del mismo
+      producto no cambian una descripción: 3674 productos son USD 4,5 con tres y
+      USD 1,7 con una.
 
 Objetivo: lo que el v2 original tenía adelante y que ahora sí se puede apoyar en
 algo. No es una fase que se tome entera: se toma de a un bloque, con un cliente
@@ -1996,6 +2023,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-19 | **v2 Fase 6 al 90%: QuickHand, cargar mercadería con la cámara.** Llega una tanda de veinte prendas y entran sacándoles una foto: el wizard las sube, la IA propone la ficha mirando las fotos y la persona valida. ADR-131 enmienda la prohibición de ADR-104 **sólo para el alta** —leer un precio impreso en la etiqueta no es inventarlo— con dos esquemas separados, el valor ofrecido junto a lo que estaba impreso, y el dígito verificador descartando un código de barras mal leído. Los talles se tocan y salen una variante cada uno. Sin credencial la pantalla sirve igual. Y «Limpiar fondo con IA» pasó a estar también dentro del producto, foto por foto. Sin migraciones: guarda por el mismo camino que el formulario completo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | v2 Fase 6 |           0% |            90% |
 | 2026-09-20 | **v2 Fase 7 al 90%: el buscador entiende lo que no está escrito.** «Algo para correr en invierno» devuelve campera, calzas y joggers sin que ninguna de esas palabras esté en el catálogo. Lo semántico entra como fuente de filas y no como orden —ADR-132—, con la clave maestra quieta: el storefront manda la credencial cifrada y el Worker del Admin, que es el único que puede abrirla, devuelve un vector. Sin clave, sin vectores o si tarda, es el mismo SQL de la Fase 3. Embeber Treeshop entero costó USD 0,0031 y volver a correrlo no reembebe nada. Y quedó el contador que faltaba desde la Fase 11: `ai_usage`, por tienda, mes y tipo de llamada                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | v2 Fase 7 |           0% |            90% |
 | 2026-09-20 | **v2 cerrado hasta la Fase 7, y el panel dejó de mentir.** Las fases 5, 6 y 7 pasan a 100%: las dos tandas largas que faltaban se cierran **por decisión del dueño y no por evidencia**, y queda escrito así. Y se arregló lo que ensuciaba todo lo que medimos: un escáner que pedía `/wp-admin/install.php` recibía la página de error —que es HTML— y quedaba contado como visitante, con una sesión nueva por petición. El panel de Treeshop pasó de 3278 sesiones y 6192 vistas a **1956 y 2386**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | v2 Fase 7 |          90% |           100% |
+| 2026-09-20 | **v2 Fase 8 al 15%: descripciones en lote.** Ninguno de los cinco bloques escritos se pudo empezar, y está medido: tres esperan un cliente real que los pida, y los otros dos se calcularían sobre 4 clientes de la demo sembrada y 11 búsquedas históricas. Lo que sí tenía un número detrás son los 3674 productos sin descripción del piloto, que son el techo del buscador que la Fase 7 acaba de construir. La IA propone, una persona aprueba, y aprobar **no pisa** lo que administra el ERP. El lote mira una foto por producto y no tres: la imagen es casi todo el costo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | v2 Fase 8 |           0% |            15% |
 
 ---
 
