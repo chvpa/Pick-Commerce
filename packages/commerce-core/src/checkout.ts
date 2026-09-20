@@ -97,13 +97,30 @@ export function validarCarrito(
       continue;
     }
     if (variante.available < quantity) {
-      issues.push({
-        type: 'insufficient_stock',
-        variantId,
-        // Un negativo es un descuadre del espejo del ERP (ADR-056); al comprador
-        // se le dice cero, que es lo que puede llevar.
-        available: Math.max(variante.available, 0),
-      });
+      // Un negativo es un descuadre del espejo del ERP (ADR-056); al comprador
+      // se le dice cero, que es lo que puede llevar.
+      const disponible = Math.max(variante.available, 0);
+      issues.push({ type: 'insufficient_stock', variantId, available: disponible });
+
+      /*
+       * Se **recorta**, no se pierde la línea.
+       *
+       * Antes quedaba afuera entera, así que un carrito con dos unidades de algo
+       * que tenía una terminaba sin ese producto: el checkout decía «ajustamos tu
+       * carrito» y en realidad lo había sacado, y la venta de la unidad que sí
+       * existía se perdía. Con cero disponible no hay nada que recortar y sale
+       * igual que antes. Reportado en producción.
+       */
+      if (disponible > 0) {
+        validas.push({
+          ...variante,
+          quantity: disponible,
+          subtotal: {
+            amount: variante.price.amount * disponible,
+            currency: variante.price.currency,
+          },
+        });
+      }
       continue;
     }
 

@@ -57,9 +57,20 @@ test('una variante que ya no está se informa y no entra en el total', () => {
   assert.deepEqual(r.total, PYG(150000), 'el total incluyó una línea que no se puede comprar');
 });
 
-test('sin stock suficiente dice cuánto queda', () => {
+test('sin stock suficiente dice cuánto queda y recorta a eso', () => {
+  // Recortar y no perder la línea: la venta de lo que sí hay no se tira. Antes
+  // quedaba afuera entera y el producto desaparecía del carrito en el checkout.
   const r = validarCarrito([{ variantId: 'v2', quantity: 5 }], [GORRA]);
   assert.deepEqual(r.issues, [{ type: 'insufficient_stock', variantId: 'v2', available: 2 }]);
+  assert.equal(r.lines.length, 1);
+  assert.equal(r.lines[0]!.quantity, 2);
+  assert.deepEqual(r.total, PYG(180000));
+});
+
+test('con cero disponible la línea sí sale del carrito', () => {
+  const r = validarCarrito([{ variantId: 'v2', quantity: 1 }], [{ ...GORRA, available: 0 }]);
+  assert.deepEqual(r.issues, [{ type: 'insufficient_stock', variantId: 'v2', available: 0 }]);
+  assert.deepEqual(r.lines, []);
   assert.deepEqual(r.total, PYG(0));
 });
 

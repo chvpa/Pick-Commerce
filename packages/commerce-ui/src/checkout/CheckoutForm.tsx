@@ -215,18 +215,29 @@ export function CheckoutForm({
       couponIssue?: ProblemaDeCupon;
     };
 
+    const porId = new Map(guardadas.map((l) => [l.variantId, l]));
+
+    /*
+     * El aviso dice **qué** pasó con **cuál**. El anterior decía «ajustamos tu
+     * carrito» tanto si recortaba una cantidad como si sacaba el producto
+     * entero, que son cosas distintas y la segunda se descubría mirando la
+     * lista.
+     */
     if (datos.issues.length > 0) {
-      const sinStock = datos.issues.filter((p) => p.type === 'insufficient_stock');
       setAviso(
-        sinStock.length > 0
-          ? 'Ajustamos tu carrito: algún producto ya no tiene el stock que había.'
-          : 'Quitamos de tu carrito un producto que ya no está disponible.',
+        datos.issues
+          .map((p) => {
+            const nombre = porId.get(p.variantId)?.title ?? 'un producto';
+            return p.type === 'insufficient_stock' && (p.available ?? 0) > 0
+              ? `Dejamos ${p.available} de «${nombre}»: es todo lo que queda.`
+              : `Quitamos «${nombre}»: ya no está disponible.`;
+          })
+          .join(' '),
       );
     }
 
     // El espejo se alinea con lo que el servidor dice que existe. Si el carrito
     // se vació mientras esto viajaba, `replaceLines` no escribe: ver su docblock.
-    const porId = new Map(guardadas.map((l) => [l.variantId, l]));
     escribiendo.current = true;
     try {
       replaceLines(
