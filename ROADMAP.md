@@ -1411,9 +1411,14 @@ Product Studio», y cargar varios productos distintos en una sola pantalla.
       variante por talle, sin pasar por el formulario largo
 - [x] lo que la IA lee de la etiqueta no llega al catálogo sin que alguien lo
       acepte, y un código de barras mal leído no se ofrece
-- [ ] **falta probarlo con la clave del comercio y una tanda real**: el camino
-      está entero y el e2e lo recorre sin IA, pero la lectura de la etiqueta sólo
-      se probó con `fetch` simulado. Es lo mismo que le falta a la Fase 5
+- [x] Probado con la clave del comercio: un producto real cargado de punta a
+      punta —foto, limpieza de fondo, ficha, talles y guardado—. La lectura de la
+      etiqueta devolvió vacío, y es correcto: ese envase no muestra precio ni
+      código de frente. Lo que sí apareció midiendo es que **lo leído de una foto
+      no es estable entre corridas** —la misma marca volvió «Sidiet» y «Sudiet»—,
+      que está en [LIMITACIONES](LIMITACIONES.md)
+- [ ] **falta una tanda de verdad**: cargar varios productos seguidos y ver si el
+      wizard aguanta el ritmo. Es lo mismo que le falta a la Fase 5
 
 ---
 

@@ -334,6 +334,18 @@ al cargar una tanda conviene revisarlo contra la prenda que se tiene en la mano,
 que es donde está la persona igual. Si la etiqueta no se ve, no se ofrece nada y
 se escribe a mano, como siempre.
 
+**Y lo que lee de la foto no es estable entre corridas.** Medido sobre un
+producto real cargado con el wizard: las mismas dos fotos, el mismo modelo, dos
+llamadas con horas de diferencia, y la marca volvió una vez como «Sidiet» y otra
+como «Sudiet». Una de las dos está mal y **nada lo marca**: a diferencia del
+código de barras, un nombre de marca no tiene dígito verificador contra el cual
+comprobarlo.
+
+La consecuencia práctica es la misma para todo lo que la IA lee de una foto —
+marca, título, precio—: la pantalla lo propone y la persona lo confirma mirando
+el producto. Donde eso más se nota es en la marca, porque parece un dato
+objetivo y se copia sin pensar.
+
 ### Analytics no cuenta las precargas de Safari
 
 Chrome manda `Sec-Purpose: prefetch` y Firefox `X-moz`, y las dos se descartan.
