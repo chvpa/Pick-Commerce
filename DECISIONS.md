@@ -6279,14 +6279,64 @@ se exporta del core. El script descifra la credencial del comercio y embebe el
 catálogo. La frase «la clave maestra vive sólo en el Worker del Admin» describe
 producción, no la máquina de quien opera.
 
+**Cómo viaja la credencial, que es lo que decidió el reparto**
+El Worker del Admin tiene la clave maestra pero **no** la secret key de
+Supabase: sólo la publishable. Así que no puede leer por su cuenta el ciphertext
+de la tienda, y darle la secret key para esto sería darle acceso a toda la base
+salteando RLS —exactamente lo que el encabezado de ese archivo promete que no
+pasa—. La salida es al revés de la intuitiva: **el storefront manda el
+ciphertext**, que ya puede leer con su propia secret key, y el Admin lo abre.
+Nadie gana un permiso que no tuviera, y lo único que este Worker aporta sigue
+siendo lo único que nadie más tiene: la clave maestra. Nunca la devuelve;
+devuelve un vector.
+
+`/api/ia/vector` es la única ruta sin JWT —quien busca es anónima— y por eso vive
+fuera del router de las otras cuatro, para que eso sea visible y no se herede por
+descuido. La autentica un secreto compartido comparado en tiempo constante.
+
+**Lo que se midió en producción, el 2026-09-20**
+
+    PLP sin término                857 ms
+    frase con vector guardado     1074 ms   (+217 ms)
+    frase nueva                   1650-2000 ms
+
+El sobrecosto de una frase ya conocida es una llamada a la base; el de una frase
+nueva es la llamada a OpenAI, y se paga **una sola vez por frase**. Una frase que
+no llegó a tiempo —el corte es de 800 ms— quedó sin vector y la búsqueda salió
+por el camino léxico, que es la degradación funcionando sola.
+
+Durante la medición casi se registra una regresión falsa: una primera tanda daba
++1300 ms en frases nuevas, y era el camino de «sin resultados» —que dispara
+sugerencias y una vitrina de rescate— y no el vector. Medir con frases que
+devuelven productos es la diferencia.
+
 **Consecuencias**
 
 - `catalog_search` **no cambia de firma**: calcula el hash de la frase con
   `md5(app.normalizar_busqueda(p_search))` en vez de recibirlo. Así la
   redefinición es un `create or replace` y no repite el `drop`+`create` que ya
   reseteó los grants una vez dejando `PUBLIC` con execute.
-- `app.registrar_busqueda` recibe el vector como **texto**: si la firma nombrara
-  el tipo `vector`, la función no parsearía en PGlite.
+- `registrar_busqueda` recibe el vector como **texto**: si la firma nombrara el
+  tipo `vector`, la función no parsearía en PGlite. Vive en `public` y no en
+  `app` por un motivo prosaico: PostgREST sólo expone `public`, y quien la llama
+  es el storefront por RPC.
 - Las dos tablas nuevas no tienen grants para `anon` ni `authenticated`. Lo que
   las lee es `security definer`, usado al revés de lo habitual: no para dar
   acceso, sino para no tener que abrirlas.
+- El techo cuenta **sólo** las búsquedas, no todo el gasto de IA. Un lote de
+  cien fotos son cientos de miles de tokens que alguien eligió y confirmó, con su
+  propio tope (ADR-130); sumarlo acá haría que una tanda normal dejara el
+  buscador sin IA hasta fin de mes. Lo que este techo cuida es el único camino
+  que puede irse solo, porque lo dispara tráfico anónimo.
+- `ai_usage` cierra de paso el agujero que dejó la Fase 11: los endpoints
+  devuelven `usage` y se tiraba, así que «cuánto costó esto» no tenía respuesta.
+
+**Lo que la escala del piloto deja a la vista**
+Embeber los 3752 productos de Treeshop costó **USD 0,0031** —156.572 tokens
+cobrados— y volver a correrlo no reembebe nada. El dinero nunca fue la
+restricción; la latencia sí. Y la calidad depende de cuánto texto tenga el
+catálogo: Treeshop tiene descripción en 78 de 3752 productos, así que el vector
+se arma con título, marca, categoría y atributos. «Algo para correr en invierno»
+devuelve campera, calzas y joggers; «ropa de abrigo para el frío» trae primero
+ropa interior. Está en LIMITACIONES, porque es lo que un comercio tiene que
+saber para decidir si le conviene escribir descripciones.

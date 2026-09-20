@@ -13,6 +13,7 @@ import {
   cuentasHabilitadas,
   esTiendaDemo,
   money,
+  TOPE_MENSUAL_DE_BUSQUEDA,
   toMajorUnits,
   type CurrencyConfig,
   type EntradaDeAuditoria,
@@ -680,9 +681,75 @@ function InteligenciaArtificial({ tienda }: { tienda: TiendaResumen }) {
           {fallo.message}
         </p>
       )}
+
+      <GastoDeIA tiendaId={tienda.id} />
     </form>
   );
 }
+
+/**
+ * Lo que la tienda gastó en IA este mes (ADR-132).
+ *
+ * Existe porque la primera pregunta después de usar la IA fue «cuánto costó», y
+ * no había forma de responderla: los dos endpoints devuelven `usage` y se
+ * tiraba. Ahora se registra, y acá se ve.
+ *
+ * El costo es **estimado y lo dice**: cada tipo de llamada tiene su precio por
+ * millón de tokens y los modelos de imagen cobran distinto la entrada que la
+ * salida, así que este número orienta, no factura. La factura es la de OpenAI.
+ */
+function GastoDeIA({ tiendaId }: { tiendaId: string }) {
+  const consulta = useQuery({
+    queryKey: ['gasto-ia', tiendaId],
+    queryFn: async () => {
+      const mes = new Date();
+      mes.setUTCDate(1);
+      const { data, error } = await db
+        .from('ai_usage')
+        .select('tipo, tokens, llamadas')
+        .eq('store_id', tiendaId)
+        .gte('mes', mes.toISOString().slice(0, 10));
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+
+  if (consulta.isPending || consulta.isError || consulta.data.length === 0) return null;
+
+  const total = consulta.data.reduce((t, f) => t + Number(f.tokens), 0);
+
+  return (
+    <div className="border-border flex flex-col gap-2 rounded-lg border p-4">
+      <span className="text-sm font-medium">Este mes</span>
+      <ul className="text-muted-foreground flex flex-col gap-1 text-sm">
+        {consulta.data
+          .slice()
+          .sort((a, b) => Number(b.tokens) - Number(a.tokens))
+          .map((f) => (
+            <li key={f.tipo}>
+              {ETIQUETA_DE_GASTO[f.tipo] ?? f.tipo}: {Number(f.tokens).toLocaleString('es')} tokens
+              en {f.llamadas} {f.llamadas === 1 ? 'llamada' : 'llamadas'}
+            </li>
+          ))}
+      </ul>
+      <span className="text-muted-foreground text-xs">
+        {total.toLocaleString('es')} tokens en total. El costo depende del modelo de cada llamada;
+        el número exacto está en tu panel de OpenAI.
+      </span>
+      <span className="text-muted-foreground text-xs">
+        La búsqueda tiene un techo propio de {TOPE_MENSUAL_DE_BUSQUEDA.toLocaleString('es')} tokens
+        por mes: al llegar, el buscador sigue andando con el camino de siempre.
+      </span>
+    </div>
+  );
+}
+
+const ETIQUETA_DE_GASTO: Record<string, string> = {
+  ficha: 'Fichas de producto',
+  fondo: 'Fondos de fotos',
+  embeddings: 'Catálogo para la búsqueda',
+  busqueda: 'Búsquedas de visitantes',
+};
 
 /**
  * El costo de envío.

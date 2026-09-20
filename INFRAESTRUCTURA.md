@@ -396,6 +396,8 @@ se lo diga hasta que el comando falla.
 | `LINODE_PROXY_URL` + `LINODE_PROXY_SECRET`                   | `pnpm erp:importar`              | Llegar al Oracle ORDS del ERP a través del proxy (ADR-085)                         |
 | `TEST_SUPABASE_URL` + `TEST_SUPABASE_ANON_KEY`               | `pnpm erp:imagenes`              | El proyecto de origen del que se copian las fotos                                  |
 | `PICK_AI_MASTER_KEY`                                         | El Worker del Admin y `pnpm dev` | Cifra las credenciales de IA. Está en §6, con lo que implica rotarla               |
+| `PICK_SEARCH_TOKEN`                                          | Los tres Workers                 | Autentica `/api/ia/vector`. Ver §6 y ADR-132                                       |
+| `ADMIN_API_URL`                                              | Los storefronts                  | De dónde cuelga el Worker del Admin. Su ausencia degrada el buscador, no lo rompe  |
 
 Con eso, los caminos para cargar un catálogo son cuatro y cada uno tiene su
 credencial: el CRUD del Admin y el CSV no necesitan ninguna, `pnpm erp:importar`
@@ -561,11 +563,12 @@ fallback a `index.html` que necesita el router del SPA.
 Existe por una sola razón: BYOK. La clave de OpenAI de cada comercio se guarda
 cifrada, y descifrarla en el navegador sería no cifrarla.
 
-| Variable                   | Qué es                                                  |
-| -------------------------- | ------------------------------------------------------- |
-| `SUPABASE_URL`             | La misma del storefront. La usa para llamar a los RPC.  |
-| `SUPABASE_PUBLISHABLE_KEY` | La pública. **No** lleva la secret key: no la necesita. |
-| `PICK_AI_MASTER_KEY`       | 32 bytes en base64. Con lo que cifra las credenciales.  |
+| Variable                   | Qué es                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_URL`             | La misma del storefront. La usa para llamar a los RPC.                                                                                                                                                                                                                                                                                                                    |
+| `SUPABASE_PUBLISHABLE_KEY` | La pública. **No** lleva la secret key: no la necesita.                                                                                                                                                                                                                                                                                                                   |
+| `PICK_AI_MASTER_KEY`       | 32 bytes en base64. Con lo que cifra las credenciales.                                                                                                                                                                                                                                                                                                                    |
+| `PICK_SEARCH_TOKEN`        | 32 bytes en base64. El secreto compartido con los Workers del storefront, que autentica `/api/ia/vector` —la única ruta sin JWT, porque quien busca es anónima (ADR-132)—. **Va en los tres Workers**: `pick-admin`, `treeshop` y `pick-commerce`, y en los dos del storefront va además `ADMIN_API_URL`. Sin él, el buscador se queda con el camino léxico y nada falla. |
 
 Los tres son de **runtime**, no de build. Sin alguno, las rutas `/api/*`
 responden 503 nombrando cuál falta y el resto del Admin funciona igual: sin IA,

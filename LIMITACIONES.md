@@ -258,8 +258,23 @@ El SKU se encuentra si se escribe **desde el principio**: «ZAP-TR» encuentra
 «ZAP-TR-41», pero «TR-41» no. Tampoco hay sinónimos ni plurales: «buzo» no
 encuentra «canguro».
 
-**Qué lo desbloquea:** la búsqueda semántica de la Fase 7 de v2 en el
-[ROADMAP](ROADMAP.md), que se suma a este score en vez de reemplazarlo.
+**Qué lo desbloquea:** ya está, y con un límite propio. Desde la v2 Fase 7 el
+buscador **también** entiende descripciones: «algo para correr en invierno»
+devuelve campera, calzas y joggers aunque ninguna de esas palabras figure. Se
+suma al score léxico en vez de reemplazarlo, y una coincidencia exacta nunca
+queda debajo de un parecido (ADR-132).
+
+Lo que lo limita ahora no es el buscador: es **cuánto texto tiene el catálogo**.
+El vector se arma con el título, la marca, la categoría y los atributos, y en
+Treeshop sólo 78 de 3752 productos tienen descripción. Por eso «ropa de abrigo
+para el frío» trae primero ropa interior: sin una línea que diga que un pullover
+abriga, el modelo no lo puede saber. Escribir descripciones mejora esto más que
+cualquier ajuste de pesos.
+
+Y hay dos cosas que apagan lo semántico a propósito: una consulta que **parece un
+código** —un solo token con dígitos— se resuelve sólo por el camino léxico, y una
+tienda sin clave de OpenAI usa exactamente el buscador de la Fase 3, sin
+diferencia ninguna.
 
 ### Las recomendaciones cuentan, no aprenden
 

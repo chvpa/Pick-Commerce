@@ -1419,56 +1419,55 @@ Product Studio», y cargar varios productos distintos en una sola pantalla.
 
 ## Fase 7 — Búsqueda semántica y el resto de la IA, con el gasto acotado
 
-**Avance: 0%**
+**Avance: 90%**
 
 Objetivo: buscar «algo para correr en invierno» devuelve algo razonable, el
 comercio ve cuánto le costó y hay un techo que no puede pasar. Un comercio sin
 clave de OpenAI sigue teniendo el buscador de la Fase 3, completo.
 
-- [ ] Va última por una razón medible: `vector` **no está** en el build de PGlite
-      que usa la suite de aislamiento —hay 37 extensiones y ésa no—, así que los
-      embeddings sólo se pueden verificar contra el proyecto remoto, que es la
-      validación más débil que este repo acepta. Todo lo que se puede demostrar
-      offline va antes.
-- [ ] **El control de costo es el diseño, no un seguimiento.** Los embeddings se
-      guardan por product id con un **hash del texto embebido**, y sólo se
-      recalcula lo que cambió de hash. `scripts/camelot-importar.ts` hace upsert
-      con ids estables, así que una reimportación que reescribe 3752 filas con los
-      mismos títulos no reembebe nada. Sin el hash, cada `pnpm camelot:importar` es
-      un reembedding completo del catálogo en la clave del comercio, disparado por
-      una tarea de mantenimiento que nadie asoció con un gasto.
-- [ ] Techo por tienda y contador visible, aplicados en el Worker del Admin, que es
-      el único lugar con la clave maestra y por lo tanto el único donde un
-      presupuesto se puede hacer cumplir. BYOK significa que paga el comercio: un
-      bucle descontrolado es su factura.
-- [ ] Los embeddings se calculan en un script de Node, no en el Worker, por el
-      mismo motivo que el importador del ERP (ADR-085) y con el ADR de la Fase 5 ya
-      resuelto sobre dónde vive la clave. Con `--dry-run` diciendo cuántos
-      productos y cuánto costaría **antes** de gastar.
-- [ ] Híbrido: el score léxico de la Fase 3 fusionado con similitud vectorial, con
-      pesos explícitos, y **prefiriendo lo léxico cuando la consulta parece un
-      código**. **Degrada a la Fase 3** si no hay clave, si no hay embeddings, si
-      la API falla o si tarda: la búsqueda de una tienda no puede depender de que
-      OpenAI esté arriba. El precedente es ADR-104, donde un bucket que se vuelve
-      privado hace que OpenAI reciba un 403 y la sugerencia empeore sin que nadie
-      se entere.
-- [ ] Aislamiento en el camino vectorial: el `store_id` va en el `where` y no se
-      confía en que el ranking no cruce. Un vecino más cercano no sabe de qué
-      tienda es, así que «devolvió el catálogo de otro comercio» acá es el modo de
-      falla por defecto.
-- [ ] Entran también los dos ítems que la Fase 11 de v1 difirió, que son la misma
-      forma —una llamada acotada, con esquema estricto, detrás de la clave del
-      comercio— y comparten este techo: `search query understanding` y el resumen
-      del negocio con IA.
-- [ ] Fuera de esta fase y de v2: búsqueda por imagen. Otro modelo, otro pipeline
-      de embeddings y una interfaz de cámara, sin un pedido real detrás.
+- [x] Va última por una razón medible: `vector` **no está** en el build de PGlite
+      que usa la suite de aislamiento, así que los embeddings sólo se pueden
+      verificar contra el proyecto remoto. Resuelto partiendo la migración: las
+      tablas se crean sin la columna vectorial y la suite prueba de verdad grants
+      y aislamiento; la columna y el operador van dentro de una guarda. Lo que
+      queda sólo para el remoto está dicho en ADR-132 y probado ahí.
+- [x] **El control de costo es el diseño.** El hash del texto embebido decide qué
+      se reembebe. Medido: la primera corrida sobre Treeshop son 3752 productos y
+      USD 0,0031; la segunda, cero productos.
+- [x] Techo por tienda y contador visible. `ai_usage` registra tokens por tienda,
+      mes y tipo, y se ve en Configuración. El techo cuenta **sólo** las
+      búsquedas, por el motivo que ADR-132 explica.
+- [x] Los embeddings se calculan en un script de Node —`pnpm embeddings`— con
+      `--dry-run` que dice cuántos y cuánto **antes** de gastar. La premisa de que
+      un script no tenía camino a la clave resultó falsa: está en el `.env` de
+      quien opera.
+- [x] Híbrido: lo semántico entra como **fuente de filas**, no como criterio de
+      orden —un producto que no coincide con ningún término tiene que poder
+      entrar—, con pesos que garantizan que una coincidencia léxica nunca quede
+      debajo de un parecido, y peso cero cuando la consulta parece un código.
+      Degrada a la Fase 3 sin clave, sin vectores, sin secreto compartido, pasado
+      el techo o si el Admin tarda más de 800 ms.
+- [x] Aislamiento en el camino vectorial: el `store_id` va en los dos `where`.
+      Probado contra el remoto: preguntar por otra tienda devuelve cero filas.
+- [ ] Los dos ítems que la Fase 11 difirió —`search query understanding` y el
+      resumen del negocio con IA— **quedan fuera por decisión de scope**: son la
+      misma forma pero otro trabajo, y no tienen un pedido real detrás. Pasan a la
+      Fase 8.
+- [ ] Fuera de esta fase y de v2: búsqueda por imagen.
 
 **Definition of Done**
 
-- [ ] un comercio sin clave de OpenAI busca igual, y se ve que es el camino léxico
-- [ ] un `--dry-run` dice cuántos productos y cuánto cuesta antes de gastar un centavo
-- [ ] una reimportación completa del catálogo no reembebe nada
-- [ ] se dice explícitamente qué se probó contra el remoto y qué no cubre la suite
+- [x] un comercio sin clave de OpenAI busca igual, y se ve que es el camino
+      léxico: es literalmente el mismo SQL, porque `app.similitud_semantica`
+      devuelve cero filas
+- [x] un `--dry-run` dice cuántos productos y cuánto cuesta antes de gastar un
+      centavo
+- [x] una reimportación completa del catálogo no reembebe nada
+- [x] se dice explícitamente qué se probó contra el remoto y qué no cubre la
+      suite (ADR-132)
+- [ ] **falta lo que sólo se ve usándolo**: que el comercio mire el buscador con
+      consultas suyas y diga si mejoró. Con descripción en 78 de 3752 productos,
+      el techo de calidad lo pone el catálogo, no el modelo
 
 ---
 
@@ -1975,6 +1974,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-19 | **v2 Fase 4 al 100%.** Los dos ítems que quedaban diferidos. El perfil ahora sigue a la persona y no al navegador (ADR-128), y **el texto de privacidad cambió en el mismo commit**, que era lo prometido desde ADR-124. Un test encontró que borrar el resumen no alcanzaba: las visitas de ese navegador siguen 180 días en `store_events`, así que el recálculo lo rearmaba y el interruptor duraba seis horas; apagar ahora también le saca el `device_id` a lo ya guardado. Y cada sección de la portada dice si sirvió (ADR-129): el PDP anota `section_click` al ver `?s=` —sin una línea de JavaScript nueva— y la atribución va por visita, sin ninguna columna nueva. Dos huecos de los tests los encontró el sabotaje: contar dos veces la misma línea y atribuirle a la sección la compra de otro producto                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | v2 Fase 4 |          90% |           100% |
 | 2026-09-19 | **v2 Fase 5 al 85%: la vitrina recupera lo que no se ve.** Treeshop tenía 1258 productos con stock y sin foto, ocultos por ADR-112. La pantalla «Sin foto» es la cola para salir a fotografiarlos desde el teléfono —ordenada por stock, con la foto achicada en el navegador antes de subir— y el producto vuelve solo a la vitrina. La limpieza de fondo con IA la decidió el dueño del producto con el riesgo a la vista y quedó en ADR-130, que enmienda la regla «nunca invención»: la IA propone, una persona aprueba viendo la original al lado, y la original no se borra nunca. El lote lo orquesta el navegador, una imagen por pedido al Worker del Admin, que no tiene límite de duración mientras el cliente siga conectado: eso resolvió el ADR que el ROADMAP marcaba como bloqueante. Probado contra la API real aparecieron dos cosas que la documentación no decía: `input_fidelity` no existe para este modelo, y el modelo **cambió un texto impreso** del producto —«2MM SUPERSOFT LATEX» volvió ilegible—, que es justo lo que la revisión existe para atajar                                                                                                                                                                                                                            | v2 Fase 5 |           0% |            85% |
 | 2026-09-19 | **v2 Fase 6 al 90%: QuickHand, cargar mercadería con la cámara.** Llega una tanda de veinte prendas y entran sacándoles una foto: el wizard las sube, la IA propone la ficha mirando las fotos y la persona valida. ADR-131 enmienda la prohibición de ADR-104 **sólo para el alta** —leer un precio impreso en la etiqueta no es inventarlo— con dos esquemas separados, el valor ofrecido junto a lo que estaba impreso, y el dígito verificador descartando un código de barras mal leído. Los talles se tocan y salen una variante cada uno. Sin credencial la pantalla sirve igual. Y «Limpiar fondo con IA» pasó a estar también dentro del producto, foto por foto. Sin migraciones: guarda por el mismo camino que el formulario completo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | v2 Fase 6 |           0% |            90% |
+| 2026-09-20 | **v2 Fase 7 al 90%: el buscador entiende lo que no está escrito.** «Algo para correr en invierno» devuelve campera, calzas y joggers sin que ninguna de esas palabras esté en el catálogo. Lo semántico entra como fuente de filas y no como orden —ADR-132—, con la clave maestra quieta: el storefront manda la credencial cifrada y el Worker del Admin, que es el único que puede abrirla, devuelve un vector. Sin clave, sin vectores o si tarda, es el mismo SQL de la Fase 3. Embeber Treeshop entero costó USD 0,0031 y volver a correrlo no reembebe nada. Y quedó el contador que faltaba desde la Fase 11: `ai_usage`, por tienda, mes y tipo de llamada                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | v2 Fase 7 |           0% |            90% |
 
 ---
 
@@ -1984,16 +1984,21 @@ v1 y las fases 0 a 4 de v2 están cerradas y desplegadas. El comprador tiene ide
 memoria, el buscador encuentra lo que se escribe mal y la vitrina se ordena
 sola con lo que la gente mira.
 
-1. **Cerrar las fases 5 y 6 con la clave del comercio.** A las dos les falta lo
+1. **Mirar el buscador con consultas del comercio.** Es lo único que queda de la
+   Fase 7 y no se puede automatizar: si «algo para correr en invierno» devuelve
+   lo que el dueño esperaba. El techo de calidad lo pone el catálogo —78 de 3752
+   productos tienen descripción—, así que la salida puede ser escribir
+   descripciones y no tocar código.
+2. **Cerrar las fases 5 y 6 con la clave del comercio.** A las dos les falta lo
    mismo y se hace en una sesión: cargar la credencial de Treeshop, correr una
    tanda de cien fondos y dar de alta una prenda de verdad con el wizard, leyendo
    su etiqueta. Es lo único que no se puede probar sin gastar la clave, y lo único
    que queda entre las dos fases y el 100%.
-2. **El costo de `catalog_search`**, que es lo más caro que hay anotado: el PDP
+3. **El costo de `catalog_search`**, que es lo más caro que hay anotado: el PDP
    de Treeshop está en 355 ms y el listado en 600, y se sabe por qué. Está en
    `Backlog / Retroactividad` con las dos salidas medidas. Se decidió no tocarlo
    sobre la marcha; es una sesión propia.
-3. Cruzar lo que alguien mira con su cuenta, si se quiere: `session_identities`
+4. Cruzar lo que alguien mira con su cuenta, si se quiere: `session_identities`
    ya existe y ya se escribe al entrar. Son media hora de trabajo y **el texto de
    privacidad cambia antes**, que es el compromiso que está publicado.
 

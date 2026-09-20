@@ -802,7 +802,10 @@ Módulos posteriores:
 > enriquecimiento no declara esos campos, así que la API no los puede devolver
 > (`packages/commerce-core/src/ai.ts`). Tags, SEO y metadata tampoco existen, por
 > el mismo motivo. Generar una foto de un ángulo que nadie fotografió queda
-> fuera, y es una decisión, no una tarea pendiente.
+> fuera, y es una decisión, no una tarea pendiente. Desde la v2 Fase 7 la IA
+> además **embebe el catálogo** para la búsqueda semántica, con el gasto
+> registrado por tienda y mes y un techo propio para el camino que dispara
+> tráfico anónimo (ADR-132).
 
 Flujo objetivo:
 
