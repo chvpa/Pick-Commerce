@@ -841,3 +841,22 @@ export interface Embeddings {
 export function vectorATexto(vector: readonly number[]): string {
   return `[${vector.join(',')}]`;
 }
+
+/**
+ * El techo mensual de la búsqueda, en tokens (ADR-132).
+ *
+ * Cuenta **sólo** las búsquedas, no todo el gasto de IA de la tienda. Es una
+ * decisión y no un descuido: un lote de cien fotos son cientos de miles de
+ * tokens que alguien eligió y confirmó, con su propio tope (ADR-130), y sumarlo
+ * acá haría que una tanda normal dejara el buscador sin IA por el resto del mes.
+ * Lo que este techo cuida es el único camino que puede irse solo, porque lo
+ * dispara tráfico anónimo.
+ *
+ * Doscientos mil tokens son unas veinte mil frases nuevas por mes: de sobra para
+ * un comercio chico, y un freno real para un bucle. Una frase repetida no gasta
+ * nada, así que lo que se cuenta son frases **distintas**.
+ */
+export const TOPE_MENSUAL_DE_BUSQUEDA = 200_000;
+
+/** Cuánto se espera al vector antes de buscar sin él. */
+export const ESPERA_DEL_VECTOR = 800;

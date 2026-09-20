@@ -96,7 +96,20 @@ if (url && secretKey) {
       .gte('occurred_at', desde)
       .select('id');
 
+    /*
+     * Las frases que buscó la suite (v2 Fase 7). Cada corrida del buscador deja
+     * su término en la caché de vectores de la tienda de demo, y sin esto la
+     * cola de `pnpm embeddings` se llena de «zapatila» y «camperx».
+     */
+    const frases = await db
+      .from('search_queries')
+      .delete()
+      .eq('store_id', IDS.store)
+      .gte('last_seen', desde)
+      .select('hash');
+
     console.log(`  pedidos de prueba borrados: ${pedidos.data?.length ?? 0}`);
+    console.log(`  frases de búsqueda borradas: ${frases.data?.length ?? 0}`);
     console.log(`  eventos de la corrida borrados: ${eventos.data?.length ?? 0}`);
     console.log(`  promociones de prueba borradas: ${promos.data?.length ?? 0}`);
     console.log(`  colecciones de prueba borradas: ${colecciones.data?.length ?? 0}`);

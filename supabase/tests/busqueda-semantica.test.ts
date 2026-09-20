@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
-import { baseDePrueba, comoServicio, intentar } from './harness.ts';
+import { baseDePrueba, como, comoServicio, intentar } from './harness.ts';
 
 /**
  * El sustrato de la búsqueda semántica (v2 Fase 7, ADR-132).
@@ -162,4 +162,85 @@ test('los grants son los que se escribieron, no los que Postgres deja por defect
   assert.equal(filas[0]!.sim_auth, true);
   assert.equal(filas[0]!.sim_anon, false);
   assert.equal(filas[0]!.reg_auth, false);
+});
+
+// --- El contador y el techo ---------------------------------------------------
+
+test('registrar uso acumula por mes y tipo, y devuelve el total del mes', async () => {
+  const uno = await comoServicio<{ t: number | string }>(
+    db,
+    `select registrar_uso_de_ia('${TIENDA}'::uuid, 'busqueda', 100) as t`,
+  );
+  const dos = await comoServicio<{ t: number | string }>(
+    db,
+    `select registrar_uso_de_ia('${TIENDA}'::uuid, 'busqueda', 50) as t`,
+  );
+  const otro = await comoServicio<{ t: number | string }>(
+    db,
+    `select registrar_uso_de_ia('${TIENDA}'::uuid, 'fondo', 900) as t`,
+  );
+
+  assert.equal(Number(uno[0]!.t), 100);
+  assert.equal(Number(dos[0]!.t), 150, 'no acumuló sobre la misma fila');
+  // El total del mes es de la tienda, no del tipo: el techo mira la factura.
+  assert.equal(Number(otro[0]!.t), 1050);
+
+  const filas = await comoServicio<{ tipo: string; tokens: number | string; llamadas: number }>(
+    db,
+    `select tipo, tokens, llamadas from ai_usage where store_id='${TIENDA}' order by tipo`,
+  );
+  assert.deepEqual(
+    filas.map((f) => [f.tipo, Number(f.tokens), f.llamadas]),
+    [
+      ['busqueda', 150, 2],
+      ['fondo', 900, 1],
+    ],
+  );
+});
+
+test('el gasto de una tienda no se mezcla con el de otra', async () => {
+  const otra = await comoServicio<{ t: number | string }>(
+    db,
+    `select registrar_uso_de_ia('${OTRA_TIENDA}'::uuid, 'busqueda', 7) as t`,
+  );
+  assert.equal(Number(otra[0]!.t), 7, 'sumó el gasto de la otra tienda');
+});
+
+test('una tienda que no existe no deja rastro de gasto', async () => {
+  const r = await comoServicio<{ t: number | string }>(
+    db,
+    `select registrar_uso_de_ia('00000000-0000-4000-8000-000000000000'::uuid, 'busqueda', 5) as t`,
+  );
+  assert.equal(Number(r[0]!.t), 0);
+});
+
+test('el comercio ve su gasto; el navegador anónimo no, y nadie lo escribe', async () => {
+  const propio = await intentar(db, DUENO, `select tokens from ai_usage`);
+  assert.equal(propio.ok, true, 'el dueño no pudo ver su propio gasto');
+
+  const ajeno = await como(db, FORASTERO, `select tokens from ai_usage`);
+  assert.equal(ajeno.length, 0, 'un forastero vio el gasto de otro comercio');
+
+  const escribe = await intentar(
+    db,
+    DUENO,
+    `select registrar_uso_de_ia('${TIENDA}'::uuid, 'busqueda', 1)`,
+  );
+  assert.equal(escribe.ok, false, 'el contador se puede inflar desde el navegador');
+});
+
+test('registrar una frase dice si ya tiene vector', async () => {
+  // Es lo que le ahorra al storefront un segundo viaje a la base en cada
+  // búsqueda, incluidas las que ya están resueltas.
+  const sinVector = await comoServicio<{ t: boolean }>(
+    db,
+    `select registrar_busqueda('${TIENDA}'::uuid, 'una frase nueva') as t`,
+  );
+  assert.equal(sinVector[0]!.t, false);
+
+  const vacia = await comoServicio<{ t: boolean }>(
+    db,
+    `select registrar_busqueda('${TIENDA}'::uuid, '  ') as t`,
+  );
+  assert.equal(vacia[0]!.t, false);
 });

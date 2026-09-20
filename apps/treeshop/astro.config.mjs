@@ -101,6 +101,24 @@ export default defineConfig({
         optional: true,
       }),
       /*
+       * La búsqueda semántica (ADR-132).
+       *
+       * `ADMIN_API_URL` es de dónde cuelga el Worker del Admin, que es el único
+       * con la clave maestra; `PICK_SEARCH_TOKEN` es el secreto compartido que
+       * evita que esa ruta sea un servicio de descifrado abierto.
+       *
+       * `optional` y sin default **a propósito**: su ausencia degrada, no rompe.
+       * Un storefront sin estas dos busca con el score léxico de la Fase 3,
+       * completo, que es exactamente lo que se le promete a un comercio sin
+       * clave de OpenAI.
+       */
+      ADMIN_API_URL: envField.string({ context: 'server', access: 'secret', optional: true }),
+      PICK_SEARCH_TOKEN: envField.string({
+        context: 'server',
+        access: 'secret',
+        optional: true,
+      }),
+      /*
        * Qué tienda sirve este deploy.
        *
        * `secret` y no `public` **aunque un dominio no sea secreto**: en

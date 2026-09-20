@@ -45,6 +45,8 @@ export interface Env {
   SUPABASE_PUBLISHABLE_KEY?: string;
   /** 32 bytes en base64. `openssl rand -base64 32`. */
   PICK_AI_MASTER_KEY?: string;
+  /** Secreto compartido con el Worker del storefront, sólo para /api/ia/vector. */
+  PICK_SEARCH_TOKEN?: string;
 }
 
 const CABECERAS = {
@@ -403,16 +405,99 @@ const RUTAS: Record<string, (ctx: Contexto) => Promise<Response>> = {
 };
 
 /**
+ * El vector de una frase, para el buscador del storefront (ADR-132).
+ *
+ * Es la única ruta **sin JWT**, y tiene que serlo: quien busca en la tienda es
+ * una persona anónima, no un miembro del comercio. Va aparte del router de
+ * arriba justamente para que eso sea visible y no se cuele en las otras cuatro:
+ * `contexto()` exige `Authorization: Bearer`, y esta ruta nunca pasa por ahí.
+ *
+ * Lo que la autentica es un secreto compartido entre los dos Workers. Sin él
+ * sería un servicio de descifrado abierto a internet.
+ *
+ * **La credencial cifrada la manda quien llama.** El Worker del Admin no tiene
+ * la secret key de Supabase —sólo la publishable— así que no puede leerla por su
+ * cuenta, y darle la secret key para esto sería darle acceso a todo saltando
+ * RLS. El storefront ya puede leer ese ciphertext con la suya; mandarlo acá no
+ * le agrega ningún permiso a nadie, y el ciphertext sin la clave maestra no
+ * abre nada. Lo que este Worker aporta es lo único que nadie más tiene: la
+ * clave maestra, y nunca la devuelve — devuelve un vector.
+ */
+async function vectorDeLaFrase(request: Request, env: Env): Promise<Response> {
+  if (!env.PICK_AI_MASTER_KEY || !env.PICK_SEARCH_TOKEN) {
+    return error('sin_configurar', 'Falta PICK_AI_MASTER_KEY o PICK_SEARCH_TOKEN.', 503);
+  }
+
+  /*
+   * Comparación de largo constante. Un `!==` sobre un secreto filtra por el
+   * tiempo de respuesta cuántos caracteres del principio acertó quien prueba.
+   */
+  const enviado = request.headers.get('x-pick-search') ?? '';
+  const esperado = env.PICK_SEARCH_TOKEN;
+  let distinto = enviado.length === esperado.length ? 0 : 1;
+  for (let i = 0; i < Math.max(enviado.length, esperado.length); i += 1) {
+    distinto |= (enviado.charCodeAt(i) || 0) ^ (esperado.charCodeAt(i) || 0);
+  }
+  if (distinto !== 0) return error('no_autorizado', 'Secreto inválido.', 401);
+
+  let cuerpo: { ciphertext?: unknown; termino?: unknown };
+  try {
+    cuerpo = (await request.json()) as typeof cuerpo;
+  } catch {
+    return error('bad_request', 'El cuerpo no es JSON.', 400);
+  }
+
+  const ciphertext = typeof cuerpo.ciphertext === 'string' ? cuerpo.ciphertext : '';
+  const termino = typeof cuerpo.termino === 'string' ? cuerpo.termino.trim() : '';
+  if (ciphertext === '' || termino === '') {
+    return error('bad_request', 'Faltan la credencial cifrada o el término.', 400);
+  }
+
+  let apiKey: string;
+  try {
+    apiKey = await descifrar(env.PICK_AI_MASTER_KEY, ciphertext);
+  } catch {
+    // Sin detalle: un mensaje distinto por cada motivo le diría a quien prueba
+    // ciphertexts cuál está más cerca.
+    return error('credencial_invalida', 'No se pudo abrir la credencial.', 400);
+  }
+
+  try {
+    const { vectores, tokens } = await proveedorOpenAI().embeber({ apiKey, textos: [termino] });
+    return json({ vector: vectores[0], tokens });
+  } catch (causa) {
+    return fallaDelProveedor('ia/vector', causa);
+  }
+}
+
+/**
  * Exportada aparte del handler por defecto para que el dev server de Vite monte
  * **esta misma función**. Dos implementaciones del mismo router divergirían, y
  * la que diverge es siempre la que no se despliega.
  */
 export async function manejar(request: Request, env: Env): Promise<Response> {
-  const ruta = RUTAS[new URL(request.url).pathname];
-  if (!ruta) return error('not_found', 'No existe esa ruta.', 404);
+  const camino = new URL(request.url).pathname;
+
   if (request.method !== 'POST') {
-    return error('method_not_allowed', 'Esta ruta sólo acepta POST.', 405);
+    // Se responde antes de mirar la ruta: un GET a cualquiera de éstas es el
+    // mismo error, y decir «no existe» para un POST mal hecho confunde.
+    if (camino in RUTAS || camino === '/api/ia/vector') {
+      return error('method_not_allowed', 'Esta ruta sólo acepta POST.', 405);
+    }
+    return error('not_found', 'No existe esa ruta.', 404);
   }
+
+  // Sin JWT y con secreto compartido: va antes de `contexto()`, que lo exige.
+  if (camino === '/api/ia/vector') {
+    try {
+      return await vectorDeLaFrase(request, env);
+    } catch (causa) {
+      return falla('ia/vector', causa);
+    }
+  }
+
+  const ruta = RUTAS[camino];
+  if (!ruta) return error('not_found', 'No existe esa ruta.', 404);
 
   const ctx = await contexto(request, env);
   if (ctx instanceof Response) return ctx;

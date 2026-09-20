@@ -108,6 +108,51 @@ export type Database = {
           },
         ]
       }
+      ai_usage: {
+        Row: {
+          llamadas: number
+          mes: string
+          store_id: string
+          tenant_id: string
+          tipo: string
+          tokens: number
+          updated_at: string
+        }
+        Insert: {
+          llamadas?: number
+          mes: string
+          store_id: string
+          tenant_id: string
+          tipo: string
+          tokens?: number
+          updated_at?: string
+        }
+        Update: {
+          llamadas?: number
+          mes?: string
+          store_id?: string
+          tenant_id?: string
+          tipo?: string
+          tokens?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_store_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "ai_usage_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attribute_definitions: {
         Row: {
           category_id: string | null
@@ -2374,7 +2419,11 @@ export type Database = {
       }
       registrar_busqueda: {
         Args: { p_store_id: string; p_termino: string; p_vector?: string }
-        Returns: undefined
+        Returns: boolean
+      }
+      registrar_uso_de_ia: {
+        Args: { p_store_id: string; p_tipo: string; p_tokens: number }
+        Returns: number
       }
       search_suggest: {
         Args: { p_limit?: number; p_q: string; p_store_id: string }

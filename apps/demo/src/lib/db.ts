@@ -14,6 +14,9 @@ import {
   configuracionDePagos,
   cuentasHabilitadas,
   esTiendaDemo,
+  vectorATexto,
+  ESPERA_DEL_VECTOR,
+  TOPE_MENSUAL_DE_BUSQUEDA,
   resolverTenant,
   type CategoriaCatalogo,
   type PreferenciasDelVisitante,
@@ -254,6 +257,99 @@ export async function sugerenciasDeBusqueda(q: string): Promise<readonly string[
   } catch (error) {
     console.error('[sugerencias] no se pudieron leer', error);
     return [];
+  }
+}
+
+/**
+ * Se asegura de que la frase tenga vector, antes de buscar con ella (ADR-132).
+ *
+ * El camino feliz es el barato: la frase ya se buscó alguna vez, tiene su vector
+ * guardado y esto es **una** llamada a la base que además suma un `hit`. Recién
+ * cuando la frase es nueva se le pide el vector al Worker del Admin, que es el
+ * único con la clave maestra.
+ *
+ * **Nunca rompe la búsqueda.** Sin `ADMIN_API_URL`, sin secreto compartido, sin
+ * credencial del comercio, pasado el techo del mes, con el Admin caído o si
+ * tarda más de lo que se espera: se sale en silencio y el buscador es el léxico
+ * de la Fase 3, completo. Es la degradación que el ROADMAP pide, y acá es una
+ * serie de `return` y no un `catch` que tape todo.
+ *
+ * Va **antes** de `catalog_search` y no en paralelo: el vector tiene que estar
+ * guardado para que la función lo encuentre. Por eso hay un tope de espera.
+ */
+export async function asegurarVectorDeBusqueda(termino: string): Promise<void> {
+  try {
+    const { storeId } = await tiendaActual();
+
+    const { data: yaTiene, error } = await db().rpc('registrar_busqueda', {
+      p_store_id: storeId,
+      p_termino: termino,
+    });
+    if (error) throw new Error(error.message);
+    if (yaTiene) return;
+
+    const raiz = getSecret('ADMIN_API_URL');
+    const secreto = getSecret('PICK_SEARCH_TOKEN');
+    if (!raiz || !secreto) return;
+
+    /*
+     * El techo del mes. Se lee sólo lo de la búsqueda: ver
+     * `TOPE_MENSUAL_DE_BUSQUEDA`, que explica por qué no es el gasto total.
+     */
+    const primeroDelMes = new Date();
+    primeroDelMes.setUTCDate(1);
+    const { data: uso } = await db()
+      .from('ai_usage')
+      .select('tokens')
+      .eq('store_id', storeId)
+      .eq('tipo', 'busqueda')
+      .gte('mes', primeroDelMes.toISOString().slice(0, 10));
+
+    const gastado = (uso ?? []).reduce((total, fila) => total + Number(fila.tokens), 0);
+    if (gastado >= TOPE_MENSUAL_DE_BUSQUEDA) {
+      console.warn(`[busqueda] la tienda llegó al techo del mes: ${gastado} tokens`);
+      return;
+    }
+
+    /*
+     * La credencial viaja **cifrada**. Este Worker puede leerla con su secret
+     * key, pero no puede abrirla: la clave maestra vive sólo en el Worker del
+     * Admin, y así sigue (ADR-105).
+     */
+    const { data: credencial } = await db()
+      .from('ai_credentials')
+      .select('ciphertext')
+      .eq('store_id', storeId)
+      .maybeSingle();
+    if (!credencial?.ciphertext) return;
+
+    const respuesta = await fetch(`${raiz}/api/ia/vector`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-pick-search': secreto },
+      body: JSON.stringify({ ciphertext: credencial.ciphertext, termino }),
+      // Si tarda más que esto, quien está buscando ya esperó demasiado. La frase
+      // queda encolada igual y `pnpm embeddings` la resuelve para la próxima.
+      signal: AbortSignal.timeout(ESPERA_DEL_VECTOR),
+    });
+    if (!respuesta.ok) return;
+
+    const { vector, tokens } = (await respuesta.json()) as { vector: number[]; tokens: number };
+    if (!Array.isArray(vector) || vector.length === 0) return;
+
+    await db().rpc('registrar_busqueda', {
+      p_store_id: storeId,
+      p_termino: termino,
+      p_vector: vectorATexto(vector),
+    });
+    // Se registra siempre que OpenAI haya contestado: es la factura del
+    // comercio, y no anotarla sería el mismo agujero que había antes.
+    await db().rpc('registrar_uso_de_ia', {
+      p_store_id: storeId,
+      p_tipo: 'busqueda',
+      p_tokens: tokens ?? 0,
+    });
+  } catch (error) {
+    console.error('[busqueda] no se pudo resolver el vector', error);
   }
 }
 

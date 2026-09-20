@@ -24,6 +24,7 @@ import {
   facetasFiltrables,
   sugerenciasDeBusqueda,
   tiendaActual,
+  asegurarVectorDeBusqueda,
 } from '../lib/db.ts';
 import WishlistHeart from '@pick/commerce-astro/wishlist/WishlistHeart.astro';
 import { anotar } from '../lib/analytics.ts';
@@ -88,6 +89,18 @@ const tramo = /^(\d+)-(\d+)$/.exec(precioCrudo);
 const precioMin = tramo ? Number(tramo[1]) : undefined;
 const precioMax = tramo ? Number(tramo[2]) : undefined;
 const precioActivo = precioMin !== undefined;
+
+/*
+ * Antes de buscar: que la frase tenga vector (ADR-132).
+ *
+ * Va acá y no después porque `catalog_search` lo lee de la base, así que tiene
+ * que estar guardado cuando la función corre. Si la frase ya se buscó alguna
+ * vez, esto es una consulta y nada más; si es nueva y algo falla o tarda, se
+ * sigue con el buscador léxico de la Fase 3 sin que nadie se entere.
+ */
+if (search.trim() !== '') {
+  await asegurarVectorDeBusqueda(search);
+}
 
 const result = await catalogo().buscar(tienda.storeId, {
   filters,
