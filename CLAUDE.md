@@ -126,6 +126,8 @@ pnpm seed:dummy [n] # catálogo de prueba desde dummyjson (--limpiar para quitar
 pnpm erp:importar --tienda <slug> [--limite 100] [--dry-run] [--desde captura.json]   # catálogo desde el ERP
 pnpm erp:imagenes --tienda <slug> [--limite N]   # fotos, desde el proyecto actual del cliente
 pnpm camelot:importar --tienda <slug> [--limite N] [--dry-run] [--imagenes]   # catálogo desde el Supabase de Camelot (ADR-111)
+pnpm embeddings --tienda <slug> [--dry-run] [--limite N]   # vectores del catálogo para la búsqueda
+                    # semántica; `--dry-run` dice cuántos y cuánto cuesta antes de gastar (ADR-132)
 pnpm treeshop:home  # siembra las secciones de la portada de Treeshop; después se administran
 pnpm tienda:crear <slug> <nombre> [dominio] [moneda] [locale]   # provisiona organización, tienda, sucursal y settings;
                     # el dominio no es cosmético: es la llave con la que el Worker encuentra la tienda

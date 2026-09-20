@@ -141,6 +141,8 @@ export interface AIProvider {
   peticionDeLimpiezaDeFondo(peticion: PeticionDeFondo): PeticionArmada;
   /** La ficha de un producto que todavía no existe, mirando sus fotos (ADR-131). */
   ficha(peticion: PeticionDeFicha): Promise<FichaCruda>;
+  /** Los vectores de un lote de textos, para la búsqueda semántica (ADR-132). */
+  embeber(peticion: PeticionDeEmbeddings): Promise<Embeddings>;
 }
 
 // ---------------------------------------------------------------------------
@@ -730,4 +732,112 @@ export function skuSugerido(handle: string, talle?: string): string {
   return slugify([handle, talle].filter((parte) => parte && parte.trim() !== '').join('-'))
     .toUpperCase()
     .replace(/-+/g, '-');
+}
+
+// ---------------------------------------------------------------------------
+// Los vectores de la búsqueda semántica
+// ---------------------------------------------------------------------------
+
+/**
+ * El modelo que embebe, y lo que cuesta (ADR-132).
+ *
+ * `text-embedding-3-small` y no el `large`: 1536 dimensiones contra 3072, seis
+ * veces más barato, y a esta escala la diferencia de calidad no se paga. El
+ * precio va acá y no en un comentario porque el `--dry-run` lo usa para decir
+ * cuánto cuesta **antes** de gastar, y un número escondido en el código es un
+ * número que nadie revisa cuando el proveedor lo cambia.
+ *
+ * Verificado contra la documentación de precios el 2026-09-20.
+ */
+export const MODELO_DE_EMBEDDINGS = 'text-embedding-3-small';
+export const DIMENSIONES_DE_EMBEDDING = 1536;
+export const USD_POR_MILLON_EMBEBIDO = 0.02;
+
+/** Cuántos textos por pedido. Más no acelera y hace más caro un reintento. */
+export const TEXTOS_POR_PEDIDO = 96;
+
+export interface ProductoParaEmbeber {
+  readonly title: string;
+  readonly brand?: string;
+  readonly categoria?: string;
+  readonly atributos?: readonly string[];
+  readonly description?: string;
+}
+
+/**
+ * Lo que se embebe de un producto.
+ *
+ * Más que `search_doc`, que es `title + brand` y por eso el buscador léxico sólo
+ * encuentra palabras que están en el catálogo. Acá entran también la categoría y
+ * los atributos —material, temporada, género—, que es de donde sale que
+ * «invierno» encuentre una campera de abrigo aunque la palabra no figure.
+ *
+ * La descripción entra **recortada**: las últimas frases de una ficha larga son
+ * cuidados de lavado y política de cambios, que diluyen el vector hacia el
+ * promedio de la tienda en vez de describir el producto.
+ */
+export const LARGO_DE_DESCRIPCION = 300;
+
+export function textoParaEmbeber(producto: ProductoParaEmbeber): string {
+  const partes = [
+    producto.title,
+    producto.brand,
+    producto.categoria,
+    ...(producto.atributos ?? []),
+    producto.description?.slice(0, LARGO_DE_DESCRIPCION),
+  ];
+
+  return partes
+    .map((p) => p?.trim())
+    .filter((p): p is string => Boolean(p))
+    .join('. ');
+}
+
+/**
+ * El hash del texto embebido, que es lo que evita pagar dos veces lo mismo.
+ *
+ * Se guarda junto al vector: si el texto no cambió, no se vuelve a embeber. Sin
+ * esto, un `pnpm camelot:importar` que reescribe 3753 filas con los mismos
+ * títulos sería un reembedding completo del catálogo, disparado por una tarea de
+ * mantenimiento que nadie asoció con un gasto.
+ *
+ * SHA-256 por `crypto.subtle`, que existe igual en Node y en el Worker. No hace
+ * falta que sea criptográfico; hace falta que sea el mismo en los dos lados.
+ */
+export async function hashDelTexto(texto: string): Promise<string> {
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
+  return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Cuántos tokens son, aproximadamente.
+ *
+ * Es una **estimación** y se dice que lo es donde se muestra: contar tokens de
+ * verdad pide el tokenizador del modelo, que son megabytes de tablas para
+ * decidir si gastar medio centavo. Cuatro caracteres por token es la regla que
+ * publica OpenAI, y en español queda algo corta, así que redondea para arriba.
+ */
+export function tokensEstimados(textos: readonly string[]): number {
+  return textos.reduce((total, t) => total + Math.ceil(t.length / 4) + 2, 0);
+}
+
+export function costoEstimado(tokens: number): number {
+  return (tokens / 1_000_000) * USD_POR_MILLON_EMBEBIDO;
+}
+
+export interface PeticionDeEmbeddings {
+  readonly apiKey: string;
+  readonly textos: readonly string[];
+}
+
+export interface Embeddings {
+  /** Un vector por texto, en el mismo orden. */
+  readonly vectores: readonly (readonly number[])[];
+  /** Los que cobró OpenAI, no los estimados. */
+  readonly tokens: number;
+}
+
+/** Cómo viaja un vector hasta Postgres: `'[0.1,0.2,…]'`, que es lo que castea. */
+export function vectorATexto(vector: readonly number[]): string {
+  return `[${vector.join(',')}]`;
 }

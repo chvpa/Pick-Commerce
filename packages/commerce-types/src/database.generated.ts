@@ -1423,6 +1423,55 @@ export type Database = {
           },
         ]
       }
+      product_embeddings: {
+        Row: {
+          embedding: string | null
+          hash: string
+          product_id: string
+          store_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          embedding?: string | null
+          hash: string
+          product_id: string
+          store_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          embedding?: string | null
+          hash?: string
+          product_id?: string
+          store_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_embeddings_product_fkey"
+            columns: ["product_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "product_embeddings_store_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "product_embeddings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_groups: {
         Row: {
           created_at: string
@@ -1830,6 +1879,54 @@ export type Database = {
           role?: Database["public"]["Enums"]["member_role"]
         }
         Relationships: []
+      }
+      search_queries: {
+        Row: {
+          embedded_at: string | null
+          embedding: string | null
+          hash: string
+          hits: number
+          last_seen: string
+          store_id: string
+          tenant_id: string
+          termino: string
+        }
+        Insert: {
+          embedded_at?: string | null
+          embedding?: string | null
+          hash: string
+          hits?: number
+          last_seen?: string
+          store_id: string
+          tenant_id: string
+          termino: string
+        }
+        Update: {
+          embedded_at?: string | null
+          embedding?: string | null
+          hash?: string
+          hits?: number
+          last_seen?: string
+          store_id?: string
+          tenant_id?: string
+          termino?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_queries_store_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "search_queries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       session_identities: {
         Row: {
@@ -2274,6 +2371,10 @@ export type Database = {
           p_store_id: string
         }
         Returns: Json
+      }
+      registrar_busqueda: {
+        Args: { p_store_id: string; p_termino: string; p_vector?: string }
+        Returns: undefined
       }
       search_suggest: {
         Args: { p_limit?: number; p_q: string; p_store_id: string }

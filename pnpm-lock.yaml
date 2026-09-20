@@ -17,6 +17,9 @@ importers:
       '@pick/adapter-erp-estilosport':
         specifier: workspace:*
         version: link:packages/adapter-erp-estilosport
+      '@pick/adapter-openai':
+        specifier: workspace:*
+        version: link:packages/adapter-openai
       '@pick/adapter-supabase':
         specifier: workspace:*
         version: link:packages/adapter-supabase

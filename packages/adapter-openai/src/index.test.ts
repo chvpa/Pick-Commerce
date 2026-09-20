@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ESQUEMA_DE_FICHA, MODELO_DE_IMAGEN } from '@pick/commerce-core';
+import {
+  DIMENSIONES_DE_EMBEDDING,
+  ESQUEMA_DE_FICHA,
+  MODELO_DE_EMBEDDINGS,
+  MODELO_DE_IMAGEN,
+} from '@pick/commerce-core';
 import { proveedorOpenAI, textoDeLaRespuesta } from './index.ts';
 
 /**
@@ -138,6 +143,67 @@ test('la ficha pide el esquema del alta y recorta lo que devuelve el modelo', as
     assert.deepEqual(formato.schema, ESQUEMA_DE_FICHA);
     const contenido = (enviado.input as { content?: { type: string }[] }[])[1]!.content!;
     assert.equal(contenido.filter((p) => p.type === 'input_image').length, 2);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+/**
+ * Los embeddings (ADR-132).
+ *
+ * Lo único delicado del endpoint es el orden: el vector de la posición 3 se
+ * guarda contra el producto 3. Si llegan desordenados y se toman como vienen, el
+ * buscador responde cualquier cosa y **no falla en ningún lado**.
+ */
+test('los vectores se ordenan por índice, no por orden de llegada', async () => {
+  const original = globalThis.fetch;
+  let enviado: Record<string, unknown> = {};
+
+  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+    enviado = JSON.parse(init.body as string) as Record<string, unknown>;
+    // A propósito al revés: es lo que la API no promete no hacer.
+    return new Response(
+      JSON.stringify({
+        data: [
+          { index: 2, embedding: [0.3] },
+          { index: 0, embedding: [0.1] },
+          { index: 1, embedding: [0.2] },
+        ],
+        usage: { total_tokens: 42 },
+      }),
+      { status: 200 },
+    );
+  }) as typeof fetch;
+
+  try {
+    const r = await proveedorOpenAI().embeber({
+      apiKey: 'sk-de-prueba',
+      textos: ['uno', 'dos', 'tres'],
+    });
+
+    assert.deepEqual(r.vectores, [[0.1], [0.2], [0.3]]);
+    // Los que cobró, no los estimados: es lo que se le muestra al comercio.
+    assert.equal(r.tokens, 42);
+    assert.equal(enviado.model, MODELO_DE_EMBEDDINGS);
+    assert.equal(enviado.dimensions, DIMENSIONES_DE_EMBEDDING);
+    assert.deepEqual(enviado.input, ['uno', 'dos', 'tres']);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('si faltan vectores se corta en vez de guardar el catálogo corrido', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify({ data: [{ index: 0, embedding: [0.1] }] }), {
+      status: 200,
+    })) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () => proveedorOpenAI().embeber({ apiKey: 'sk', textos: ['uno', 'dos'] }),
+      /1 vectores para 2 textos/,
+    );
   } finally {
     globalThis.fetch = original;
   }

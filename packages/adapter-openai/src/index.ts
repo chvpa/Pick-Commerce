@@ -1,17 +1,21 @@
 import {
+  DIMENSIONES_DE_EMBEDDING,
   ESQUEMA_DE_FICHA,
   ESQUEMA_DE_PROPUESTA,
   INSTRUCCIONES,
   INSTRUCCIONES_DE_FICHA,
   INSTRUCCION_DE_FONDO,
+  MODELO_DE_EMBEDDINGS,
   MODELO_DE_IMAGEN,
   entradaDeLaFicha,
   entradaDelProducto,
   soloCamposDeFicha,
   soloCamposPermitidos,
   type AIProvider,
+  type Embeddings,
   type FichaCruda,
   type PeticionArmada,
+  type PeticionDeEmbeddings,
   type PeticionDeEnriquecimiento,
   type PeticionDeFicha,
   type PeticionDeFondo,
@@ -175,6 +179,56 @@ export function proveedorOpenAI(): AIProvider {
         quehacer: 'OpenAI no pudo leer la ficha',
       });
       return soloCamposDeFicha(bruto);
+    },
+
+    /*
+     * Los vectores del catálogo (ADR-132).
+     *
+     * Otro endpoint y otro modelo: `/v1/embeddings` no es la Responses API y no
+     * tiene salida estructurada que valga. Lo único delicado es el orden.
+     */
+    async embeber({ apiKey, textos }: PeticionDeEmbeddings): Promise<Embeddings> {
+      const respuesta = await fetch(`${RAIZ}/embeddings`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: MODELO_DE_EMBEDDINGS,
+          input: textos,
+          dimensions: DIMENSIONES_DE_EMBEDDING,
+          encoding_format: 'float',
+        }),
+      });
+
+      if (!respuesta.ok) throw await fallo(respuesta, 'OpenAI no pudo embeber el catálogo');
+
+      const cuerpo = (await respuesta.json()) as {
+        data?: { index?: number; embedding?: number[] }[];
+        usage?: { total_tokens?: number };
+      };
+
+      /*
+       * **Se ordena por `index`, no se confía en el orden de llegada.** La API
+       * devuelve ese campo justamente porque no lo promete, y acá el orden es
+       * todo: el vector en la posición 3 se guarda contra el producto 3. Un
+       * desorden silencioso pondría el vector de una remera en una campera, y no
+       * fallaría en ningún lado: se vería como un buscador que responde
+       * cualquier cosa.
+       */
+      const filas = [...(cuerpo.data ?? [])].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+      const vectores = filas.map((f) => f.embedding ?? []);
+
+      if (vectores.length !== textos.length || vectores.some((v) => v.length === 0)) {
+        throw new Error(
+          `OpenAI devolvió ${vectores.length} vectores para ${textos.length} textos.`,
+        );
+      }
+
+      // Los tokens que **cobró**, no los estimados: es lo que se le muestra al
+      // comercio y lo que descuenta de su techo.
+      return { vectores, tokens: cuerpo.usage?.total_tokens ?? 0 };
     },
   };
 }

@@ -74,14 +74,8 @@ test('la similitud tampoco inventa filas para una tienda que no existe', async (
 // --- La caché de frases -------------------------------------------------------
 
 test('registrar una frase la guarda normalizada y cuenta las repeticiones', async () => {
-  await comoServicio(
-    db,
-    `select app.registrar_busqueda('${TIENDA}'::uuid, 'Camperas DE Invierno')`,
-  );
-  await comoServicio(
-    db,
-    `select app.registrar_busqueda('${TIENDA}'::uuid, 'camperas de invierno')`,
-  );
+  await comoServicio(db, `select registrar_busqueda('${TIENDA}'::uuid, 'Camperas DE Invierno')`);
+  await comoServicio(db, `select registrar_busqueda('${TIENDA}'::uuid, 'camperas de invierno')`);
 
   const filas = await comoServicio<{ termino: string; hits: number; embedded_at: string | null }>(
     db,
@@ -96,7 +90,7 @@ test('registrar una frase la guarda normalizada y cuenta las repeticiones', asyn
 });
 
 test('una frase vacía no deja fila', async () => {
-  await comoServicio(db, `select app.registrar_busqueda('${TIENDA}'::uuid, '   ')`);
+  await comoServicio(db, `select registrar_busqueda('${TIENDA}'::uuid, '   ')`);
   const filas = await comoServicio<{ n: number | string }>(
     db,
     `select count(*) as n from search_queries where store_id = '${TIENDA}'`,
@@ -109,7 +103,7 @@ test('una tienda que no existe no deja fila', async () => {
   // tenant o con uno inventado.
   await comoServicio(
     db,
-    `select app.registrar_busqueda('00000000-0000-4000-8000-000000000000'::uuid, 'algo')`,
+    `select registrar_busqueda('00000000-0000-4000-8000-000000000000'::uuid, 'algo')`,
   );
   const filas = await comoServicio<{ n: number | string }>(
     db,
@@ -123,7 +117,7 @@ test('dos tiendas que buscan lo mismo no comparten la fila', async () => {
   // tenants sería gastarle la clave a uno para servirle a otro.
   await comoServicio(
     db,
-    `select app.registrar_busqueda('${OTRA_TIENDA}'::uuid, 'camperas de invierno')`,
+    `select registrar_busqueda('${OTRA_TIENDA}'::uuid, 'camperas de invierno')`,
   );
 
   const filas = await comoServicio<{ store_id: string; tenant_id: string }>(
@@ -149,7 +143,7 @@ test('nadie registra una búsqueda con un JWT', async () => {
   // La escribe el storefront con la secret key. Si `authenticated` pudiera,
   // cualquiera inflaría los `hits` para decidir qué embebe el script, que es
   // gastarle la clave al comercio eligiendo en qué.
-  const r = await intentar(db, FORASTERO, `select app.registrar_busqueda('${TIENDA}'::uuid, 'x')`);
+  const r = await intentar(db, FORASTERO, `select registrar_busqueda('${TIENDA}'::uuid, 'x')`);
   assert.equal(r.ok, false);
 });
 
@@ -159,7 +153,7 @@ test('los grants son los que se escribieron, no los que Postgres deja por defect
     `select
        has_function_privilege('authenticated', 'app.similitud_semantica(uuid, text, integer, real)', 'execute') as sim_auth,
        has_function_privilege('anon', 'app.similitud_semantica(uuid, text, integer, real)', 'execute') as sim_anon,
-       has_function_privilege('authenticated', 'app.registrar_busqueda(uuid, text, text)', 'execute') as reg_auth`,
+       has_function_privilege('authenticated', 'public.registrar_busqueda(uuid, text, text)', 'execute') as reg_auth`,
   );
 
   // El Admin llama a `catalog_search` con la publishable key para las facetas,

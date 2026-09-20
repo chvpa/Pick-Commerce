@@ -34,6 +34,7 @@
     "seed": "node scripts/seed-demo.ts",
     "seed:dummy": "node scripts/seed-dummy.ts",
     "erp:importar": "node scripts/erp-importar.ts",
+    "embeddings": "node scripts/embeddings.ts",
     "treeshop:home": "node scripts/treeshop-home.ts",
     "camelot:importar": "node scripts/camelot-importar.ts",
     "erp:imagenes": "node scripts/erp-imagenes.ts",
@@ -43,6 +44,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.7",
     "@eslint/js": "^10.0.1",
+    "@pick/adapter-openai": "workspace:*",
     "@pick/adapter-supabase": "workspace:*",
     "@pick/adapter-erp-estilosport": "workspace:*",
     "@pick/commerce-core": "workspace:*",

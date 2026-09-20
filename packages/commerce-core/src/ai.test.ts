@@ -3,18 +3,25 @@ import assert from 'node:assert/strict';
 import {
   CAMPOS_PROHIBIDOS,
   ESQUEMA_DE_FICHA,
+  LARGO_DE_DESCRIPCION,
   ESQUEMA_DE_PROPUESTA,
   cifrar,
   descifrar,
   entradaDeLaFicha,
   entradaDelProducto,
+  costoEstimado,
   esCodigoDeBarras,
   esModelo,
   resolverCategoria,
+  hashDelTexto,
   skuSugerido,
   soloCamposDeFicha,
   soloCamposPermitidos,
+  textoParaEmbeber,
+  tokensEstimados,
   ultimosCuatro,
+  USD_POR_MILLON_EMBEBIDO,
+  vectorATexto,
 } from './ai.ts';
 
 /**
@@ -304,4 +311,60 @@ test('el esquema del enriquecimiento sigue sin poder devolver un precio', () => 
   for (const campo of CAMPOS_PROHIBIDOS) {
     assert.ok(!(campo in ESQUEMA_DE_PROPUESTA.properties));
   }
+});
+
+// ---------------------------------------------------------------------------
+// Los vectores (ADR-132)
+// ---------------------------------------------------------------------------
+
+test('lo que se embebe es más que el título y la marca', () => {
+  // Es la diferencia con `search_doc`: de acá sale que «invierno» encuentre una
+  // campera de abrigo aunque la palabra no figure en el título.
+  const texto = textoParaEmbeber({
+    title: 'Campera rompeviento',
+    brand: 'Puma',
+    categoria: 'Camperas',
+    atributos: ['material: poliéster', 'temporada: invierno'],
+    description: 'Abriga y corta el viento.',
+  });
+
+  assert.equal(
+    texto,
+    'Campera rompeviento. Puma. Camperas. material: poliéster. temporada: invierno. Abriga y corta el viento.',
+  );
+});
+
+test('lo que falta se omite, no deja huecos', () => {
+  assert.equal(textoParaEmbeber({ title: 'Remera', brand: '   ' }), 'Remera');
+});
+
+test('una descripción larga se recorta antes de embeberla', () => {
+  // Las últimas frases de una ficha larga son cuidados de lavado y política de
+  // cambios: diluyen el vector hacia el promedio de la tienda.
+  const texto = textoParaEmbeber({ title: 'X', description: 'a'.repeat(900) });
+  assert.equal(texto.length, 'X. '.length + LARGO_DE_DESCRIPCION);
+});
+
+test('el hash del texto es estable y distinto para textos distintos', async () => {
+  // De esto depende no pagar dos veces lo mismo: si el hash cambiara entre
+  // corridas, cada `camelot:importar` reembebería el catálogo entero.
+  const a = await hashDelTexto('campera de invierno');
+  const b = await hashDelTexto('campera de invierno');
+  const c = await hashDelTexto('campera de verano');
+
+  assert.equal(a, b);
+  assert.notEqual(a, c);
+  assert.match(a, /^[0-9a-f]{64}$/);
+});
+
+test('el costo estimado sale del precio publicado, no de un número inventado', () => {
+  // 3753 productos × ~60 tokens es lo que cuesta embeber Treeshop entero.
+  const tokens = tokensEstimados(Array.from({ length: 3753 }, () => 'a'.repeat(240)));
+  assert.ok(tokens > 200_000 && tokens < 260_000, `tokens fuera de rango: ${tokens}`);
+  assert.ok(costoEstimado(tokens) < 0.01, 'embeber el catálogo debería costar centavos');
+  assert.equal(costoEstimado(1_000_000), USD_POR_MILLON_EMBEBIDO);
+});
+
+test('el vector viaja a Postgres en la forma que castea', () => {
+  assert.equal(vectorATexto([0.1, -0.2, 0]), '[0.1,-0.2,0]');
 });
