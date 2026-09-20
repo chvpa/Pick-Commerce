@@ -6202,3 +6202,91 @@ deduce: lo transcribe. La regla se enmienda en ese punto exacto y en ningún otr
 - El SKU es obligatorio en el catálogo, así que cuando la etiqueta no lo trae se
   propone desde el handle y el talle, editable. Dejarlo vacío no es una opción:
   sin SKU no hay variante, y sin variante no hay nada que vender.
+
+---
+
+## ADR-132 — La búsqueda semántica no mueve la clave, y degrada por construcción
+
+**Fecha:** 2026-09-20
+**Estado:** Accepted
+
+**Contexto**
+El buscador de la Fase 3 encuentra lo que se escribe mal, pero sólo encuentra
+palabras que están en el catálogo: `search_doc` es `title + brand`. «Algo para
+correr en invierno» no devuelve nada porque ningún producto dice esas palabras, y
+ésa es la forma en que alguien pide cuando no sabe el nombre exacto.
+
+Convertir esa frase en un vector exige llamar a OpenAI con la clave del comercio.
+La clave se descifra con `PICK_AI_MASTER_KEY`, que vive en el Worker del Admin
+(ADR-103, ADR-105). **El buscador corre en el Worker del storefront, que no la
+tiene.** Ése es el choque que ordena toda la fase, igual que en la Fase 5 lo fue
+dónde corría el lote de imágenes.
+
+**Decisión**
+
+- **La clave no se mueve.** Ante una frase sin vector guardado, el Worker del
+  storefront le **pide el vector al Worker del Admin**, que es el único con la
+  clave maestra. Se evaluó darle la clave maestra al storefront y se descartó: la
+  superficie de un secreto que abre las credenciales de todos los comercios no se
+  duplica para ahorrar una llamada.
+- **La frase se paga una vez.** El vector se guarda en `search_queries`, por
+  tienda. La segunda vez que alguien escribe lo mismo no hay ninguna llamada a
+  OpenAI: la búsqueda semántica queda sin latencia añadida y sin costo.
+- **Por tienda y no global.** Dos comercios usan las mismas palabras para pedir
+  cosas distintas, y sobre todo un vector se paga con la clave de **uno**:
+  compartirlo entre tenants sería gastarle la clave a un comercio para servirle a
+  otro.
+- **El techo de gasto y el contador viven donde vive la clave**: en la ruta del
+  Worker del Admin y en el script. Son los dos únicos lugares donde un
+  presupuesto se puede hacer cumplir.
+
+**La degradación es una propiedad del código, no una promesa**
+`app.similitud_semantica` existe siempre y **devuelve cero filas** cuando no hay
+extensión, no hay clave o no hay vectores. `catalog_search` la usa igual en los
+tres casos, así que una tienda sin OpenAI corre exactamente el SQL de la Fase 3.
+No hay un `if` que alguien pueda olvidar, y la suite lo comprueba.
+
+**Cómo se parte la migración, y por qué**
+`vector` no está en el build de PGlite que corre la suite de aislamiento. Un
+`create table` que nombre el tipo **no parsea**, y eso no deja los tests en rojo:
+los deja sin arrancar. Así que:
+
+- Las tablas se crean **sin** la columna vectorial. En PGlite existen enteras, y
+  la suite prueba de verdad los grants, el aislamiento entre tiendas y que el
+  navegador no las pueda leer.
+- La columna, y el cuerpo que usa `<=>`, van dentro de la guarda
+  `do $$ ... execute $p$ ... $p$ ... $$` que ya usa el bucket de Storage.
+
+**Lo que sólo se verificó contra el remoto**
+La extensión, la columna, el operador de distancia y los tiempos. Medido el
+2026-09-20 sobre el proyecto de desarrollo, dentro de una transacción con
+`rollback`: dos vectores cargados, similitud 1.000 con el idéntico, el ortogonal
+descartado por el piso de 0.35, y **cero filas al preguntar por otra tienda**.
+`vector` es la 0.8.2.
+
+**Sin índice ANN, a propósito**
+Con 3753 productos el escaneo exacto son milisegundos y siempre devuelve lo
+correcto. Un HNSW filtrado por tienda puede devolver menos filas de las pedidas
+—lo documenta Supabase— y ese modo de falla es peor que unos milisegundos: es un
+catálogo que muestra de menos sin que nadie se entere. El índice entra con
+volumen y con su medición.
+
+**Lo que esto enmienda de la escritura previa**
+El ROADMAP daba por bloqueado que un script de Node hiciera el trabajo por lotes,
+porque «no tiene camino a la clave». Es falso en la práctica: `PICK_AI_MASTER_KEY`
+está también en el `.env` de la raíz —lo dice INFRAESTRUCTURA §6— y `descifrar()`
+se exporta del core. El script descifra la credencial del comercio y embebe el
+catálogo. La frase «la clave maestra vive sólo en el Worker del Admin» describe
+producción, no la máquina de quien opera.
+
+**Consecuencias**
+
+- `catalog_search` **no cambia de firma**: calcula el hash de la frase con
+  `md5(app.normalizar_busqueda(p_search))` en vez de recibirlo. Así la
+  redefinición es un `create or replace` y no repite el `drop`+`create` que ya
+  reseteó los grants una vez dejando `PUBLIC` con execute.
+- `app.registrar_busqueda` recibe el vector como **texto**: si la firma nombrara
+  el tipo `vector`, la función no parsearía en PGlite.
+- Las dos tablas nuevas no tienen grants para `anon` ni `authenticated`. Lo que
+  las lee es `security definer`, usado al revés de lo habitual: no para dar
+  acceso, sino para no tener que abrirlas.

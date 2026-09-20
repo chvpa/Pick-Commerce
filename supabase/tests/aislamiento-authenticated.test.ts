@@ -146,6 +146,15 @@ const PUBLICAS = [
   'app.normalizar_busqueda',
   'app.paso_del_embudo',
   'app.promo_discount',
+  /*
+   * Devuelve ids de productos publicados y un número de parecido, que es
+   * información de vitrina: el storefront ya se la sirve a cualquiera sin
+   * credenciales. Es `security definer` para lo contrario de lo habitual — no
+   * para dar acceso, sino para **no tener que abrir** `product_embeddings` ni
+   * `search_queries`, que quedan sin grants. El filtro por tienda va adentro
+   * (ADR-132).
+   */
+  'app.similitud_semantica',
 ] as const;
 
 let db: PGlite;
