@@ -1,5 +1,6 @@
 import { destinoSupabase } from '@pick/adapter-supabase';
 import {
+  cuentaComoVista,
   esNavegacionDePersona,
   esPrecarga,
   PESOS_DE_AFINIDAD,
@@ -49,6 +50,13 @@ export const DIAS_DE_DISPOSITIVO = 180;
 
 /** Cuánto se guarda. Ver `purgarSiTocaAgregar` más abajo. */
 const DIAS_DE_RETENCION = 180;
+
+/*
+ * La regla de qué cuenta como página vista vive en el core, con tests. Se
+ * reexporta desde acá para que el middleware siga importando de un solo
+ * lugar, como con las otras dos.
+ */
+export { cuentaComoVista };
 
 export const COOKIE_DE_SESION = 'pick_sid';
 export const COOKIE_DE_DISPOSITIVO = 'pick_did';

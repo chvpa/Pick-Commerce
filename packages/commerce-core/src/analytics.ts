@@ -294,3 +294,47 @@ export function esPrecarga(cabeceras: {
     (cabeceras.xMoz ?? '').toLowerCase() === 'prefetch'
   );
 }
+
+/**
+ * La ruta de la página de error, que el propio sitio se pide a sí mismo.
+ *
+ * Un PDP con un handle inexistente reescribe a `/404`, y esa reescritura
+ * **vuelve a entrar al middleware**: sin excluirla, un solo 404 dejaba dos filas
+ * con rutas distintas.
+ */
+const RUTA_DE_ERROR = '/404';
+
+/**
+ * Si esta respuesta fue una página que alguien vio de verdad.
+ *
+ * Es el tercer descarte, y el que más pesaba. Los otros dos miran **la
+ * petición**; éste mira **la respuesta**, y por eso no podía vivir en
+ * `cuentaComoVisita`: el estado no se conoce hasta después de `next()`.
+ *
+ * Sin él, un escáner de vulnerabilidades quedaba contado como visitante. La
+ * página de error es `prerender = false` a propósito (ADR-057), así que una ruta
+ * que no existe corre el middleware entero, devuelve HTML y se anotaba como
+ * vista. Medido sobre el piloto antes de este cambio: **de 6192 vistas, 3823
+ * eran de rutas inexistentes, y 1339 de 3278 sesiones no habían tocado una sola
+ * página real.** `/wp-admin/install.php` sola daba 584 sesiones, una por
+ * petición, porque un escáner no guarda cookies.
+ *
+ * Eso no era un número feo en una pantalla: `sesiones` es el **denominador** de
+ * los tres escalones del embudo y de la conversión, así que el panel venía
+ * subestimando la conversión en un 40%.
+ *
+ * Lo que sigue sin distinguir, y está dicho en LIMITACIONES: un bot que pide `/`
+ * con user-agent de navegador y recibe un 200 es indistinguible de una persona
+ * que entra y se va.
+ */
+export function cuentaComoVista(respuesta: {
+  status: number;
+  contentType: string | null | undefined;
+  pathname: string;
+}): boolean {
+  // Sólo el 200. Un 404, un 500 o una redirección no son una página vista.
+  if (respuesta.status !== 200) return false;
+  // Un ícono, un JSON o un XML tampoco: se pide, no se mira.
+  if (!respuesta.contentType?.startsWith('text/html')) return false;
+  return respuesta.pathname !== RUTA_DE_ERROR;
+}

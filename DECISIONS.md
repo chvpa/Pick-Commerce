@@ -4131,6 +4131,33 @@ quedaría vacío sin una sola señal. Va con su propio `console.error`.
 
 ---
 
+### Enmienda del 2026-09-20: faltaba el tercer descarte
+
+Los dos descartes de arriba miran **la petición**. Faltaba el que mira **la
+respuesta**, y era el que más pesaba: la página de error es `prerender = false`
+a propósito (ADR-057), así que una ruta que no existe corre el middleware
+entero, devuelve HTML y se anotaba como una página vista. Un escáner de
+vulnerabilidades quedaba contado como visitante, y como no guarda cookies, cada
+petición suya abría una sesión nueva.
+
+Medido sobre el piloto antes de arreglarlo: **3823 de 6192 vistas y 1339 de 3278
+sesiones eran de rutas inexistentes**. `/wp-admin/install.php` sola daba 584
+sesiones. Como `sesiones` es el denominador de los tres escalones del embudo, el
+panel venía subestimando la conversión en un 40% — exactamente el modo de falla
+que este ADR describe («lo que se pudre es el denominador, en silencio»), con una
+causa que no estaba prevista.
+
+`cuentaComoVista` lo cierra: sólo cuenta un 200 con `content-type` de HTML, y
+descarta `/404` porque la reescritura interna del PDP vuelve a entrar al
+middleware —un solo 404 dejaba dos filas con rutas distintas—. Lo ya escrito se
+purgó con `pnpm analytics:limpiar`.
+
+Lo que sigue sin distinguirse, y ahora está en LIMITACIONES y en la nota al pie
+del propio panel: un bot que pide la portada con user-agent de navegador y recibe
+un 200. No hay señal para separarlo de una persona que entra y se va.
+
+---
+
 ## ADR-100 — Un carrito vacío no se corrige, y por eso no resucita
 
 **Fecha:** 2026-08-30

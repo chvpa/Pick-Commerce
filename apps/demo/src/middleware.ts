@@ -9,6 +9,7 @@ import {
   MINUTOS_DE_SESION,
   anotar,
   cuentaComoVisita,
+  cuentaComoVista,
   purgar,
   recalcularAfinidad,
   tocaPurgar,
@@ -192,15 +193,23 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
     /*
      * La vista se anota **después** de generar la respuesta, no antes: sólo acá
-     * se sabe si esto terminó siendo HTML. Un `GET /llms.txt` o el sitemap no son
-     * páginas y no cuentan.
+     * se sabe en qué terminó. La regla vive en el core, con tests, porque decide
+     * el **denominador** de la conversión —ver `cuentaComoVista`—: un 404
+     * devuelve HTML igual, así que un escáner de vulnerabilidades quedaba
+     * contado como visitante.
      *
      * `Astro.rewrite` vuelve a correr esta cadena dentro del mismo request —el
      * PDP reescribe a `/404` cuando el handle no existe—, así que este bloque
-     * puede ejecutarse dos veces. `volcar` lo resuelve vaciando el buffer, que es
-     * lo que hace que el segundo pase no duplique nada.
+     * puede ejecutarse dos veces. `volcar` vacía el buffer y la regla descarta
+     * `/404`, así que ninguna de las dos pasadas deja nada.
      */
-    if (respuesta.headers.get('content-type')?.startsWith('text/html')) {
+    if (
+      cuentaComoVista({
+        status: respuesta.status,
+        contentType: respuesta.headers.get('content-type'),
+        pathname: context.url.pathname,
+      })
+    ) {
       anotar(context.locals, 'page_view', context.url.pathname);
     }
 

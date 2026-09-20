@@ -35,6 +35,7 @@
     "seed:dummy": "node scripts/seed-dummy.ts",
     "erp:importar": "node scripts/erp-importar.ts",
     "embeddings": "node scripts/embeddings.ts",
+    "analytics:limpiar": "node scripts/limpiar-analytics.ts",
     "treeshop:home": "node scripts/treeshop-home.ts",
     "camelot:importar": "node scripts/camelot-importar.ts",
     "erp:imagenes": "node scripts/erp-imagenes.ts",

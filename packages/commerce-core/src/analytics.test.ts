@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   claveDeDeduplicacion,
   esNavegacionDePersona,
+  cuentaComoVista,
   esPrecarga,
   normalizarTermino,
 } from './analytics.ts';
@@ -169,4 +170,60 @@ test('una navegación normal no se descarta por precaución', () => {
   assert.equal(esPrecarga({ secPurpose: null, xMoz: null }), false);
   // Chrome manda esta cabecera también en navegaciones comunes.
   assert.equal(esPrecarga({ secPurpose: 'navigate' }), false);
+});
+
+// --- Qué cuenta como una página vista ----------------------------------------
+
+test('una página que alguien vio de verdad cuenta', () => {
+  assert.ok(
+    cuentaComoVista({
+      status: 200,
+      contentType: 'text/html; charset=utf-8',
+      pathname: '/productos/campera',
+    }),
+  );
+  assert.ok(cuentaComoVista({ status: 200, contentType: 'text/html', pathname: '/' }));
+});
+
+test('un 404 no es una página vista, aunque devuelva HTML', () => {
+  /*
+   * El caso que motivó todo esto. La página de error es `prerender = false`
+   * (ADR-057), así que `/wp-admin/install.php` corría el middleware entero y
+   * devolvía HTML: 584 vistas en 584 sesiones distintas, una por petición,
+   * porque un escáner no guarda cookies.
+   */
+  for (const ruta of ['/wp-admin/install.php', '/.env', '/productos/no-existe']) {
+    assert.equal(
+      cuentaComoVista({ status: 404, contentType: 'text/html', pathname: ruta }),
+      false,
+      `${ruta} se contó como visita`,
+    );
+  }
+});
+
+test('la reescritura interna a la página de error no cuenta', () => {
+  // Un PDP inexistente reescribe a `/404` y esa pasada vuelve a entrar al
+  // middleware: sin esto, un solo 404 dejaba dos filas con rutas distintas.
+  assert.equal(cuentaComoVista({ status: 200, contentType: 'text/html', pathname: '/404' }), false);
+});
+
+test('lo que no es una página no cuenta', () => {
+  // `/favicon.ico` daba 43 vistas en el piloto: se pide, no se mira.
+  for (const tipo of ['image/x-icon', 'application/json', 'text/xml', null, undefined]) {
+    assert.equal(
+      cuentaComoVista({ status: 200, contentType: tipo, pathname: '/favicon.ico' }),
+      false,
+      `${tipo} se contó como visita`,
+    );
+  }
+});
+
+test('una redirección tampoco: la página vista es la de destino', () => {
+  for (const status of [301, 302, 307, 500, 503]) {
+    assert.equal(
+      cuentaComoVista({ status, contentType: 'text/html', pathname: '/catalogo' }),
+      false,
+      `${status} se contó como visita`,
+    );
+  }
 });

@@ -128,6 +128,8 @@ pnpm erp:imagenes --tienda <slug> [--limite N]   # fotos, desde el proyecto actu
 pnpm camelot:importar --tienda <slug> [--limite N] [--dry-run] [--imagenes]   # catálogo desde el Supabase de Camelot (ADR-111)
 pnpm embeddings --tienda <slug> [--dry-run] [--limite N]   # vectores del catálogo para la búsqueda
                     # semántica; `--dry-run` dice cuántos y cuánto cuesta antes de gastar (ADR-132)
+pnpm analytics:limpiar --tienda <slug> [--dry-run]   # borra las vistas de rutas que el
+                    # sitio nunca sirvió; sólo para lo escrito antes de ADR-099 enmendado
 pnpm treeshop:home  # siembra las secciones de la portada de Treeshop; después se administran
 pnpm tienda:crear <slug> <nombre> [dominio] [moneda] [locale]   # provisiona organización, tienda, sucursal y settings;
                     # el dominio no es cosmético: es la llave con la que el Worker encuentra la tienda

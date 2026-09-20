@@ -283,9 +283,11 @@ export function Analytics() {
               herramienta y no entender por qué no da.
             */}
             <p className="text-muted-foreground text-xs">
-              No se cuentan los robots ni las precargas del navegador. Desde que Políticas y
-              Preguntas frecuentes se resuelven en el servidor, todas las páginas del sitio entran
-              en la medición.
+              No se cuentan los robots, las precargas del navegador ni las páginas que no existen:
+              un escáner que pide <code>/wp-admin</code> recibe un error, no una página, y ya no
+              aparece acá. Lo que todavía no se puede separar es un bot que pide la portada con
+              nombre de navegador y recibe una página de verdad: se ve igual que alguien que entra y
+              se va.
             </p>
           </>
         )

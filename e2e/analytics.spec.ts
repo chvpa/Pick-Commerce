@@ -1,3 +1,4 @@
+import { clienteDeServidor } from '@pick/adapter-supabase';
 import { expect, test, type Page } from '@playwright/test';
 import { ADMIN_E2E } from '../scripts/datos-admin-e2e.ts';
 
@@ -137,16 +138,24 @@ test('todas las páginas del sitio abren sesión, incluidas las de contenido', a
   }
 });
 
+function db() {
+  const url = process.env.SUPABASE_URL;
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  if (!url || !secretKey) throw new Error('Faltan las credenciales de Supabase en el entorno.');
+  return clienteDeServidor({ url, secretKey });
+}
+
 test('el 404 de un producto inexistente no cuenta dos veces', async ({ page }) => {
   /*
    * El PDP hace `Astro.rewrite('/404')`, y un rewrite vuelve a correr la cadena
    * de middleware **dentro del mismo request**. Con el buffer de eventos leído en
    * vez de vaciado, eso insertaba todo dos veces.
    *
-   * Acá se comprueba lo observable: que la respuesta es una sola, con 404, y que
-   * la sesión no cambia. El conteo exacto lo cubre el `splice(0)` y su comentario;
-   * afirmarlo desde afuera exigiría leer la base desde el test, que es más
-   * frágil que lo que probaría.
+   * Antes esto sólo comprobaba lo observable desde el navegador, con el
+   * argumento de que leer la base era más frágil que lo que probaría. Dejó de
+   * ser cierto: ahora hay una regla que defender —un 404 **no deja ninguna**
+   * fila— y medida en producción valía el 62% de las vistas del piloto. Un
+   * conteo desde afuera es exactamente lo que hace falta.
    */
   await page.context().clearCookies();
   await page.goto('/catalogo');
@@ -158,4 +167,29 @@ test('el 404 de un producto inexistente no cuenta dos veces', async ({ page }) =
 
   const despues = (await page.context().cookies()).find((c) => c.name === 'pick_sid')?.value;
   expect(despues, 'la sesión no puede cambiar por un 404').toBe(antes);
+
+  // Y una ruta que ningún enlace del sitio tiene: es lo que pide un escáner.
+  const escaner = await page.goto('/wp-admin/install.php');
+  expect(escaner?.status()).toBe(404);
+
+  /*
+   * El buffer se vacía dentro de `waitUntil`, así que se espera a que la fila
+   * del catálogo esté antes de afirmar que las otras no están. Sin eso, el test
+   * pasaría por llegar temprano.
+   */
+  const vistas = async () => {
+    const { data } = await db()
+      .from('store_events')
+      .select('path')
+      .eq('session_id', antes!)
+      .eq('type', 'page_view');
+    return (data ?? []).map((f) => f.path);
+  };
+
+  await expect.poll(vistas, { timeout: 15_000 }).toContain('/catalogo');
+
+  expect(
+    await vistas(),
+    'un 404 dejó una vista: el denominador de la conversión se ensucia solo',
+  ).toEqual(['/catalogo']);
 });

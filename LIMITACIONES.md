@@ -353,6 +353,23 @@ El fallback de Safari usa un `fetch()` sin ninguna cabecera que lo distinga de
 una navegación, así que **infla las vistas** en la proporción de Safari desktop.
 No afecta el embudo, que se cuenta por sesión.
 
+### Un bot con nombre de navegador sigue contando como visitante
+
+Se descartan los robots por user-agent, las precargas y —desde el 2026-09-20— las
+páginas que no existen. Eso último no era un detalle: un escáner de
+vulnerabilidades que pide `/wp-admin/install.php` recibía la página de error, que
+es HTML, y quedaba contado como una visita. Como no guarda cookies, **cada
+petición suya abría una sesión nueva**. Medido sobre el piloto antes de
+arreglarlo: 3823 de 6192 vistas y 1339 de 3278 sesiones eran de rutas
+inexistentes, así que el panel venía subestimando la conversión en un 40%.
+
+Lo que **sigue** sin poder separarse es un bot que pide la portada con un
+user-agent de navegador y recibe un 200: se ve exactamente igual que una persona
+que entra y se va. En el piloto eso son unas 800 sesiones de una sola página. La
+consecuencia práctica: **la cola de sesiones de una página no es confiable**, y
+conviene leer el embudo y no el total de sesiones. Lo que sí es exacto es el
+dinero, que sale de `orders` y no de los eventos (ADR-099).
+
 ### El margen se informa con su cobertura, y puede no haber ninguna
 
 Sólo las líneas con costo cargado entran en el margen, y siempre se muestra qué
