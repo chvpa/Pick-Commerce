@@ -40,6 +40,20 @@ export const PRODUCTO_SIN_FOTO_E2E = {
 } as const;
 
 /**
+ * Una descripción propuesta por la IA, esperando revisión (v2 Fase 8).
+ *
+ * Cuelga del mismo producto que la propuesta de foto: son tablas distintas y no
+ * se estorban, y sembrar un producto más sería sembrar por sembrar. El texto se
+ * siembra en vez de pedírselo a OpenAI por el mismo motivo que la foto: llamar
+ * en cada corrida gastaría la clave del comercio y mediría que su API contesta,
+ * que no es lo que este smoke cuida.
+ */
+export const DESCRIPCION_E2E = {
+  propuestaId: '5eede2e0-0000-4000-8000-0000000000f7',
+  texto: 'Zapatilla urbana de caña baja, liviana y con suela de goma. Del smoke.',
+} as const;
+
+/**
  * Un producto **con** foto y una propuesta de la IA esperando revisión, para el
  * smoke de «Fotos con fondo limpio» (v2 Fase 5). Las dos URLs son fotos reales
  * del seed: la pantalla las muestra lado a lado y tienen que cargar.

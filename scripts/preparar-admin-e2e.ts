@@ -1,7 +1,13 @@
 import { existsSync } from 'node:fs';
 import { clienteDeServidor } from '@pick/adapter-supabase';
 import { IDS } from './seed-data.ts';
-import { ADMIN_E2E, PRODUCTO_SIN_FOTO_E2E, PROPUESTA_E2E, TIENDA_E2E } from './datos-admin-e2e.ts';
+import {
+  ADMIN_E2E,
+  DESCRIPCION_E2E,
+  PRODUCTO_SIN_FOTO_E2E,
+  PROPUESTA_E2E,
+  TIENDA_E2E,
+} from './datos-admin-e2e.ts';
 
 /**
  * Lo que el smoke del Admin necesita en la base y el seed no siembra.
@@ -169,6 +175,16 @@ if (!url || !secretKey) {
         product_id: Q.productoId,
         original_url: Q.original,
         proposed_url: Q.propuesta,
+      });
+
+      // Y una descripción propuesta, para el smoke de «Descripciones».
+      await db.from('description_proposals').delete().eq('id', DESCRIPCION_E2E.propuestaId);
+      await db.from('description_proposals').insert({
+        id: DESCRIPCION_E2E.propuestaId,
+        tenant_id: IDS.tenant,
+        store_id: TIENDA_E2E.id,
+        product_id: Q.productoId,
+        proposed: DESCRIPCION_E2E.texto,
       });
 
       console.log(`  admin del smoke: ${ADMIN_E2E.email} · segunda tienda: ${TIENDA_E2E.slug}`);

@@ -1518,7 +1518,8 @@ clave de OpenAI sigue teniendo el buscador de la Fase 3, completo.
       importación, sin error en ningún lado— y el lote mira **una sola foto** por
       producto, porque la imagen es casi todo el costo y tres ángulos del mismo
       producto no cambian una descripción: 3674 productos son USD 4,5 con tres y
-      USD 1,7 con una.
+      USD 1,7 con una. `e2e/descripciones.spec.ts` cubre que la propuesta no se
+      publica sola y que publicarla escribe la descripción.
 
 Objetivo: lo que el v2 original tenía adelante y que ahora sí se puede apoyar en
 algo. No es una fase que se tome entera: se toma de a un bloque, con un cliente
