@@ -63,6 +63,10 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   ['public.import_products', `import_products('${TIENDA}', '[]'::jsonb)`],
   ['public.admin_orders', `admin_orders('${TIENDA}', null, null, 1, 20)`],
   ['public.admin_customers', `admin_customers('${TIENDA}', null, null, 1, 20)`],
+  // Cohortes y RFM: `security invoker` sobre `orders` y `customers`, como la
+  // lista de clientes (ADR-134).
+  ['public.admin_customer_cohorts', `admin_customer_cohorts('${TIENDA}', 'UTC', 12)`],
+  ['public.admin_customer_segments', `admin_customer_segments('${TIENDA}', null, 1, 20)`],
   ['public.admin_dashboard', `admin_dashboard('${TIENDA}', now() - interval '30 days', now())`],
   ['public.admin_analytics', `admin_analytics('${TIENDA}', now() - interval '30 days', now())`],
   [

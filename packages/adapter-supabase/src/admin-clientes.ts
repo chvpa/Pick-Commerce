@@ -1,4 +1,10 @@
-import type { ClienteDeLista, PaginaClientes, RepositorioAdminClientes } from '@pick/commerce-core';
+import type {
+  ClienteDeLista,
+  Cohortes,
+  PaginaClientes,
+  PaginaSegmentos,
+  RepositorioAdminClientes,
+} from '@pick/commerce-core';
 import type { PickSupabaseClient } from './client.ts';
 
 /**
@@ -36,6 +42,29 @@ export function repositorioAdminClientes(db: PickSupabaseClient): RepositorioAdm
 
       if (error) throw new Error(`No se pudo consultar el cliente: ${error.message}`);
       return (data as unknown as PaginaClientes).items[0] ?? null;
+    },
+
+    async cohortes(storeId, zonaHoraria, meses = 12): Promise<Cohortes> {
+      const { data, error } = await db.rpc('admin_customer_cohorts', {
+        p_store_id: storeId,
+        p_tz: zonaHoraria,
+        p_months: meses,
+      });
+
+      if (error) throw new Error(`No se pudieron consultar las cohortes: ${error.message}`);
+      return data as unknown as Cohortes;
+    },
+
+    async segmentos(storeId, consulta): Promise<PaginaSegmentos> {
+      const { data, error } = await db.rpc('admin_customer_segments', {
+        p_store_id: storeId,
+        ...(consulta.segmento ? { p_segment: consulta.segmento } : {}),
+        p_page: consulta.page ?? 1,
+        p_per_page: consulta.perPage ?? 20,
+      });
+
+      if (error) throw new Error(`No se pudieron consultar los segmentos: ${error.message}`);
+      return data as unknown as PaginaSegmentos;
     },
   };
 }

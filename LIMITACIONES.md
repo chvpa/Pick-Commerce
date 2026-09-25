@@ -387,6 +387,15 @@ Es lo facturado, que es contra lo que un comercio concilia el banco. El margen y
 su cobertura se calculan **sólo sobre las líneas de producto**, así que el envío
 no los diluye.
 
+### Los segmentos de clientes son relativos a la tienda
+
+En «Recurrencia», la recencia se mide contra los demás clientes de la misma
+tienda y no en días: «Nuevos» son los de lo más reciente **de esa tienda**. Con
+pocos clientes o una tienda recién abierta, alguien que compró la semana pasada
+puede caer en «Dormidos» porque los demás compraron después. La pantalla lista a
+quién escribirle, pero **no le escribe**: no hay campañas ni exportación del
+segmento todavía (ADR-134).
+
 ---
 
 ## Inteligencia artificial

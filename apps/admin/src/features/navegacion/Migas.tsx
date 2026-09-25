@@ -70,6 +70,10 @@ export function migasDe(ruta: string): readonly Miga[] {
     },
     { patron: /^\/pedidos\/[^/]+$/, migas: [ruta1('Pedidos', '/pedidos'), { label: 'Pedido' }] },
     {
+      patron: /^\/clientes\/recurrencia$/,
+      migas: [ruta1('Clientes', '/clientes'), { label: 'Recurrencia' }],
+    },
+    {
       patron: /^\/clientes\/[^/]+$/,
       migas: [ruta1('Clientes', '/clientes'), { label: 'Cliente' }],
     },

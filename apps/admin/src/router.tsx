@@ -81,6 +81,7 @@ const FormularioColeccion = pantalla<{ id?: string }>(
   'FormularioColeccion',
 );
 const ListaClientes = pantalla(() => import('@/features/clientes/ListaClientes'), 'ListaClientes');
+const Recurrencia = pantalla(() => import('@/features/clientes/Recurrencia'), 'Recurrencia');
 const DetalleCliente = pantalla<{ id: string }>(
   () => import('@/features/clientes/DetalleCliente'),
   'DetalleCliente',
@@ -463,6 +464,16 @@ const clientesRoute = createRoute({
   component: ListaClientes,
 });
 
+/*
+ * Como Analytics: se ve con sólo pertenecer a la organización. Son los mismos
+ * clientes que la lista, agrupados; ningún rol los distingue (ADR-056).
+ */
+const recurrenciaRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/clientes/recurrencia',
+  component: Recurrencia,
+});
+
 const clienteRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/clientes/$id',
@@ -517,6 +528,7 @@ const arbol = rootRoute.addChildren([
   coleccionRoute,
   analyticsRoute,
   clientesRoute,
+  recurrenciaRoute,
   clienteRoute,
   equipoRoute,
   configuracionRoute,

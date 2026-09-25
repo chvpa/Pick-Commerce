@@ -17,6 +17,7 @@ import {
   SparklesIcon,
   StoreIcon,
   TagsIcon,
+  RepeatIcon,
   UsersIcon,
   UsersRoundIcon,
 } from '@/components/iconos';
@@ -142,6 +143,7 @@ const SECCIONES: readonly Seccion[] = [
    */
   { to: '/analytics', label: 'Analytics', icono: ChartNoAxesColumnIcon },
   { to: '/clientes', label: 'Clientes', icono: UsersIcon },
+  { to: '/clientes/recurrencia', label: 'Recurrencia', icono: RepeatIcon },
   { to: '/equipo', label: 'Equipo', icono: UsersRoundIcon, permiso: 'member.manage' },
   { to: '/configuracion', label: 'Configuración', icono: SettingsIcon, permiso: 'settings.write' },
 ];
@@ -396,7 +398,17 @@ export function AppSidebar() {
                 ) : (
                   <SidebarMenuItem key={s.to}>
                     <SidebarMenuButton
-                      isActive={estaActiva(ruta, s.to)}
+                      /*
+                       * Salvo que una hermana más específica coincida: en
+                       * «/productos/descripciones» la activa es Descripciones, no
+                       * también Productos, que coincide por prefijo.
+                       */
+                      isActive={
+                        estaActiva(ruta, s.to) &&
+                        !SECCIONES.some(
+                          (o) => o.to.startsWith(`${s.to}/`) && estaActiva(ruta, o.to),
+                        )
+                      }
                       tooltip={s.label}
                       /*
                        * En mobile el sidebar es un sheet modal: navegar sin

@@ -2287,6 +2287,19 @@ export type Database = {
         Args: { p_ids: string[]; p_store_id: string }
         Returns: number
       }
+      admin_customer_cohorts: {
+        Args: { p_months?: number; p_store_id: string; p_tz?: string }
+        Returns: Json
+      }
+      admin_customer_segments: {
+        Args: {
+          p_page?: number
+          p_per_page?: number
+          p_segment?: string
+          p_store_id: string
+        }
+        Returns: Json
+      }
       admin_customers: {
         Args: {
           p_customer_id?: string

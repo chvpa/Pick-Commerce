@@ -250,4 +250,119 @@ export interface ConsultaClientes {
 export interface RepositorioAdminClientes {
   listar(storeId: string, consulta: ConsultaClientes): Promise<PaginaClientes>;
   porId(storeId: string, id: string): Promise<ClienteDeLista | null>;
+  /** Por mes de primera compra, en la zona horaria de quien mira (ADR-134). */
+  cohortes(storeId: string, zonaHoraria: string, meses?: number): Promise<Cohortes>;
+  segmentos(storeId: string, consulta: ConsultaSegmentos): Promise<PaginaSegmentos>;
+}
+
+// ---------------------------------------------------------------------------
+// Recurrencia: cohortes y RFM (ADR-134)
+// ---------------------------------------------------------------------------
+//
+// Las dos salen de los pedidos sin cancelados, y la cuenta vive en SQL: la lista
+// de un segmento se filtra y pagina en el servidor, así que la regla que decide
+// el segmento no puede estar además acá.
+
+export interface Cohorte {
+  /** `YYYY-MM`, el mes de la primera compra. */
+  readonly month: string;
+  readonly customers: number;
+  /**
+   * Cuántos compraron en cada mes desde el de su primera compra. El primero es
+   * `customers` por definición; el último es el mes en curso, todavía abierto.
+   */
+  readonly active: readonly number[];
+}
+
+export interface Cohortes {
+  /** La zona con que se cortaron los meses; `UTC` si la pedida no existía. */
+  readonly timeZone: string;
+  readonly cohorts: readonly Cohorte[];
+}
+
+export const SEGMENTOS_RFM = [
+  'champions',
+  'loyal',
+  'promising',
+  'new',
+  'cooling',
+  'at_risk',
+  'dormant',
+] as const;
+
+export type SegmentoRfm = (typeof SEGMENTOS_RFM)[number];
+
+/**
+ * Cómo se llama cada segmento y qué lo define, en palabras del comercio.
+ *
+ * La recencia es **relativa a la tienda** —en quintos, del que compró hace más
+ * tiempo al más reciente— y la frecuencia es la cantidad de compras. Las reglas
+ * están en `admin_customer_segments`; esto las cuenta.
+ */
+export const SEGMENTO_RFM: Readonly<
+  Record<SegmentoRfm, { readonly etiqueta: string; readonly descripcion: string }>
+> = {
+  champions: {
+    etiqueta: 'Los mejores',
+    descripcion: 'Cuatro compras o más, y de lo más reciente de la tienda.',
+  },
+  loyal: {
+    etiqueta: 'Fieles',
+    descripcion: 'Tres compras o más, y no hace tanto de la última.',
+  },
+  promising: {
+    etiqueta: 'Volvieron una vez',
+    descripcion: 'Dos compras, la última no hace tanto: la próxima los hace fieles.',
+  },
+  new: {
+    etiqueta: 'Nuevos',
+    descripcion: 'Una compra, de lo más reciente de la tienda.',
+  },
+  cooling: {
+    etiqueta: 'Enfriándose',
+    descripcion: 'Una compra, y ya pasó un tiempo sin volver.',
+  },
+  at_risk: {
+    etiqueta: 'En riesgo',
+    descripcion: 'Volvían, y hace mucho que no compran: los que más cuesta perder.',
+  },
+  dormant: {
+    etiqueta: 'Dormidos',
+    descripcion: 'Una compra, hace mucho.',
+  },
+};
+
+export interface ClienteRfm {
+  readonly id: string;
+  readonly name: string;
+  readonly email: string;
+  readonly orderCount: number;
+  readonly totalSpent: { readonly amount: number; readonly currency: string };
+  readonly lastOrderAt: string;
+  /** Escalón de recencia, de 1 (hace más tiempo) a 5 (lo más reciente). */
+  readonly recency: number;
+  readonly segment: SegmentoRfm;
+}
+
+export interface ResumenDeSegmento {
+  readonly segment: SegmentoRfm;
+  readonly customers: number;
+  readonly revenue: { readonly amount: number; readonly currency: string };
+}
+
+export interface PaginaSegmentos {
+  /** Los siete, en orden, también los vacíos. */
+  readonly segments: readonly ResumenDeSegmento[];
+  readonly items: readonly ClienteRfm[];
+  readonly total: number;
+  readonly page: number;
+  readonly perPage: number;
+  readonly pageCount: number;
+}
+
+export interface ConsultaSegmentos {
+  /** Sin segmento, todos los clientes con compras. */
+  readonly segmento?: SegmentoRfm;
+  readonly page?: number;
+  readonly perPage?: number;
 }

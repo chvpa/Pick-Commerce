@@ -6465,3 +6465,74 @@ del catálogo pero no las que más escribiría alguien.
   normalización para poder fechar sería la segunda copia que ADR-132 evita.
 - No se copian los vectores: la búsqueda semántica de la tienda simulada necesita
   `pnpm embeddings --tienda simulada`.
+
+---
+
+## ADR-134 — Cohortes y RFM: se calculan en SQL, desde los pedidos, y la recencia es relativa a la tienda
+
+**Fecha:** 2026-09-24
+**Estado:** Accepted
+
+**Contexto**
+La Fase 8 tenía «cohortes y RFM» esperando identidad de cliente entre pedidos y
+datos contra qué validarlas. La identidad existe desde la Fase 5 —`customers` es
+único por tienda y correo, y cada pedido lleva su `customer_id`— y los datos los
+puso la tienda simulada (ADR-133): 898 pedidos de 600 compradores en 170 días.
+
+**Decisión**
+
+- **Dos funciones `security invoker`** sobre `orders` y `customers`, como
+  `admin_customers`: la defensa es RLS, que ya exige ser miembro.
+  `admin_customer_cohorts` agrupa por mes de primera compra y cuenta cuántos
+  volvieron cada mes siguiente; `admin_customer_segments` devuelve los siete
+  segmentos y la lista paginada de uno.
+- **Todo sale de los pedidos sin cancelados**, igual que el resto del dinero del
+  Admin. Un cliente cuyo único pedido se canceló no está en ninguna cohorte ni
+  en ningún segmento: en la tienda simulada son 31 de 600.
+- **La regla del segmento vive sólo en SQL**, porque la lista se filtra y pagina
+  en el servidor. El core tiene los nombres y las descripciones; si tuviera
+  también la regla, serían dos copias de lo mismo.
+- **El mes se corta en la zona de quien mira**, que manda el navegador: es la
+  misma con que el Admin decide qué es «hoy». Un pedido de las 22 h del último
+  día del mes en Asunción es de ese mes; en UTC sería del siguiente. Una zona
+  desconocida cae en UTC en vez de fallar.
+
+**Cómo se puntúa, y por qué no con quintiles en todo**
+
+- **R** es `cume_dist` sobre la última compra, en cinco escalones. Con `ntile`,
+  una tienda de tres clientes pondría al más reciente en el escalón 3 y no en el
+  5; con `cume_dist` el más reciente es siempre 5 y los empates comparten
+  escalón.
+- **F va por bandas fijas** —1, 2, 3, 4 o más— y no por quintiles: en la tienda
+  simulada el 74 % compró una vez, y repartir empates en quintiles manda a
+  clientes idénticos a segmentos distintos.
+- **M no decide el segmento.** Se muestra como parte de la facturación de cada
+  uno, que es la pregunta que el comercio le hace.
+
+Siete segmentos exhaustivos, evaluados en orden: los mejores (F ≥ 4, R ≥ 4),
+fieles (F ≥ 3, R ≥ 3), en riesgo (F ≥ 2, R ≤ 2), volvieron una vez (F = 2),
+nuevos (F = 1, R ≥ 4), enfriándose (F = 1, R = 3) y dormidos (el resto).
+
+**Lo que salió sobre la tienda simulada**
+
+    cohortes   abr 52 · may 88 · jun 97 · jul 105 · ago 115 · sep 112
+               mes 1: 25 %, 22 %, 16 %, 22 %, 16 %
+    segmentos  los mejores 20 · fieles 37 · volvieron una vez 54 · nuevos 148
+               enfriándose 83 · en riesgo 34 · dormidos 193
+
+Las cohortes suman 569, que es el total del RFM: las dos funciones cuentan a la
+misma gente. Cada una tarda 0,8 a 1,3 s contra el remoto, red incluida.
+
+**Consecuencias**
+
+- La recencia relativa tiene su costo y está en LIMITACIONES: con pocos
+  clientes, alguien que compró hace una semana puede ser «dormido» porque todos
+  los demás compraron después. Con días fijos el problema es el inverso —una
+  tienda de temporada tendría a todos dormidos en marzo— y no hay un umbral que
+  sirva a todas.
+- La pantalla lista a quién escribirle y no le escribe. Una campaña a un
+  segmento es otra unidad de trabajo, y pasa por el mismo camino de correos que
+  ya existe.
+- De paso se arregló el sidebar: una entrada que coincide por prefijo ya no se
+  marca activa si una hermana más específica también coincide. Productos y
+  Descripciones se marcaban las dos desde la Fase 8.

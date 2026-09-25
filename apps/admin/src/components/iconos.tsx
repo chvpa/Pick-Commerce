@@ -20,6 +20,7 @@ import {
   PencilIcon as Pencil,
   PercentIcon as Percent,
   ReceiptTextIcon as ReceiptText,
+  RepeatIcon as Repeat,
   SettingsIcon as Settings,
   SparklesIcon as Sparkles,
   StoreIcon as Store,
@@ -79,6 +80,7 @@ export const PanelLeftIcon = icono(PanelLeft);
 export const PencilIcon = icono(Pencil);
 export const PercentIcon = icono(Percent);
 export const ReceiptTextIcon = icono(ReceiptText);
+export const RepeatIcon = icono(Repeat);
 export const SettingsIcon = icono(Settings);
 export const SparklesIcon = icono(Sparkles);
 export const StoreIcon = icono(Store);

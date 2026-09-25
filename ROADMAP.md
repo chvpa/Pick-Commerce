@@ -1491,7 +1491,7 @@ clave de OpenAI sigue teniendo el buscador de la Fase 3, completo.
 
 ## Fase 8 — Operación avanzada: lo que quedaba del v2 escrito
 
-**Avance: 20%**
+**Avance: 30%**
 
 > **Ninguno de los cinco bloques escritos se pudo empezar, y está medido.** Tres
 > los bloquea su propio Definition of Done —B2B, multi-location y los presets
@@ -1598,10 +1598,16 @@ algo. No es una fase que se tome entera: se toma de a un bloque, con un cliente
       features: el Admin tiene un solo campo de stock por variante y lo escribe en
       la primera sucursal de la tienda, así que construir allocation sobre eso es
       construir sobre un bug.
-- [ ] **Advanced Analytics**, sólo lo que faltaba: cohortes y RFM, que necesitan
-      identidad de cliente entre pedidos para significar algo y son adivinanza antes
-      de la Fase 1; y envejecimiento de inventario, que sale de `inventory_levels` y
-      las fechas de los pedidos. `contribution margin` y `product profitability`
+- [x] **Cohortes y RFM** (ADR-134). «Recurrencia», en Clientes: cohortes por
+      mes de primera compra con la recompra de cada mes siguiente, y siete
+      segmentos RFM que filtran una lista paginada en el servidor. Todo desde los
+      pedidos sin cancelados, en dos funciones `security invoker`. Validado sobre
+      la tienda simulada: seis cohortes que suman 569 clientes, los mismos que
+      reparte el RFM. La recencia es relativa a la tienda, y eso está en
+      LIMITACIONES.
+- [ ] **Advanced Analytics**, lo que queda: envejecimiento de inventario, que
+      sale de `inventory_levels` y las fechas de los pedidos, y ya tiene historia
+      contra qué validarse. `contribution margin` y `product profitability`
       **ya están hechos** desde la Fase 10 Etapa B —`order_items` guarda el costo y
       el margen no se muestra sin su cobertura, ADR-101—, así que dejan de ser ítems
       de v2. `Meta Ads`, `Google Ads` y `ROAS/MER` salen de v2: una integración de
@@ -2045,6 +2051,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-20 | **v2 cerrado hasta la Fase 7, y el panel dejó de mentir.** Las fases 5, 6 y 7 pasan a 100%: las dos tandas largas que faltaban se cierran **por decisión del dueño y no por evidencia**, y queda escrito así. Y se arregló lo que ensuciaba todo lo que medimos: un escáner que pedía `/wp-admin/install.php` recibía la página de error —que es HTML— y quedaba contado como visitante, con una sesión nueva por petición. El panel de Treeshop pasó de 3278 sesiones y 6192 vistas a **1956 y 2386**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | v2 Fase 7 |          90% |           100% |
 | 2026-09-20 | **v2 Fase 8 al 15%: descripciones en lote.** Ninguno de los cinco bloques escritos se pudo empezar, y está medido: tres esperan un cliente real que los pida, y los otros dos se calcularían sobre 4 clientes de la demo sembrada y 11 búsquedas históricas. Lo que sí tenía un número detrás son los 3674 productos sin descripción del piloto, que son el techo del buscador que la Fase 7 acaba de construir. La IA propone, una persona aprueba, y aprobar **no pisa** lo que administra el ERP. El lote mira una foto por producto y no tres: la imagen es casi todo el costo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | v2 Fase 8 |           0% |            15% |
 | 2026-09-24 | **v2 Fase 8 al 20%: compradores simulados.** Sin clientes reales la regla «un cliente real que lo pida» bloqueaba la fase para siempre, y cambió: alcanza uno simulado y declarado (ADR-133). «Tienda simulada» tiene el catálogo de Treeshop copiado y 170 días de historia hechos por `create_order` y `admin_set_order_status`: 898 pedidos de 600 compradores y 33.823 visitas con su embudo y sus búsquedas. Sólo corre en modo demostración, se niega ante un solo pedido real, y se retoma igual tras un corte gracias a `--hasta`, que nació de que retomarla al día siguiente sorteaba otra tienda                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | v2 Fase 8 |          15% |            20% |
+| 2026-09-24 | **v2 Fase 8 al 30%: cohortes y RFM.** «Recurrencia», en Clientes, dice quién vuelve a comprar: cohortes por mes de primera compra cortadas en la zona horaria de quien mira, y siete segmentos RFM que filtran una lista paginada en el servidor (ADR-134). Desde los pedidos sin cancelados, en dos funciones `security invoker` con su suite en PGlite y su e2e en desktop y mobile. La recencia va por `cume_dist` y la frecuencia por bandas fijas, porque en quintiles el 74 % que compró una vez se repartía al azar. De paso, el sidebar dejó de marcar activas a Productos y Descripciones a la vez                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | v2 Fase 8 |          20% |            30% |
 
 ---
 
@@ -2053,9 +2060,9 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 v1 y las fases 0 a 7 de v2 están cerradas y desplegadas. La Fase 8 ya no espera
 un cliente real: tiene una tienda simulada con 170 días de historia (ADR-133).
 
-1. **Cohortes y RFM sobre la tienda simulada.** Es lo primero que la historia
-   desbloquea y lo que más la necesitaba. Para verla en el Admin hace falta ser
-   miembro de `simulada`: `pnpm admin:crear <email> <password> owner simulada`.
+1. **Envejecimiento de inventario**, lo último de Advanced Analytics: qué stock
+   lleva más tiempo sin venderse. La tienda simulada tiene la cola de Zipf que
+   lo hace visible —la mayoría de los 3752 productos nunca se vendió—.
 2. **Los comercios simulados**: un mayorista, una tienda de moda y una de varias
    sucursales, cada uno con lo que pediría escrito antes de construir. Son los
    que desbloquean B2B, los presets y multi-location sin ERP.
