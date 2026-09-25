@@ -5,6 +5,7 @@ import {
   ChevronRightIcon,
   ChevronsUpDownIcon,
   GalleryVerticalEndIcon,
+  HourglassIcon,
   LayoutDashboardIcon,
   LayoutTemplateIcon,
   LibraryBigIcon,
@@ -89,6 +90,7 @@ const SECCIONES: readonly Seccion[] = [
    * eso lo decide la pantalla.
    */
   { to: '/productos/sin-foto', label: 'Sin foto', icono: CameraIcon },
+  { to: '/productos/stock-quieto', label: 'Stock quieto', icono: HourglassIcon },
   /*
    * Otra tarea de teléfono, y por eso también está acá: en el teléfono el
    * sidebar es el único menú. Pide `settings.write` porque gasta la clave de

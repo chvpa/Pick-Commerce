@@ -387,6 +387,13 @@ Es lo facturado, que es contra lo que un comercio concilia el banco. El margen y
 su cobertura se calculan **sólo sobre las líneas de producto**, así que el envío
 no los diluye.
 
+### La antigüedad del stock se mide desde la última venta
+
+«Stock quieto» no sabe cuándo entró cada unidad: no hay libro de movimientos de
+stock. Cuenta los días desde la última venta de la variante, o desde el alta del
+producto si nunca se vendió. Una reposición de ayer de algo que no se vende hace
+un año aparece con un año (ADR-135).
+
 ### Los segmentos de clientes son relativos a la tienda
 
 En «Recurrencia», la recencia se mide contra los demás clientes de la misma

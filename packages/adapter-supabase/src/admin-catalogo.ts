@@ -1,5 +1,6 @@
 import type {
   ConsultaProductos,
+  PaginaAntiguedad,
   FotoParaLimpiar,
   PaginaDePropuestas,
   PaginaProductos,
@@ -103,6 +104,18 @@ export function repositorioAdminCatalogo(db: PickSupabaseClient): RepositorioAdm
 
       if (error) throw new Error(`No se pudo leer la cola de fotos: ${error.message}`);
       return data as unknown as PaginaSinFoto;
+    },
+
+    async antiguedad(storeId, consulta): Promise<PaginaAntiguedad> {
+      const { data, error } = await db.rpc('admin_inventory_aging', {
+        p_store_id: storeId,
+        ...(consulta.tramo ? { p_bucket: consulta.tramo } : {}),
+        p_page: consulta.page ?? 1,
+        p_per_page: consulta.perPage ?? 20,
+      });
+
+      if (error) throw new Error(`No se pudo leer la antigüedad del stock: ${error.message}`);
+      return data as unknown as PaginaAntiguedad;
     },
 
     async agregarFoto(tenantId, storeId, productId, foto): Promise<void> {

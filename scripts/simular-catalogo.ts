@@ -179,7 +179,9 @@ async function copiar(db: Db, slugOrigen: string, slugDestino: string): Promise<
   await insertar(
     db,
     'products',
-    productos.map(({ id: viejo, created_at: _c, updated_at: _u, search_doc: _s, ...resto }) => ({
+    // `created_at` se conserva: es la fecha de alta, y la antigüedad del stock de lo
+    // que nunca se vendió se mide desde ahí (ADR-135).
+    productos.map(({ id: viejo, updated_at: _u, search_doc: _s, ...resto }) => ({
       ...resto,
       ...base,
       store_id: a.id,

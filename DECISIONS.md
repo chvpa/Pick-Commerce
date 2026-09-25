@@ -6536,3 +6536,62 @@ misma gente. Cada una tarda 0,8 a 1,3 s contra el remoto, red incluida.
 - De paso se arregló el sidebar: una entrada que coincide por prefijo ya no se
   marca activa si una hermana más específica también coincide. Productos y
   Descripciones se marcaban las dos desde la Fase 8.
+
+---
+
+## ADR-135 — La antigüedad del stock se mide desde la última venta, porque la base no sabe cuándo entró
+
+**Fecha:** 2026-09-24
+**Estado:** Accepted
+
+**Contexto**
+Lo último de Advanced Analytics era el envejecimiento de inventario: cuánta plata
+hay parada en stock, y hace cuánto. La forma de libro mide desde que entró cada
+unidad, y **la base no lo sabe**: `inventory_levels` guarda cuánto hay, no cuándo
+llegó, y no existe un libro de movimientos de stock. El ERP y el importador
+reescriben el número sin dejar rastro.
+
+«Ventas por producto» ya tenía un modo «lo que no se movió», y se evaluó
+extenderlo. No alcanzaba: lista las variantes sin ventas **en un período**,
+ordenadas por título, y no dice cuánta plata representan ni hace cuánto que están
+quietas. Es otra pregunta.
+
+**Decisión**
+
+- **La antigüedad es días desde la última venta** de la variante, en toda la
+  historia y sin cancelados, o **desde el alta del producto** si nunca se vendió.
+  Es lo que la base sí sabe, y la pantalla lo dice así.
+- **Por variante**, porque el stock es por variante: un producto con el M agotado
+  y el XXL quieto no está quieto a medias.
+- **Cuatro tramos** —hasta 30 días, 31 a 90, 91 a 180, más de 180— decididos en
+  SQL, porque la lista se filtra por ellos en el servidor. Lo más viejo primero y,
+  a igual antigüedad, lo que más plata tiene parada.
+- **El valor va a precio y a costo, y el de costo con su cobertura** (ADR-101):
+  una variante sin costo cargado no vale cero, vale «no sé».
+- Entra todo el stock menos lo archivado: una variante inactiva o en borrador
+  también es plata en el depósito.
+
+**Lo que salió sobre la tienda simulada**
+
+    hasta 30 días       76 variantes     215 u
+    31 a 90          1.362 variantes   2.864 u
+    91 a 180         4.727 variantes   8.042 u
+    más de 180         582 variantes   1.084 u
+
+La cola de Zipf de la simulación (ADR-133) hace lo que se esperaba: la mayoría del
+catálogo nunca se vendió y queda contada desde su alta. Tarda 1,1 s contra el
+remoto sobre 6747 variantes con stock.
+
+**Lo que hubo que arreglar para medirlo**
+`simular:catalogo` descartaba `created_at`, así que en la tienda simulada todos
+los productos nacían el día de la copia y lo que nunca se vendió tenía cero días.
+Ahora conserva la fecha de alta del origen, y la tienda ya copiada se corrigió
+por handle.
+
+**Consecuencias**
+
+- La medida es un piso, no la edad real: una unidad que entró ayer de un producto
+  que se vendió hace un año aparece con un año. Está en LIMITACIONES.
+- La edad real necesita un libro de movimientos de stock —entradas, ajustes,
+  ventas, devoluciones— con fecha. Es también lo que multi-location va a pedir
+  para transferencias, así que se decide ahí y no acá.

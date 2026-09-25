@@ -231,6 +231,71 @@ export interface FotoNueva {
   readonly height: number;
 }
 
+// ---------------------------------------------------------------------------
+// Antigüedad del stock (ADR-135)
+// ---------------------------------------------------------------------------
+//
+// La base no guarda cuándo entró cada unidad, así que la antigüedad es la que sí
+// se sabe: días desde la última venta de la variante, o desde el alta del
+// producto si nunca se vendió. Los tramos los decide `admin_inventory_aging`,
+// porque la lista se filtra por ellos en el servidor.
+
+export const TRAMOS_DE_ANTIGUEDAD = ['0_30', '31_90', '91_180', '180_plus'] as const;
+
+export type TramoDeAntiguedad = (typeof TRAMOS_DE_ANTIGUEDAD)[number];
+
+export const ETIQUETA_TRAMO: Readonly<Record<TramoDeAntiguedad, string>> = {
+  '0_30': 'Hasta 30 días',
+  '31_90': '31 a 90 días',
+  '91_180': '91 a 180 días',
+  '180_plus': 'Más de 180 días',
+};
+
+type Importe = { readonly amount: number; readonly currency: string };
+
+export interface ResumenDeTramo {
+  readonly bucket: TramoDeAntiguedad;
+  readonly variants: number;
+  readonly units: number;
+  readonly priceValue: Importe;
+  /** Sólo de las unidades con costo cargado: leerlo junto con `costCoverage`. */
+  readonly costValue: Importe;
+  /** Qué parte de las unidades tiene costo, de 0 a 1 (ADR-101). */
+  readonly costCoverage: number;
+}
+
+export interface VarianteQuieta {
+  readonly variantId: string;
+  readonly productId: string;
+  readonly sku: string;
+  readonly title: string;
+  readonly variantTitle?: string;
+  readonly stock: number;
+  readonly days: number;
+  /** Ausente si nunca se vendió: los días cuentan desde el alta del producto. */
+  readonly lastSoldAt?: string;
+  readonly bucket: TramoDeAntiguedad;
+  readonly priceValue: Importe;
+  /** Ausente sin costo cargado: no vale cero, vale «no sé». */
+  readonly costValue?: Importe;
+}
+
+export interface PaginaAntiguedad {
+  /** Los cuatro, en orden, también los vacíos. */
+  readonly buckets: readonly ResumenDeTramo[];
+  readonly items: readonly VarianteQuieta[];
+  readonly total: number;
+  readonly page: number;
+  readonly perPage: number;
+  readonly pageCount: number;
+}
+
+export interface ConsultaAntiguedad {
+  readonly tramo?: TramoDeAntiguedad;
+  readonly page?: number;
+  readonly perPage?: number;
+}
+
 export interface RepositorioAdminCatalogo {
   listar(storeId: string, consulta: ConsultaProductos): Promise<PaginaProductos>;
   porId(storeId: string, id: string): Promise<ProductoCargado | null>;
@@ -265,6 +330,11 @@ export interface RepositorioAdminCatalogo {
    * cuentas de la vitrina. Es la lista con la que se sale a fotografiar.
    */
   sinFoto(storeId: string, page: number, perPage?: number): Promise<PaginaSinFoto>;
+  /**
+   * El stock por días desde la última venta, en cuatro tramos (ADR-135). Lo más
+   * viejo primero: es la lista con la que se decide una liquidación.
+   */
+  antiguedad(storeId: string, consulta: ConsultaAntiguedad): Promise<PaginaAntiguedad>;
   /**
    * Cuelga una foto de un producto, **al final** de las que tenga. No pasa por
    * `guardar` a propósito: ése reescribe todos los medios del producto, y una

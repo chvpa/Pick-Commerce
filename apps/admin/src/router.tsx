@@ -41,6 +41,7 @@ const ListaProductos = pantalla(
 );
 
 const SinFoto = pantalla(() => import('@/features/productos/SinFoto'), 'SinFoto');
+const StockQuieto = pantalla(() => import('@/features/productos/StockQuieto'), 'StockQuieto');
 const CargarConCamara = pantalla(
   () => import('@/features/productos/CargarConCamara'),
   'CargarConCamara',
@@ -266,6 +267,13 @@ const sinFotoRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/productos/sin-foto',
   component: SinFoto,
+});
+
+// Sólo lectura, como Recurrencia: se ve con pertenecer a la organización.
+const stockQuietoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/productos/stock-quieto',
+  component: StockQuieto,
 });
 
 const camaraRoute = createRoute({
@@ -511,6 +519,7 @@ const arbol = rootRoute.addChildren([
   nuevoRoute,
   importarRoute,
   sinFotoRoute,
+  stockQuietoRoute,
   fotosRoute,
   editarRoute,
   pedidosRoute,

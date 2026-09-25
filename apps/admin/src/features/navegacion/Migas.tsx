@@ -49,6 +49,10 @@ export function migasDe(ruta: string): readonly Miga[] {
       migas: [ruta1('Productos', '/productos'), { label: 'Fotos con fondo limpio' }],
     },
     {
+      patron: /^\/productos\/stock-quieto$/,
+      migas: [ruta1('Productos', '/productos'), { label: 'Stock quieto' }],
+    },
+    {
       patron: /^\/productos\/sin-foto$/,
       migas: [ruta1('Productos', '/productos'), { label: 'Sin foto' }],
     },

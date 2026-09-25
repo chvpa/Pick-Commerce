@@ -10,6 +10,7 @@ import {
   ChevronRightIcon as ChevronRight,
   ChevronUpIcon as ChevronUp,
   GalleryVerticalEndIcon as GalleryVerticalEnd,
+  HourglassIcon as Hourglass,
   ImageUpIcon as ImageUp,
   LayoutDashboardIcon as LayoutDashboard,
   LayoutTemplateIcon as LayoutTemplate,
@@ -70,6 +71,7 @@ export const ChevronUpIcon = icono(ChevronUp);
 /** Abrir un selector. Se llamaba `ChevronsUpDown`; acá el nombre es otro. */
 export const ChevronsUpDownIcon = icono(UnfoldMore);
 export const GalleryVerticalEndIcon = icono(GalleryVerticalEnd);
+export const HourglassIcon = icono(Hourglass);
 export const ImageUpIcon = icono(ImageUp);
 export const LayoutDashboardIcon = icono(LayoutDashboard);
 export const LayoutTemplateIcon = icono(LayoutTemplate);

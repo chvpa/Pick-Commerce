@@ -1491,7 +1491,7 @@ clave de OpenAI sigue teniendo el buscador de la Fase 3, completo.
 
 ## Fase 8 — Operación avanzada: lo que quedaba del v2 escrito
 
-**Avance: 30%**
+**Avance: 40%**
 
 > **Ninguno de los cinco bloques escritos se pudo empezar, y está medido.** Tres
 > los bloquea su propio Definition of Done —B2B, multi-location y los presets
@@ -1605,9 +1605,12 @@ algo. No es una fase que se tome entera: se toma de a un bloque, con un cliente
       la tienda simulada: seis cohortes que suman 569 clientes, los mismos que
       reparte el RFM. La recencia es relativa a la tienda, y eso está en
       LIMITACIONES.
-- [ ] **Advanced Analytics**, lo que queda: envejecimiento de inventario, que
-      sale de `inventory_levels` y las fechas de los pedidos, y ya tiene historia
-      contra qué validarse. `contribution margin` y `product profitability`
+- [x] **Antigüedad del stock** (ADR-135). «Stock quieto», en Productos: el
+      stock por días desde la última venta, en cuatro tramos, a precio y a costo
+      con su cobertura, y la lista de lo más viejo primero. La base no sabe
+      cuándo entró cada unidad —no hay libro de movimientos—, así que mide desde
+      la última venta o desde el alta, y lo dice. Con esto Advanced Analytics
+      queda cerrado. `contribution margin` y `product profitability`
       **ya están hechos** desde la Fase 10 Etapa B —`order_items` guarda el costo y
       el margen no se muestra sin su cobertura, ADR-101—, así que dejan de ser ítems
       de v2. `Meta Ads`, `Google Ads` y `ROAS/MER` salen de v2: una integración de
@@ -2052,6 +2055,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-20 | **v2 Fase 8 al 15%: descripciones en lote.** Ninguno de los cinco bloques escritos se pudo empezar, y está medido: tres esperan un cliente real que los pida, y los otros dos se calcularían sobre 4 clientes de la demo sembrada y 11 búsquedas históricas. Lo que sí tenía un número detrás son los 3674 productos sin descripción del piloto, que son el techo del buscador que la Fase 7 acaba de construir. La IA propone, una persona aprueba, y aprobar **no pisa** lo que administra el ERP. El lote mira una foto por producto y no tres: la imagen es casi todo el costo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | v2 Fase 8 |           0% |            15% |
 | 2026-09-24 | **v2 Fase 8 al 20%: compradores simulados.** Sin clientes reales la regla «un cliente real que lo pida» bloqueaba la fase para siempre, y cambió: alcanza uno simulado y declarado (ADR-133). «Tienda simulada» tiene el catálogo de Treeshop copiado y 170 días de historia hechos por `create_order` y `admin_set_order_status`: 898 pedidos de 600 compradores y 33.823 visitas con su embudo y sus búsquedas. Sólo corre en modo demostración, se niega ante un solo pedido real, y se retoma igual tras un corte gracias a `--hasta`, que nació de que retomarla al día siguiente sorteaba otra tienda                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | v2 Fase 8 |          15% |            20% |
 | 2026-09-24 | **v2 Fase 8 al 30%: cohortes y RFM.** «Recurrencia», en Clientes, dice quién vuelve a comprar: cohortes por mes de primera compra cortadas en la zona horaria de quien mira, y siete segmentos RFM que filtran una lista paginada en el servidor (ADR-134). Desde los pedidos sin cancelados, en dos funciones `security invoker` con su suite en PGlite y su e2e en desktop y mobile. La recencia va por `cume_dist` y la frecuencia por bandas fijas, porque en quintiles el 74 % que compró una vez se repartía al azar. De paso, el sidebar dejó de marcar activas a Productos y Descripciones a la vez                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | v2 Fase 8 |          20% |            30% |
+| 2026-09-24 | **v2 Fase 8 al 40%: antigüedad del stock.** «Stock quieto», en Productos, dice cuánta plata hay parada y hace cuánto: cuatro tramos por días desde la última venta, a precio y a costo con su cobertura (ADR-135). La base no sabe cuándo entró cada unidad, así que mide desde la última venta o desde el alta, y está en LIMITACIONES. Advanced Analytics queda cerrado. De paso, `simular:catalogo` conserva la fecha de alta: sin ella, lo que nunca se vendió tenía cero días                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | v2 Fase 8 |          30% |            40% |
 
 ---
 
@@ -2060,13 +2064,10 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 v1 y las fases 0 a 7 de v2 están cerradas y desplegadas. La Fase 8 ya no espera
 un cliente real: tiene una tienda simulada con 170 días de historia (ADR-133).
 
-1. **Envejecimiento de inventario**, lo último de Advanced Analytics: qué stock
-   lleva más tiempo sin venderse. La tienda simulada tiene la cola de Zipf que
-   lo hace visible —la mayoría de los 3752 productos nunca se vendió—.
-2. **Los comercios simulados**: un mayorista, una tienda de moda y una de varias
+1. **Los comercios simulados**: un mayorista, una tienda de moda y una de varias
    sucursales, cada uno con lo que pediría escrito antes de construir. Son los
    que desbloquean B2B, los presets y multi-location sin ERP.
-3. **El costo de `catalog_search`**, que es lo más caro que hay anotado: el PDP
+2. **El costo de `catalog_search`**, que es lo más caro que hay anotado: el PDP
    de Treeshop está en 355 ms y el listado en 600, y se sabe por qué. Está en
    `Backlog / Retroactividad` con las dos salidas medidas; es una sesión propia.
 
