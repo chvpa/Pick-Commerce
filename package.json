@@ -17,7 +17,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "docs:check": "node scripts/docs-check.mjs",
-    "test": "pnpm -r test && pnpm test:rls",
+    "test": "pnpm -r test && pnpm test:rls && pnpm test:scripts",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:new": "supabase migration new",
@@ -30,6 +30,7 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "test:rls": "node --test \"supabase/tests/**/*.test.ts\"",
+    "test:scripts": "node --test \"scripts/**/*.test.ts\"",
     "rls:verificar": "node scripts/verificar-rls.ts",
     "seed": "node scripts/seed-demo.ts",
     "seed:dummy": "node scripts/seed-dummy.ts",
@@ -40,7 +41,9 @@
     "camelot:importar": "node scripts/camelot-importar.ts",
     "erp:imagenes": "node scripts/erp-imagenes.ts",
     "tienda:crear": "node scripts/crear-tienda.ts",
-    "admin:crear": "node scripts/crear-admin.ts"
+    "admin:crear": "node scripts/crear-admin.ts",
+    "simular:catalogo": "node scripts/simular-catalogo.ts",
+    "simular:compradores": "node scripts/simular-compradores.ts"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.7",

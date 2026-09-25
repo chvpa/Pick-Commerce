@@ -130,6 +130,9 @@ pnpm embeddings --tienda <slug> [--dry-run] [--limite N]   # vectores del catál
                     # semántica; `--dry-run` dice cuántos y cuánto cuesta antes de gastar (ADR-132)
 pnpm analytics:limpiar --tienda <slug> [--dry-run]   # borra las vistas de rutas que el
                     # sitio nunca sirvió; sólo para lo escrito antes de ADR-099 enmendado
+pnpm simular:catalogo --desde <org> --hacia <org>   # copia un catálogo a una tienda simulada y la deja en modo demo
+pnpm simular:compradores --tienda <org> [--dias 170] [--semilla 1] [--hasta <fecha>] [--dry-run] [--limpiar]
+                    # meses de compradores simulados por create_order; sólo en modo demo (ADR-133)
 pnpm treeshop:home  # siembra las secciones de la portada de Treeshop; después se administran
 pnpm tienda:crear <slug> <nombre> [dominio] [moneda] [locale]   # provisiona organización, tienda, sucursal y settings;
                     # el dominio no es cosmético: es la llave con la que el Worker encuentra la tienda
@@ -441,7 +444,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..132 y dos decisiones pendientes:
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..133 y dos decisiones pendientes:
    P-001 (primer gateway real) y P-005 (CLI/provisioner). P-002, P-003 y P-004
    están resueltas.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.

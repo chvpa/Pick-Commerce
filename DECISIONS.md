@@ -6367,3 +6367,101 @@ se arma con título, marca, categoría y atributos. «Algo para correr en invier
 devuelve campera, calzas y joggers; «ropa de abrigo para el frío» trae primero
 ropa interior. Está en LIMITACIONES, porque es lo que un comercio tiene que
 saber para decidir si le conviene escribir descripciones.
+
+---
+
+## ADR-133 — Sin clientes reales, se simulan: declarados, en su propia tienda y por los caminos de producción
+
+**Fecha:** 2026-09-24
+**Estado:** Accepted
+
+**Contexto**
+La Fase 8 del v2 quedó entera detrás de una regla: «ningún bloque se empieza sin
+un cliente real que lo pida». Pick Commerce **no es un producto vendido**: no
+hay comercios que paguen, y Treeshop, que va a operar, todavía no opera. La
+regla no esperaba un cliente: bloqueaba la fase para siempre.
+
+Los bloqueos eran de dos clases. Cohortes, RFM, envejecimiento de inventario y
+entender la consulta necesitan **historia**, y había 4 clientes y 11
+búsquedas. B2B, multi-location y los presets necesitan **alguien que los
+pida**. Esta decisión resuelve la primera clase; los comercios simulados son la
+segunda unidad de trabajo.
+
+**Decisión**
+
+- **La simulación reemplaza al cliente real como criterio de entrada**, y se
+  declara como tal en los documentos y en los datos: el mismo principio que
+  CLAUDE.md pide para un mock, que existe pero nunca se disfraza de
+  implementación.
+- **Vive en su propia organización**, «Tienda simulada» (`simulada`), con una
+  copia del catálogo de Treeshop (`pnpm simular:catalogo`). Pick Demo tiene 6
+  productos y la comparte el e2e; Treeshop va a operar y un pedido falso ahí
+  aparecería en sus reportes el día de la apertura. Borrar la organización se
+  lleva todo en cascada.
+- **Los pedidos entran por `create_order` y cambian de estado por
+  `admin_set_order_status`** (`pnpm simular:compradores`). Precio, envío,
+  descuento y stock los calcula el mismo código que en producción; lo único que
+  se hace por fuera es correr las fechas hacia atrás, que es lo que la historia
+  necesita y ningún camino real hace.
+- **El generador es puro y determinista** (`scripts/simulacion.ts`, con sus
+  tests): la misma semilla y la misma fecha dan la misma tienda.
+
+**Tres barandas, porque escribe pedidos**
+
+1. Sólo corre sobre una tienda con `settings.demo = true` (ADR-108): el pedido
+   no le escribe a nadie. Verificado: contra Treeshop se niega.
+2. Se niega si hay un solo pedido cuyo correo no termine en
+   `@simulacion.invalid`, un dominio que por RFC 2606 no puede existir.
+3. Se niega si hay pedidos que no son parte del plan de esta corrida. Existe
+   porque se necesitó: la primera corrida se cortó por un `fetch failed` con los
+   898 pedidos creados, y al retomarla un día después **la semilla sorteaba otra
+   tienda** —869 de 898 pedidos ajenos—, porque el peso del fin de semana
+   depende de la fecha. `--hasta` fija la fecha de la corrida original; con ella
+   el plan reproduce los 898.
+
+Retomar exige además partir del **mismo stock**: se le devuelve al catálogo lo
+que tienen tomado los pedidos ya creados, que es la misma cuenta que usa
+`--limpiar` para devolverlo a la sucursal.
+
+**Lo que la forma de los datos decide, y por qué**
+
+- Popularidad con ley de Zipf: pocos productos venden mucho y la mayoría nunca,
+  que es lo que el envejecimiento de inventario necesita ver.
+- Cuatro arquetipos —una compra 65 %, ocasional 25 %, fiel 8 %, VIP 2 %—: sin
+  recurrencia desigual, RFM y cohortes dan una tabla plana.
+- El tráfico crece a lo largo del período y sube el fin de semana. Con 120
+  visitas anónimas diarias la conversión queda cerca del 2,5 %; con 40 era 7,6 %,
+  que ninguna tienda tiene.
+- Las búsquedas salen del catálogo, con errores de tipeo, y **el número de
+  resultados se mide contra `catalog_search`**: una búsqueda sin resultados lo es
+  de verdad. Se miden de a una: de a tres ya se pisaban hasta el statement
+  timeout, que quedó en el backlog porque es el costo que Treeshop paga igual.
+- 170 días, por debajo de los 180 de retención de `store_events`: más atrás, la
+  purga del storefront los borraría.
+
+**Lo que salió, leído por `admin_analytics`**
+
+    sesiones        33.823     carrito 11,3 %   checkout 5,6 %   compra 2,48 %
+    pedidos            898     787 entregados, 58 cancelados (6,5 %), 53 en curso
+    compradores        600     444 una vez, 17 con cuatro, 3 con ocho
+    frases             704     113 sin resultados, 9956 búsquedas
+
+La compra sale de `orders` sin cancelados, como en la tienda de verdad (ADR-099).
+Lo que **no** es realista, y queda dicho: el ranking de las frases es de Zipf
+sobre un orden al azar, así que lo más buscado es «predator» y «hyverse», palabras
+del catálogo pero no las que más escribiría alguien.
+
+**Consecuencias**
+
+- La regla de la Fase 8 cambia de «un cliente real que lo pida» a «un cliente,
+  real o simulado y declarado». Lo que **no** cambia: nada promete una capacidad
+  que el proveedor de abajo no tiene. Una simulación no le da escritura al ERP de
+  Estilo Sport, así que las reservas de multi-location siguen bloqueadas (ADR-086).
+- Los eventos simulados llevan `data.simulado`, y los clientes el dominio
+  `.invalid`: son lo que `--limpiar` borra, y lo que distingue una fila simulada
+  a quien la encuentre en la base.
+- `search_queries.last_seen` queda en la fecha de la corrida y no en la simulada:
+  la llave de esa caché la arma `registrar_busqueda`, y duplicar su
+  normalización para poder fechar sería la segunda copia que ADR-132 evita.
+- No se copian los vectores: la búsqueda semántica de la tienda simulada necesita
+  `pnpm embeddings --tienda simulada`.
