@@ -862,14 +862,17 @@ AI no debe inventar silenciosamente:
 ## 21. Search
 
 > **Diseño de producto, no estado del sistema.** Lo construido lo declaran
-> `CLAUDE.md` § «Estado actual» y [ROADMAP.md](ROADMAP.md). Hoy buscar es un
-> `?q=` del PLP resuelto en Postgres: la parte _keyword_ del diagrama de abajo,
-> con tolerancia a tipeos y acentos por trigramas, SKU por prefijo, orden por
-> relevancia y sugerencias mientras se escribe (ADR-125). Sin entendimiento de
-> intención y sin vectores. La búsqueda con LLM quedó explícitamente afuera de
-> la Fase 11.
+> `CLAUDE.md` § «Estado actual» y [ROADMAP.md](ROADMAP.md). De los cuatro escalones
+> del diagrama hay tres: _keyword_ con tolerancia a tipeos y acentos por trigramas,
+> SKU por prefijo y sugerencias mientras se escribe (ADR-125); _semantic_ con
+> embeddings del catálogo, que entra como **fuente de filas** y no como criterio de
+> orden (ADR-132); y _filters_, con el precio leído de la propia frase (ADR-137).
+> De _query understanding_ falta lo demás: «negra» no se convierte en un filtro de
+> color, y eso espera consultas reales para saber qué escribe la gente.
 
-No usar un LLM completo para cada búsqueda.
+No usar un LLM completo para cada búsqueda. Lo que sí puede costar un modelo es
+**una vez por frase nueva**, guardado por hash: así lo hace el vector semántico, y
+es la forma que tendría cualquier entendimiento de intención que se agregue.
 
 Arquitectura objetivo:
 

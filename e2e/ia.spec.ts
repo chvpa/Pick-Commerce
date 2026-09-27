@@ -86,4 +86,25 @@ test.describe('Inteligencia artificial', () => {
     // servidor para que conteste lo que la pantalla ya sabe.
     await expect(tarjeta.getByRole('button', { name: 'Guardar' })).toBeDisabled();
   });
+  /*
+   * El resumen del Resumen (ADR-138). Sin credencial también explica qué falta,
+   * y sobre todo: **el botón llega al Worker**. Es lo único que este smoke puede
+   * afirmar sin gastar la clave de nadie, y es lo que se rompe —una ruta nueva mal
+   * registrada responde 404 y la pantalla muestra un error genérico—.
+   */
+  test('el resumen del negocio explica qué falta cuando no hay clave', async ({ page }) => {
+    await entrar(page);
+    await irALaTiendaDelSmoke(page);
+    await page.goto(ADMIN);
+
+    const tarjeta = page.locator('section, div').filter({ hasText: 'Qué pasó, en palabras' });
+    const boton = page.getByRole('button', { name: 'Resumir' });
+    await expect(boton).toBeEnabled({ timeout: 30_000 });
+    await boton.click();
+
+    const aviso = page.getByRole('alert');
+    await expect(aviso).toContainText('no tiene una clave de OpenAI', { timeout: 30_000 });
+    await expect(aviso.getByRole('link', { name: /Configuración/ })).toBeVisible();
+    await expect(tarjeta.first()).toBeVisible();
+  });
 });

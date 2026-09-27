@@ -1,4 +1,5 @@
 import { slugify } from './admin-catalog.ts';
+import { formatMoney } from './money.ts';
 
 /**
  * Inteligencia artificial: el puerto, el cifrado de la credencial y las reglas
@@ -153,6 +154,8 @@ export interface AIProvider {
   ficha(peticion: PeticionDeFicha): Promise<FichaCruda>;
   /** Los vectores de un lote de textos, para la búsqueda semántica (ADR-132). */
   embeber(peticion: PeticionDeEmbeddings): Promise<Embeddings>;
+  /** El período contado en palabras, a partir de números ya calculados (ADR-138). */
+  resumir(peticion: PeticionDeResumen): Promise<string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -870,3 +873,133 @@ export const TOPE_MENSUAL_DE_BUSQUEDA = 200_000;
 
 /** Cuánto se espera al vector antes de buscar sin él. */
 export const ESPERA_DEL_VECTOR = 800;
+
+// ---------------------------------------------------------------------------
+// El resumen del negocio (ADR-138)
+// ---------------------------------------------------------------------------
+
+/** Un producto del período, ya calculado por el Admin. */
+export interface ProductoDelPeriodo {
+  readonly titulo: string;
+  readonly unidades: number;
+  /** En unidades mínimas. */
+  readonly ingresos: number;
+}
+
+/** Una frase que la gente buscó y no encontró. */
+export interface BusquedaFallida {
+  readonly termino: string;
+  readonly busquedas: number;
+}
+
+/**
+ * Lo que el Admin le manda al modelo para que lo cuente.
+ *
+ * **Todos los números están calculados**: el modelo no suma, no divide y no
+ * estima, sólo redacta. Eso es lo que hace que el resumen no pueda contradecir a
+ * la pantalla que está al lado, que es la única forma de que sirva.
+ */
+export interface NegocioParaResumir {
+  readonly tienda: string;
+  /** ISO, el borde del período que el Admin está mostrando. */
+  readonly desde: string;
+  readonly hasta: string;
+  readonly moneda: string;
+  /** En unidades mínimas, como `Money`. */
+  readonly ventas: number;
+  readonly pedidos: number;
+  readonly ticket: number;
+  readonly unidades: number;
+  /** Ausente cuando no hay ningún costo cargado: no es cero, es «no sé» (ADR-101). */
+  readonly margen?: number;
+  /** Qué fracción de las unidades tiene costo, en tanto por uno. */
+  readonly coberturaDelMargen: number;
+  readonly sesiones: number;
+  /** Tasas en tanto por uno, sobre las sesiones del período. */
+  readonly agregaronAlCarrito: number;
+  readonly empezaronElCheckout: number;
+  readonly conversion: number;
+  readonly abandonaron: number;
+  /** Cuando la medición empieza después del borde del período. */
+  readonly medidoDesde?: string;
+  readonly topProductos: readonly ProductoDelPeriodo[];
+  readonly sinResultados: readonly BusquedaFallida[];
+}
+
+export interface PeticionDeResumen {
+  readonly apiKey: string;
+  readonly modelo: string;
+  readonly negocio: NegocioParaResumir;
+}
+
+/**
+ * Qué se le pide, y sobre todo qué no.
+ *
+ * Lo único que puede arruinar esto es un número inventado: un resumen que dice
+ * «las ventas subieron un 20 %» al lado de una pantalla que no muestra ninguna
+ * comparación es peor que no tener resumen, porque el que lo lee le cree. Por eso
+ * la regla más fuerte es que **no hay más datos que los de la lista**.
+ */
+export const INSTRUCCIONES_DE_RESUMEN = [
+  'Sos el analista de un comercio electrónico. Escribís en español rioplatense, en segunda persona y sin tratamiento formal.',
+  'Recibís los números ya calculados de un período. Contás qué pasó en 3 a 5 oraciones, en un solo párrafo.',
+  'Reglas que no se negocian:',
+  '- No inventes ningún número, porcentaje, tendencia ni comparación con otro período: sólo tenés los datos de abajo.',
+  '- Si un dato dice que no está disponible, decilo así o no lo menciones. Nunca lo estimes.',
+  '- Nombrá lo más importante primero: cuánto se vendió y qué parte del embudo lo explica.',
+  '- Cerrá con una sola cosa concreta para hacer, salida de esos mismos números.',
+  '- Sin saludos, sin títulos, sin viñetas, sin markdown, sin repetir la lista de datos.',
+].join('\n');
+
+/** Un porcentaje con una decimal, que es la precisión que la pantalla muestra. */
+function porcentaje(tasa: number): string {
+  return `${(tasa * 100).toFixed(1)} %`;
+}
+
+/**
+ * Los números del período en texto, listos para el modelo.
+ *
+ * El dinero va en unidades mayores con su moneda: en unidades mínimas el modelo
+ * narraría «veinte mil centavos». Lo que falta se declara como faltante y no como
+ * cero, por el mismo motivo que el margen no se muestra sin su cobertura.
+ */
+export function entradaDelNegocio(n: NegocioParaResumir): string {
+  const plata = (minimas: number): string => formatMoney({ amount: minimas, currency: n.moneda });
+
+  return [
+    `Tienda: ${n.tienda}`,
+    `Período: del ${n.desde} al ${n.hasta}`,
+    n.medidoDesde
+      ? `Atención: las sesiones se miden desde el ${n.medidoDesde}, más tarde que el inicio del período, así que el embudo cubre menos días que las ventas.`
+      : '',
+    '',
+    `Ventas: ${plata(n.ventas)} en ${n.pedidos} pedidos, ${n.unidades} unidades, ticket promedio ${plata(n.ticket)}`,
+    n.margen === undefined
+      ? 'Margen: no disponible, ninguna unidad vendida tiene costo cargado'
+      : `Margen: ${plata(n.margen)}, calculado sobre el ${porcentaje(n.coberturaDelMargen)} de las unidades; el resto no tiene costo cargado`,
+    '',
+    `Sesiones: ${n.sesiones}`,
+    `Agregaron al carrito: ${porcentaje(n.agregaronAlCarrito)} de las sesiones`,
+    `Empezaron el checkout: ${porcentaje(n.empezaronElCheckout)} de las sesiones`,
+    `Compraron: ${porcentaje(n.conversion)} de las sesiones`,
+    `Abandonaron después de empezar el checkout: ${n.abandonaron} sesiones`,
+    '',
+    n.topProductos.length > 0
+      ? [
+          'Lo más vendido:',
+          ...n.topProductos.map(
+            (p) => `- ${p.titulo}: ${p.unidades} unidades, ${plata(p.ingresos)}`,
+          ),
+        ].join('\n')
+      : 'Lo más vendido: no hubo ventas en el período',
+    '',
+    n.sinResultados.length > 0
+      ? [
+          'Se buscó y no se encontró:',
+          ...n.sinResultados.map((b) => `- ${b.termino}: ${b.busquedas} búsquedas sin resultados`),
+        ].join('\n')
+      : 'Se buscó y no se encontró: nada, todas las búsquedas devolvieron productos',
+  ]
+    .filter((linea) => linea !== '')
+    .join('\n');
+}

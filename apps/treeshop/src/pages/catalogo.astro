@@ -14,6 +14,7 @@ import SearchInput from '@pick/commerce-astro/catalog/SearchInput.astro';
 import SortSelect from '@pick/commerce-astro/catalog/SortSelect.astro';
 import {
   formatMoney,
+  interpretarConsulta,
   itemListJsonLd,
   normalizarTermino,
   type CatalogSort,
@@ -93,9 +94,21 @@ for (const { name } of declaradas) {
 /* El precio no es una faceta: es un rango, y se envía como un solo valor. */
 const precioCrudo = url.searchParams.get('precio') ?? '';
 const tramo = /^(\d+)-(\d+)$/.exec(precioCrudo);
-const precioMin = tramo ? Number(tramo[1]) : undefined;
-const precioMax = tramo ? Number(tramo[2]) : undefined;
-const precioActivo = precioMin !== undefined;
+
+/*
+ * Lo que la frase dice del precio (ADR-137).
+ *
+ * «campera hasta 200 mil» es un término **y** un filtro que el catálogo ya sabe
+ * aplicar: sin esto, «hasta», «200» y «mil» entraban como palabras a buscar, donde
+ * no coinciden con nada. El `precio` de la URL manda: un filtro que alguien tocó
+ * gana sobre uno deducido de una frase, y así el control de precio no pelea con
+ * lo que quedó escrito en el buscador.
+ */
+const interpretada = interpretarConsulta(search, tienda.currency);
+const precioMin = tramo ? Number(tramo[1]) : interpretada.precioMin;
+const precioMax = tramo ? Number(tramo[2]) : interpretada.precioMax;
+/* Sólo el de la URL: es el que el botón «limpiar» puede quitar. */
+const precioActivo = tramo !== null;
 
 /*
  * Antes de buscar: que la frase tenga vector (ADR-132).
@@ -105,14 +118,15 @@ const precioActivo = precioMin !== undefined;
  * vez, esto es una consulta y nada más; si es nueva y algo falla o tarda, se
  * sigue con el buscador léxico de la Fase 3 sin que nadie se entere.
  */
-if (search.trim() !== '') {
-  await asegurarVectorDeBusqueda(search);
+if (interpretada.terminos !== '') {
+  await asegurarVectorDeBusqueda(interpretada.terminos);
 }
 
 const result = await catalogo().buscar(tienda.storeId, {
   filters,
   sort,
-  search,
+  /* Los términos, no la frase: el precio ya salió de acá y se fue al filtro. */
+  search: interpretada.terminos,
   page,
   perPage: PER_PAGE,
   ...(precioMin === undefined ? {} : { precioMin }),
@@ -187,7 +201,7 @@ if (termino !== '' && result.total === 0) {
       });
 
   const [sugerencias, vendidos] = await Promise.all([
-    sugerenciasDeBusqueda(search),
+    sugerenciasDeBusqueda(interpretada.terminos),
     vitrina('best-selling'),
   ]);
   sugerencia = sugerencias[0];

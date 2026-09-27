@@ -85,3 +85,27 @@ test('las sugerencias se eligen con el teclado', async ({ page }) => {
 
   expect(problemas).toEqual([]);
 });
+
+/*
+ * El precio escrito en la frase (ADR-137).
+ *
+ * Los dos casos que distinguen el arreglo de no hacer nada. Con un techo enorme
+ * tiene que encontrar **lo mismo** que sin él: si «hasta» y el número siguieran
+ * entrando como palabras a buscar, la página saldría vacía porque el buscador
+ * exige todos los términos. Y con un techo de un guaraní no encuentra nada, que
+ * es la prueba de que el número se convirtió en filtro y no en ruido.
+ */
+test('«hasta» en la frase filtra por precio en vez de buscar la palabra', async ({ page }) => {
+  const problemas = vigilar(page);
+
+  await page.goto('/catalogo?q=mochila');
+  await expect(resultados(page).getByRole('link', { name: MOCHILA })).toBeVisible();
+
+  await page.goto('/catalogo?q=mochila+hasta+100000000');
+  await expect(resultados(page).getByRole('link', { name: MOCHILA })).toBeVisible();
+
+  await page.goto('/catalogo?q=mochila+hasta+1');
+  await expect(page.getByText(/no encontramos resultados/i)).toBeVisible();
+
+  expect(problemas).toEqual([]);
+});

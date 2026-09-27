@@ -37,6 +37,7 @@ import {
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { SelectItem } from '@/components/ui/select';
+import { ResumenConIA } from './ResumenConIA';
 
 const PERIODOS: readonly Periodo[] = ['hoy', '7d', '30d'];
 
@@ -367,6 +368,8 @@ export function Dashboard() {
                 }
               />
             </div>
+
+            <ResumenConIA rango={rango} periodo={periodo} ventas={datos} />
 
             <div className="grid items-start gap-5 lg:grid-cols-[20rem_1fr]">
               <Tarjeta sinRelleno>

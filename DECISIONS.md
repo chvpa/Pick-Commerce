@@ -6660,3 +6660,121 @@ un stock que se escribe en la sucursal equivocada es construir sobre un bug.
   libro de movimientos que ADR-135 también nombra.
 - Lo que sigue faltando de multi-location es lo que el ERP bloquea: allocation,
   pickup por sucursal, routing y reservas por capability.
+
+---
+
+## ADR-137 — El precio se lee de la frase sin un LLM, y el resto de «entender la consulta» sigue esperando tráfico real
+
+**Fecha:** 2026-09-27
+**Estado:** Accepted
+
+**Contexto**
+`search query understanding` se difirió en la Fase 11 con dos motivos buenos —un
+viaje a OpenAI en el camino crítico de la PLP, y que el storefront tendría que
+poder descifrar la credencial— y con uno que PROJECT.md §21 declara: **no usar un
+LLM completo para cada búsqueda**. La Fase 7 resolvió los dos primeros para los
+embeddings: el storefront le pide el vector al Worker del Admin, se guarda por
+hash y sólo se paga una vez por frase nueva (ADR-132). Con eso, la objeción
+técnica ya no alcanza para diferirlo.
+
+Lo que sí sigue faltando son **consultas reales**. El ROADMAP decía que los
+compradores simulados desbloqueaban este ítem, y eso era optimista: las frases que
+`pnpm simular:compradores` genera son marcas, categorías y palabras sueltas de los
+títulos del catálogo (`scripts/simulacion.ts`), o sea un vocabulario que salió del
+propio generador. Validar un intérprete de intención contra eso es circular. Las
+consultas reales son las once de Treeshop, y no alcanzan para nada.
+
+Pero hay un escalón de «entender la consulta» que **no necesita ni LLM ni datos
+para validarse**, porque es determinista y se prueba con una tabla: el precio.
+«campera hasta 200 mil» es un término más un filtro que el catálogo ya sabe
+aplicar —`CatalogQuery` tiene `precioMin` y `precioMax` desde la Fase 2— y sin
+esto «hasta», «200» y «mil» entraban como palabras a buscar, donde no coinciden
+con nada y, al exigirse todos los términos, **vacían la página**.
+
+**Decisión**
+
+- `interpretarConsulta(frase, moneda)` en el core devuelve los términos sin lo que
+  se convirtió en filtro, más el rango de precio. Es pura y tiene su tabla de
+  casos: es donde vive la regla, así que es donde se prueba.
+- Tres formas y sus variantes sin acento, que es como se escribe en un buscador:
+  «hasta / menos de / máximo X», «desde / más de / mínimo X» y «entre X y Y».
+  «200 mil», «200k» y «200.000» son lo mismo —el punto es separador de miles en
+  es-PY y la coma es el decimal—.
+- **Un número suelto no es un precio.** «campera 500» puede ser un modelo y
+  `SKU-12345` es un código; adivinar ahí costaría más de lo que arregla.
+- **El `precio` de la URL manda** sobre el que se dedujo de la frase: un filtro que
+  alguien tocó gana sobre uno inferido, y así el control de precio no pelea con lo
+  que quedó escrito en el buscador. Por lo mismo, el contador de «filtros activos»
+  cuenta sólo el de la URL, que es el único que el botón de limpiar puede quitar.
+- El precio se convierte a unidades mínimas con la moneda de la tienda: «hasta
+  200» en una tienda en dólares son 20000 centavos, y sin eso el filtro buscaría
+  productos de dos dólares.
+- Al catálogo, al vector y a la sugerencia de «¿quisiste decir…?» les va **la
+  frase sin el precio**. El evento de analytics guarda lo que la persona escribió.
+
+**Lo que queda afuera, y qué lo desbloquea**
+
+- Mapear palabras a valores de faceta —«negra» al atributo `color`— necesita el
+  vocabulario real de la tienda en el pedido, y ahí sí entra un modelo. Se decide
+  cuando haya consultas reales que muestren qué se escribe: hoy elegir entre
+  «lo hago con el catálogo en el prompt» y «lo hago con una tabla de sinónimos»
+  sería tirar una moneda.
+- La parte semántica de §21 ya está cubierta por ADR-132, que entra como **fuente
+  de filas**. Lo que falta de «query understanding» es la extracción de filtros, no
+  la intención.
+
+---
+
+## ADR-138 — El resumen del negocio lo redacta el modelo, pero los números los calcula el Admin
+
+**Fecha:** 2026-09-27
+**Estado:** Accepted
+
+**Contexto**
+El «AI summary de analytics» quedó diferido entero en la Fase 11 porque el propio
+ROADMAP lo marcaba opcional. Lo que lo vuelve útil ahora no es la IA: es que ya
+hay qué resumir. El Resumen muestra ventas, pedidos, unidades, ticket y margen con
+su cobertura; Analytics muestra sesiones, el embudo de tres escalones, la
+conversión y los términos buscados sin resultados. Son diez números, y un comercio
+que los mira no sabe por dónde empezar. Lo que falta no es el dato: es **cuál de
+todos importa**.
+
+El riesgo es obvio y es uno solo: un número inventado. Un párrafo que dice «las
+ventas subieron un 20 %» al lado de una pantalla que no muestra ninguna
+comparación es peor que no tener resumen, porque quien lo lee le cree.
+
+**Decisión**
+
+- **Los números viajan calculados.** El Admin arma `NegocioParaResumir` con lo que
+  ya tiene en pantalla y el modelo sólo redacta: no suma, no divide, no estima.
+  Así el párrafo no puede contradecir a la tabla que está debajo.
+- Las instrucciones lo prohíben explícitamente —ningún número, porcentaje,
+  tendencia ni comparación que no esté en la lista— y piden 3 a 5 oraciones, un
+  párrafo, sin markdown, cerrando con **una** cosa concreta para hacer.
+- **Lo que falta se declara faltante, no como cero.** Un margen sin costo cargado
+  es «no sé» (ADR-101), y si la medición de sesiones empieza después del borde del
+  período el pedido lo dice, porque comparar ventas de treinta días contra el
+  embudo de tres es el error que ADR-099 documenta.
+- Va en **Resumen** y no en Analytics, aunque cruce las dos fuentes que ADR-067
+  separa a propósito. Se puede porque no inventa la relación: recibe la conversión
+  ya calculada, con el numerador de `orders`. Y va ahí porque es la pantalla en la
+  que se entra.
+- `entradaDelNegocio()` es pura y está en el core con su tabla de casos: el
+  formato del pedido es lo único que se puede probar sin gastar la clave de nadie,
+  y es donde estaría el error si un número apareciera mal.
+- Se pide a mano, botón por botón: gasta la clave del comercio, así que pide
+  `settings.write` como todo lo que gasta, y el Worker lo resuelve con el mismo
+  camino que las demás rutas de IA.
+- Sin `json_schema`: la salida es un párrafo, no un objeto, y forzarle un esquema
+  de un solo campo sería ceremonia.
+
+**Consecuencias**
+
+- El resumen no queda guardado: se pide cuando se quiere leer. Guardarlo obligaría
+  a decidir qué pasa cuando los números cambian debajo, y un resumen viejo al lado
+  de números nuevos es exactamente el problema que esto evita.
+- Como las demás llamadas del Admin, **no entra en `ai_usage`**: ese contador sólo
+  registra lo que pasa por el storefront, que es el único que tiene la clave de
+  servicio (ADR-132). Está en LIMITACIONES.
+- El costo es de centavos por pedido —el pedido son unos cientos de tokens de
+  entrada—, así que no lleva confirmación previa como el lote de descripciones.

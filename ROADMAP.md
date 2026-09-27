@@ -538,8 +538,11 @@ Objetivo: AI útil sin volverla requisito del ecommerce.
   usar un LLM completo para cada búsqueda»; además pondría un viaje a OpenAI
   en el camino crítico de la PLP, que tiene presupuesto de performance, y
   obligaría a que el storefront también pudiera descifrar la credencial.
+  **Retomado en la Fase 8 de v2** (ADR-137): el precio escrito en la frase se lee
+  sin modelo, y lo que sí necesitaría uno espera consultas reales.
 - [-] AI summary de analytics opcional. El propio ROADMAP lo marca opcional. Se
-  difiere entero en vez de a medias.
+  difiere entero en vez de a medias. **Hecho en la Fase 8 de v2** (ADR-138), con
+  los números calculados por el Admin para que el modelo no pueda inventarlos.
 
 **Definition of Done**
 
@@ -1465,10 +1468,9 @@ clave de OpenAI sigue teniendo el buscador de la Fase 3, completo.
       el techo o si el Admin tarda más de 800 ms.
 - [x] Aislamiento en el camino vectorial: el `store_id` va en los dos `where`.
       Probado contra el remoto: preguntar por otra tienda devuelve cero filas.
-- [ ] Los dos ítems que la Fase 11 difirió —`search query understanding` y el
-      resumen del negocio con IA— **quedan fuera por decisión de scope**: son la
-      misma forma pero otro trabajo, y no tienen un pedido real detrás. Pasan a la
-      Fase 8.
+- [x] Los dos ítems que la Fase 11 difirió —`search query understanding` y el
+      resumen del negocio con IA— quedaron fuera de esta fase por scope y **se
+      hicieron en la Fase 8**: ADR-137 y ADR-138.
 - [ ] Fuera de esta fase y de v2: búsqueda por imagen.
 
 **Definition of Done**
@@ -1491,7 +1493,7 @@ clave de OpenAI sigue teniendo el buscador de la Fase 3, completo.
 
 ## Fase 8 — Operación avanzada: lo que quedaba del v2 escrito
 
-**Avance: 40%**
+**Avance: 60%**
 
 > **Ninguno de los cinco bloques escritos se pudo empezar, y está medido.** Tres
 > los bloquea su propio Definition of Done —B2B, multi-location y los presets
@@ -1535,13 +1537,36 @@ clave de OpenAI sigue teniendo el buscador de la Fase 3, completo.
       fuera del modo demo o con un solo pedido de alguien real, y se puede
       retomar: la primera corrida se cortó y retomarla al día siguiente sorteaba
       otra tienda, que es lo que llevó a `--hasta` y a la baranda que compara lo
-      creado con el plan. Desbloquea cohortes, RFM, envejecimiento de inventario
-      y entender la consulta, que ahora tienen contra qué validarse.
+      creado con el plan. Desbloquea cohortes, RFM y envejecimiento de inventario,
+      que ahora tienen contra qué validarse. **No desbloquea entender la
+      consulta**, y decirlo fue optimista: las frases que busca la simulación son
+      marcas, categorías y palabras de los títulos, o sea vocabulario del propio
+      generador, así que validar un intérprete de intención contra ellas es
+      circular (ADR-137).
 
 Objetivo: lo que el v2 original tenía adelante y que ahora sí se puede apoyar en
 algo. No es una fase que se tome entera: se toma de a un bloque, con un cliente
 —real o simulado— que lo pida.
 
+- [x] **Entender la consulta, la parte que no necesita un modelo** (ADR-137).
+      «campera hasta 200 mil» es un término más un filtro: el precio sale de la
+      frase y va a `precioMin`/`precioMax`, que el catálogo tiene desde la Fase 2.
+      Sin esto, «hasta», «200» y «mil» entraban como palabras a buscar y —al
+      exigirse todos los términos— **vaciaban la página**. Tres formas con sus
+      variantes sin acento, «200 mil» = «200k» = «200.000», y un número suelto no
+      es un precio. El `precio` de la URL manda sobre el deducido.
+      Lo que falta —«negra» como filtro de color— necesita el vocabulario de la
+      tienda y un modelo, y **espera consultas reales**: las once de Treeshop no
+      alcanzan y las de la tienda simulada salen del propio generador, así que
+      validar contra ellas sería circular. Eso corrige lo que decía el encabezado
+      de esta fase.
+- [x] **El resumen del negocio con IA** (ADR-138). En Resumen: qué pasó en el
+      período, en un párrafo, con **los números calculados por el Admin**. El
+      modelo redacta y no suma, así que el párrafo no puede contradecir a la tabla
+      de abajo; lo que falta se declara faltante y no como cero. Cruza pedidos y
+      eventos a propósito, y puede porque recibe la conversión ya calculada
+      (ADR-099). Se pide a mano y gasta la clave del comercio, así que pide
+      `settings.write`.
 - [ ] **Fidelidad, por tienda.** Recién acá: un ledger sin sesión es un ledger
       con clave email, y cualquiera que sepa el correo reclama los puntos. En el
       v2 escrito estaba dos fases antes de que existiera cualquier identidad de
@@ -2064,6 +2089,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-24 | **v2 Fase 8 al 30%: cohortes y RFM.** «Recurrencia», en Clientes, dice quién vuelve a comprar: cohortes por mes de primera compra cortadas en la zona horaria de quien mira, y siete segmentos RFM que filtran una lista paginada en el servidor (ADR-134). Desde los pedidos sin cancelados, en dos funciones `security invoker` con su suite en PGlite y su e2e en desktop y mobile. La recencia va por `cume_dist` y la frecuencia por bandas fijas, porque en quintiles el 74 % que compró una vez se repartía al azar. De paso, el sidebar dejó de marcar activas a Productos y Descripciones a la vez                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | v2 Fase 8 |          20% |            30% |
 | 2026-09-24 | **v2 Fase 8 al 40%: antigüedad del stock.** «Stock quieto», en Productos, dice cuánta plata hay parada y hace cuánto: cuatro tramos por días desde la última venta, a precio y a costo con su cobertura (ADR-135). La base no sabe cuándo entró cada unidad, así que mide desde la última venta o desde el alta, y está en LIMITACIONES. Advanced Analytics queda cerrado. De paso, `simular:catalogo` conserva la fecha de alta: sin ella, lo que nunca se vendió tenía cero días                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | v2 Fase 8 |          30% |            40% |
 | 2026-09-27 | **El stock se guarda en la sucursal que se nombra** (ADR-136). Los tres hallazgos del backlog que multi-location tenía delante, y que eran el mismo: el Admin escribía en la primera sucursal, leía la suma de todas y la reescribía en una —30 → 50 → 70 en tres guardados sin tocar el campo— y un negativo en un depósito se compensaba con el positivo de otro. Ahora el payload nombra la sucursal, un número suelto falla si hay más de una en vez de elegir por su cuenta, y Configuración crea sucursales con su total y sus negativos a la vista. De paso, la ficha del producto dejaba cacheado lo de antes al volver a abrirla después de guardar. Con una sucursal no cambia nada, que es el caso de todas las tiendas de hoy                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | v2 Fase 8 |          40% |            40% |
+| 2026-09-27 | **Los dos ítems de IA que la Fase 11 difirió.** El precio escrito en la frase se lee sin modelo (ADR-137): «campera hasta 200 mil» es un término más un filtro, y antes «hasta», «200» y «mil» entraban como palabras y vaciaban la página. Y el período se cuenta en palabras en Resumen (ADR-138), con los números calculados por el Admin para que el modelo redacte y no sume: así el párrafo no puede contradecir a la tabla de abajo. De paso, se corrige lo que este ROADMAP decía: la tienda simulada **no** desbloquea entender la consulta, porque sus frases salen del propio generador                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | v2 Fase 8 |          40% |            60% |
 
 ---
 

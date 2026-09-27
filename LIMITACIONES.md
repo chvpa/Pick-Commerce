@@ -427,3 +427,29 @@ dejan de abrirse y hay que volver a cargarlas desde Configuración.
 
 Y no puede: el esquema de la respuesta no los declara. Es deliberado — un número
 plausible inventado se descubre cuando alguien compra.
+
+### El contador de gasto de IA sólo ve las búsquedas
+
+`ai_usage` lo escribe el storefront, que es el único que tiene la clave de
+servicio (ADR-132). Todo lo que gasta desde el Admin —enriquecer un producto, leer
+una etiqueta, limpiar una foto, escribir descripciones en lote, resumir el
+período— **no aparece en ese contador ni cuenta para el techo**. El gasto real está
+en la cuenta de OpenAI del comercio.
+
+**Qué lo desbloquea:** una función que el Admin pueda llamar para registrar su
+propio uso. No existe porque el Worker del Admin no tiene la clave de servicio, y
+dársela sería la única forma de que el navegador no pudiera inflar el número.
+
+### El resumen del período no se guarda
+
+Se pide cuando se quiere leer y no queda archivado. Un resumen viejo al lado de
+números nuevos es exactamente lo que ADR-138 evita, y decidir qué hacer cuando los
+números cambian debajo es más trabajo que volver a pedirlo.
+
+### La búsqueda entiende el precio de la frase, y nada más
+
+«campera hasta 200 mil» filtra por precio (ADR-137). «campera negra» **no** se
+convierte en un filtro de color: mapear palabras a valores de faceta necesita el
+vocabulario de la tienda y un modelo, y eso espera consultas reales para saber qué
+escribe la gente. Las once que hay no alcanzan, y las de la tienda simulada salen
+del propio generador.

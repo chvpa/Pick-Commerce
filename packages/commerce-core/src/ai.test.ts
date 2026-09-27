@@ -8,6 +8,7 @@ import {
   cifrar,
   descifrar,
   entradaDeLaFicha,
+  entradaDelNegocio,
   entradaDelProducto,
   costoEstimado,
   esCodigoDeBarras,
@@ -367,4 +368,69 @@ test('el costo estimado sale del precio publicado, no de un número inventado', 
 
 test('el vector viaja a Postgres en la forma que castea', () => {
   assert.equal(vectorATexto([0.1, -0.2, 0]), '[0.1,-0.2,0]');
+});
+
+/*
+ * El período que se le cuenta al modelo (ADR-138).
+ *
+ * Lo que se prueba es lo único que puede arruinar el resumen: un número que no
+ * coincide con la pantalla, o un dato que falta y se cuenta como cero.
+ */
+
+const NEGOCIO = {
+  tienda: 'Tienda de prueba',
+  desde: '2026-09-01',
+  hasta: '2026-09-30',
+  moneda: 'PYG',
+  ventas: 12_500_000,
+  pedidos: 25,
+  ticket: 500_000,
+  unidades: 40,
+  margen: 3_000_000,
+  coberturaDelMargen: 0.62,
+  sesiones: 1900,
+  agregaronAlCarrito: 0.12,
+  empezaronElCheckout: 0.04,
+  conversion: 0.013,
+  abandonaron: 51,
+  topProductos: [{ titulo: 'Campera azul', unidades: 12, ingresos: 4_680_000 }],
+  sinResultados: [{ termino: 'botines', busquedas: 9 }],
+};
+
+test('el resumen recibe los números ya calculados, en unidades mayores', () => {
+  const texto = entradaDelNegocio(NEGOCIO);
+
+  assert.match(texto, /25 pedidos/);
+  assert.match(texto, /40 unidades/);
+  assert.match(texto, /1900/);
+  assert.match(texto, /51 sesiones/);
+  // Porcentajes con una decimal, como los muestra la pantalla.
+  assert.match(texto, /Compraron: 1\.3 %/);
+  assert.match(texto, /62\.0 %/);
+  // La plata formateada con su moneda, no en unidades mínimas sueltas.
+  assert.match(texto, /12\.500\.000/);
+  assert.match(texto, /botines: 9 búsquedas sin resultados/);
+  assert.match(texto, /Campera azul: 12 unidades/);
+});
+
+test('un margen ausente se declara faltante y no como cero', () => {
+  const { margen: _sin, ...sinMargen } = NEGOCIO;
+  const texto = entradaDelNegocio({ ...sinMargen, coberturaDelMargen: 0 });
+
+  assert.match(texto, /Margen: no disponible/);
+  assert.doesNotMatch(texto, /Margen: 0/);
+});
+
+test('sin ventas y sin búsquedas fallidas lo dice, en vez de callarse', () => {
+  const texto = entradaDelNegocio({ ...NEGOCIO, topProductos: [], sinResultados: [] });
+
+  assert.match(texto, /no hubo ventas en el período/);
+  assert.match(texto, /todas las búsquedas devolvieron productos/);
+});
+
+test('cuando la medición empieza tarde, el modelo se entera', () => {
+  // Sin este aviso, el párrafo compararía ventas de treinta días contra el embudo
+  // de tres, que es el error que ADR-099 documenta.
+  const texto = entradaDelNegocio({ ...NEGOCIO, medidoDesde: '2026-09-27' });
+  assert.match(texto, /se miden desde el 2026-09-27/);
 });

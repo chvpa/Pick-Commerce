@@ -1,4 +1,5 @@
-import type { Money, Product } from '@pick/commerce-types';
+import type { CurrencyCode, Money, Product } from '@pick/commerce-types';
+import { money } from './money.ts';
 import type { SeccionResuelta } from './content.ts';
 
 /** Atributo o campo → valores seleccionados. Una faceta con varios valores es un OR. */
@@ -48,6 +49,104 @@ export interface CatalogQuery {
   readonly precioMax?: number;
   readonly page?: number;
   readonly perPage?: number;
+}
+
+/**
+ * Lo que se puede leer de una frase de búsqueda además de las palabras (ADR-137).
+ *
+ * `terminos` es la frase **sin** lo que se convirtió en filtro: si queda vacía,
+ * la búsqueda era sólo un precio y el catálogo se filtra sin término.
+ */
+export interface ConsultaInterpretada {
+  readonly terminos: string;
+  /** En unidades mínimas, como `Money`: ya convertido con la moneda de la tienda. */
+  readonly precioMin?: number;
+  readonly precioMax?: number;
+}
+
+/*
+ * Las tres formas de nombrar un precio, con las variantes sin acento porque nadie
+ * escribe «máximo» con tilde en un buscador. El orden importa: «entre X y Y» tiene
+ * que probarse antes que «más de X», que también casaría con su primera mitad.
+ */
+const NUMERO = String.raw`(\d[\d. ]*(?:,\d+)?)\s*(mil|k)?`;
+const ENTRE = new RegExp(String.raw`\bentre\s+${NUMERO}\s+y\s+${NUMERO}`, 'i');
+const HASTA = new RegExp(
+  String.raw`\b(?:hasta|menos de|menor a|menores a|por debajo de|m[aá]ximo|max)\s+${NUMERO}`,
+  'i',
+);
+const DESDE = new RegExp(
+  String.raw`\b(?:desde|m[aá]s de|mayor a|mayores a|arriba de|m[ií]nimo|min)\s+${NUMERO}`,
+  'i',
+);
+
+/**
+ * Un número escrito como lo escribe una persona, en unidades mayores.
+ *
+ * El punto es separador de miles en es-PY —«200.000»— y la coma es el decimal, al
+ * revés que en el `Number` de JavaScript. «200 mil» y «200k» son lo mismo.
+ */
+function numero(digitos: string, multiplicador: string | undefined): number {
+  const limpio = digitos.replace(/[. ]/g, '').replace(',', '.');
+  const valor = Number(limpio);
+  if (!Number.isFinite(valor)) return Number.NaN;
+  return multiplicador === undefined ? valor : valor * 1000;
+}
+
+/**
+ * Saca el precio de la frase y devuelve el resto.
+ *
+ * Es el primer escalón de «query understanding» de PROJECT.md §21, y el único que
+ * **no** necesita un LLM: «campera hasta 200 mil» es un término más un filtro que
+ * el catálogo ya sabe aplicar, y sin esto «hasta», «200» y «mil» entraban como
+ * palabras a buscar, donde no coinciden con nada y ensucian la relevancia.
+ *
+ * Un número suelto no se toca: «campera 500» puede ser un modelo, y adivinar ahí
+ * costaría más de lo que arregla.
+ */
+export function interpretarConsulta(frase: string, moneda: CurrencyCode): ConsultaInterpretada {
+  let resto = frase;
+  let min: number | undefined;
+  let max: number | undefined;
+
+  const entre = ENTRE.exec(resto);
+  if (entre) {
+    const a = numero(entre[1]!, entre[2]);
+    const b = numero(entre[3]!, entre[4]);
+    if (Number.isFinite(a) && Number.isFinite(b)) {
+      min = Math.min(a, b);
+      max = Math.max(a, b);
+      resto = resto.replace(entre[0], ' ');
+    }
+  }
+
+  if (max === undefined) {
+    const hasta = HASTA.exec(resto);
+    if (hasta) {
+      const valor = numero(hasta[1]!, hasta[2]);
+      if (Number.isFinite(valor)) {
+        max = valor;
+        resto = resto.replace(hasta[0], ' ');
+      }
+    }
+  }
+
+  if (min === undefined) {
+    const desde = DESDE.exec(resto);
+    if (desde) {
+      const valor = numero(desde[1]!, desde[2]);
+      if (Number.isFinite(valor)) {
+        min = valor;
+        resto = resto.replace(desde[0], ' ');
+      }
+    }
+  }
+
+  return {
+    terminos: resto.replace(/\s+/g, ' ').trim(),
+    ...(min === undefined ? {} : { precioMin: money(min, moneda).amount }),
+    ...(max === undefined ? {} : { precioMax: money(max, moneda).amount }),
+  };
 }
 
 export interface FacetValue {

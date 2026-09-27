@@ -1,3 +1,4 @@
+import type { NegocioParaResumir } from '@pick/commerce-core';
 import { db } from './supabase.ts';
 
 /**
@@ -132,6 +133,19 @@ export function fichaDesdeFotos(
   categorias: { id: string; nombre: string }[],
 ): Promise<{ ficha: FichaDeIA }> {
   return pedir('/api/ia/ficha', { storeId, imagenes, categorias });
+}
+
+/**
+ * El período del negocio contado en palabras (ADR-138).
+ *
+ * Los números van **calculados desde acá**: son los mismos que la pantalla
+ * muestra, así que el resumen no puede decir otra cosa que la tabla de al lado.
+ */
+export function resumirNegocio(
+  storeId: string,
+  negocio: NegocioParaResumir,
+): Promise<{ resumen: string }> {
+  return pedir('/api/ia/resumen', { storeId, negocio });
 }
 
 /** Lo que devuelve `/v1/images/edits`: la imagen en base64. */

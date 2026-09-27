@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Product, ProductVariant } from '@pick/commerce-types';
-import { buildFacets, lowestPrice, queryCatalog } from './catalog.ts';
+import { buildFacets, interpretarConsulta, lowestPrice, queryCatalog } from './catalog.ts';
 import { money } from './money.ts';
 
 function variant(id: string, attrs: Record<string, string>, price: number): ProductVariant {
@@ -172,4 +172,72 @@ test('lo que no tiene fecha ni ventas cae al final, no al principio', () => {
 
   assert.equal(queryCatalog(conHuecos, { sort: 'newest' }).items.at(-1)!.id, 'sin');
   assert.equal(queryCatalog(conHuecos, { sort: 'best-selling' }).items.at(-1)!.id, 'sin');
+});
+
+/*
+ * Leer el precio de la frase (ADR-137).
+ *
+ * En PYG no hay decimales, así que la unidad mínima y la mayor coinciden y los
+ * números se leen igual que los escribe una persona. El último test usa una moneda
+ * con centavos, que es donde la conversión importa.
+ */
+
+test('«hasta» deja el término y saca el precio', () => {
+  assert.deepEqual(interpretarConsulta('campera hasta 200000', 'PYG'), {
+    terminos: 'campera',
+    precioMax: 200000,
+  });
+});
+
+test('«200 mil» y «200k» son lo mismo, y el punto es separador de miles', () => {
+  for (const frase of ['campera hasta 200 mil', 'campera hasta 200k', 'campera hasta 200.000']) {
+    assert.deepEqual(
+      interpretarConsulta(frase, 'PYG'),
+      { terminos: 'campera', precioMax: 200000 },
+      frase,
+    );
+  }
+});
+
+test('«entre» da los dos extremos, en el orden que corresponde', () => {
+  assert.deepEqual(interpretarConsulta('zapatilla entre 300 mil y 150 mil', 'PYG'), {
+    terminos: 'zapatilla',
+    precioMin: 150000,
+    precioMax: 300000,
+  });
+});
+
+test('«más de» y «mínimo» dan el piso, con y sin acento', () => {
+  for (const frase of ['mas de 500 mil', 'más de 500 mil', 'minimo 500 mil', 'mínimo 500 mil']) {
+    assert.deepEqual(interpretarConsulta(frase, 'PYG'), { terminos: '', precioMin: 500000 }, frase);
+  }
+});
+
+test('un número suelto no es un precio', () => {
+  // «campera 500» puede ser un modelo: adivinar acá costaría más de lo que arregla.
+  assert.deepEqual(interpretarConsulta('campera 500', 'PYG'), { terminos: 'campera 500' });
+  assert.deepEqual(interpretarConsulta('SKU-12345', 'PYG'), { terminos: 'SKU-12345' });
+});
+
+test('una frase que es sólo un precio deja el término vacío', () => {
+  // El catálogo se filtra sin buscar nada, que es mejor que cero resultados.
+  assert.deepEqual(interpretarConsulta('hasta 200 mil', 'PYG'), {
+    terminos: '',
+    precioMax: 200000,
+  });
+});
+
+test('una frase sin precio vuelve tal cual', () => {
+  assert.deepEqual(interpretarConsulta('  campera   negra  ', 'PYG'), {
+    terminos: 'campera negra',
+  });
+});
+
+test('el precio se convierte a unidades mínimas con la moneda de la tienda', () => {
+  // 200 dólares son 20000 centavos: sin esto, el filtro buscaría productos de dos
+  // dólares y la página saldría vacía.
+  assert.deepEqual(interpretarConsulta('remera hasta 200', 'USD'), {
+    terminos: 'remera',
+    precioMax: 20000,
+  });
 });

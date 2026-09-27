@@ -12,6 +12,7 @@ import {
   ultimosCuatro,
   type CategoriaConocida,
   type ModeloDeIA,
+  type NegocioParaResumir,
   type ProductoParaEnriquecer,
   type Propuesta,
 } from '@pick/commerce-core';
@@ -400,6 +401,37 @@ async function ficha(ctx: Contexto): Promise<Response> {
   });
 }
 
+/**
+ * El período del negocio contado en palabras (ADR-138).
+ *
+ * **Los números llegan calculados desde el Admin**, que es el que los tiene en
+ * pantalla: el Worker no consulta la base para esto, no los recalcula y no puede
+ * inventarlos. Así el resumen no puede contradecir a la tabla de al lado, que es
+ * la única forma de que sirva para decidir algo.
+ *
+ * Pide `settings.write` como las demás, porque gasta la clave del comercio.
+ */
+async function resumir(ctx: Contexto): Promise<Response> {
+  const negocio = ctx.cuerpo.negocio as NegocioParaResumir | undefined;
+  if (!negocio || typeof negocio.sesiones !== 'number' || typeof negocio.ventas !== 'number') {
+    return error('bad_request', 'Faltan los números del período.', 400);
+  }
+
+  const credencial = await credencialEnClaro(ctx);
+  if (credencial instanceof Response) return credencial;
+
+  try {
+    const texto = await proveedorOpenAI().resumir({
+      apiKey: credencial.apiKey,
+      modelo: credencial.modelo,
+      negocio,
+    });
+    return json({ resumen: texto });
+  } catch (causa) {
+    return fallaDelProveedor('ia/resumen', causa);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // El router
 // ---------------------------------------------------------------------------
@@ -410,6 +442,7 @@ const RUTAS: Record<string, (ctx: Contexto) => Promise<Response>> = {
   '/api/ia/enriquecer': enriquecer,
   '/api/ia/ficha': ficha,
   '/api/ia/fondo': limpiarFondo,
+  '/api/ia/resumen': resumir,
 };
 
 /**

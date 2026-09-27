@@ -4,10 +4,12 @@ import {
   ESQUEMA_DE_PROPUESTA,
   INSTRUCCIONES,
   INSTRUCCIONES_DE_FICHA,
+  INSTRUCCIONES_DE_RESUMEN,
   INSTRUCCION_DE_FONDO,
   MODELO_DE_EMBEDDINGS,
   MODELO_DE_IMAGEN,
   entradaDeLaFicha,
+  entradaDelNegocio,
   entradaDelProducto,
   soloCamposDeFicha,
   soloCamposPermitidos,
@@ -19,6 +21,7 @@ import {
   type PeticionDeEnriquecimiento,
   type PeticionDeFicha,
   type PeticionDeFondo,
+  type PeticionDeResumen,
   type PropuestaCruda,
 } from '@pick/commerce-core';
 
@@ -180,6 +183,36 @@ export function proveedorOpenAI(): AIProvider {
         quehacer: 'OpenAI no pudo leer la ficha',
       });
       return soloCamposDeFicha(bruto);
+    },
+
+    /*
+     * El período contado en palabras (ADR-138).
+     *
+     * Sin `json_schema`: la salida es un párrafo, no un objeto, y forzarle un
+     * esquema de un solo campo sería ceremonia. Los números **no** los calcula el
+     * modelo, llegan hechos: eso es lo que impide que el resumen contradiga a la
+     * pantalla de al lado.
+     */
+    async resumir({ apiKey, modelo, negocio }: PeticionDeResumen): Promise<string> {
+      const respuesta = await fetch(`${RAIZ}/responses`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modelo,
+          max_output_tokens: MAXIMO_DE_TOKENS,
+          input: [
+            { role: 'system', content: INSTRUCCIONES_DE_RESUMEN },
+            { role: 'user', content: entradaDelNegocio(negocio) },
+          ],
+        }),
+      });
+
+      if (!respuesta.ok) throw await fallo(respuesta, 'OpenAI no pudo escribir el resumen');
+
+      return textoDeLaRespuesta((await respuesta.json()) as RespuestaDeOpenAI).trim();
     },
 
     /*
