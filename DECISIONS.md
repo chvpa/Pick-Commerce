@@ -2059,10 +2059,10 @@ organización de demostración. Las credenciales van por argumento y **no viven 
 el repo**: un usuario y una contraseña commiteados terminan, tarde o temprano,
 existiendo en producción.
 
-**Limitación conocida**
-El stock se escribe en la primera sucursal de la tienda. El Admin todavía no
-tiene selector de sucursal, y elegir una a ciegas escondería que falta
-configurarla. Registrado en el backlog.
+**Limitación conocida, corregida el 2026-09-27**
+El stock se escribía en la primera sucursal de la tienda. Ahora el formulario
+nombra la sucursal y con más de una ofrece elegirla; un número suelto falla en vez
+de elegir a ciegas. Ver ADR-136.
 
 ---
 
@@ -6595,3 +6595,68 @@ por handle.
 - La edad real necesita un libro de movimientos de stock —entradas, ajustes,
   ventas, devoluciones— con fecha. Es también lo que multi-location va a pedir
   para transferencias, así que se decide ahí y no acá.
+
+---
+
+## ADR-136 — El stock lo escribe quien nombra la sucursal, y un número suelto sólo vale con una
+
+**Fecha:** 2026-09-27
+**Estado:** Accepted
+
+**Contexto**
+`inventory_levels` guarda el stock por sucursal desde la Fase 4, y el Admin nunca
+lo supo. `admin_save_product` tomaba **la primera** sucursal de la tienda
+—`order by created_at limit 1`— y el formulario mostraba la **suma** de todas.
+Con una sucursal, que es lo que tiene toda tienda del proyecto hasta hoy, las dos
+cosas coinciden y no se nota. Con dos, son tres defectos a la vez, los tres
+anotados en el backlog y el más viejo del 2026-08-26:
+
+- el ajuste va al depósito que no es;
+- el formulario lee 50 —30 de un depósito y 20 del otro— y guarda 50 en el
+  primero: cada guardado que no toca el campo suma, 30 → 50 → 70;
+- un -2 en una sucursal y un 5 en otra son 3 en toda lectura, y el descuadre
+  —que es justo lo que el espejo del ERP existe para mostrar (ADR-009)—
+  desaparece.
+
+Multi-location avanzado depende de esto y no al revés: construir allocation sobre
+un stock que se escribe en la sucursal equivocada es construir sobre un bug.
+
+**Decisión**
+
+- **El payload nombra la sucursal.** `variant.stockPorSucursal` es un mapa
+  `{ location_id: unidades }`, y **sólo las sucursales que aparecen se escriben**:
+  la que no viene queda como está. De ahí sale que el formulario ya no pueda
+  escribir una suma ni pisar un depósito que no estaba editando.
+- **El número suelto `stock` sobrevive, y falla si hay más de una sucursal.** No
+  se borró porque el import de CSV tiene una columna de stock y no puede tener
+  más —el mismo esquema valida el formulario y el archivo—. Antes elegía una
+  sucursal; ahora, con dos, levanta una excepción que nombra el problema. Un
+  espejo que miente es peor que un espejo que se cae.
+- **Las tres pantallas que cargan stock pasan la sucursal siempre**, incluso
+  cuando hay una sola, así que el camino del número suelto no se usa desde el
+  Admin: queda como compatibilidad para lo que entre por fuera.
+- **Se edita una sucursal a la vez, con un desplegable**, y no una columna de
+  stock por sucursal. Con tres depósitos y ocho variantes serían veinticuatro
+  campos para editar uno, que es lo que se hace. Con una sola sucursal no hay
+  desplegable y la pantalla es la de antes, byte por byte.
+- **El export de CSV usa la misma sucursal elegida que el import.** Si el archivo
+  sale con la suma y entra en un depósito, un ida y vuelta duplica el inventario.
+- **Las sucursales se crean y se renombran en Configuración**, con el total y
+  cuántas variantes están en negativo al lado de cada una. Ese contador es el
+  tercer hallazgo puesto a la vista.
+
+**Consecuencias**
+
+- Una tienda con una sucursal no cambia en nada: ni pantalla, ni payload, ni SQL.
+- `admin_locations` es la única lectura nueva, y es `security invoker`:
+  `locations` e `inventory_levels` ya tienen política de lectura por membresía.
+- El ERP sigue dejando todo en una sucursal, porque su payload no dice el depósito
+  (ADR-086). Eso no cambia acá y está en LIMITACIONES.
+- **Borrar una sucursal no existe**, y no es un olvido: `inventory_levels` cuelga
+  de ella con `on delete cascade`, así que el borrado se llevaría su stock sin
+  decirlo. La guarda no puede ir en un trigger porque el mismo cascade ocurre al
+  borrar la tienda —lo usa el teardown del e2e— y ahí tiene que funcionar. Cuando
+  haya que cerrar una sucursal, la pregunta es a dónde va su stock, y eso pide el
+  libro de movimientos que ADR-135 también nombra.
+- Lo que sigue faltando de multi-location es lo que el ERP bloquea: allocation,
+  pickup por sucursal, routing y reservas por capability.

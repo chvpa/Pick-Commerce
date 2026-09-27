@@ -22,10 +22,18 @@ const repo: RepositorioTiendas = {
       ? { tenantId: 't1', storeId: 's1', currency: 'PYG', locale: 'es-PY', name: 'Tienda' }
       : null;
   },
-  // `resolverTenant` no la usa; existe para cumplir el contrato del puerto.
+  // Las de abajo no las usa `resolverTenant`; existen para cumplir el contrato
+  // del puerto, que además de resolver el dominio administra tiendas y sucursales.
   async mias() {
     return [];
   },
+  async sucursales() {
+    return [];
+  },
+  async crearSucursal() {
+    return 'l1';
+  },
+  async renombrarSucursal() {},
 };
 
 test('resuelve el tenant desde el host de la petición', async () => {

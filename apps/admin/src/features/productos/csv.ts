@@ -157,6 +157,11 @@ export function prepararImport(
     /** Handles que ya existen en la tienda, para decir qué se crea y qué se actualiza. */
     readonly existentes: ReadonlySet<string>;
     readonly moneda: string;
+    /**
+     * La sucursal a la que va la columna `stock`. Un archivo plano no puede
+     * traerla: tiene una columna de stock y punto, así que la elige la pantalla.
+     */
+    readonly sucursalId?: string;
   },
 ): Preparado {
   const errores: ErrorFila[] = [];
@@ -219,7 +224,11 @@ export function prepararImport(
         : { compareAtPrice: money(f.precio_anterior, opciones.moneda as 'PYG').amount }),
       ...(f.costo === undefined ? {} : { cost: money(f.costo, opciones.moneda as 'PYG').amount }),
       attributes: parsearAtributosCsv(f.atributos ?? ''),
-      ...(f.stock === undefined ? {} : { stock: f.stock }),
+      ...(f.stock === undefined
+        ? {}
+        : opciones.sucursalId
+          ? { stockPorSucursal: { [opciones.sucursalId]: f.stock } }
+          : { stock: f.stock }),
     };
 
     const existente = porHandle.get(f.handle);
@@ -263,10 +272,30 @@ export function prepararImport(
   };
 }
 
-/** Filas de export: una por variante, con los datos del producto repetidos. */
+/**
+ * El stock de la sucursal elegida, o el total si no se eligió ninguna.
+ *
+ * Una variante sin fila en esa sucursal exporta `0` y no vacío: vacío significa
+ * «no digo nada del stock» y dejaría el número anterior al reimportar, que no es
+ * lo que muestra la pantalla.
+ */
+function stockExportado(v: VarianteEditable, sucursalId?: string): string {
+  if (sucursalId) return String(v.stockPorSucursal?.[sucursalId] ?? 0);
+  return v.stock === undefined ? '' : String(v.stock);
+}
+
+/**
+ * Filas de export: una por variante, con los datos del producto repetidos.
+ *
+ * `sucursalId` es la misma que elige el import, y por eso hace falta: sin ella la
+ * columna `stock` sería la suma de las sucursales, y reimportar ese archivo
+ * metería la suma en una sola. El archivo que sale y el que entra tienen que
+ * hablar de lo mismo.
+ */
 export function filasDe(
   productos: readonly ProductoEditable[],
   categorias: ReadonlyMap<string, string>,
+  sucursalId?: string,
 ): Fila[] {
   return productos.flatMap((p) =>
     p.variants.map((v) => ({
@@ -287,7 +316,7 @@ export function filasDe(
         v.cost === undefined
           ? ''
           : String(toMajorUnits({ amount: v.cost, currency: v.currency as 'PYG' })),
-      stock: v.stock === undefined ? '' : String(v.stock),
+      stock: stockExportado(v, sucursalId),
       atributos: formatearAtributosCsv(v.attributes),
       codigo_barras: v.barcode ?? '',
     })),

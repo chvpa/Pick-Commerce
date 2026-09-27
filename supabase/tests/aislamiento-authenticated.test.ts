@@ -70,6 +70,9 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   // La antigüedad del stock: invoker, la acota RLS sobre el catálogo, el stock y
   // los pedidos (ADR-135).
   ['public.admin_inventory_aging', `admin_inventory_aging('${TIENDA}', null, 1, 20)`],
+  // Las sucursales con su stock: invoker sobre `locations` e `inventory_levels`,
+  // que tienen política de lectura por membresía.
+  ['public.admin_locations', `admin_locations('${TIENDA}')`],
   ['public.admin_dashboard', `admin_dashboard('${TIENDA}', now() - interval '30 days', now())`],
   ['public.admin_analytics', `admin_analytics('${TIENDA}', now() - interval '30 days', now())`],
   [

@@ -15,6 +15,7 @@ import { SelectItem } from '@/components/ui/select';
 import { EstadoVacio, PaginaAdmin, Selector, Tarjeta, TituloDeTarjeta } from '@/components/pagina';
 import { usePuede } from '@/features/auth/usePuede';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
+import { useSucursales } from '@/features/tienda/useSucursales';
 import { normalizarFoto } from '@/lib/foto';
 import { ErrorDeIA, fichaDesdeFotos, limpiarFondo, type FichaDeIA } from '@/lib/ia';
 import { db } from '@/lib/supabase';
@@ -88,6 +89,10 @@ export function CargarConCamara() {
   const navegar = useNavigate();
   const queryClient = useQueryClient();
   const entrada = useRef<HTMLInputElement>(null);
+
+  const { sucursales, varias, unica } = useSucursales();
+  const [sucursal, setSucursal] = useState<string | undefined>(undefined);
+  const sucursalDestino = sucursal ?? unica ?? sucursales[0]?.id;
 
   const [paso, setPaso] = useState<1 | 2 | 3>(1);
   const [fotos, setFotos] = useState<readonly Foto[]>([]);
@@ -268,7 +273,7 @@ export function CargarConCamara() {
 
       return repositorioAdminCatalogo(db).guardar(
         tienda.id,
-        productoParaGuardar(revisado.data, tienda.currency as 'PYG'),
+        productoParaGuardar(revisado.data, tienda.currency as 'PYG', sucursalDestino),
       );
     },
     onSuccess: async () => {
@@ -694,6 +699,27 @@ export function CargarConCamara() {
                         onChange={(e) => cambiar({ stock: e.target.value })}
                       />
                     </Campo>
+
+                    {/*
+                      Con varias sucursales hay que decir en cuál entra la
+                      mercadería: es una tanda que se carga en un depósito, y
+                      elegir sola la primera fue el bug que este trabajo cierra.
+                    */}
+                    {varias && (
+                      <Campo id="alta-sucursal" label="Sucursal">
+                        <Selector
+                          value={sucursalDestino ?? ''}
+                          aria-label="Sucursal"
+                          onValueChange={setSucursal}
+                        >
+                          {sucursales.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name}
+                            </SelectItem>
+                          ))}
+                        </Selector>
+                      </Campo>
+                    )}
 
                     <Campo id="alta-estado" label="Estado">
                       <Selector

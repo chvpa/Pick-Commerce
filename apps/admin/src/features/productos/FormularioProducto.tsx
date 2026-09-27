@@ -36,6 +36,7 @@ import {
 } from '@/components/pagina';
 import { Input } from '@/components/ui/input';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
+import { useSucursales } from '@/features/tienda/useSucursales';
 import { db } from '@/lib/supabase';
 import {
   formatearAtributos,
@@ -136,6 +137,16 @@ export function FormularioProducto({ id }: { id?: string }) {
     queryFn: () => repositorioCatalogo(db).categorias(tienda.id),
   });
 
+  /*
+   * El stock se edita **de una sucursal a la vez**, y con una sola —el caso de
+   * todas las tiendas de hoy— no se elige nada y la pantalla es la de siempre.
+   * Una columna de stock por sucursal sería la otra forma; con tres depósitos y
+   * ocho variantes son veinticuatro campos, y editar uno es lo que se hace.
+   */
+  const { sucursales, varias, unica } = useSucursales();
+  const [sucursal, setSucursal] = useState<string | undefined>(undefined);
+  const elegida = sucursal ?? unica ?? sucursales[0]?.id;
+
   const {
     register,
     control,
@@ -231,6 +242,23 @@ export function FormularioProducto({ id }: { id?: string }) {
     } as unknown as Valores);
   }, [cargado.data, reset]);
 
+  /*
+   * El stock que se muestra es el de la sucursal elegida, no la suma.
+   *
+   * Aparte del `reset` y no adentro porque también corre al **cambiar** de
+   * sucursal, y ahí resetear el formulario entero tiraría lo que se esté
+   * editando. Se empareja por id de variante: las filas del formulario y las del
+   * producto cargado no tienen por qué estar en el mismo orden ni ser las mismas.
+   */
+  useEffect(() => {
+    const p = cargado.data?.producto;
+    if (!p || !elegida) return;
+    getValues('variantes').forEach((fila, i) => {
+      const v = p.variants.find((x) => x.id === fila.id);
+      if (v) setValue(`variantes.${i}.stock`, String(v.stockPorSucursal?.[elegida] ?? 0));
+    });
+  }, [cargado.data, elegida, getValues, setValue]);
+
   // El handle se propone desde el título mientras nadie lo haya tocado: es la
   // URL pública del producto y cambiarla después rompe los enlaces que ya
   // circulan, así que se propone una vez y no se vuelve a pisar.
@@ -245,9 +273,18 @@ export function FormularioProducto({ id }: { id?: string }) {
 
   const guardar = useMutation({
     mutationFn: async (valores: ProductoValidado) =>
-      repo.guardar(tienda.id, productoParaGuardar(valores, tienda.currency as 'PYG')),
+      repo.guardar(tienda.id, productoParaGuardar(valores, tienda.currency as 'PYG', elegida)),
     onSuccess: async () => {
       await cliente.invalidateQueries({ queryKey: ['productos', tienda.id] });
+      /*
+       * Y la ficha del producto, que quedaba cacheada con lo de antes: volver a
+       * abrirla después de guardar mostraba el valor viejo hasta que la consulta
+       * se revalidara sola. Con el stock por sucursal se ve enseguida —se guarda
+       * un depósito y el otro sigue diciendo lo de la vez pasada—, pero el
+       * problema era del formulario entero y no de esta fase.
+       */
+      await cliente.invalidateQueries({ queryKey: ['producto', tienda.id] });
+      await cliente.invalidateQueries({ queryKey: ['sucursales', tienda.id] });
       await navegar({ to: '/productos' });
     },
   });
@@ -443,6 +480,27 @@ export function FormularioProducto({ id }: { id?: string }) {
                 <p className="text-destructive text-xs" role="alert">
                   {errors.variantes.root.message}
                 </p>
+              )}
+
+              {/*
+                Con varias sucursales, el stock de abajo es el de **una** y hay
+                que decir cuál. Cambiar de sucursal recarga los números; lo demás
+                del formulario no se toca.
+              */}
+              {varias && (
+                <Campo label="Sucursal del stock" ayuda="El stock de abajo es el de esta sucursal">
+                  <Selector
+                    value={elegida ?? ''}
+                    aria-label="Sucursal del stock"
+                    onValueChange={setSucursal}
+                  >
+                    {sucursales.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </Selector>
+                </Campo>
               )}
 
               {variantes.fields.map((campo, i) => (

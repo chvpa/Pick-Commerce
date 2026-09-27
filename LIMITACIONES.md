@@ -74,17 +74,6 @@ pedidos viejos sin migrar nada. Para quien no quiera cuenta, un enlace de acuse
 con un token propio del pedido; no tiene fase asignada en el
 [ROADMAP](ROADMAP.md).
 
-### El stock que carga el Admin cae en la primera sucursal
-
-El formulario de producto tiene un solo campo `Stock` por variante y
-`admin_save_product` lo escribe en la primera sucursal de la tienda, porque no
-hay selector. Con una sucursal —lo normal hoy— no se nota; un comercio con dos
-carga creyendo que reparte y está apilando todo en una.
-
-**Qué lo desbloquea:** un selector de sucursal en el formulario, que es lo que la
-función está esperando. Es independiente del ERP, que tiene el mismo síntoma por
-otro motivo (más abajo).
-
 ---
 
 ## Lo que el sistema no hace, a propósito
@@ -101,6 +90,22 @@ Una tarifa plana con umbral de gratis, o una tabla de zonas —departamentos,
 ciudades— con su tarifa y una general para las que no estén (ADR-107, ADR-114).
 El comprador elige la zona en el checkout y el servidor cobra. No hay tarifas
 por peso, transportistas ni retiro en sucursal: pickup está en v2.
+
+### Las sucursales guardan stock, y nada más
+
+Desde el 2026-09-27 el stock se carga en la sucursal que se elige y Configuración
+las crea (ADR-136). Lo que **no** hay es nada de lo que multi-location promete:
+ni asignación de un pedido a una sucursal, ni retiro en el local, ni ruteo de
+despacho, ni transferencias entre depósitos. El pedido descuenta del stock total
+igual que antes, y la vitrina suma todas las sucursales.
+
+Tampoco se puede **borrar** una sucursal desde el Admin: su stock cuelga de ella
+en cascada, así que borrarla se lo llevaría sin avisar, y a dónde va ese stock es
+la decisión que falta.
+
+**Qué lo desbloquea:** un ERP que dé escritura —para poder prometer reservas sin
+vender de más (ADR-086)— y un libro de movimientos de stock, que es lo que una
+transferencia necesita para poder auditarse.
 
 ### El ERP entra, y nada sale
 

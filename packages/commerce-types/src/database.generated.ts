@@ -2325,6 +2325,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_locations: { Args: { p_store_id: string }; Returns: Json }
       admin_order_notifications: {
         Args: { p_order_id: string; p_store_id: string }
         Returns: Json

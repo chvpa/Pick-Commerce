@@ -22,6 +22,11 @@ qué comprobar en cada paso. Si algo falla, la respuesta está allá.
 
   Idempotente por slug: repetirlo corrige el nombre o el dominio.
 
+  Deja **una** sucursal, que es donde va a caer el stock. Un comercio con más de
+  un depósito las agrega en Configuración → Sucursales, y desde ahí la ficha del
+  producto, el alta con la cámara y el import de CSV preguntan a cuál entra la
+  mercadería (ADR-136). Con una sola no preguntan nada.
+
   **El dominio tiene que ser el mismo que después va en `STOREFRONT_DOMAIN`.** No
   es la URL desde la que se sirve el sitio: es la llave con la que el Worker
   busca la tienda. Si no coinciden, el storefront responde 503 diciendo qué falta.

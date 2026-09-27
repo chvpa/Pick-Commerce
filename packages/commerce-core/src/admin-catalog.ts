@@ -54,8 +54,22 @@ export interface VarianteEditable {
   readonly compareAtPrice?: number;
   readonly cost?: number;
   readonly attributes: Readonly<Record<string, string>>;
-  /** Omitirlo deja el stock como está; no es lo mismo que cero. */
+  /**
+   * Omitirlo deja el stock como está; no es lo mismo que cero.
+   *
+   * Un número suelto sólo vale en una tienda con **una** sucursal: con dos,
+   * `admin_save_product` falla en vez de elegir una. Existe porque el import de
+   * CSV tiene una sola columna de stock y no puede tener más.
+   */
   readonly stock?: number;
+  /**
+   * El stock por sucursal, `{ locationId: unidades }`. Sólo las sucursales que
+   * aparecen se escriben: las que no, quedan como estaban.
+   *
+   * Es lo que el formulario manda, y por eso nunca reescribe una suma. Leer la
+   * suma de dos sucursales y guardarla en una inflaba el total en cada guardado.
+   */
+  readonly stockPorSucursal?: Readonly<Record<string, number>>;
 }
 
 export interface MedioEditable {

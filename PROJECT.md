@@ -432,6 +432,13 @@ Esto permite:
 - catálogo disponible por ubicación
 - reglas de fulfillment
 
+De esa lista, **lo único construido es el stock por sucursal**: el Admin crea
+sucursales y la mercadería entra en la que se elige, con la regla de que **quien
+escribe stock nombra la sucursal** —un número sin sucursal sólo vale si hay una, y
+si hay dos falla en vez de elegir por su cuenta (ADR-136)—. El resto espera un ERP
+que dé escritura y un libro de movimientos de stock; lo que cada cosa necesita está
+en [LIMITACIONES.md](LIMITACIONES.md).
+
 El ERP sigue siendo source of truth cuando corresponda.
 
 ---

@@ -430,6 +430,13 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
   con la publishable key para traer las facetas. `product_trending` nació sin
   política y dejó dos pantallas del Admin con «permission denied»; lo encontró la
   suite de aislamiento, no el typecheck ni el e2e, que corren con la secret key.
+- Un `<label>` que **envuelve** su control —como el `Campo` del Admin— le pone de
+  nombre accesible **todo su texto**, incluida la ayuda de abajo, y `getByLabel`
+  de Playwright busca por subcadena. Así, `getByLabel('Stock')` encuentra también
+  «Sucursal del stock», y de un desplegable de Base UI dentro de un formulario
+  encuentra dos controles —el botón y el `<select>` oculto—: tres coincidencias
+  donde se esperaba una. Cuando el texto de una etiqueta contiene el de otra, el
+  localizador va por el `name` que pone react-hook-form.
 - Un importador que reimporta **pisa lo que la tienda editó** si no mira el
   dueño de cada campo: `field_sources` declara el origen y sólo los campos
   marcados como del ERP se sobreescriben. Y el borrado de medios se acota a los
@@ -444,7 +451,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..135 y dos decisiones pendientes:
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..136 y dos decisiones pendientes:
    P-001 (primer gateway real) y P-005 (CLI/provisioner). P-002, P-003 y P-004
    están resueltas.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.

@@ -5,7 +5,8 @@ import { repositorioAdminCatalogo, repositorioCatalogo } from '@pick/adapter-sup
 import type { ResultadoImport } from '@pick/commerce-core';
 import { PackageIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
-import { PaginaAdmin, Tarjeta, TituloDeTarjeta } from '@/components/pagina';
+import { PaginaAdmin, Selector, Tarjeta, TituloDeTarjeta } from '@/components/pagina';
+import { SelectItem } from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -15,6 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
+import { useSucursales } from '@/features/tienda/useSucursales';
 import { db } from '@/lib/supabase';
 import { descargar } from '@/lib/descargar';
 import {
@@ -45,6 +47,16 @@ export function ImportarProductos() {
   const [avance, setAvance] = useState<{ hechos: number; total: number } | null>(null);
   const [reporte, setReporte] = useState<readonly ResultadoImport[] | null>(null);
   const [errorArchivo, setErrorArchivo] = useState<string | null>(null);
+
+  /*
+   * Un archivo plano tiene **una** columna de stock, así que la sucursal la
+   * elige la pantalla. La misma para las dos direcciones: si el export saca la
+   * suma de las sucursales y el import la mete en una, un ida y vuelta duplica
+   * el inventario.
+   */
+  const { sucursales, varias, unica } = useSucursales();
+  const [sucursal, setSucursal] = useState<string | undefined>(undefined);
+  const elegida = sucursal ?? unica ?? sucursales[0]?.id;
 
   const categorias = useQuery({
     queryKey: ['categorias', tienda.id],
@@ -97,6 +109,7 @@ export function ImportarProductos() {
             categorias: new Map((categorias.data ?? []).map((c) => [c.slug, c.id])),
             existentes: existentes.data ?? new Set(),
             moneda: tienda.currency,
+            ...(elegida ? { sucursalId: elegida } : {}),
           }),
         );
       },
@@ -139,7 +152,7 @@ export function ImportarProductos() {
       // Paginado: un catálogo grande no entra en una consulta (ADR-024).
       for (let page = 1; ; page += 1) {
         const lote = await repo.completos(tienda.id, page, 100);
-        filas.push(...filasDe(lote, porId));
+        filas.push(...filasDe(lote, porId, elegida));
         if (lote.length < 100) break;
       }
       descargar(`catalogo-${tienda.slug}.csv`, Papa.unparse(filas, { columns: [...COLUMNAS] }));
@@ -167,6 +180,31 @@ export function ImportarProductos() {
               Para un producto que ya existe, el archivo manda: sus variantes pasan a ser
               exactamente las del archivo.
             </p>
+            {/*
+              La columna `stock` del archivo habla de una sucursal, en las dos
+              direcciones. El control va dentro del `<label>`: así queda asociado
+              sin inventar un id.
+            */}
+            {varias && (
+              <label className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium">Sucursal del stock</span>
+                <Selector
+                  value={elegida ?? ''}
+                  aria-label="Sucursal del stock"
+                  onValueChange={setSucursal}
+                >
+                  {sucursales.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </Selector>
+                <span className="text-muted-foreground text-xs">
+                  La columna <code>stock</code> se exporta y se importa contra esta sucursal.
+                </span>
+              </label>
+            )}
+
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"

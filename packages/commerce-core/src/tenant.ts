@@ -44,9 +44,29 @@ export interface TiendaResumen {
   readonly domain?: string;
 }
 
+/**
+ * Una sucursal, con lo que tiene guardado.
+ *
+ * `negativos` está separado del total a propósito: en la suma de dos sucursales
+ * un -2 y un 5 son 3, y el descuadre —que es lo que el espejo del ERP existe
+ * para mostrar (ADR-009)— desaparece.
+ */
+export interface Sucursal {
+  readonly id: string;
+  readonly name: string;
+  readonly isPickupPoint: boolean;
+  readonly unidades: number;
+  readonly negativos: number;
+}
+
 /** Contrato del repositorio. El adapter lo implementa contra Supabase. */
 export interface RepositorioTiendas {
   porDominio(dominio: string): Promise<ResolucionTenant | null>;
+  /** Las sucursales de una tienda, en el orden en que se crearon. */
+  sucursales(storeId: string): Promise<readonly Sucursal[]>;
+  /** Alta de una sucursal. Devuelve su id, que es lo que el stock necesita. */
+  crearSucursal(tenantId: string, storeId: string, nombre: string): Promise<string>;
+  renombrarSucursal(storeId: string, id: string, nombre: string): Promise<void>;
   /**
    * Las tiendas que el usuario puede administrar.
    *

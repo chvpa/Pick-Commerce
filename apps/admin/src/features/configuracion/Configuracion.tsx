@@ -31,6 +31,7 @@ import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { guardarCredencial, probarCredencial } from '@/lib/ia';
 import { SelectItem } from '@/components/ui/select';
+import { Sucursales } from './Sucursales';
 
 type Settings = Readonly<Record<string, unknown>>;
 
@@ -129,6 +130,13 @@ export function Configuracion() {
         descripcion="Cuánto se cobra por despachar, y desde qué monto no se cobra."
       >
         <Envio settings={consulta.data} tienda={tienda} guardado={guardado} />
+      </Seccion>
+
+      <Seccion
+        titulo="Sucursales"
+        descripcion="Dónde está el stock. Con más de una, cargar mercadería pregunta a cuál entra."
+      >
+        <Sucursales tienda={tienda} />
       </Seccion>
 
       <Seccion titulo="Catálogo" descripcion="Qué se lista en la tienda.">

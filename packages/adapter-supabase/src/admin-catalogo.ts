@@ -25,7 +25,7 @@ import type { PickSupabaseClient } from './client.ts';
  */
 const SELECT_COMPLETO = `id, handle, title, description, brand, category_id, status, field_sources,
    product_variants(id, sku, title, barcode, price, currency, compare_at_price, cost,
-                    attributes, position, inventory_levels(available)),
+                    attributes, position, inventory_levels(location_id, available)),
    product_media(url, alt, width, height, position)`;
 
 /** Fila cruda de `SELECT_COMPLETO` traducida al contrato del core. */
@@ -48,7 +48,7 @@ function aProductoEditable(data: {
     cost: number | null;
     attributes: unknown;
     position: number;
-    inventory_levels: { available: number }[];
+    inventory_levels: { location_id: string; available: number }[];
   }[];
   product_media: { url: string; alt: string; width: number; height: number; position: number }[];
 }): ProductoEditable {
@@ -73,8 +73,13 @@ function aProductoEditable(data: {
       ...(v.compare_at_price === null ? {} : { compareAtPrice: v.compare_at_price }),
       ...(v.cost === null ? {} : { cost: v.cost }),
       attributes: (v.attributes ?? {}) as Record<string, string>,
-      // Suma de sucursales, como en el storefront.
+      // Suma de sucursales, como en el storefront: es lo que se muestra cuando
+      // hay una sola. Con dos, el formulario edita `stockPorSucursal` y no ésta,
+      // porque guardar la suma en una sucursal infla el total.
       stock: v.inventory_levels.reduce((total, il) => total + il.available, 0),
+      stockPorSucursal: Object.fromEntries(
+        v.inventory_levels.map((il) => [il.location_id, il.available]),
+      ),
     })),
     media: medios.map((m) => ({ url: m.url, alt: m.alt, width: m.width, height: m.height })),
   };

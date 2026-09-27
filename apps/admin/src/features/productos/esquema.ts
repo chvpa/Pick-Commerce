@@ -97,6 +97,14 @@ export type ProductoValidado = z.output<typeof productoSchema>;
 export function productoParaGuardar(
   valores: ProductoValidado,
   moneda: Parameters<typeof money>[1],
+  /**
+   * La sucursal a la que va el stock. Con ella el stock viaja como
+   * `stockPorSucursal` y la base lo escribe donde se le dice; sin ella viaja como
+   * número suelto, que sólo vale en una tienda con una sola sucursal. Las tres
+   * pantallas del Admin la pasan siempre, incluso cuando hay una: así el camino
+   * del número suelto no se usa nunca desde acá.
+   */
+  sucursalId?: string,
 ) {
   return {
     ...(valores.id ? { id: valores.id } : {}),
@@ -119,7 +127,11 @@ export function productoParaGuardar(
         : { compareAtPrice: money(v.precioAnterior, moneda).amount }),
       ...(v.costo === undefined ? {} : { cost: money(v.costo, moneda).amount }),
       attributes: parsearAtributos(v.atributos),
-      ...(v.stock === undefined ? {} : { stock: v.stock }),
+      ...(v.stock === undefined
+        ? {}
+        : sucursalId
+          ? { stockPorSucursal: { [sucursalId]: v.stock } }
+          : { stock: v.stock }),
     })),
     media: valores.media,
   };
