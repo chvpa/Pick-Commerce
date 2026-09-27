@@ -9,6 +9,20 @@
   // Logs del Worker. Sin esto, un error en producción es un 500 sin rastro: no
   // hay dónde leer qué pasó, ni siquiera sabiendo que pasó.
   "observability": { "enabled": true },
+  /*
+   * El binding de Cloudflare Images, que es lo que usa `/_image`.
+   *
+   * **Iba implícito y por eso se rompió en la demo.** El adapter de Astro resuelve
+   * `env.IMAGES` para transformar las fotos del catálogo; con el binding sin
+   * declarar, un deploy lo tiene o no según cómo se hizo: el de Treeshop, hecho a
+   * mano con wrangler, funcionaba, y el de la demo, hecho por Workers Builds,
+   * devolvía 500 en **todas** las imágenes. Mismo código, dos resultados.
+   *
+   * Declarado acá, los dos caminos dan lo mismo. Es el mismo criterio que
+   * `run_worker_first` de ADR-103: lo que el Worker necesita para funcionar se
+   * escribe, no se hereda del pipeline que lo desplegó.
+   */
+  "images": { "binding": "IMAGES" },
   // Freno de abuso en las rutas POST públicas. El período sólo admite 10 o 60
   // segundos, y la llave es la IP, así que los límites son generosos a
   // propósito: detrás de una IP puede haber una oficina entera. Ver

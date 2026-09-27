@@ -142,9 +142,26 @@ if (url && secretKey) {
       ? await db.from('product_media').select('url').in('product_id', idsDeLaTienda)
       : { data: [] };
 
+    /*
+     * **Sólo lo que subió el smoke.** Las fotos del seed viven bajo
+     * `<tenant>/seed/` y las comparte la demo, así que borrarlas rompe el
+     * catálogo que esta misma suite usa para probar.
+     *
+     * Y pasó: `fotos-con-ia.spec.ts` siembra la propuesta apuntando a
+     * `seed/campera.jpg` —una foto real del seed, para que la pantalla muestre
+     * dos imágenes que cargan—. Al publicarla, esa URL pasa a ser la del producto
+     * del smoke, y este borrado se llevaba el archivo del bucket. Cada corrida
+     * completa se comía una foto de la demo, y el síntoma aparecía lejos: el
+     * `/_image` del storefront devolvía 500 porque Supabase contestaba un JSON de
+     * 404 que sharp no puede leer.
+     *
+     * Es el mismo criterio de ADR-117 con los medios de Camelot: el borrado se
+     * acota a los propios.
+     */
     const rutas = [...(fotos ?? []), ...(fotosDelAlta ?? [])]
       .map((f) => f.url.split('/product-media/')[1])
-      .filter((ruta): ruta is string => Boolean(ruta));
+      .filter((ruta): ruta is string => Boolean(ruta))
+      .filter((ruta) => !ruta.includes('/seed/'));
 
     if (rutas.length > 0) await db.storage.from('product-media').remove(rutas);
     console.log(`  fotos del smoke borradas del bucket: ${rutas.length}`);

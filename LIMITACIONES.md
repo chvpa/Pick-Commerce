@@ -513,3 +513,24 @@ y el vencimiento. Un ajuste manual pide su propia auditoría.
 No hay tarea programada: el movimiento de vencimiento se escribe cuando alguien mira su
 saldo o canjea. Un cliente que no vuelve a entrar mantiene su saldo viejo en la base hasta
 que alguien lo consulte, así que **el pasivo del panel puede estar por encima del real**.
+
+## Imágenes
+
+### Las transformaciones tienen cuota, y cuando se agota la foto no carga
+
+El storefront optimiza las fotos del catálogo con **Cloudflare Images** a través del
+binding `IMAGES`, y el plan gratuito tiene un tope de transformaciones **únicas por
+cuenta y por mes**. Al agotarse, `/_image` devuelve 500 para toda variante que no esté
+ya cacheada y la foto aparece rota; las que se transformaron antes siguen sirviéndose
+desde la caché, así que el síntoma es desparejo —una tienda se ve bien y otra no— y no
+parece una cuota.
+
+Se ve con `npx wrangler tail <worker>`: el error dice
+`IMAGES_TRANSFORM_ERROR 9422: Free unique transformations by account has been exhausted`.
+
+Cada tamaño distinto de cada foto cuenta como una transformación, así que un catálogo
+grande la consume rápido — y también la consume **cada corrida del e2e**, que pide
+imágenes reales.
+
+**Qué lo desbloquea:** habilitar Images en un plan pago, o esperar el mes. Bajar el
+consumo es otra tarea: menos candidatos en el `srcset` y menos tamaños distintos.
