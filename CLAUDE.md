@@ -76,6 +76,42 @@ propio del correo, una pasarela real— está diferido a propósito y registrado
   medir, y el presupuesto se mudó al e2e, que mide más páginas y sobre la red
   (ADR-106). Se entregan `LIMITACIONES.md` y `ONBOARDING.md`.
 
+Y **v2**, que agregó al comprador y al descubrimiento. Va entera salvo la Fase 9:
+
+- **v2 Fase 0** — cerrar `authenticated` antes de abrirlo. Hasta acá ese rol
+  significaba «alguien del equipo de un comercio»; con cuentas de comprador
+  significa «cualquiera que se registró», así que la línea se fijó **antes**: hay un
+  test que afirma qué alcanza un forastero, y falla si una función queda sin
+  clasificar (ADR-121).
+- **v2 Fase 1** — identidad del comprador. Se entra con un código por correo, sin
+  contraseña; `customer_accounts` liga un usuario de `auth.users` con su ficha de
+  cliente **por tienda**, y lo que se compró como invitado aparece al crear la
+  cuenta con el mismo correo.
+- **v2 Fase 2** — el sustrato de preferencias, que la wishlist estrena. Y «seguí
+  viendo» en la portada, que corre sobre la misma tabla.
+- **v2 Fase 3** — el buscador que encuentra: trigramas para tipeos y acentos, SKU
+  por prefijo, orden por relevancia, sugerencias mientras se escribe y cero
+  resultados que no es una página vacía (ADR-125).
+- **v2 Fase 4** — recomendaciones y portada por visitante. La cascada entera es un
+  `order by` (ADR-127), y el perfil sigue a la persona y no al navegador (ADR-128).
+- **v2 Fase 5** — devolver a la vitrina lo que no se ve: la cola de productos sin
+  foto y la limpieza de fondo con IA, que **propone y no publica** (ADR-130).
+- **v2 Fase 6** — QuickHand: se carga mercadería sacándole una foto, y la ficha
+  llega para revisar. Lo que está impreso en la etiqueta se ofrece, nunca se
+  escribe solo (ADR-131).
+- **v2 Fase 7** — búsqueda semántica con el gasto acotado. Lo semántico entra como
+  **fuente de filas** y no como criterio de orden, se paga una vez por frase nueva y
+  degrada al buscador léxico si algo falla (ADR-132).
+- **v2 Fase 8** — operación avanzada. Descripciones en lote, compradores simulados
+  (ADR-133), cohortes y RFM (ADR-134), antigüedad del stock (ADR-135), **stock por
+  sucursal** (ADR-136), el precio leído de la frase de búsqueda (ADR-137), el
+  resumen del negocio con IA (ADR-138), los tres presets (ADR-139), **reseñas
+  verificadas contra la compra** (ADR-140) y el **programa de puntos** (ADR-141).
+  Quedan diferidos con su motivo B2B y las features de multi-location.
+- **v2 Fase 9** — puntos que cruzan tiendas. **Condicionada a la cantidad de
+  comercios, no a una fecha**: con una tienda, un programa de red es un programa
+  normal con maquinaria de más.
+
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,
 que crea `pnpm admin:crear`.

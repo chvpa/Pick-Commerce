@@ -21,7 +21,7 @@
 | Versión | Objetivo                                    | Estado | Avance |
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
-| v2      | Operación avanzada, AI Commerce y escala    |    WIP |    80% |
+| v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
 | v3      | MCP, intelligence layer y expansión LATAM   |   TODO |     0% |
 
 ---
@@ -1494,7 +1494,19 @@ clave de OpenAI sigue teniendo el buscador de la Fase 3, completo.
 
 ## Fase 8 — Operación avanzada: lo que quedaba del v2 escrito
 
-**Avance: 80%**
+**Avance: 100% — cerrada**
+
+**Se cierra con ocho bloques hechos y dos diferidos con su motivo escrito**, que es
+el mismo criterio con el que cerraron la Fase 8 y la 12 de v1. Los dos diferidos no
+esperan prioridad: **multi-location** tiene el piso puesto —el stock ya se guarda en
+la sucursal que se nombra (ADR-136)— y sus features esperan un ERP que dé escritura;
+**B2B** resultó ser tres cosas distintas, una de las cuales ya estaba construida sin
+que nadie lo hubiera anotado, y la que falta de verdad necesita meter la identidad del
+comprador en el camino del dinero y una lista de precios real contra la que probarla.
+
+Lo que sí entró, en orden: descripciones en lote, compradores simulados, cohortes y
+RFM, antigüedad del stock, stock por sucursal, los dos ítems de IA que la Fase 11
+había diferido, los tres presets, las reseñas y el programa de puntos.
 
 > **Ninguno de los cinco bloques escritos se pudo empezar, y está medido.** Tres
 > los bloquea su propio Definition of Done —B2B, multi-location y los presets
@@ -1598,30 +1610,45 @@ algo. No es una fase que se tome entera: se toma de a un bloque, con un cliente
       **un producto de regalo** —pide reservar stock, o sea multi-location, que el ERP
       bloquea—, los ajustes manuales de puntos, la racha con multiplicador y las
       encuestas.
-- [ ] **Wholesale / B2B** —MOQ, case packs, quantity breaks, precio por cliente,
-      grupos de cliente, bulk ordering, pedido mínimo—: los grupos necesitan la
-      cuenta de la Fase 1, y el precio por cliente tiene que calcularse en el
-      servidor por el mismo camino que ya calculan el descuento y el envío
-      (`cart_promotions` y `create_order`, ADR-107 y ADR-114), extendiendo
-      `promotions.target` al grupo. No un tercer lugar donde se decide un importe.
-      **No se construye antes de que haya un cliente mayorista**: hoy es una
-      apuesta.
-- [ ] **Multi-location avanzado** —allocation, pickup por sucursal, fulfillment
-      routing, stock visibility rules, reservas del ERP por capability,
-      reconciliación avanzada—: bloqueado por el ERP real y no por prioridad. El
-      único cliente con ERP no da escritura ni contra entorno de prueba (ADR-086),
-      así que `supportsReservations` no se puede prometer ni probar, y prometerlo es
-      overselling.
-      **El piso ya está puesto** (ADR-136, 2026-09-27): los tres arreglos del
-      backlog que tenía delante están hechos, porque construir allocation sobre un
-      stock que se escribe en la sucursal equivocada era construir sobre un bug. El
-      payload nombra la sucursal —`stockPorSucursal`, y sólo se escribe la que
-      viene—, un número suelto falla si hay más de una en vez de elegir por su
-      cuenta, las tres pantallas que cargan stock preguntan a cuál va, el export de
-      CSV usa la misma sucursal que el import, y Configuración crea sucursales
-      mostrando el total y cuántas variantes están en negativo. Con una sucursal
-      nada cambia. Lo que falta es lo que el ERP bloquea: allocation, pickup,
-      routing y reservas.
+- [-] **Wholesale / B2B.** Al mirarlo de cerca son tres cosas distintas y no una,
+  y por eso la lista original —MOQ, case packs, quantity breaks, precio por
+  cliente, grupos de cliente, bulk ordering, pedido mínimo— no se puede tomar
+  como un bloque:
+  **Los quantity breaks ya existen y nadie lo había registrado**: una promoción
+  con `min_quantity` apuntada a una categoría o a una colección es exactamente
+  un descuento por volumen, y el motor lo calcula en el servidor desde la
+  Fase 9. «Comprá 6 y llevás 15 % menos» se configura hoy sin una línea nueva.
+  **MOQ, case packs, bulk ordering y pedido mínimo son reglas de carrito**, no
+  del camino del precio: mínimos y múltiplos por variante, y un umbral para
+  poder comprar. Son baratas y no tocan dónde se decide un importe, pero
+  ninguna tienda de hoy las necesita —ni la demo ni Treeshop venden por
+  paquete— así que construirlas ahora es exactamente lo que este ROADMAP
+  llama una conjetura con forma de código.
+  **Lo que falta de verdad es el precio por grupo**, y lo bloquea algo
+  concreto: `cart_promotions` **no sabe quién está comprando**, y el checkout
+  de invitado no tiene a nadie. Hacerlo bien es meter la identidad en el
+  camino del dinero, que es el código más delicado del repo, y después no hay
+  con qué validarlo: una lista de precios mayorista inventada no prueba nada.
+  **Y acá un cliente simulado no alcanza** (ADR-133): con las cohortes faltaban
+  datos y la forma estaba clara; acá falta la forma. Qué es un grupo, cómo se
+  asigna, qué pasa cuando un mayorista compra al público — eso lo contesta un
+  mayorista, no un generador.
+- [-] **Multi-location avanzado** —allocation, pickup por sucursal, fulfillment
+  routing, stock visibility rules, reservas del ERP por capability,
+  reconciliación avanzada—: bloqueado por el ERP real y no por prioridad. El
+  único cliente con ERP no da escritura ni contra entorno de prueba (ADR-086),
+  así que `supportsReservations` no se puede prometer ni probar, y prometerlo es
+  overselling.
+  **El piso ya está puesto** (ADR-136, 2026-09-27): los tres arreglos del
+  backlog que tenía delante están hechos, porque construir allocation sobre un
+  stock que se escribe en la sucursal equivocada era construir sobre un bug. El
+  payload nombra la sucursal —`stockPorSucursal`, y sólo se escribe la que
+  viene—, un número suelto falla si hay más de una en vez de elegir por su
+  cuenta, las tres pantallas que cargan stock preguntan a cuál va, el export de
+  CSV usa la misma sucursal que el import, y Configuración crea sucursales
+  mostrando el total y cuántas variantes están en negativo. Con una sucursal
+  nada cambia. Lo que falta es lo que el ERP bloquea: allocation, pickup,
+  routing y reservas.
 - [x] **Cohortes y RFM** (ADR-134). «Recurrencia», en Clientes: cohortes por
       mes de primera compra con la recompra de cada mes siguiente, y siete
       segmentos RFM que filtran una lista paginada en el servidor. Todo desde los
@@ -1660,9 +1687,13 @@ algo. No es una fase que se tome entera: se toma de a un bloque, con un cliente
 
 **Definition of Done**
 
-- [ ] ningún bloque de esta fase se empieza sin un cliente que lo pida: real, o
-      simulado y declarado como tal (ADR-133)
-- [ ] nada de acá promete una capacidad que el proveedor de abajo no tiene
+- [x] ningún bloque de esta fase se empieza sin un cliente que lo pida: real, o
+      simulado y declarado como tal (ADR-133). Los dos que no tenían ninguno de los
+      dos quedaron sin empezar, y con el motivo escrito
+- [x] nada de acá promete una capacidad que el proveedor de abajo no tiene. Lo que
+      no se puede prometer está en [LIMITACIONES.md](LIMITACIONES.md): reservas de
+      stock, envío gratis como premio, y un cupón de canje que no está atado a la
+      cuenta de quien lo canjeó
 
 ---
 
@@ -2098,20 +2129,30 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-27 | **Los tres presets que v1 dejó abiertos** (ADR-139). Lo que los desbloqueó no fue un segundo cliente: fue que el primero ya dejó el suyo, y con él la lista de lo que un preset toca —familia, acento, radio y cómo entra la foto en su caja—, medida contra una tienda en producción. `blank.css` **no redefine nada** a propósito: los tokens base ya son la versión neutra, así que lo que aporta es el inventario comentado de lo que se puede pisar. Un test mecánico impide que un preset escriba un selector, comprobado al revés. No hay una tercera vitrina donde mostrarlos, y está dicho                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | v2 Fase 8 |          60% |            70% |
 | 2026-09-27 | **Reseñas verificadas contra la compra** (ADR-140), que era la dependencia de la fidelidad y vale por sí sola: es lo único del catálogo que el comercio no escribe, y 3674 de sus 3752 productos no tienen descripción. Sólo reseña quien compró **y recibió**; una por persona y por producto; nace pendiente; y el texto y la estrella **no se editan** —la tabla no concede `update` a nadie, comprobado al revés en PGlite—. El pedido que la justifica lo elige la base y no el cliente. La vitrina muestra la inicial, nunca el nombre. Falta el ledger de puntos, así que el bloque sigue abierto                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | v2 Fase 8 |          70% |            70% |
 | 2026-09-27 | **Fidelidad: el libro de puntos y el canje** (ADR-141). Lo único de este bloque que no se podía cambiar después es la forma del libro, y es lo que se construyó primero: append-only, con la tienda que emitió cada movimiento, nunca un saldo guardado. Gana una compra **cobrada** y una reseña **publicada**; los disparadores son idempotentes por índice único, no por suerte; cancelar emite el inverso. El programa **arranca apagado**. El vencimiento se calcula al leer, FIFO en agregado, sin tarea programada. Un canje emite un cupón del motor de la Fase 9, así que no hay un segundo lugar donde se decida un importe. Afuera: envío gratis y producto de regalo, con su motivo. Un ciclo se fue en que `app.regla_de_puntos` devolvía `null` sin fila de ajustes y la pantalla se quedaba en el esqueleto: lo encontró el e2e, no PGlite                                                                                                                                                                                                                                                                                                                                                                                                                                                      | v2 Fase 8 |          70% |            80% |
+| 2026-09-27 | **v2 Fase 8 cerrada.** Ocho bloques hechos y dos diferidos con su motivo, el mismo criterio con el que cerraron la Fase 8 y la 12 de v1. De B2B salió un hallazgo: **los quantity breaks ya existían** —una promoción con `min_quantity` sobre una categoría es un descuento por volumen, y el motor lo calcula en el servidor desde la Fase 9— y nadie lo había anotado. Lo que falta de B2B es el precio por grupo, y lo bloquea que `cart_promotions` no sabe quién compra: meter la identidad en el camino del dinero sin una lista de precios real contra la que probarla es la apuesta que este ROADMAP nombra. Acá un cliente simulado no alcanza, porque lo que falta es la forma y no los datos                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | v2 Fase 8 |          80% |           100% |
 
 ---
 
 # Próximo paso recomendado
 
-v1 y las fases 0 a 7 de v2 están cerradas y desplegadas. La Fase 8 ya no espera
-un cliente real: tiene una tienda simulada con 170 días de historia (ADR-133).
+**v1 y v2 hasta la Fase 8 están cerradas y desplegadas.** Lo que queda de v2 es la
+Fase 9, y está condicionada a la cantidad de comercios y no a una fecha: con una
+tienda, un programa de puntos de red es un programa normal con maquinaria de más.
 
-1. **Los comercios simulados**: un mayorista, una tienda de moda y una de varias
-   sucursales, cada uno con lo que pediría escrito antes de construir. Son los
-   que desbloquean B2B, los presets y multi-location sin ERP.
-2. **El costo de `catalog_search`**, que es lo más caro que hay anotado: el PDP
-   de Treeshop está en 355 ms y el listado en 600, y se sabe por qué. Está en
+Entonces lo que sigue no es una fase, son tres cosas, en este orden:
+
+1. **Usar lo que se construyó, que es de donde va a salir el próximo trabajo.**
+   Nada de la Fase 8 tiene tráfico real todavía: las descripciones en lote no se
+   corrieron sobre el catálogo del piloto, el programa de puntos está apagado en
+   todas las tiendas y las reseñas no tienen ninguna escrita. Hasta que eso pase,
+   cualquier mejora de esas pantallas es una conjetura.
+2. **El costo de `catalog_search`**, que es lo más caro que hay anotado: el PDP de
+   Treeshop está en 355 ms y el listado en 600, y se sabe por qué. Está en
    `Backlog / Retroactividad` con las dos salidas medidas; es una sesión propia.
+3. **Lo que un cliente real pida.** Los dos bloques diferidos de la Fase 8 —B2B y
+   las features de multi-location— y la Fase 9 esperan lo mismo: alguien que los
+   necesite. Construirlos antes es lo que este ROADMAP llama una conjetura con
+   forma de código, y ya hay dos precedentes propios de haberlo hecho bien.
 
 ---
 
