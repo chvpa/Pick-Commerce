@@ -5,6 +5,7 @@ import {
   ArrowUpIcon as ArrowUp,
   CameraIcon as Camera,
   ChartNoAxesColumnIcon as ChartNoAxesColumn,
+  Comment01Icon as Comment,
   CheckIcon as Check,
   ChevronDownIcon as ChevronDown,
   ChevronRightIcon as ChevronRight,
@@ -72,6 +73,7 @@ export const ChevronUpIcon = icono(ChevronUp);
 export const ChevronsUpDownIcon = icono(UnfoldMore);
 export const GalleryVerticalEndIcon = icono(GalleryVerticalEnd);
 export const HourglassIcon = icono(Hourglass);
+export const ResenaIcon = icono(Comment);
 export const ImageUpIcon = icono(ImageUp);
 export const LayoutDashboardIcon = icono(LayoutDashboard);
 export const LayoutTemplateIcon = icono(LayoutTemplate);

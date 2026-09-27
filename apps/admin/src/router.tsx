@@ -42,6 +42,7 @@ const ListaProductos = pantalla(
 
 const SinFoto = pantalla(() => import('@/features/productos/SinFoto'), 'SinFoto');
 const StockQuieto = pantalla(() => import('@/features/productos/StockQuieto'), 'StockQuieto');
+const Resenas = pantalla(() => import('@/features/productos/Resenas'), 'Resenas');
 const CargarConCamara = pantalla(
   () => import('@/features/productos/CargarConCamara'),
   'CargarConCamara',
@@ -274,6 +275,14 @@ const stockQuietoRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/productos/stock-quieto',
   component: StockQuieto,
+});
+
+// Se ve con pertenecer a la organización; moderar pide `catalog.write`, y eso lo
+// decide la pantalla.
+const resenasRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/productos/resenas',
+  component: Resenas,
 });
 
 const camaraRoute = createRoute({
@@ -520,6 +529,7 @@ const arbol = rootRoute.addChildren([
   importarRoute,
   sinFotoRoute,
   stockQuietoRoute,
+  resenasRoute,
   fotosRoute,
   editarRoute,
   pedidosRoute,

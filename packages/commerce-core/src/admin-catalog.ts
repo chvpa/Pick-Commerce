@@ -403,6 +403,18 @@ export interface RepositorioAdminCatalogo {
   /** Devuelve cuántas se escribieron: las que administra el ERP no se pisan. */
   aprobarDescripciones(storeId: string, ids: readonly string[]): Promise<number>;
   rechazarDescripciones(storeId: string, ids: readonly string[]): Promise<void>;
+  /** La cola de reseñas, paginada, con el recuento de pendientes (ADR-140). */
+  resenas(
+    storeId: string,
+    status: EstadoDeResena | null,
+    page: number,
+    perPage?: number,
+  ): Promise<PaginaDeResenas>;
+  /**
+   * Publica o rechaza. Es lo **único** que el Admin puede cambiar de una reseña:
+   * el texto y la estrella no se editan, y eso lo impide la base y no la pantalla.
+   */
+  moderarResenas(storeId: string, ids: readonly string[], status: EstadoDeResena): Promise<number>;
   /**
    * Importa un lote. Cada producto es atómico por separado, así que el reporte
    * puede traer éxitos y fallos a la vez.
@@ -446,3 +458,33 @@ export const ETIQUETA_ESTADO: Readonly<Record<ProductStatus, string>> = {
   inactive: 'Pausado',
   archived: 'Archivado',
 };
+
+// ---------------------------------------------------------------------------
+// Moderación de reseñas (ADR-140)
+// ---------------------------------------------------------------------------
+
+export type EstadoDeResena = 'pending' | 'published' | 'rejected';
+
+/** Una reseña en la cola del Admin. El texto y la estrella son de sólo lectura. */
+export interface ResenaAdmin {
+  readonly id: string;
+  readonly productId: string;
+  readonly producto: string;
+  readonly handle: string;
+  readonly rating: number;
+  readonly body: string | null;
+  readonly status: EstadoDeResena;
+  /** El nombre del cliente. Acá sí, que es el comercio mirando su propia ficha. */
+  readonly cliente: string | null;
+  readonly fecha: string;
+}
+
+export interface PaginaDeResenas {
+  readonly items: readonly ResenaAdmin[];
+  readonly total: number;
+  readonly page: number;
+  readonly perPage: number;
+  readonly pageCount: number;
+  /** Cuántas esperan revisión en toda la tienda, no en esta página. */
+  readonly pendientes: number;
+}

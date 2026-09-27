@@ -560,3 +560,68 @@ export interface PaginaDePedidos {
   readonly perPage: number;
   readonly pageCount: number;
 }
+
+/** Lo que el PDP necesita saber del comprador para ofrecerle reseñar, o no. */
+export interface EstadoDeResena {
+  readonly puede: boolean;
+  readonly yaEscribio: boolean;
+  readonly pendiente: boolean;
+}
+
+/**
+ * Si quien está mirando puede reseñar este producto, y si ya lo hizo (ADR-140).
+ *
+ * Una sola llamada: `mi_resena` resuelve las dos cosas adentro, donde puede mirar
+ * los pedidos entregados y el catálogo a la vez. Un fallo devuelve el caso
+ * conservador —no puede—, porque un formulario ofrecido a quien no compró termina
+ * en un rechazo de la base y en una pantalla de error.
+ */
+export async function estadoDeResena(
+  accessToken: string,
+  productId: string,
+): Promise<EstadoDeResena> {
+  const conservador: EstadoDeResena = { puede: false, yaEscribio: false, pendiente: false };
+  try {
+    const { storeId } = await tiendaActual();
+    const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+    const { data, error } = await db.rpc('mi_resena', {
+      p_store_id: storeId,
+      p_product_id: productId,
+    });
+
+    if (error) throw new Error(error.message);
+    return (data as unknown as EstadoDeResena) ?? conservador;
+  } catch (error) {
+    console.error('[resenas] no se pudo resolver si puede reseñar', error);
+    return conservador;
+  }
+}
+
+/**
+ * Escribe la reseña del comprador.
+ *
+ * **El pedido que la justifica lo elige la base**, no esta función: si el id
+ * viajara en el payload habría que validar que sea suyo, que esté entregado y que
+ * tenga ese producto, y eso es exactamente lo que no hay que escribir dos veces.
+ */
+export async function escribirResena(
+  accessToken: string,
+  productId: string,
+  rating: number,
+  body: string | null,
+): Promise<void> {
+  const { storeId } = await tiendaActual();
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+  const { error } = await db.rpc('escribir_resena', {
+    p_store_id: storeId,
+    p_product_id: productId,
+    p_rating: rating,
+    // El tipo generado no acepta `null`: omitir el argumento es lo mismo, porque
+    // la función tiene `default null`.
+    ...(body === null ? {} : { p_body: body }),
+  });
+
+  if (error) throw new Error(error.message);
+}

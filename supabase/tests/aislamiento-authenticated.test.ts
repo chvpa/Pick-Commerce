@@ -49,6 +49,7 @@ const HUELLAS = [
   'CIPHERTEXT-QUE-NO-DEBE-SALIR',
   '9x9x', // los últimos cuatro de la API key
   'TRANSFERIR-A-LA-CUENTA-SECRETA',
+  'RESENA-QUE-NO-DEBE-SALIR',
 ] as const;
 
 /**
@@ -73,6 +74,19 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   // Las sucursales con su stock: invoker sobre `locations` e `inventory_levels`,
   // que tienen política de lectura por membresía.
   ['public.admin_locations', `admin_locations('${TIENDA}')`],
+  // Reseñas: la cola del Admin y la moderación, las dos `definer` con el filtro de
+  // membresía escrito adentro (ADR-140).
+  ['public.admin_product_reviews', `admin_product_reviews('${TIENDA}', null, 1, 20)`],
+  [
+    'public.admin_moderate_reviews',
+    `admin_moderate_reviews('${TIENDA}', array[]::uuid[], 'published')`,
+  ],
+  // Las publicadas de un producto: `invoker`, así que a un forastero le devuelve
+  // vacío por las políticas de `product_reviews`.
+  ['public.product_reviews_publicas', `product_reviews_publicas('${TIENDA}', '${PRODUCTO}', 20)`],
+  // Escribir una reseña: `definer`, y lo primero que hace es exigir una cuenta de
+  // comprador en esa tienda. Un forastero no tiene ninguna.
+  ['public.escribir_resena', `escribir_resena('${TIENDA}', '${PRODUCTO}', 5::smallint, 'x')`],
   ['public.admin_dashboard', `admin_dashboard('${TIENDA}', now() - interval '30 days', now())`],
   ['public.admin_analytics', `admin_analytics('${TIENDA}', now() - interval '30 days', now())`],
   [
@@ -173,6 +187,12 @@ const PUBLICAS = [
    * (ADR-132).
    */
   'app.similitud_semantica',
+  // Devuelve false para quien no compró. La usa la política de inserción de
+  // reseñas, así que `authenticated` tiene que poder ejecutarla (ADR-140).
+  'app.compro_y_recibio',
+  // Devuelve todo en false para quien no compró en esa tienda, que es lo que
+  // necesita el PDP para decidir si ofrece el formulario (ADR-140).
+  'public.mi_resena',
 ] as const;
 
 let db: PGlite;
@@ -228,6 +248,20 @@ before(async () => {
          "address":{"street":"Calle 1","city":"Asuncion"},
          "paymentMethod":"bank_transfer",
          "lines":[{"variantId":"${VARIANTE}","quantity":1}]}'::jsonb)`,
+  );
+
+  /*
+   * Y una reseña publicada, con el texto como huella: el forastero no tiene que
+   * poder leerla ni por la tabla ni por la función de la vitrina. Se inserta con la
+   * secret key porque el pedido no está entregado —la política de inserción exige
+   * eso— y lo que este archivo prueba es la lectura, no el alta.
+   */
+  await comoServicio(
+    db,
+    `insert into product_reviews (tenant_id, store_id, product_id, customer_id, order_id, rating, body, status)
+     select '${TENANT}', '${TIENDA}', '${PRODUCTO}', o.customer_id, o.id, 5,
+            'RESENA-QUE-NO-DEBE-SALIR', 'published'
+     from orders o where o.store_id = '${TIENDA}' limit 1`,
   );
 });
 
@@ -293,7 +327,14 @@ for (const [nombre, llamada] of BLOQUEADAS) {
 
 // --- Las tablas -------------------------------------------------------------
 
-for (const tabla of ['customers', 'orders', 'order_items', 'order_events', 'store_settings']) {
+for (const tabla of [
+  'customers',
+  'orders',
+  'order_items',
+  'order_events',
+  'store_settings',
+  'product_reviews',
+]) {
   test(`un forastero no lee ni una fila de ${tabla}`, async () => {
     const suyas = await comoServicio<{ n: number }>(db, `select count(*)::int as n from ${tabla}`);
     assert.ok(suyas[0]!.n > 0, `el seed no dejó filas en ${tabla}: el test no probaría nada`);

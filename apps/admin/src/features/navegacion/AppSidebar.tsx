@@ -6,6 +6,7 @@ import {
   ChevronsUpDownIcon,
   GalleryVerticalEndIcon,
   HourglassIcon,
+  ResenaIcon,
   LayoutDashboardIcon,
   LayoutTemplateIcon,
   LibraryBigIcon,
@@ -91,6 +92,12 @@ const SECCIONES: readonly Seccion[] = [
    */
   { to: '/productos/sin-foto', label: 'Sin foto', icono: CameraIcon },
   { to: '/productos/stock-quieto', label: 'Stock quieto', icono: HourglassIcon },
+  /*
+   * Las reseñas están acá y no en Contenido porque son del producto: se llega
+   * desde Productos igual que «Sin foto», y por el mismo motivo —es una cola de
+   * trabajo, no una pantalla que se mira—.
+   */
+  { to: '/productos/resenas', label: 'Reseñas', icono: ResenaIcon },
   /*
    * Otra tarea de teléfono, y por eso también está acá: en el teléfono el
    * sidebar es el único menú. Pide `settings.write` porque gasta la clave de

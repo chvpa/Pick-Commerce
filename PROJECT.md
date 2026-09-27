@@ -949,6 +949,24 @@ Métricas prioritarias:
 
 ---
 
+## 22 bis. Reseñas
+
+> **Regla de producto, y está construida** (ADR-140). Lo construido lo declaran
+> `CLAUDE.md` § «Estado actual» y [ROADMAP.md](ROADMAP.md).
+
+Una reseña la escribe **quien compró y recibió**, una por persona y por producto,
+verificada contra el pedido y no contra una casilla que alguien marca.
+
+- El texto y la estrella **no se editan**: el comercio publica o rechaza. Poder
+  corregir una reseña es poder escribirla.
+- La vitrina muestra la **inicial** de quien la escribió, nunca el nombre.
+- Nace pendiente. Sin moderación no se publica ninguna, y eso está en
+  [LIMITACIONES.md](LIMITACIONES.md).
+- Cuando exista el programa de puntos, una reseña **se paga sin mirar la estrella**:
+  pagar por estrellas altas arruina el activo que la reseña construye.
+
+---
+
 ## 23. Clientes y privacidad
 
 No usar IP como identidad fiable de una persona.

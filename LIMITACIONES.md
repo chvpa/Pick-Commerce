@@ -453,3 +453,28 @@ convierte en un filtro de color: mapear palabras a valores de faceta necesita el
 vocabulario de la tienda y un modelo, y eso espera consultas reales para saber qué
 escribe la gente. Las once que hay no alcanzan, y las de la tienda simulada salen
 del propio generador.
+
+## Reseñas
+
+### Sin moderación, no se publica ninguna
+
+Una reseña nace pendiente y la publica el comercio desde Productos → Reseñas
+(ADR-140). Es deliberado —texto de un tercero en la vitrina sin que nadie lo lea es
+un riesgo que no se impone—, pero la contra es real: un comercio que no entra a esa
+pantalla no muestra ninguna reseña, aunque las tenga.
+
+### Sólo reseña quien compró y **recibió**
+
+Se verifica contra el pedido en estado «entregado». Un comercio que no marca sus
+pedidos como entregados no va a tener reseñas, y el motivo no se ve desde el
+storefront.
+
+### Lo que una reseña no tiene
+
+No hay respuesta del comercio, ni fotos, ni «me sirvió», ni orden por utilidad.
+Tampoco se emite `aggregateRating` en el JSON-LD: con dos reseñas, marcar el
+producto con estrellas en un buscador es cierto y engañoso a la vez. Se decide con
+volumen real.
+
+**Qué lo desbloquea:** un comercio con reseñas de verdad que pida alguna de las
+cuatro.

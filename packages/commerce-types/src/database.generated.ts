@@ -1671,6 +1671,84 @@ export type Database = {
           },
         ]
       }
+      product_reviews: {
+        Row: {
+          body: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          order_id: string
+          product_id: string
+          rating: number
+          status: Database["public"]["Enums"]["review_status"]
+          store_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          order_id: string
+          product_id: string
+          rating: number
+          status?: Database["public"]["Enums"]["review_status"]
+          store_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          order_id?: string
+          product_id?: string
+          rating?: number
+          status?: Database["public"]["Enums"]["review_status"]
+          store_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_reviews_customer_id_fkey"
+            columns: ["customer_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "product_reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "product_reviews_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "product_reviews_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_trending: {
         Row: {
           computed_at: string
@@ -2326,6 +2404,10 @@ export type Database = {
         Returns: Json
       }
       admin_locations: { Args: { p_store_id: string }; Returns: Json }
+      admin_moderate_reviews: {
+        Args: { p_ids: string[]; p_status: string; p_store_id: string }
+        Returns: number
+      }
       admin_order_notifications: {
         Args: { p_order_id: string; p_store_id: string }
         Returns: Json
@@ -2348,6 +2430,15 @@ export type Database = {
           p_per_page?: number
           p_store_id: string
           p_to: string
+        }
+        Returns: Json
+      }
+      admin_product_reviews: {
+        Args: {
+          p_page?: number
+          p_per_page?: number
+          p_status?: string
+          p_store_id: string
         }
         Returns: Json
       }
@@ -2460,6 +2551,15 @@ export type Database = {
         Args: { p_page?: number; p_per_page?: number; p_store_id: string }
         Returns: Json
       }
+      escribir_resena: {
+        Args: {
+          p_body?: string
+          p_product_id: string
+          p_rating: number
+          p_store_id: string
+        }
+        Returns: string
+      }
       forget_device: {
         Args: { p_device_id: string; p_store_id: string }
         Returns: number
@@ -2480,8 +2580,16 @@ export type Database = {
         Args: { p_id: string; p_store_id: string }
         Returns: undefined
       }
+      mi_resena: {
+        Args: { p_product_id: string; p_store_id: string }
+        Returns: Json
+      }
       my_preferences: { Args: { p_store_id: string }; Returns: Json }
       order_json: { Args: { p_order_id: string }; Returns: Json }
+      product_reviews_publicas: {
+        Args: { p_limite?: number; p_product_id: string; p_store_id: string }
+        Returns: Json
+      }
       recently_viewed: {
         Args: { p_device_id: string; p_limit?: number; p_store_id: string }
         Returns: Json
@@ -2542,6 +2650,7 @@ export type Database = {
       payment_status: "pending" | "paid" | "failed"
       product_status: "draft" | "active" | "inactive" | "archived"
       promotion_status: "draft" | "active" | "archived"
+      review_status: "pending" | "published" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2684,6 +2793,7 @@ export const Constants = {
       payment_status: ["pending", "paid", "failed"],
       product_status: ["draft", "active", "inactive", "archived"],
       promotion_status: ["draft", "active", "archived"],
+      review_status: ["pending", "published", "rejected"],
     },
   },
 } as const

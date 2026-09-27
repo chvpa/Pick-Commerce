@@ -11,6 +11,7 @@ import type {
   ProductoEditable,
   RepositorioAdminCatalogo,
   ResultadoImport,
+  PaginaDeResenas,
 } from '@pick/commerce-core';
 import type { Json } from '@pick/commerce-types/database';
 import type { PickSupabaseClient } from './client.ts';
@@ -431,6 +432,31 @@ export function repositorioAdminCatalogo(db: PickSupabaseClient): RepositorioAdm
 
       if (error) throw new Error(`No se pudo exportar el catálogo: ${error.message}`);
       return (data ?? []).map(aProductoEditable);
+    },
+
+    async resenas(storeId, status, page, perPage = 20): Promise<PaginaDeResenas> {
+      const { data, error } = await db.rpc('admin_product_reviews', {
+        p_store_id: storeId,
+        // El tipo generado dice `string | undefined`: el `null` del contrato
+        // significa «todas», y ahí el argumento simplemente no se manda.
+        ...(status ? { p_status: status } : {}),
+        p_page: page,
+        p_per_page: perPage,
+      });
+
+      if (error) throw new Error(`No se pudieron leer las reseñas: ${error.message}`);
+      return data as unknown as PaginaDeResenas;
+    },
+
+    async moderarResenas(storeId, ids, status): Promise<number> {
+      const { data, error } = await db.rpc('admin_moderate_reviews', {
+        p_store_id: storeId,
+        p_ids: [...ids],
+        p_status: status,
+      });
+
+      if (error) throw new Error(`No se pudieron moderar las reseñas: ${error.message}`);
+      return (data as unknown as number) ?? 0;
     },
 
     async importar(storeId, productos): Promise<readonly ResultadoImport[]> {

@@ -9,13 +9,14 @@ import ProductCardMedia from '@pick/commerce-astro/product/ProductCardMedia.astr
 import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astro';
 import ProductCarousel from '@pick/commerce-astro/product/ProductCarousel.astro';
 import Price from '@pick/commerce-astro/product/Price.astro';
+import Reviews from '@pick/commerce-astro/product/Reviews.astro';
 import { ProductPurchase } from '@pick/commerce-ui/product/ProductPurchase';
 import WishlistHeart from '@pick/commerce-astro/wishlist/WishlistHeart.astro';
 import { productJsonLd } from '@pick/commerce-core';
 
-import { catalogo, contextoSeo, recomendados, tiendaActual } from '../../lib/db.ts';
+import { catalogo, contextoSeo, recomendados, resenasDe, tiendaActual } from '../../lib/db.ts';
 import { anotar } from '../../lib/analytics.ts';
-import { misFavoritos } from '../../lib/cuenta.ts';
+import { estadoDeResena, misFavoritos } from '../../lib/cuenta.ts';
 import { paginaDeCuenta } from '../../lib/sesion.ts';
 import Base from '../../layouts/Base.astro';
 
@@ -64,6 +65,24 @@ if (hayCuenta && tokenDeCuenta) {
     console.error('[pdp] no se pudo leer lo guardado', error);
   }
 }
+
+/*
+ * Las reseñas (ADR-140).
+ *
+ * Las publicadas se leen siempre, con la secret key: son parte de la página y no
+ * dependen de quién mire. Lo que sí depende es si a quien mira se le ofrece
+ * escribir una, y eso sale de su sesión: sin cuenta llega todo en false y no se
+ * ofrece nada.
+ */
+const resenas = await resenasDe(product.id);
+const miResena =
+  hayCuenta && tokenDeCuenta
+    ? await estadoDeResena(tokenDeCuenta, product.id)
+    : { puede: false, yaEscribio: false, pendiente: false };
+
+/* `?resena=` lo pone el redirect del POST, y es lo único que se acepta de ahí. */
+const avisoDeResena = Astro.url.searchParams.get('resena');
+const aviso = avisoDeResena === 'ok' ? 'ok' : avisoDeResena === 'error' ? 'error' : undefined;
 
 anotar(Astro.locals, 'product_view', Astro.url.pathname, {
   handle: product.handle,
@@ -169,6 +188,24 @@ const relacionados = await recomendados([product.id]);
      * abierta no tiene co-vistas, y el arreglo llega vacío.
      */
   }
+  {
+    /*
+     * Las reseñas, antes de los relacionados: es lo que ayuda a decidir **este**
+     * producto, y los relacionados son para irse a otro.
+     */
+  }
+  <Container class="pb-12">
+    <Reviews
+      resenas={resenas}
+      productId={product.id}
+      puede={miResena.puede}
+      yaEscribio={miResena.yaEscribio}
+      pendiente={miResena.pendiente}
+      aviso={aviso}
+      locale={tienda.locale}
+    />
+  </Container>
+
   {
     relacionados.length > 0 && (
       <Container class="pb-12">

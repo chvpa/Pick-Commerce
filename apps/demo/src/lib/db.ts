@@ -26,6 +26,7 @@ import {
   type RepositorioCheckout,
   type RepositorioNotificaciones,
   type RepositorioPagos,
+  type ResenasDeProducto,
   type ResolucionTenant,
   type SeoContexto,
 } from '@pick/commerce-core';
@@ -519,4 +520,27 @@ export interface ProductoVisto {
   readonly brand: string | null;
   readonly image: { url: string; alt: string | null; width: number; height: number } | null;
   readonly viewedAt: string;
+}
+
+/**
+ * Las reseñas publicadas de un producto (ADR-140).
+ *
+ * Con la secret key, como el resto del catálogo: la función es `invoker` y el
+ * storefront saltea RLS. Si falla, el PDP se dibuja sin reseñas: es la página que
+ * vende y no se cae por una sección de abajo.
+ */
+export async function resenasDe(productId: string): Promise<ResenasDeProducto> {
+  const vacio: ResenasDeProducto = { total: 0, promedio: null, items: [] };
+  try {
+    const { storeId } = await tiendaActual();
+    const { data, error } = await db().rpc('product_reviews_publicas', {
+      p_store_id: storeId,
+      p_product_id: productId,
+    });
+    if (error) throw new Error(error.message);
+    return (data as unknown as ResenasDeProducto) ?? vacio;
+  } catch (error) {
+    console.error('[resenas] no se pudieron leer', error);
+    return vacio;
+  }
 }

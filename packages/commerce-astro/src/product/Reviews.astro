@@ -1,0 +1,184 @@
+---
+import type { ResenasDeProducto } from '@pick/commerce-core';
+import { textoDeEstrellas } from '@pick/commerce-core';
+import { cn } from '@pick/commerce-ui';
+
+/**
+ * Las reseñas de un producto, y el formulario de quien puede escribir una
+ * (ADR-140).
+ *
+ * **Sin JavaScript**: es un `<form method="post">` a una ruta del propio sitio.
+ * Una island acá sería una decisión de peso —el PDP tiene presupuesto— para
+ * resolver algo que el navegador hace solo, y encima dejaría de funcionar en el
+ * único caso en que el formulario importa: alguien que llegó a escribir.
+ *
+ * Lo que decide qué se ve:
+ *
+ * - `puede` es «compró y ya le llegó», resuelto en la base. Sin sesión llega en
+ *   false y no se ofrece nada, porque un formulario que termina en «entrá primero»
+ *   es una promesa que no se puede cumplir ahí mismo.
+ * - `yaEscribio` gana sobre `puede`: una persona, una reseña por producto.
+ * - `pendiente` se dice en voz alta. Una reseña que se escribió y no aparece se
+ *   lee como que se perdió.
+ */
+interface Props {
+  resenas: ResenasDeProducto;
+  /** Para el `action` del formulario y para volver acá después de escribir. */
+  productId: string;
+  puede?: boolean;
+  yaEscribio?: boolean;
+  pendiente?: boolean;
+  /** `?resena=` de la URL: `ok` recién escrita, o el motivo del rechazo. */
+  aviso?: 'ok' | 'error' | undefined;
+  locale?: string;
+  class?: string;
+}
+
+const {
+  resenas,
+  productId,
+  puede = false,
+  yaEscribio = false,
+  pendiente = false,
+  aviso,
+  locale = 'es-PY',
+  class: className,
+} = Astro.props;
+
+const { total, promedio, items } = resenas;
+
+/** Las cinco estrellas, llenas hasta el promedio redondeado. */
+const llenas = promedio === null ? 0 : Math.round(promedio);
+
+const fecha = (iso: string): string =>
+  new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' });
+---
+
+<section class={cn('flex flex-col gap-5', className)} id="resenas">
+  <div class="flex flex-wrap items-baseline justify-between gap-3">
+    <h2 class="font-display text-xl font-semibold tracking-tight">Reseñas</h2>
+
+    {
+      /* El promedio como texto **además** de las estrellas: un lector de pantalla
+        no puede leer cinco caracteres repetidos y sacar un número de ahí. */
+    }
+    <p class="flex items-center gap-2 text-sm">
+      <span aria-hidden="true" class="text-accent tracking-widest">
+        {'★'.repeat(llenas)}<span class="text-fg-subtle">{'★'.repeat(5 - llenas)}</span>
+      </span>
+      <span class="text-fg-muted">{textoDeEstrellas(promedio, total)}</span>
+    </p>
+  </div>
+
+  {
+    aviso === 'ok' && (
+      <p class="border-border bg-surface-sunken rounded-md border px-4 py-3 text-sm" role="status">
+        Gracias. Tu reseña quedó guardada y se publica cuando la tienda la revise.
+      </p>
+    )
+  }
+
+  {
+    aviso === 'error' && (
+      <p class="text-sale text-sm" role="alert">
+        No pudimos guardar tu reseña. Se puede reseñar un producto de un pedido que ya llegó, y una
+        sola vez.
+      </p>
+    )
+  }
+
+  {
+    pendiente && aviso !== 'ok' && (
+      <p class="text-fg-muted text-sm">Tu reseña está esperando que la tienda la revise.</p>
+    )
+  }
+
+  {
+    puede && !yaEscribio && (
+      <form
+        method="post"
+        action="/api/resenas"
+        class="border-border flex flex-col gap-3 rounded-lg border p-4"
+      >
+        <input type="hidden" name="productId" value={productId} />
+        <input type="hidden" name="volverA" value={Astro.url.pathname} />
+
+        <p class="text-sm font-medium">Compraste esto. ¿Cómo te fue?</p>
+
+        {/*
+          Radios y no un select: son cinco opciones y se eligen con un toque. El
+          `fieldset` les da el nombre de grupo, que es lo que hace que un lector de
+          pantalla anuncie «Puntuación» antes de la primera.
+        */}
+        <fieldset class="flex flex-col gap-2">
+          <legend class="text-fg-muted text-xs">Puntuación</legend>
+          <div class="flex flex-wrap gap-3">
+            {[5, 4, 3, 2, 1].map((n) => (
+              <label class="flex cursor-pointer items-center gap-1.5 text-sm">
+                <input type="radio" name="rating" value={n} required class="cursor-pointer" />
+                <span aria-hidden="true" class="text-accent">
+                  {'★'.repeat(n)}
+                </span>
+                <span class="sr-only">{n} de 5</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <label class="flex flex-col gap-1.5 text-sm">
+          <span class="text-fg-muted text-xs">Qué te pareció (opcional)</span>
+          <textarea
+            name="body"
+            rows="3"
+            maxlength="1000"
+            class="border-border bg-surface focus-visible:border-accent focus-visible:outline-accent rounded-md border px-3 py-2 text-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+            placeholder="Cómo te quedó, si era lo que esperabas…"
+          />
+        </label>
+
+        <div>
+          <button
+            type="submit"
+            class="bg-accent text-accent-fg hover:bg-accent-hover focus-visible:outline-accent h-10 cursor-pointer rounded-md px-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            Publicar reseña
+          </button>
+        </div>
+      </form>
+    )
+  }
+
+  {
+    total === 0 ? (
+      <p class="text-fg-muted text-sm">
+        Todavía nadie escribió una. Las reseñas las escribe quien compró el producto y ya lo
+        recibió.
+      </p>
+    ) : (
+      <ul class="flex flex-col gap-4">
+        {items.map((r) => (
+          <li class="border-border flex flex-col gap-1.5 border-t pt-4 first:border-t-0 first:pt-0">
+            <div class="flex items-center gap-2">
+              {/*
+                La inicial y nada más: publicar el nombre completo de un comprador
+                en una página pública no es algo que nadie haya aceptado al comprar.
+              */}
+              <span
+                class="bg-surface-sunken text-fg-muted flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium"
+                aria-hidden="true"
+              >
+                {r.inicial ?? '·'}
+              </span>
+              <span aria-hidden="true" class="text-accent text-sm tracking-widest">
+                {'★'.repeat(r.rating)}
+              </span>
+              <span class="sr-only">{r.rating} de 5</span>
+              <span class="text-fg-subtle text-xs">{fecha(r.fecha)}</span>
+            </div>
+            {r.body && <p class="text-sm leading-relaxed">{r.body}</p>}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</section>

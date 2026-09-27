@@ -448,3 +448,35 @@ export interface RepositorioCatalogo {
   /** Sólo las declaradas `filterable`: es lo que decide qué facetas ve la PLP. */
   facetasFiltrables(storeId: string): Promise<readonly DefinicionFaceta[]>;
 }
+
+// ---------------------------------------------------------------------------
+// Reseñas (ADR-140)
+// ---------------------------------------------------------------------------
+
+/**
+ * Una reseña publicada, como la ve la vitrina.
+ *
+ * `inicial` y no el nombre: publicar el nombre completo de un comprador en una
+ * página pública no es algo que nadie haya aceptado al comprar.
+ */
+export interface ResenaPublica {
+  readonly id: string;
+  readonly rating: number;
+  readonly body: string | null;
+  readonly inicial: string | null;
+  readonly fecha: string;
+}
+
+/** Lo que el PDP necesita para dibujar las reseñas de un producto. */
+export interface ResenasDeProducto {
+  readonly total: number;
+  /** Con una decimal, o `null` si no hay ninguna publicada. */
+  readonly promedio: number | null;
+  readonly items: readonly ResenaPublica[];
+}
+
+/** Las estrellas, como texto, para el rótulo accesible de un promedio. */
+export function textoDeEstrellas(promedio: number | null, total: number): string {
+  if (promedio === null || total === 0) return 'Todavía no tiene reseñas';
+  return `${promedio} de 5, sobre ${total} ${total === 1 ? 'reseña' : 'reseñas'}`;
+}

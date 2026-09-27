@@ -6836,3 +6836,66 @@ producción.
 - **No hay selector de preset en el Admin**, y no debería haberlo: un preset es una
   decisión de build de la app de esa tienda, no un ajuste que se cambia en caliente.
   Lo que se ajusta por tienda vive en `store_settings`.
+
+---
+
+## ADR-140 — Una reseña la escribe quien compró y recibió, y no se edita nunca
+
+**Fecha:** 2026-09-27
+**Estado:** Accepted
+
+**Contexto**
+La fidelidad de la Fase 8 de v2 tiene dos formas de ganar puntos, y una es escribir
+una reseña. Las reseñas **no existían**: ni tabla ni pantalla. Así que son una
+dependencia de esa fase y no un detalle, como el propio ROADMAP anotó.
+
+Pero valen por sí solas, y por un motivo que ya está medido: de los 3752 productos
+activos del piloto, 3674 no tenían descripción (ADR-130). Una reseña es lo único del
+catálogo que **el comercio no escribe** y que igual dice qué es el producto.
+
+**Decisión**
+
+- **Sólo reseña quien compró y recibió.** Se verifica contra `order_items` con el
+  pedido en `delivered`. No es una regla de flujo: opinar de algo que no llegó es
+  opinar de la espera, y es lo que hace que la estrella valga.
+- **Una por persona y por producto**, con un `unique`. Sin él, diez reseñas de la
+  misma cuenta suben un promedio sin que nadie mienta.
+- **Nace pendiente.** Texto de un tercero en la vitrina de otro sin que nadie lo
+  lea es un riesgo que no se le impone a un comercio. La contra es real y está
+  aceptada: **sin moderación, las reseñas no aparecen**, y eso está en LIMITACIONES.
+- **El texto y la estrella no se editan, y eso es estructural, no una omisión de la
+  pantalla.** La tabla concede `select, insert` a `authenticated` y nada más; el
+  Admin cambia el estado por `admin_moderate_reviews`, que es `definer` y sólo toca
+  `status`. Poder corregir una reseña es poder escribirla. Comprobado en PGlite: con
+  el grant de `update` puesto, el dueño podía reescribirla.
+- **El pedido que la justifica lo elige la base**, no el cliente. `escribir_resena`
+  busca el pedido entregado más reciente con ese producto. Si el id viajara en el
+  payload habría que validar que sea suyo, que esté entregado y que tenga ese
+  producto, y eso es la misma regla escrita dos veces.
+- **La vitrina muestra la inicial, nunca el nombre.** Publicar el nombre completo de
+  un comprador en una página pública no es algo que nadie haya aceptado al comprar.
+  En el Admin sí aparece: ahí el comercio mira su propia ficha de cliente.
+- El texto es **opcional**: una estrella sola es una reseña válida y exigir texto
+  baja mucho cuántas se escriben. Con tope de 1000 caracteres, para que el campo no
+  sea un blog.
+- El formulario es un `<form method="post">` a una ruta del sitio, **sin
+  JavaScript**. Una island sería peso en el PDP —que tiene presupuesto— para
+  resolver lo que el navegador hace solo, y fallaría justo en el caso que importa.
+- Dos funciones `definer` para el navegador, por la asimetría que ADR-121 y la
+  corrección de la wishlist ya documentaron: `product_variants` no tiene política
+  para `authenticated`, así que el cruce con `order_items` desde el cliente
+  devolvería cero filas siempre y el formulario diría «no encontramos tu pedido»
+  con el pedido entregado en la base.
+
+**Consecuencias**
+
+- El promedio **no cuenta las pendientes ni las rechazadas**, ni en el total ni en
+  el número. Con su test.
+- No hay respuesta del comercio a una reseña, ni fotos, ni «me sirvió». Cada una es
+  otra decisión y ninguna tiene un pedido detrás todavía.
+- **No se emite `aggregateRating` en el JSON-LD**, aunque el dato existe. Con dos
+  reseñas, marcar el producto con estrellas en Google es cierto y engañoso a la vez;
+  se decide con volumen real.
+- La fidelidad ya tiene de dónde colgar su segunda forma de ganar puntos, y se
+  pagará **sin mirar la estrella**: pagar por estrellas altas es cómo se arruina el
+  activo que la reseña construye.
