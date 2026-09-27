@@ -58,3 +58,48 @@ test('todo componente .astro acepta class y lo combina con cn', () => {
   }
   assert.deepEqual(problemas, [], `\n${problemas.join('\n')}`);
 });
+
+/**
+ * Un preset redefine variables, nunca clases de componentes (ADR-110, ADR-139).
+ *
+ * Es la regla que hace que una mejora de un componente llegue a todas las tiendas
+ * sin pelearse con la marca, y la que se rompe sola: pisar una clase «esta única
+ * vez» funciona hasta el día en que el componente cambia y la tienda se queda con
+ * el estilo viejo encima. Acá se comprueba mecánicamente: dentro de un preset sólo
+ * puede haber un bloque `@theme` con declaraciones de variables.
+ *
+ * Se mide sobre el archivo y no sobre el CSS compilado a propósito: lo que hay que
+ * impedir es que alguien **escriba** un selector, no que Tailwind genere uno.
+ */
+test('los presets sólo redefinen variables', () => {
+  const problemas: string[] = [];
+  const dir = join(RAIZ_UI, 'styles', 'presets');
+
+  for (const ruta of archivos(dir, '.css')) {
+    // Sin comentarios: adentro hay ejemplos de uso con `@import`, que es lo que se
+    // documenta, y no queremos que un ejemplo dispare el test.
+    const css = readFileSync(ruta, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+    for (const prohibido of ['@utility', '@apply', '@layer', '@source', '@import']) {
+      if (css.includes(prohibido)) problemas.push(`${ruta}: usa ${prohibido}`);
+    }
+
+    // Fuera del `@theme` no puede quedar nada, y adentro sólo `--variable: valor`.
+    const bloques = [...css.matchAll(/@theme\s*\{([\s\S]*?)\n\}/g)];
+    const afuera = css.replace(/@theme\s*\{[\s\S]*?\n\}/g, '').trim();
+    if (afuera !== '') problemas.push(`${ruta}: hay CSS fuera de @theme: ${afuera.slice(0, 60)}`);
+
+    for (const bloque of bloques) {
+      for (const linea of bloque[1]!.split('\n')) {
+        const limpia = linea.trim();
+        if (limpia === '') continue;
+        if (!/^--[a-z0-9-]+:\s*.+;$/.test(limpia)) {
+          problemas.push(`${ruta}: «${limpia}» no es una declaración de variable`);
+        }
+      }
+    }
+  }
+
+  assert.notEqual(archivos(dir, '.css').length, 0, 'no se encontró ningún preset');
+  assert.deepEqual(problemas, [], `\n${problemas.join('\n')}`);
+});

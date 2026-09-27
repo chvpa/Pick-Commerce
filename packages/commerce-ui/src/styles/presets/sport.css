@@ -1,0 +1,52 @@
+/*
+ * Preset Sport — directo: acento saturado, pastillas y foto cuadrada.
+ *
+ * Es el preset que más se parece a una tienda real ya entregada: Treeshop es
+ * deportiva, y de ahí salen dos decisiones que ya se probaron contra un catálogo de
+ * verdad (ADR-110) —botón pastilla y acento saturado—. Lo que **no** se copia es su
+ * `--aspect-product: 3 / 4` con `contain`, que ahí es una consecuencia de recibir
+ * fotos de proveedores distintos y no una decisión de la vertical.
+ *
+ * Cuadrado y `contain`: un calzado o una pelota entran completos en un cuadrado, y
+ * `contain` los muestra enteros aunque las proporciones de las fotos no sean
+ * parejas, que es el caso normal cuando el catálogo lo surten varias marcas. Con
+ * fotografía propia, `cover` llena mejor.
+ *
+ * Sin dependencias: la familia es la del sistema. Con una fuente de marca
+ * —condensadas y muy pesadas son lo típico de esta vertical— se instala su paquete
+ * de fontsource y se nombra en las dos variables.
+ *
+ * Uso, en el `global.css` de la app:
+ *
+ *   @import 'tailwindcss';
+ *   @import '@pick/commerce-ui/tokens.css';
+ *   @import '@pick/commerce-ui/presets/sport.css';
+ */
+
+@theme {
+  /*
+   * Azul saturado. En deportes el acento es parte del lenguaje de la categoría y
+   * puede competir con la foto sin que moleste: el producto ya es de colores.
+   */
+  --color-accent: oklch(0.55 0.2 250);
+  --color-accent-hover: oklch(0.47 0.2 250);
+  --color-accent-fg: oklch(0.99 0 0);
+
+  /* La oferta en naranja y no en rojo: con dos colores fuertes, el rojo al lado
+   * del azul se lee como un error de validación. */
+  --color-sale: oklch(0.6 0.19 45);
+
+  /* Pastillas, que es lo que Treeshop necesitó y lo único que separa este preset
+   * del default en la mano del usuario. Las tarjetas se quedan contenidas. */
+  --radius-button: var(--radius-full);
+  --radius-lg: 0.75rem;
+
+  /* Cuadrado y entero. Ver la nota de arriba: el recorte se cambia el día que la
+   * tienda tenga su propia fotografía. */
+  --aspect-product: 1 / 1;
+  --fit-product: contain;
+
+  /* Gris apenas más marcado: separa del papel un packshot sobre blanco, que es lo
+   * que manda la mayoría de las marcas deportivas. */
+  --color-media: oklch(0.965 0.002 250);
+}

@@ -6,6 +6,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./tokens.css": "./src/styles/tokens.css",
+    "./presets/blank.css": "./src/styles/presets/blank.css",
+    "./presets/fashion.css": "./src/styles/presets/fashion.css",
+    "./presets/sport.css": "./src/styles/presets/sport.css",
     "./cart/CartDrawer": "./src/cart/CartDrawer.tsx",
     "./cart/CartButton": "./src/cart/CartButton.tsx",
     "./cart/store": "./src/cart/store.ts",

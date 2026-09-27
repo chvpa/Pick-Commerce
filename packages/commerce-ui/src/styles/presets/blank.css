@@ -1,0 +1,75 @@
+/*
+ * Preset Blank — el punto de partida, y la lista de lo que se puede cambiar.
+ *
+ * **No redefine nada.** Importarlo no cambia un píxel, y eso es a propósito: los
+ * tokens base ya son la versión neutra —ADR-027 descarta la estética genérica de
+ * template— así que un «Blank» que redefiniera variables para dejarlas igual sería
+ * un archivo que existe para aparecer en una lista.
+ *
+ * Lo que sí aporta es el **inventario**: abajo está todo lo que un preset puede
+ * pisar, comentado y con su efecto al lado. Se copia este archivo al `styles/` de
+ * la tienda nueva, se descomenta lo que la marca necesita y se borra el resto. Es
+ * la documentación en la forma en que se usa.
+ *
+ * La regla de ADR-110, que es la que hace que esto funcione: **un preset redefine
+ * variables, nunca clases de componentes**. Si algo de acá necesitara pisar una
+ * clase, el problema está en el componente y se arregla ahí con un prop.
+ *
+ * Uso, en el `global.css` de la app:
+ *
+ *   @import 'tailwindcss';
+ *   @import '@pick/commerce-ui/tokens.css';
+ *   @import '@pick/commerce-ui/presets/blank.css';
+ */
+
+@theme {
+  /* --- Color -------------------------------------------------------------- */
+  /* El color de la marca. Lo que más cambia de una tienda a otra. */
+  /* --color-accent: oklch(0.53 0.13 258); */
+  /* El hover se calcula bajando luminosidad del mismo color, no inventando otro. */
+  /* --color-accent-hover: oklch(0.47 0.135 258); */
+  /* El texto sobre el acento: casi siempre blanco, salvo con un acento claro. */
+  /* --color-accent-fg: oklch(0.99 0 0); */
+
+  /* El precio rebajado. Su propio token: con el mismo rojo que el acento, una
+   * oferta y un botón primario se leen como la misma cosa. */
+  /* --color-sale: oklch(0.55 0.19 22); */
+
+  /* El papel y el texto. Cambiarlos es pasar a fondo oscuro o a un blanco cálido. */
+  /* --color-surface: oklch(1 0 0); */
+  /* --color-surface-sunken: oklch(0.976 0.002 250); */
+  /* --color-fg: oklch(0.22 0.008 260); */
+  /* --color-fg-muted: oklch(0.53 0.012 260); */
+  /* --color-border: oklch(0.91 0.004 260); */
+
+  /* La caja que contiene una foto. Blanco si el catálogo son packshots sobre
+   * blanco —dentro de un gris se ve el rectángulo de cada uno—; gris si las fotos
+   * tienen fondo y hay que separarlas del papel. */
+  /* --color-media: var(--color-surface-sunken); */
+
+  /* --- Tipografía --------------------------------------------------------- */
+  /* La familia del cuerpo. Con una fuente propia, instalar su paquete de
+   * fontsource y nombrarla acá: self-hosted, sin pedido a Google Fonts. */
+  /* --font-sans: 'Nombre Variable', ui-sans-serif, system-ui, sans-serif; */
+  /* La de los títulos. Igual a la del cuerpo salvo que la marca tenga dos. */
+  /* --font-display: var(--font-sans); */
+
+  /* --- Forma -------------------------------------------------------------- */
+  /* El radio de los botones. `--radius-full` los hace pastilla sin tocar las
+   * tarjetas, y es lo que más distingue una marca de otra con una línea. */
+  /* --radius-button: var(--radius-md); */
+  /* --radius-lg: 0.5rem; */
+
+  /* --- Fotografía del catálogo -------------------------------------------- */
+  /* La proporción de la foto de producto: retrato para moda, cuadrado para
+   * ferretería. Un token, no un fork. */
+  /* --aspect-product: 3 / 4; */
+  /* Cómo entra la foto en esa caja. `contain` nunca destruye una foto; `cover`
+   * llena y recorta, y sólo sirve con fotografía propia y pareja. */
+  /* --fit-product: contain; */
+
+  /* --- Layout ------------------------------------------------------------- */
+  /* El ancho del contenido y el de las secciones anchas. */
+  /* --container-content: 72rem; */
+  /* --container-wide: 90rem; */
+}

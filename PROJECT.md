@@ -726,10 +726,11 @@ Evitar componentes con decenas de props booleanas cuando composition/variants re
 
 > **Diseño de producto, no estado del sistema.** Lo construido lo declaran
 > `CLAUDE.md` § «Estado actual» y [ROADMAP.md](ROADMAP.md). Hoy un preset es un
-> archivo de variables CSS que redefine los tokens —el de Treeshop está en
-> `apps/treeshop/src/styles/global.css`, ADR-110— y la tabla `feature_flags`
-> existe desde la Fase 3 sin ningún lector: ninguno de los flags de abajo
-> gobierna nada todavía.
+> archivo de variables CSS que redefine los tokens: el de Treeshop está en
+> `apps/treeshop/src/styles/global.css` (ADR-110), y `Blank`, `Fashion` y `Sport`
+> se importan desde `@pick/commerce-ui/presets/` (ADR-139). Los de abajo que no
+> están nombrados ahí no existen. La tabla `feature_flags` existe desde la Fase 3
+> sin ningún lector: ninguno de los flags de esta sección gobierna nada todavía.
 
 Presets iniciales posibles:
 

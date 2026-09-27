@@ -58,6 +58,19 @@ Hay dos caminos, y el primero que hay que decidir es cuál:
   header, pie y preset. Es lo que hizo Treeshop (ADR-110). Comparte la base,
   el Admin y los paquetes; lo que mejore en el Core le llega solo.
 
+  El preset es el `global.css` de esa app, y hay tres para arrancar (ADR-139):
+
+  ```css
+  @import 'tailwindcss';
+  @import '@pick/commerce-ui/tokens.css';
+  @import '@pick/commerce-ui/presets/fashion.css'; /* o sport.css, o blank.css */
+  ```
+
+  `blank.css` no cambia nada y lista comentado todo lo que se puede pisar: es de
+  donde se copia. La regla que no se negocia es que **un preset redefine variables
+  y nunca una clase de componente**; si hiciera falta pisar una clase, el arreglo va
+  en el componente.
+
 - [ ] **Crear el Worker.** Con `pnpm --filter @pick/<cliente> run deploy`, que
       además crea solo el KV de sesiones en el primer deploy. Workers Builds hoy
       lo tiene sólo la demo, así que una app propia se despliega **a mano con

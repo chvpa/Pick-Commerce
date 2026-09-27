@@ -1,0 +1,61 @@
+/*
+ * Preset Fashion — editorial: la foto manda y el texto no compite.
+ *
+ * De dónde salen estas decisiones, porque no son de gusto: son las mismas cuatro
+ * variables que el preset real de Treeshop necesitó tocar (ADR-110) —familia,
+ * acento, radio y la caja de la foto— resueltas en la dirección opuesta. Una
+ * tienda de indumentaria tiene fotografía propia y pareja, y eso es exactamente la
+ * condición que permite `cover`: llenar la caja y recortar. Un catálogo que recibe
+ * packshots de proveedores **no** cumple esa condición y ahí este preset es la
+ * elección equivocada.
+ *
+ * Sin dependencias: la serif es Georgia, que existe en todo sistema y cuesta cero
+ * bytes. Con una fuente de marca, se instala su paquete de fontsource y se cambia
+ * `--font-display`; el resto del preset no se toca.
+ *
+ * Uso, en el `global.css` de la app:
+ *
+ *   @import 'tailwindcss';
+ *   @import '@pick/commerce-ui/tokens.css';
+ *   @import '@pick/commerce-ui/presets/fashion.css';
+ */
+
+@theme {
+  /*
+   * Serif sólo en los títulos. Con serif también en el cuerpo, una ficha de
+   * producto con talles y medidas se vuelve difícil de leer; el contraste entre las
+   * dos familias es lo que da el aire editorial, no la serif por todas partes.
+   */
+  --font-display: Georgia, 'Times New Roman', serif;
+
+  /*
+   * Acento casi negro. En moda el color lo pone la ropa: un botón azul o rojo
+   * compite con la foto que está al lado, que es lo que se vino a mirar.
+   */
+  --color-accent: oklch(0.24 0.008 260);
+  --color-accent-hover: oklch(0.16 0.008 260);
+  --color-accent-fg: oklch(0.99 0 0);
+
+  /* La oferta sí tiene color: es lo único que necesita gritar. */
+  --color-sale: oklch(0.52 0.2 18);
+
+  /* Papel apenas cálido y borde más suave: el gris azulado del default se lee
+   * técnico al lado de una foto de ropa. */
+  --color-surface-sunken: oklch(0.975 0.004 85);
+  --color-border: oklch(0.9 0.004 85);
+
+  /* Cantos rectos. El radio es la marca más rápida de template. */
+  --radius-button: var(--radius-xs);
+  --radius-lg: var(--radius-sm);
+
+  /*
+   * Retrato largo y recortado. Los dos van juntos: `cover` con una proporción casi
+   * cuadrada deja medio cuerpo afuera, y 2/3 con `contain` dibuja dos franjas de
+   * fondo a los costados de cada foto.
+   */
+  --aspect-product: 2 / 3;
+  --fit-product: cover;
+
+  /* La foto sobre el mismo papel, sin caja gris que la encierre. */
+  --color-media: var(--color-surface);
+}

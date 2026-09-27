@@ -569,7 +569,8 @@ backlog con la etiqueta Treeshop.
 - [-] Crear preset Blank.
 - [-] Crear preset Fashion.
 - [-] Crear preset Sport o Wholesale.
-  Los tres se difieren por decisión de scope y **pasan a la Fase 8 de v2**:
+  **Hechos en la Fase 8 de v2** (ADR-139). Se difirieron por decisión de scope y
+  pasaron a esa fase:
   el segundo cliente real es el que dice qué es un preset y qué es un
   override. Los tokens ya están construidos para recibirlos —un preset
   redefine variables, no clases, como quedó probado con el de Treeshop
@@ -1493,7 +1494,7 @@ clave de OpenAI sigue teniendo el buscador de la Fase 3, completo.
 
 ## Fase 8 — Operación avanzada: lo que quedaba del v2 escrito
 
-**Avance: 60%**
+**Avance: 70%**
 
 > **Ninguno de los cinco bloques escritos se pudo empezar, y está medido.** Tres
 > los bloquea su propio Definition of Done —B2B, multi-location y los presets
@@ -1648,11 +1649,23 @@ algo. No es una fase que se tome entera: se toma de a un bloque, con un cliente
       de v2. `Meta Ads`, `Google Ads` y `ROAS/MER` salen de v2: una integración de
       plataforma publicitaria trae su propio almacén de credenciales por tenant y su
       propia conciliación, y eso es forma de v3.
-- [ ] Los tres presets que v1 dejó abiertos —`Blank`, `Fashion`, `Sport`—. Van acá
-      porque el segundo cliente real es el que dice qué es un preset y qué es un
-      override; hasta que exista, un preset es una conjetura con forma de código. El
-      mecanismo ya está probado con uno real: el preset de Treeshop redefine
-      variables y no pisa una sola clase de componente (ADR-110).
+- [x] **Los tres presets que v1 dejó abiertos** —`Blank`, `Fashion`, `Sport`—
+      (ADR-139). Lo que los desbloqueó no fue un segundo cliente: fue que el primero
+      ya dejó su preset, y con él la lista de lo que un preset toca —familia, acento,
+      radio y cómo entra la foto en su caja— medida contra una tienda en producción y
+      sin una sola clase de componente pisada (ADR-110).
+      **`blank.css` no redefine nada**, y eso es el punto: los tokens base ya son la
+      versión neutra (ADR-027), así que lo que aporta es el inventario de lo que se
+      puede pisar, comentado, para copiar y descomentar. `fashion` es editorial
+      —serif sólo en títulos, acento casi negro, retrato 2/3 con `cover`— y `sport`
+      es directo —acento saturado, pastilla, cuadrado con `contain`—.
+      `--aspect-product` y `--fit-product` se cambian juntos o no se cambian, por lo
+      que la Fase 5 midió: con proporciones de 0,32 a 2,89, `cover` muestra la franja
+      del medio de cada foto.
+      Un test mecánico impide que un preset escriba un selector, comprobado al revés
+      agregándole una clase. Lo que **no** hay es una tercera vitrina donde mostrarlos:
+      `demo` y `treeshop` tienen su look decidido y montarles un preset encima sería
+      cambiarle la cara a una tienda en producción para probar un archivo.
 
 **Definition of Done**
 
@@ -2090,6 +2103,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-24 | **v2 Fase 8 al 40%: antigüedad del stock.** «Stock quieto», en Productos, dice cuánta plata hay parada y hace cuánto: cuatro tramos por días desde la última venta, a precio y a costo con su cobertura (ADR-135). La base no sabe cuándo entró cada unidad, así que mide desde la última venta o desde el alta, y está en LIMITACIONES. Advanced Analytics queda cerrado. De paso, `simular:catalogo` conserva la fecha de alta: sin ella, lo que nunca se vendió tenía cero días                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | v2 Fase 8 |          30% |            40% |
 | 2026-09-27 | **El stock se guarda en la sucursal que se nombra** (ADR-136). Los tres hallazgos del backlog que multi-location tenía delante, y que eran el mismo: el Admin escribía en la primera sucursal, leía la suma de todas y la reescribía en una —30 → 50 → 70 en tres guardados sin tocar el campo— y un negativo en un depósito se compensaba con el positivo de otro. Ahora el payload nombra la sucursal, un número suelto falla si hay más de una en vez de elegir por su cuenta, y Configuración crea sucursales con su total y sus negativos a la vista. De paso, la ficha del producto dejaba cacheado lo de antes al volver a abrirla después de guardar. Con una sucursal no cambia nada, que es el caso de todas las tiendas de hoy                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | v2 Fase 8 |          40% |            40% |
 | 2026-09-27 | **Los dos ítems de IA que la Fase 11 difirió.** El precio escrito en la frase se lee sin modelo (ADR-137): «campera hasta 200 mil» es un término más un filtro, y antes «hasta», «200» y «mil» entraban como palabras y vaciaban la página. Y el período se cuenta en palabras en Resumen (ADR-138), con los números calculados por el Admin para que el modelo redacte y no sume: así el párrafo no puede contradecir a la tabla de abajo. De paso, se corrige lo que este ROADMAP decía: la tienda simulada **no** desbloquea entender la consulta, porque sus frases salen del propio generador                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | v2 Fase 8 |          40% |            60% |
+| 2026-09-27 | **Los tres presets que v1 dejó abiertos** (ADR-139). Lo que los desbloqueó no fue un segundo cliente: fue que el primero ya dejó el suyo, y con él la lista de lo que un preset toca —familia, acento, radio y cómo entra la foto en su caja—, medida contra una tienda en producción. `blank.css` **no redefine nada** a propósito: los tokens base ya son la versión neutra, así que lo que aporta es el inventario comentado de lo que se puede pisar. Un test mecánico impide que un preset escriba un selector, comprobado al revés. No hay una tercera vitrina donde mostrarlos, y está dicho                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | v2 Fase 8 |          60% |            70% |
 
 ---
 

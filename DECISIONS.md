@@ -6778,3 +6778,61 @@ comparación es peor que no tener resumen, porque quien lo lee le cree.
   servicio (ADR-132). Está en LIMITACIONES.
 - El costo es de centavos por pedido —el pedido son unos cientos de tokens de
   entrada—, así que no lleva confirmación previa como el lote de descripciones.
+
+---
+
+## ADR-139 — Los tres presets, y por qué «Blank» no redefine nada
+
+**Fecha:** 2026-09-27
+**Estado:** Accepted
+
+**Contexto**
+`Blank`, `Fashion` y `Sport` estaban en la Fase 12 de v1 y se difirieron con un
+argumento que sigue siendo cierto: **el segundo cliente real es el que dice qué es
+un preset y qué es un override**, y hasta que exista, un preset es una conjetura
+con forma de código. Lo que cambió es que ya hubo un preset real. Treeshop
+(ADR-110) necesitó exactamente cuatro cosas —familia tipográfica, acento, radio de
+botón y cómo entra la foto en su caja— y **ninguna clase de componente**. Eso deja
+de ser conjetura: es la lista de lo que un preset toca, medida contra una tienda en
+producción.
+
+**Decisión**
+
+- Tres archivos en `packages/commerce-ui/src/styles/presets/`, importables por
+  subpath. Un preset es CSS con **un solo bloque `@theme`** y nada más.
+- **`blank.css` no redefine ninguna variable**, y eso es el punto. Los tokens base
+  ya son la versión neutra —ADR-027 descarta la estética de template—, así que un
+  «Blank» que redefiniera variables para dejarlas igual sería un archivo que existe
+  para aparecer en una lista. Lo que aporta es el **inventario**: todo lo que se
+  puede pisar, comentado y con su efecto al lado, para copiar y descomentar. Es la
+  documentación en la forma en la que se usa.
+- `fashion.css`: serif **sólo** en los títulos —con serif también en el cuerpo, una
+  ficha con talles y medidas se vuelve difícil de leer—, acento casi negro porque en
+  moda el color lo pone la ropa, cantos rectos, y retrato 2/3 con `cover`.
+- `sport.css`: acento saturado y botón pastilla, que son las dos decisiones que
+  Treeshop ya probó contra un catálogo real, más foto cuadrada con `contain`.
+- **`--aspect-product` y `--fit-product` se cambian juntos o no se cambian.**
+  `cover` con una proporción casi cuadrada deja medio cuerpo afuera, y 2/3 con
+  `contain` dibuja dos franjas de fondo en cada foto. Y `cover` sólo es aceptable
+  con fotografía propia y pareja: medido sobre el catálogo de Treeshop, las
+  proporciones van de 0,32 a 2,89 y con `cover` se ve la franja del medio de cada
+  producto. Por eso `fashion` recorta y `sport` no.
+- Un test mecánico en `commerce-ui` comprueba que ningún preset tenga selectores,
+  `@utility`, `@apply` ni nada fuera del `@theme`. Se mide sobre el **archivo** y no
+  sobre el CSS compilado: lo que hay que impedir es que alguien escriba un selector.
+  Comprobado al revés, agregándole una clase a un preset: el test se pone en rojo.
+- Sin dependencias nuevas: las familias son Georgia y la del sistema. Una fuente de
+  marca entra instalando su paquete de fontsource y cambiando una variable, como
+  hizo Treeshop con Montserrat — nunca Google Fonts, que agrega un dominio al que
+  conectarse antes de poder dibujar texto.
+
+**Lo que esto no es**
+
+- **No hay una tercera vitrina donde mostrarlos.** Existen `demo` y `treeshop`, y
+  las dos tienen su propio look decidido; montarles un preset encima sería cambiarle
+  la cara a una tienda en producción para probar un archivo. Lo que garantiza que
+  funcionan es que el mecanismo es el mismo que corre en `sontres.shop` y que las
+  variables que tocan son las que Treeshop ya pisa.
+- **No hay selector de preset en el Admin**, y no debería haberlo: un preset es una
+  decisión de build de la app de esa tienda, no un ajuste que se cambia en caliente.
+  Lo que se ajusta por tienda vive en `store_settings`.
