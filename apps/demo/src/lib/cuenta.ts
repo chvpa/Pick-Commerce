@@ -625,3 +625,95 @@ export async function escribirResena(
 
   if (error) throw new Error(error.message);
 }
+
+// ---------------------------------------------------------------------------
+// Puntos (ADR-141)
+// ---------------------------------------------------------------------------
+
+/** Un movimiento del libro, como lo ve quien lo ganó. */
+export interface MovimientoDePuntos {
+  readonly id: string;
+  readonly puntos: number;
+  readonly origen: 'compra' | 'resena' | 'canje' | 'reverso' | 'vencimiento' | 'ajuste';
+  readonly nota: string | null;
+  readonly fecha: string;
+  /** El cupón que emitió un canje, con su fecha y si ya se usó. */
+  readonly cupon: string | null;
+  readonly cuponVence: string | null;
+  readonly cuponUsado: boolean | null;
+}
+
+export interface MisPuntos {
+  readonly habilitado: boolean;
+  readonly saldo: number;
+  readonly porCompra?: number;
+  readonly porResena?: number;
+  readonly diasDeVencimiento?: number;
+  readonly movimientos: readonly MovimientoDePuntos[];
+}
+
+export interface PremioCanjeable {
+  readonly id: string;
+  readonly titulo: string;
+  readonly puntos: number;
+  readonly tipo: 'percentage' | 'fixed';
+  readonly valor: number;
+  readonly alcanza: boolean;
+  readonly agotado: boolean;
+  readonly vence: string | null;
+}
+
+export interface Premios {
+  readonly habilitado: boolean;
+  readonly saldo: number;
+  readonly premios: readonly PremioCanjeable[];
+}
+
+/**
+ * El saldo y la historia de puntos del comprador.
+ *
+ * La función **escribe** —pasa el vencimiento antes de contar— y por eso es `definer`
+ * del lado de la base. Acá no hay nada que decidir: lo que llega es lo que hay.
+ */
+export async function misPuntos(accessToken: string): Promise<MisPuntos> {
+  const { storeId } = await tiendaActual();
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+  const { data, error } = await db.rpc('mis_puntos', { p_store_id: storeId });
+  if (error) throw new Error(`No se pudieron leer tus puntos: ${error.message}`);
+  return data as unknown as MisPuntos;
+}
+
+/** Los premios activos, con el saldo de quien mira y si le alcanza. */
+export async function premiosDisponibles(accessToken: string): Promise<Premios> {
+  const { storeId } = await tiendaActual();
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+  const { data, error } = await db.rpc('premios_disponibles', { p_store_id: storeId });
+  if (error) throw new Error(`No se pudieron leer los premios: ${error.message}`);
+  return data as unknown as Premios;
+}
+
+/**
+ * Canjea un premio y devuelve el cupón.
+ *
+ * **Nada se comprueba acá**: el saldo, las fechas, el stock del premio y el tope por
+ * persona los decide `canjear_premio` adentro de una transacción. Un chequeo escrito
+ * también de este lado sería la misma regla en dos lugares, y el de acá es el que se
+ * olvida de actualizar.
+ */
+export async function canjearPremio(
+  accessToken: string,
+  rewardId: string,
+): Promise<{ codigo: string; premio: string; vence: string; saldo: number }> {
+  const { storeId } = await tiendaActual();
+  const db = clienteDeUsuario(conexionPublica(), accessToken);
+
+  const { data, error } = await db.rpc('canjear_premio', {
+    p_store_id: storeId,
+    p_reward_id: rewardId,
+  });
+
+  if (error) throw new Error(error.message);
+  return data as unknown as { codigo: string; premio: string; vence: string; saldo: number };
+}

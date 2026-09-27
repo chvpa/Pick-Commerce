@@ -1044,6 +1044,176 @@ export type Database = {
           },
         ]
       }
+      loyalty_ledger: {
+        Row: {
+          created_at: string
+          customer_id: string
+          id: string
+          note: string | null
+          order_id: string | null
+          points: number
+          promotion_id: string | null
+          review_id: string | null
+          reward_id: string | null
+          source: Database["public"]["Enums"]["loyalty_source"]
+          store_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          id?: string
+          note?: string | null
+          order_id?: string | null
+          points: number
+          promotion_id?: string | null
+          review_id?: string | null
+          reward_id?: string | null
+          source: Database["public"]["Enums"]["loyalty_source"]
+          store_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          id?: string
+          note?: string | null
+          order_id?: string | null
+          points?: number
+          promotion_id?: string | null
+          review_id?: string | null
+          reward_id?: string | null
+          source?: Database["public"]["Enums"]["loyalty_source"]
+          store_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_ledger_customer_id_fkey"
+            columns: ["customer_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "loyalty_ledger_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_ledger_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_ledger_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "product_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_ledger_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_rewards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_ledger_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "loyalty_ledger_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_rewards: {
+        Row: {
+          created_at: string
+          discount_type: string
+          discount_value: number
+          ends_at: string | null
+          id: string
+          max_per_customer: number | null
+          max_redemptions: number | null
+          points_cost: number
+          redemptions: number
+          starts_at: string | null
+          status: Database["public"]["Enums"]["promotion_status"]
+          store_id: string
+          target: Json
+          tenant_id: string
+          title: string
+          updated_at: string
+          valid_days: number
+        }
+        Insert: {
+          created_at?: string
+          discount_type: string
+          discount_value: number
+          ends_at?: string | null
+          id?: string
+          max_per_customer?: number | null
+          max_redemptions?: number | null
+          points_cost: number
+          redemptions?: number
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["promotion_status"]
+          store_id: string
+          target?: Json
+          tenant_id: string
+          title: string
+          updated_at?: string
+          valid_days?: number
+        }
+        Update: {
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          ends_at?: string | null
+          id?: string
+          max_per_customer?: number | null
+          max_redemptions?: number | null
+          points_cost?: number
+          redemptions?: number
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["promotion_status"]
+          store_id?: string
+          target?: Json
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          valid_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_rewards_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "loyalty_rewards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       media_proposals: {
         Row: {
           created_at: string
@@ -2404,6 +2574,7 @@ export type Database = {
         Returns: Json
       }
       admin_locations: { Args: { p_store_id: string }; Returns: Json }
+      admin_loyalty: { Args: { p_store_id: string }; Returns: Json }
       admin_moderate_reviews: {
         Args: { p_ids: string[]; p_status: string; p_store_id: string }
         Returns: number
@@ -2502,6 +2673,10 @@ export type Database = {
       admin_team: { Args: { p_tenant: string }; Returns: Json }
       ai_credential_secret: { Args: { p_store_id: string }; Returns: Json }
       ai_credential_status: { Args: { p_store_id: string }; Returns: Json }
+      canjear_premio: {
+        Args: { p_reward_id: string; p_store_id: string }
+        Returns: Json
+      }
       cart_promotions: {
         Args: { p_code?: string; p_lines: Json; p_store_id: string }
         Returns: Json
@@ -2584,8 +2759,13 @@ export type Database = {
         Args: { p_product_id: string; p_store_id: string }
         Returns: Json
       }
+      mis_puntos: {
+        Args: { p_limite?: number; p_store_id: string }
+        Returns: Json
+      }
       my_preferences: { Args: { p_store_id: string }; Returns: Json }
       order_json: { Args: { p_order_id: string }; Returns: Json }
+      premios_disponibles: { Args: { p_store_id: string }; Returns: Json }
       product_reviews_publicas: {
         Args: { p_limite?: number; p_product_id: string; p_store_id: string }
         Returns: Json
@@ -2637,6 +2817,13 @@ export type Database = {
     }
     Enums: {
       home_section_type: "hero" | "tiles" | "products" | "categories"
+      loyalty_source:
+        | "compra"
+        | "resena"
+        | "canje"
+        | "reverso"
+        | "vencimiento"
+        | "ajuste"
       member_role: "owner" | "admin" | "staff" | "viewer"
       order_status:
         | "received"
@@ -2779,6 +2966,14 @@ export const Constants = {
   public: {
     Enums: {
       home_section_type: ["hero", "tiles", "products", "categories"],
+      loyalty_source: [
+        "compra",
+        "resena",
+        "canje",
+        "reverso",
+        "vencimiento",
+        "ajuste",
+      ],
       member_role: ["owner", "admin", "staff", "viewer"],
       order_status: [
         "received",

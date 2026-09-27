@@ -84,6 +84,7 @@ const FormularioColeccion = pantalla<{ id?: string }>(
 );
 const ListaClientes = pantalla(() => import('@/features/clientes/ListaClientes'), 'ListaClientes');
 const Recurrencia = pantalla(() => import('@/features/clientes/Recurrencia'), 'Recurrencia');
+const Fidelidad = pantalla(() => import('@/features/clientes/Fidelidad'), 'Fidelidad');
 const DetalleCliente = pantalla<{ id: string }>(
   () => import('@/features/clientes/DetalleCliente'),
   'DetalleCliente',
@@ -491,6 +492,14 @@ const recurrenciaRoute = createRoute({
   component: Recurrencia,
 });
 
+// Se ve con pertenecer a la organización; encender el programa y publicar premios
+// pide `promotion.write`, y eso lo decide la pantalla.
+const fidelidadRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/clientes/fidelidad',
+  component: Fidelidad,
+});
+
 const clienteRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/clientes/$id',
@@ -548,6 +557,7 @@ const arbol = rootRoute.addChildren([
   analyticsRoute,
   clientesRoute,
   recurrenciaRoute,
+  fidelidadRoute,
   clienteRoute,
   equipoRoute,
   configuracionRoute,

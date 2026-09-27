@@ -50,6 +50,7 @@ const HUELLAS = [
   '9x9x', // los últimos cuatro de la API key
   'TRANSFERIR-A-LA-CUENTA-SECRETA',
   'RESENA-QUE-NO-DEBE-SALIR',
+  'PUNTOS-QUE-NO-DEBEN-SALIR',
 ] as const;
 
 /**
@@ -87,6 +88,12 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   // Escribir una reseña: `definer`, y lo primero que hace es exigir una cuenta de
   // comprador en esa tienda. Un forastero no tiene ninguna.
   ['public.escribir_resena', `escribir_resena('${TIENDA}', '${PRODUCTO}', 5::smallint, 'x')`],
+  // Fidelidad (ADR-141). Las tres son `definer` y las tres empiezan por resolver la
+  // identidad del comprador: un forastero no tiene cuenta en ninguna tienda.
+  ['public.admin_loyalty', `admin_loyalty('${TIENDA}')`],
+  ['public.mis_puntos', `mis_puntos('${TIENDA}', 20)`],
+  ['public.premios_disponibles', `premios_disponibles('${TIENDA}')`],
+  ['public.canjear_premio', `canjear_premio('${TIENDA}', '00000000-0000-4000-8000-000000000000')`],
   ['public.admin_dashboard', `admin_dashboard('${TIENDA}', now() - interval '30 days', now())`],
   ['public.admin_analytics', `admin_analytics('${TIENDA}', now() - interval '30 days', now())`],
   [
@@ -190,6 +197,9 @@ const PUBLICAS = [
   // Devuelve false para quien no compró. La usa la política de inserción de
   // reseñas, así que `authenticated` tiene que poder ejecutarla (ADR-140).
   'app.compro_y_recibio',
+  // Las reglas del programa de puntos de una tienda: números de configuración, y
+  // para quien no es de esa tienda no dicen nada que no esté en su vitrina.
+  'app.regla_de_puntos',
   // Devuelve todo en false para quien no compró en esa tienda, que es lo que
   // necesita el PDP para decidir si ofrece el formulario (ADR-140).
   'public.mi_resena',
@@ -263,6 +273,18 @@ before(async () => {
             'RESENA-QUE-NO-DEBE-SALIR', 'published'
      from orders o where o.store_id = '${TIENDA}' limit 1`,
   );
+
+  /*
+   * Y un movimiento de puntos, con el importe como huella: el libro de un comercio no
+   * tiene que poder leerse desde afuera. Se inserta con la secret key porque el libro
+   * lo escriben los disparadores, y lo que este archivo prueba es la lectura.
+   */
+  await comoServicio(
+    db,
+    `insert into loyalty_ledger (tenant_id, store_id, customer_id, points, source, note)
+     select '${TENANT}', '${TIENDA}', o.customer_id, 4242, 'ajuste', 'PUNTOS-QUE-NO-DEBEN-SALIR'
+     from orders o where o.store_id = '${TIENDA}' limit 1`,
+  );
 });
 
 after(async () => {
@@ -334,6 +356,7 @@ for (const tabla of [
   'order_events',
   'store_settings',
   'product_reviews',
+  'loyalty_ledger',
 ]) {
   test(`un forastero no lee ni una fila de ${tabla}`, async () => {
     const suyas = await comoServicio<{ n: number }>(db, `select count(*)::int as n from ${tabla}`);

@@ -153,6 +153,7 @@ const SECCIONES: readonly Seccion[] = [
   { to: '/analytics', label: 'Analytics', icono: ChartNoAxesColumnIcon },
   { to: '/clientes', label: 'Clientes', icono: UsersIcon },
   { to: '/clientes/recurrencia', label: 'Recurrencia', icono: RepeatIcon },
+  { to: '/clientes/fidelidad', label: 'Fidelidad', icono: SparklesIcon },
   { to: '/equipo', label: 'Equipo', icono: UsersRoundIcon, permiso: 'member.manage' },
   { to: '/configuracion', label: 'Configuración', icono: SettingsIcon, permiso: 'settings.write' },
 ];

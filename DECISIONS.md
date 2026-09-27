@@ -6899,3 +6899,95 @@ catálogo que **el comercio no escribe** y que igual dice qué es el producto.
 - La fidelidad ya tiene de dónde colgar su segunda forma de ganar puntos, y se
   pagará **sin mirar la estrella**: pagar por estrellas altas es cómo se arruina el
   activo que la reseña construye.
+
+---
+
+## ADR-141 — Los puntos son un libro append-only, y un canje es un cupón del motor que ya existe
+
+**Fecha:** 2026-09-27
+**Estado:** Accepted
+
+**Contexto**
+La fidelidad estaba escrita en el v2 original **dos fases antes de que existiera
+cualquier identidad de comprador**, y ahí un ledger sin sesión es un ledger con clave
+email: cualquiera que sepa el correo reclama los puntos. Con la cuenta de la Fase 1 y
+las reseñas de ADR-140 ya están las dos piezas que necesitaba.
+
+De todo el bloque, **una sola decisión no se puede cambiar después**, y es la forma del
+libro. Con un saldo —una columna `points` en el cliente— la Fase 9, que hace que los
+puntos crucen tiendas, sería reescribir esto. Con un libro donde cada movimiento lleva
+la tienda que lo emitió, la Fase 9 es una consulta encima. Cuesta lo mismo hoy.
+
+**Decisión**
+
+- **`loyalty_ledger` es append-only y cada movimiento lleva su `store_id`.** Nunca un
+  saldo guardado. Una cancelación **emite el movimiento inverso**, no borra el
+  anterior: un libro que borra no puede explicar por qué bajó el saldo.
+- **Dos formas de ganar y ninguna más**: una compra **cobrada** da 20 puntos y una
+  reseña **publicada** da 10. Se descartaron las misiones por navegar —visitar, buscar,
+  agregar al carrito, compartir— porque premian una acción sin valor económico y se
+  farmean abriendo una pestaña: con treinta días de visitas valiendo más que una compra,
+  se paga más por mirar que por comprar.
+- **Al cobrar, no al crear.** El único pedido que existía en el piloto estaba
+  `cancelled`: es exactamente el caso. Y va en un **disparador** y no en la pantalla de
+  pedidos porque hay más de un camino a «pagado» —la pantalla hoy, una pasarela cuando
+  exista, un script de conciliación si aparece—, y un programa que sólo funciona por la
+  pantalla con la que se escribió se rompe con la siguiente.
+- **La reseña se paga sin mirar la estrella** (ADR-140), y al publicarse, no al
+  escribirse: pagar antes de la revisión convierte esto en una máquina de texto que
+  nadie va a leer.
+- **Los índices únicos parciales son los que hacen idempotentes a los disparadores**:
+  uno por `(order_id, source)` y uno por `review_id`. Acreditar dos veces deja de ser
+  posible, no deja de pasar por suerte. Por eso `reverso` es su propio origen y no un
+  `compra` negativo.
+- **El programa arranca apagado.** Una tienda que no lo pidió no empieza a emitir un
+  pasivo porque se desplegó una migración. Las reglas viven en
+  `store_settings.settings.loyalty` y **sólo ahí**: el disparador las lee para emitir y
+  el Admin para mostrarlas, así que escribirlas también en TypeScript haría que el día
+  que cambie una, el sistema pague una cosa y la pantalla diga otra.
+- **El vencimiento se calcula al leer, y se escribe.** Sin vencimiento el pasivo crece
+  para siempre y nadie canjea; con una tarea programada habría que montar y vigilar una
+  tarea programada. `app.vencer_puntos` se llama al leer el saldo y al canjear, y la
+  cuenta es FIFO en agregado: de lo ganado antes del corte vence lo que no consumieron
+  los gastos anteriores. Eso evita el error clásico —restar dos veces unos puntos que ya
+  se habían gastado— sin rastrear qué gasto consumió qué crédito. Con su test.
+- **Un canje gasta puntos y emite un cupón del motor de promociones.** Tres de los
+  cuatro tipos de canje ya son una promoción: `discount_type`, `discount_value`, alcance
+  y tope de usos existen desde la Fase 9. Así **no hay un segundo lugar donde se decida
+  un importe**, que es el bug que este repo ya conoce —el carrito mostrando un precio y
+  el pedido cobrando otro—.
+- **El cupón queda atado a quien canjeó porque sólo esa persona lo recibe**, y vale una
+  sola vez. Atarlo por `customer_id` obligaría a que `cart_promotions` supiera quién
+  está comprando —hoy no lo sabe, y el checkout de invitado no tiene a nadie—, o sea
+  tocar el camino del dinero para algo que un código de un solo uso ya resuelve. Si
+  alguien lo comparte, los puntos ya los pagó; el tope de un uso acota al comercio.
+- **El tipo de cambio implícito se muestra al fijar el costo en puntos**, y es lo más
+  valioso de esa pantalla: «una compra da 20 puntos: alcanza para 2 canjes de esto» es
+  lo único que impide que un premio a diez puntos se convierta en un descuento
+  permanente del 12 % sobre cada pedido sin que nadie lo note.
+- **Un premio agotado se ve como agotado**, y el stock se toma en el canje con la
+  condición en el `update`: así un canje agotado nunca termina en un error al pagar.
+- Un premio se **archiva**, no se borra (ADR-060): el libro apunta a él y un canje viejo
+  tiene que poder seguir explicando de dónde salió su cupón.
+
+**Lo que queda afuera, con su motivo**
+
+- **Envío gratis como premio.** El envío lo calcula `create_order` aparte y no es un
+  descuento sobre el subtotal (ADR-107, ADR-114), así que sería un tipo nuevo en el
+  camino del dinero. Se hace con su propio trabajo y sus propios tests, no de paso.
+- **Un producto de regalo.** Necesita reservar stock, que es lo que evita que un canje
+  agotado falle al pagar, y eso es multi-location: lo bloquea el ERP (ADR-086, ADR-136).
+- **Ajustes manuales de puntos desde el Admin.** El enum ya contempla `ajuste`, pero
+  darle a una pantalla la capacidad de emitir un pasivo pide su propia auditoría, y no
+  hay un pedido detrás.
+- **La racha diaria con multiplicador y las encuestas.** Cada una es emisión sin venta
+  detrás; entran de a una y con tope, cuando el programa tenga historia.
+
+**Lo que costó un ciclo**
+
+`app.regla_de_puntos` leía `store_settings` con un `from`: una tienda **sin** fila de
+ajustes no devolvía «apagado con los defaults», devolvía cero filas, o sea `null`. La
+pantalla de Fidelidad se quedaba en el esqueleto para siempre, sin un error en ningún
+lado. **Lo encontró el e2e del Admin**, no el typecheck ni PGlite, porque los tests
+siembran `store_settings` para otras cosas y ahí la función nunca se quedaba sin fila.
+Es la misma clase de falso verde que ADR-121 documentó con la wishlist.

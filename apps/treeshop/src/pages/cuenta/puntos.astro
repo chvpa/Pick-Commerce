@@ -1,0 +1,215 @@
+---
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import { formatMoney } from '@pick/commerce-core';
+import Base from '../../layouts/Base.astro';
+import { misPuntos, premiosDisponibles, type MisPuntos, type Premios } from '../../lib/cuenta.ts';
+import { tiendaActual } from '../../lib/db.ts';
+import { paginaDeCuenta } from '../../lib/sesion.ts';
+
+export const prerender = false;
+
+const { habilitado, token } = await paginaDeCuenta(Astro.cookies);
+
+if (!habilitado) {
+  const pagina = await Astro.rewrite('/404');
+  return new Response(pagina.body, { status: 404, headers: pagina.headers });
+}
+if (!token) return Astro.redirect('/cuenta', 302);
+
+const tienda = await tiendaActual();
+
+let puntos: MisPuntos = { habilitado: false, saldo: 0, movimientos: [] };
+let premios: Premios = { habilitado: false, saldo: 0, premios: [] };
+let fallo = false;
+try {
+  [puntos, premios] = await Promise.all([misPuntos(token), premiosDisponibles(token)]);
+} catch (error) {
+  console.error('[puntos] no se pudieron leer', error);
+  fallo = true;
+}
+
+/*
+ * Si la tienda no tiene programa, esta página no existe: un 404 y no una página que
+ * explica que no hay nada. Que exista una dirección para algo que la tienda no ofrece
+ * es la forma más rápida de prometer lo que no se puede dar.
+ */
+if (!puntos.habilitado && !fallo) {
+  const pagina = await Astro.rewrite('/404');
+  return new Response(pagina.body, { status: 404, headers: pagina.headers });
+}
+
+/* `?canje=` lo pone el redirect del POST: el código recién emitido, o el motivo. */
+const canje = Astro.url.searchParams.get('canje');
+const errorDeCanje = Astro.url.searchParams.get('error');
+
+const ETIQUETA_ORIGEN: Record<string, string> = {
+  compra: 'Compra',
+  resena: 'Reseña publicada',
+  canje: 'Canje',
+  reverso: 'Compra cancelada',
+  vencimiento: 'Puntos vencidos',
+  ajuste: 'Ajuste de la tienda',
+};
+
+const fecha = (iso: string): string =>
+  new Date(iso).toLocaleDateString(tienda.locale, {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+
+/** Qué entrega un premio, en las palabras del comprador y no del motor. */
+function queDa(premio: Premios['premios'][number]): string {
+  if (premio.tipo === 'percentage') return `${premio.valor / 100}% de descuento`;
+  return `${formatMoney({ amount: premio.valor, currency: tienda.currency }, tienda.locale)} de descuento`;
+}
+---
+
+<Base title="Mis puntos" description="Tus puntos y qué podés canjear." noindex>
+  <Container class="flex max-w-3xl flex-col gap-8 py-12">
+    <div class="flex flex-col gap-2">
+      <a
+        href="/cuenta"
+        class="text-fg-muted hover:text-fg self-start text-sm underline underline-offset-4"
+      >
+        ← Mi cuenta
+      </a>
+      <h1 class="font-display text-2xl font-semibold tracking-tight">Mis puntos</h1>
+    </div>
+
+    {
+      fallo && (
+        <p role="alert" class="bg-danger/10 text-danger rounded-sm px-4 py-3 text-sm">
+          No pudimos leer tus puntos. Probá de nuevo en unos segundos.
+        </p>
+      )
+    }
+
+    {
+      /*
+        El código recién canjeado, arriba y en grande: es lo único que la persona
+        vino a buscar, y perderlo es no entregarle el premio.
+      */
+    }
+    {
+      canje && (
+        <div class="border-border bg-surface-sunken flex flex-col gap-1 rounded-md border px-4 py-3">
+          <p class="text-sm font-medium">Listo. Tu código es:</p>
+          <p class="font-mono text-xl tracking-widest">{canje}</p>
+          <p class="text-fg-muted text-sm">
+            Se escribe en el checkout, donde dice «Tengo un cupón». Vale una sola vez.
+          </p>
+        </div>
+      )
+    }
+
+    {
+      errorDeCanje && (
+        <p role="alert" class="text-danger text-sm">
+          {errorDeCanje}
+        </p>
+      )
+    }
+
+    <div class="border-border flex flex-wrap items-end justify-between gap-4 rounded-md border p-4">
+      <div class="flex flex-col gap-1">
+        <span class="text-fg-muted text-sm">Tenés</span>
+        <span class="font-display text-3xl font-semibold tabular-nums">{puntos.saldo}</span>
+        <span class="text-fg-muted text-sm">{puntos.saldo === 1 ? 'punto' : 'puntos'}</span>
+      </div>
+      <p class="text-fg-muted max-w-xs text-sm">
+        Cada compra te da {puntos.porCompra} puntos, y cada reseña publicada {puntos.porResena}. Los
+        puntos vencen a los {puntos.diasDeVencimiento} días de ganados.
+      </p>
+    </div>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="font-display text-lg font-semibold tracking-tight">Qué podés canjear</h2>
+
+      {
+        premios.premios.length === 0 ? (
+          <p class="text-fg-muted text-sm">
+            La tienda todavía no publicó premios. Tus puntos te esperan.
+          </p>
+        ) : (
+          <ul class="divide-border border-border divide-y rounded-md border">
+            {premios.premios.map((premio) => (
+              <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <div class="flex min-w-0 flex-col">
+                  <span class="text-sm font-medium">{premio.titulo}</span>
+                  <span class="text-fg-muted text-xs">
+                    {queDa(premio)} · {premio.puntos} puntos
+                  </span>
+                </div>
+
+                {/*
+                  Agotado se dice, no se esconde: un premio que desaparece parece un
+                  error. Y «te faltan puntos» dice cuántos, que es lo único accionable.
+                */}
+                {premio.agotado ? (
+                  <span class="text-fg-subtle text-sm">Agotado</span>
+                ) : premio.alcanza ? (
+                  <form method="post" action="/api/canjear">
+                    <input type="hidden" name="rewardId" value={premio.id} />
+                    <button
+                      type="submit"
+                      class="bg-accent text-accent-fg hover:bg-accent-hover focus-visible:outline-accent h-9 cursor-pointer rounded-md px-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
+                    >
+                      Canjear
+                    </button>
+                  </form>
+                ) : (
+                  <span class="text-fg-subtle text-sm">
+                    Te faltan {premio.puntos - premios.saldo}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="font-display text-lg font-semibold tracking-tight">Tus movimientos</h2>
+
+      {
+        puntos.movimientos.length === 0 ? (
+          <p class="text-fg-muted text-sm">
+            Todavía no hay movimientos. La primera compra que te entreguemos suma.
+          </p>
+        ) : (
+          <ul class="divide-border border-border divide-y rounded-md border">
+            {puntos.movimientos.map((m) => (
+              <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <div class="flex min-w-0 flex-col">
+                  <span class="text-sm">{ETIQUETA_ORIGEN[m.origen] ?? m.origen}</span>
+                  <span class="text-fg-subtle text-xs">{fecha(m.fecha)}</span>
+                  {/*
+                    El cupón de un canje viejo. Es la respuesta a «¿cuál era mi
+                    código?», que es lo que se pregunta una semana después.
+                  */}
+                  {m.cupon && (
+                    <span class="text-fg-muted mt-1 text-xs">
+                      Código <span class="font-mono tracking-wider">{m.cupon}</span>
+                      {m.cuponUsado
+                        ? ' · ya usado'
+                        : m.cuponVence
+                          ? ` · vence el ${fecha(m.cuponVence)}`
+                          : ''}
+                    </span>
+                  )}
+                </div>
+                <span
+                  class={`text-sm font-medium tabular-nums ${m.puntos > 0 ? 'text-success' : 'text-fg-muted'}`}
+                >
+                  {m.puntos > 0 ? `+${m.puntos}` : m.puntos}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+  </Container>
+</Base>

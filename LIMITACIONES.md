@@ -478,3 +478,38 @@ volumen real.
 
 **Qué lo desbloquea:** un comercio con reseñas de verdad que pida alguna de las
 cuatro.
+
+## Puntos y canjes
+
+### El programa arranca apagado, y con una sola forma de premio
+
+Se enciende en Clientes → Fidelidad (ADR-141). Gana una compra **cobrada** y una reseña
+**publicada**, y lo que se puede canjear es un **cupón de descuento** —porcentaje o
+monto fijo— de un solo uso.
+
+### No hay envío gratis ni producto de regalo como premio
+
+El envío lo calcula el pedido aparte y no es un descuento sobre el subtotal (ADR-107,
+ADR-114), así que un premio de envío gratis es un tipo nuevo en el camino del dinero. Un
+producto de regalo necesita reservar stock, y eso es multi-location, que el ERP bloquea
+(ADR-086).
+
+**Qué lo desbloquea:** el envío gratis, su propio trabajo sobre `create_order` con sus
+tests; el producto de regalo, un ERP que dé escritura.
+
+### El cupón de un canje lo puede usar quien lo tenga
+
+Vale **una sola vez** y sólo lo recibe quien canjeó, pero no está atado a su cuenta:
+atarlo obligaría a que el cálculo del carrito supiera quién está comprando, y el checkout
+de invitado no tiene a nadie. Si alguien comparte su código, los puntos ya los pagó.
+
+### Los puntos no se ajustan a mano
+
+No hay pantalla para dar o quitar puntos: los emiten las compras, las reseñas, los canjes
+y el vencimiento. Un ajuste manual pide su propia auditoría.
+
+### El vencimiento se procesa al leer
+
+No hay tarea programada: el movimiento de vencimiento se escribe cuando alguien mira su
+saldo o canjea. Un cliente que no vuelve a entrar mantiene su saldo viejo en la base hasta
+que alguien lo consulte, así que **el pasivo del panel puede estar por encima del real**.

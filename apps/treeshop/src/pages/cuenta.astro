@@ -4,7 +4,7 @@ import { AccountLogin } from '@pick/commerce-ui/account/AccountLogin';
 import { ETIQUETA_ESTADO_PAGO, ETIQUETA_ESTADO_PEDIDO, formatMoney } from '@pick/commerce-core';
 import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
 import Base from '../layouts/Base.astro';
-import { MINUTOS_DEL_CODIGO, misPedidos, type PaginaDePedidos } from '../lib/cuenta.ts';
+import { MINUTOS_DEL_CODIGO, misPedidos, misPuntos, type PaginaDePedidos } from '../lib/cuenta.ts';
 import { tiendaActual } from '../lib/db.ts';
 import { paginaDeCuenta } from '../lib/sesion.ts';
 
@@ -48,6 +48,19 @@ if (token) {
 }
 
 const fecha = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
+
+/*
+ * Si la tienda tiene programa de puntos, para decidir si se ofrece el enlace. Un
+ * fallo lo deja en `false`: es un enlace de más, no una página que no carga.
+ */
+let conPuntos = false;
+if (token) {
+  try {
+    conPuntos = (await misPuntos(token)).habilitado;
+  } catch (error) {
+    console.error('[cuenta] no se pudo leer el programa de puntos', error);
+  }
+}
 ---
 
 <Base title="Mi cuenta" description="Tus pedidos y tus direcciones." noindex>
@@ -79,6 +92,16 @@ const fecha = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
                 >
                   Mis direcciones
                 </a>
+                {/* Sólo si la tienda tiene programa: un enlace a una página que
+                    devuelve 404 es peor que no tener el enlace. */}
+                {conPuntos && (
+                  <a
+                    href="/cuenta/puntos"
+                    class="text-sm text-fg-muted underline underline-offset-4 hover:text-fg"
+                  >
+                    Mis puntos
+                  </a>
+                )}
               </span>
             </div>
 

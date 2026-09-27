@@ -967,6 +967,27 @@ verificada contra el pedido y no contra una casilla que alguien marca.
 
 ---
 
+## 22 ter. Fidelidad
+
+> **Regla de producto, y está construida** (ADR-141).
+
+Los puntos son un **libro append-only** y cada movimiento lleva la tienda que lo emitió.
+**Nunca un saldo guardado en el cliente**: es lo que permite que un programa de red —v2
+Fase 9— sea una consulta encima y no una reescritura.
+
+- **Dos formas de ganar y ninguna más**: una compra cobrada y una reseña publicada. Las
+  misiones por navegar quedan descartadas: premian una acción sin valor económico y se
+  farmean abriendo una pestaña.
+- Los puntos se acreditan **cuando el pedido se cobra**, y una cancelación emite el
+  movimiento inverso en vez de borrar el crédito.
+- Un canje **gasta puntos y emite un cupón** del motor de promociones. No hay un segundo
+  lugar donde se calcule un importe.
+- El comercio ve el **pasivo abierto** aparte de lo emitido, y el **tipo de cambio
+  implícito** al fijar el precio en puntos.
+- El programa arranca **apagado**.
+
+---
+
 ## 23. Clientes y privacidad
 
 No usar IP como identidad fiable de una persona.
