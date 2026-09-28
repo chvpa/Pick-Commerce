@@ -11,6 +11,7 @@
     "./product/ProductGrid.astro": "./src/product/ProductGrid.astro",
     "./product/Price.astro": "./src/product/Price.astro",
     "./product/Reviews.astro": "./src/product/Reviews.astro",
+    "./order/OrderDetail.astro": "./src/order/OrderDetail.astro",
     "./layout/Container.astro": "./src/layout/Container.astro",
     "./layout/Header.astro": "./src/layout/Header.astro",
     "./layout/Footer.astro": "./src/layout/Footer.astro",

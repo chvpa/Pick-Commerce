@@ -179,3 +179,25 @@ test('el código va como texto, nunca como enlace', () => {
   assert.ok(!m.html.includes('<a '), 'la plantilla del código tiene un enlace');
   assert.ok(!/https?:\/\//.test(m.texto), 'la versión de texto tiene una URL');
 });
+
+/*
+ * El enlace del pedido en el correo (ADR-142): es donde quien compró sin cuenta
+ * lo va a buscar, así que tiene que estar en el texto y en el HTML, y escapado.
+ */
+test('el correo del pedido trae el enlace para volver a verlo', () => {
+  const enlace = `https://sontres.shop/pedido/${PEDIDO.number}?t=${'a'.repeat(64)}`;
+  const m = plantillaDeCorreo('order_received', {
+    tiendaNombre: 'Tienda',
+    order: PEDIDO,
+    enlaceDelPedido: enlace,
+  });
+
+  assert.ok(m.texto.includes(`Ver el pedido: ${enlace}`), 'el texto no trae el enlace');
+  assert.match(m.html, /<a href="https:\/\/sontres\.shop\/pedido\/\d+\?t=a{64}"/);
+});
+
+test('sin enlace el correo sale igual, sin un botón roto', () => {
+  const m = plantillaDeCorreo('order_received', { tiendaNombre: 'Tienda', order: PEDIDO });
+  assert.doesNotMatch(m.html, /Ver el pedido/);
+  assert.doesNotMatch(m.texto, /Ver el pedido/);
+});

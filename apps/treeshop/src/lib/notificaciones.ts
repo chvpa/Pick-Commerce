@@ -1,6 +1,7 @@
 import { getSecret } from 'astro:env/server';
 import {
   EVENTO_CODIGO,
+  enlaceDelPedido,
   esEventoConocido,
   plantillaDeCodigo,
   plantillaDeCorreo,
@@ -10,6 +11,7 @@ import {
 } from '@pick/commerce-core';
 import { proveedorResend } from '@pick/adapter-resend';
 import { notificaciones, pagos, tiendaActual } from './db.ts';
+import { SITE_URL } from './store-config.ts';
 
 /**
  * El envío de los correos que la base encoló.
@@ -81,11 +83,19 @@ function redactar(
 
   if (!esEventoConocido(pendiente.event) || !pendiente.order) return null;
 
+  /*
+   * El enlace para volver a ver el pedido (ADR-142), en todos los correos de
+   * pedido. Sale del `SITE_URL` de esta app, que es la dirección pública de la
+   * tienda: es la misma de donde salen el canonical y el sitemap.
+   */
+  const enlace = enlaceDelPedido(SITE_URL, pendiente.order);
+
   return plantillaDeCorreo(pendiente.event, {
     tiendaNombre,
     order: pendiente.order,
     locale,
     ...(instrucciones ? { instrucciones } : {}),
+    ...(enlace ? { enlaceDelPedido: enlace } : {}),
   });
 }
 

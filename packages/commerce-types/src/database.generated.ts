@@ -1521,6 +1521,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          access_token: string
           address: Json
           applied_promotions: Json
           created_at: string
@@ -1544,6 +1545,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          access_token?: string
           address: Json
           applied_promotions?: Json
           created_at?: string
@@ -1567,6 +1569,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          access_token?: string
           address?: Json
           applied_promotions?: Json
           created_at?: string
@@ -2764,6 +2767,10 @@ export type Database = {
         Returns: Json
       }
       my_preferences: { Args: { p_store_id: string }; Returns: Json }
+      order_by_token: {
+        Args: { p_number: number; p_store_id: string; p_token: string }
+        Returns: Json
+      }
       order_json: { Args: { p_order_id: string }; Returns: Json }
       premios_disponibles: { Args: { p_store_id: string }; Returns: Json }
       product_reviews_publicas: {

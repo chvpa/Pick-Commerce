@@ -93,6 +93,23 @@ export function OrderConfirmation({
           Te escribimos a <strong class="font-medium text-fg">{order.customer.email}</strong> cuando
           lo confirmemos.
         </p>
+        {/*
+          El enlace para volver a verlo (ADR-142). Esta pantalla vive en el
+          `sessionStorage` de la pestaña: cerrarla la pierde. El enlace también
+          va en el correo, que es donde de verdad se lo va a buscar.
+        */}
+        {order.accessToken ? (
+          <p class="text-sm text-fg-muted">
+            Podés volver a verlo cuando quieras en{' '}
+            <a
+              href={`/pedido/${order.number}?t=${order.accessToken}`}
+              class="font-medium text-fg underline underline-offset-4"
+            >
+              este enlace
+            </a>
+            . Guardalo: es sólo tuyo.
+          </p>
+        ) : null}
       </div>
 
       {instrucciones && order.paymentMethod === 'bank_transfer' ? (

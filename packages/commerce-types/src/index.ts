@@ -229,6 +229,12 @@ export interface Order {
    * `false`, como el resto de lo opcional: `order_json` hace `strip_nulls`.
    */
   readonly isDemo?: boolean;
+  /**
+   * El secreto del enlace de acuse (ADR-142). Quien lo tiene ve este pedido y
+   * ninguno más. Lo lee todo el que ya podía ver el pedido entero —el checkout,
+   * el comprador con cuenta, el comercio—, así que no le abre nada a nadie nuevo.
+   */
+  readonly accessToken?: string;
   readonly items: readonly OrderItem[];
   readonly createdAt: string;
 }

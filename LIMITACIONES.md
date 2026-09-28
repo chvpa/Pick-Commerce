@@ -59,21 +59,6 @@ sería peor que no tenerlo.
 guardada aparte de la de envío. Es configuración, no código, y no tiene fase
 asignada en el [ROADMAP](ROADMAP.md).
 
-### Un comprador sin cuenta no puede volver a ver su pedido
-
-Con las cuentas prendidas, quien entra ve sus pedidos —incluidos los que hizo
-como invitada con ese mismo correo—. Lo que sigue sin existir es la consulta
-**sin** cuenta, y no es un olvido: la numeración es secuencial por tienda, así
-que un número cualquiera abriría los pedidos del comercio. Para quien compra de
-invitada, la confirmación se guarda en el `sessionStorage` de esa pestaña, así
-que entrar directo, o volver al día siguiente, muestra el estado vacío. El
-pedido existe igual: esa pantalla es el acuse, no el registro.
-
-**Qué lo desbloquea:** crear la cuenta con ese mismo correo, que engancha los
-pedidos viejos sin migrar nada. Para quien no quiera cuenta, un enlace de acuse
-con un token propio del pedido; no tiene fase asignada en el
-[ROADMAP](ROADMAP.md).
-
 ---
 
 ## Lo que el sistema no hace, a propósito
@@ -90,6 +75,16 @@ Una tarifa plana con umbral de gratis, o una tabla de zonas —departamentos,
 ciudades— con su tarifa y una general para las que no estén (ADR-107, ADR-114).
 El comprador elige la zona en el checkout y el servidor cobra. No hay tarifas
 por peso, transportistas ni retiro en sucursal: pickup está en v2.
+
+### El enlace de un pedido es un secreto al portador
+
+Quien compra sin cuenta vuelve a su pedido con un enlace que lleva un token propio,
+en la confirmación y en cada correo (ADR-142). Quien tenga ese enlace ve el pedido,
+dirección y teléfono incluidos, y **no se puede revocar ni rotar** desde ninguna
+pantalla. Es el mismo modelo que el enlace de seguimiento de cualquier tienda.
+
+**Qué lo desbloquea:** que alguien necesite invalidar un enlace. Hoy es un `update` a
+mano sobre `orders.access_token`.
 
 ### Las sucursales guardan stock, y nada más
 

@@ -1,0 +1,116 @@
+---
+import type { Order } from '@pick/commerce-types';
+import { ETIQUETA_ESTADO_PAGO, ETIQUETA_ESTADO_PEDIDO, formatMoney } from '@pick/commerce-core';
+import { cn } from '@pick/commerce-ui';
+
+/**
+ * El detalle de un pedido, como lo ve quien lo compró.
+ *
+ * Lo usan dos páginas y por eso vive acá: la de la cuenta —el comprador que
+ * entró— y la del enlace de acuse —quien compró sin cuenta y guardó el enlace
+ * (ADR-142)—. Mostrar lo mismo en los dos lugares no es una comodidad: si una
+ * mostrara el envío y la otra no, el total de una no cerraría con sus líneas.
+ *
+ * Es presentación pura. **Quién puede ver este pedido lo decide la página**, no
+ * este componente: la de la cuenta lo lee por RLS con el JWT del comprador, y la
+ * del enlace, por número y token.
+ */
+interface Props {
+  pedido: Order;
+  locale: string;
+  /** Cómo pagarlo, si falta pagar por transferencia y la tienda lo explicó. */
+  instrucciones?: string;
+  /** El enlace de arriba: «Mis pedidos» en la cuenta, la tienda en el acuse. */
+  volverA: { readonly href: string; readonly texto: string };
+  class?: string;
+}
+
+const { pedido, locale, instrucciones, volverA, class: className } = Astro.props;
+
+const fecha = new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeStyle: 'short' });
+
+const direccion = [
+  pedido.address.street,
+  pedido.address.city,
+  pedido.address.zone,
+  pedido.address.reference,
+].filter(Boolean);
+---
+
+<div class={cn('flex flex-col gap-8', className)}>
+  <div class="flex flex-col gap-2">
+    <a
+      href={volverA.href}
+      class="self-start text-sm text-fg-muted underline underline-offset-4 hover:text-fg"
+    >
+      ← {volverA.texto}
+    </a>
+    <h1 class="font-display text-2xl font-semibold tracking-tight">Pedido #{pedido.number}</h1>
+    <p class="text-sm text-fg-muted">
+      {fecha.format(new Date(pedido.createdAt))} · {ETIQUETA_ESTADO_PEDIDO[pedido.status]} · {
+        ETIQUETA_ESTADO_PAGO[pedido.paymentStatus]
+      }
+    </p>
+  </div>
+
+  {
+    instrucciones && (
+      <section class="flex flex-col gap-2 rounded-md border border-border bg-surface-muted p-4">
+        <h2 class="text-sm font-medium">Cómo pagarlo</h2>
+        <p class="whitespace-pre-line text-sm text-fg-muted">{instrucciones}</p>
+      </section>
+    )
+  }
+
+  <section class="flex flex-col gap-3">
+    <h2 class="text-lg font-medium">Lo que pediste</h2>
+    <ul class="flex flex-col divide-y divide-border rounded-md border border-border">
+      {
+        pedido.items.map((item) => (
+          <li class="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3">
+            <span class="flex flex-col gap-0.5">
+              <span>{item.title}</span>
+              {item.variantTitle && <span class="text-sm text-fg-muted">{item.variantTitle}</span>}
+            </span>
+            <span class="text-sm text-fg-muted">
+              {item.quantity} × {formatMoney(item.unitPrice, locale)}
+            </span>
+          </li>
+        ))
+      }
+    </ul>
+
+    <dl class="flex flex-col gap-1 text-sm">
+      <div class="flex justify-between">
+        <dt class="text-fg-muted">Subtotal</dt>
+        <dd>{formatMoney(pedido.subtotal, locale)}</dd>
+      </div>
+      {
+        pedido.discount.amount > 0 && (
+          <div class="flex justify-between">
+            <dt class="text-fg-muted">Descuento</dt>
+            <dd>−{formatMoney(pedido.discount, locale)}</dd>
+          </div>
+        )
+      }
+      <div class="flex justify-between">
+        <dt class="text-fg-muted">Envío</dt>
+        <dd>{pedido.shipping.amount > 0 ? formatMoney(pedido.shipping, locale) : 'Sin cargo'}</dd>
+      </div>
+      <div class="flex justify-between border-t border-border pt-1 font-medium">
+        <dt>Total</dt>
+        <dd>{formatMoney(pedido.total, locale)}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="flex flex-col gap-2">
+    <h2 class="text-lg font-medium">A dónde va</h2>
+    {
+      /* La dirección del pedido, no la de la cuenta: `orders.address` guarda su
+        propio snapshot, así que cambiar una dirección guardada no reescribe a
+        dónde se despachó esto (PROJECT.md §13). */
+    }
+    <p class="text-sm text-fg-muted">{direccion.join(' · ')}</p>
+  </section>
+</div>

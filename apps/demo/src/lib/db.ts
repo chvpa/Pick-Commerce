@@ -30,7 +30,7 @@ import {
   type ResolucionTenant,
   type SeoContexto,
 } from '@pick/commerce-core';
-import type { Product } from '@pick/commerce-types';
+import type { Order, Product } from '@pick/commerce-types';
 import { SITE_URL } from './store-config.ts';
 
 /**
@@ -543,4 +543,26 @@ export async function resenasDe(productId: string): Promise<ResenasDeProducto> {
     console.error('[resenas] no se pudieron leer', error);
     return vacio;
   }
+}
+
+/**
+ * El pedido por su enlace de acuse (ADR-142), para quien compró sin cuenta.
+ *
+ * Con la secret key: la función sólo se le concede a `service_role`. Un número
+ * que no existe, un token equivocado y un pedido de otra tienda vuelven igual
+ * —`null`—, y la página responde 404 en los tres casos: distinguirlos diría si
+ * ese número de pedido existe.
+ */
+export async function pedidoPorToken(numero: number, token: string): Promise<Order | null> {
+  if (!Number.isInteger(numero) || numero <= 0 || !/^[0-9a-f]{64}$/.test(token)) return null;
+
+  const { storeId } = await tiendaActual();
+  const { data, error } = await db().rpc('order_by_token', {
+    p_store_id: storeId,
+    p_number: numero,
+    p_token: token,
+  });
+
+  if (error) throw new Error(`No se pudo leer el pedido: ${error.message}`);
+  return (data as unknown as Order | null) ?? null;
 }

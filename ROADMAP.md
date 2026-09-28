@@ -2134,6 +2134,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-27 | **v2 Fase 8 cerrada.** Ocho bloques hechos y dos diferidos con su motivo, el mismo criterio con el que cerraron la Fase 8 y la 12 de v1. De B2B salió un hallazgo: **los quantity breaks ya existían** —una promoción con `min_quantity` sobre una categoría es un descuento por volumen, y el motor lo calcula en el servidor desde la Fase 9— y nadie lo había anotado. Lo que falta de B2B es el precio por grupo, y lo bloquea que `cart_promotions` no sabe quién compra: meter la identidad en el camino del dinero sin una lista de precios real contra la que probarla es la apuesta que este ROADMAP nombra. Acá un cliente simulado no alcanza, porque lo que falta es la forma y no los datos                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | v2 Fase 8 |          80% |           100% |
 | 2026-09-28 | **El catálogo, tres veces más rápido.** El listado y la búsqueda de Treeshop bajan de ~620–720 ms a ~300 y ~255, y en la tienda simulada con 840 pedidos, de ~1200–1360 a ~340–510. La causa no era la que tenía anotada el backlog: una subconsulta correlacionada recorría `order_items` entera una vez por producto para calcular `vendidas`. Un CTE que agrega una vez la reemplaza, con el resultado comparado byte por byte contra el cuerpo anterior en seis casos. Tres y seis búsquedas simultáneas ya pasan; diez todavía no, y lo que queda es cómputo de la base, anotado en el backlog                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | v2        |            — |              — |
 | 2026-09-28 | **Las fotos piden menos de la mitad de transformaciones.** De 110 a 49 variantes únicas sobre la home, el catálogo y un producto, y el ancho máximo de 5276 a 1600. La causa era cómo arma Astro el `srcset` con `layout="constrained"`: suma siempre `width` y `2 × width`, y los componentes le pasaban las medidas originales de la foto. Ahora piden al ancho en que muestran —400 la tarjeta, 800 la galería, 1600 los banners— y comparten variantes entre sí. Importa por la cuota de Cloudflare Images, que se agotó                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v2        |            — |              — |
+| 2026-09-28 | **Quien compró sin cuenta vuelve a su pedido** (ADR-142). Cada pedido lleva un token propio y el enlace —número más token— va en la confirmación y en todos los correos. Por número solo no se podía: la numeración es secuencial, así que probar números abría pedidos ajenos. Número inexistente, token equivocado y pedido de otra tienda dan el mismo 404, y el e2e lo comprueba alterando un carácter del token. Sale de LIMITACIONES como algo que bloqueaba vender; queda anotado que el enlace es un secreto al portador                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | v2        |            — |              — |
 
 ---
 
@@ -2143,20 +2144,24 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 Fase 9, y está condicionada a la cantidad de comercios y no a una fecha: con una
 tienda, un programa de puntos de red es un programa normal con maquinaria de más.
 
-Entonces lo que sigue no es una fase, son tres cosas, en este orden:
+Entonces lo que sigue no es una fase. El 2026-09-28 se hizo la parte que no
+dependía del dueño —el catálogo tres veces más rápido, la mitad de transformaciones
+de imágenes y el enlace de acuse para quien compra sin cuenta— y lo que queda para
+poder vender está en [LIMITACIONES.md](LIMITACIONES.md), casi todo del lado del
+dueño:
 
-1. **Usar lo que se construyó, que es de donde va a salir el próximo trabajo.**
-   Nada de la Fase 8 tiene tráfico real todavía: las descripciones en lote no se
-   corrieron sobre el catálogo del piloto, el programa de puntos está apagado en
-   todas las tiendas y las reseñas no tienen ninguna escrita. Hasta que eso pase,
-   cualquier mejora de esas pantallas es una conjetura.
-2. **El costo de `catalog_search`**, que es lo más caro que hay anotado: el PDP de
-   Treeshop está en 355 ms y el listado en 600, y se sabe por qué. Está en
-   `Backlog / Retroactividad` con las dos salidas medidas; es una sesión propia.
-3. **Lo que un cliente real pida.** Los dos bloques diferidos de la Fase 8 —B2B y
-   las features de multi-location— y la Fase 9 esperan lo mismo: alguien que los
-   necesite. Construirlos antes es lo que este ROADMAP llama una conjetura con
-   forma de código, y ya hay dos precedentes propios de haberlo hecho bien.
+1. **Una pasarela de pago real** (P-001). Hoy se cobra por transferencia y hay una
+   pasarela simulada. Falta elegir el proveedor y conseguir credenciales de sandbox;
+   con eso, el adapter va sobre el contrato que ya existe (ADR-080).
+2. **Verificar el dominio de la tienda en Resend.** Sin eso los correos sólo llegan
+   a la casilla del dueño de la cuenta, o sea que ningún comprador los recibe.
+3. **La cuota de Cloudflare Images**: un plan pago, o esperar el mes. El consumo ya
+   bajó a menos de la mitad, pero la cuota sigue agotada.
+4. **El ensayo de restore.** Los backups existen y el restore nunca se probó, así
+   que el tiempo de recuperación es desconocido.
+5. **Usar lo que se construyó**: prender el programa de puntos, correr las
+   descripciones en lote y dejar que lleguen reseñas. Nada de la Fase 8 tiene
+   tráfico real todavía.
 
 ---
 

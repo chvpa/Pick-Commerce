@@ -366,3 +366,21 @@ export interface ConsultaSegmentos {
   readonly page?: number;
   readonly perPage?: number;
 }
+
+/**
+ * El enlace de acuse de un pedido: número más token (ADR-142).
+ *
+ * Es lo que se le da a quien compró sin cuenta para que pueda volver a ver su
+ * pedido. El número solo no alcanza —la numeración es secuencial, así que probar
+ * números abriría los pedidos de otros—; el token es lo que lo hace de una sola
+ * persona. Devuelve `null` si el pedido no trae token, en vez de un enlace que
+ * llevaría a una página vacía.
+ */
+export function enlaceDelPedido(
+  sitio: string,
+  pedido: Pick<Order, 'number' | 'accessToken'>,
+): string | null {
+  if (!pedido.accessToken) return null;
+  const raiz = sitio.replace(/\/+$/, '');
+  return `${raiz}/pedido/${pedido.number}?t=${pedido.accessToken}`;
+}

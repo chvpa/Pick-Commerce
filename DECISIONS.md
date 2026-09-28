@@ -6991,3 +6991,55 @@ pantalla de Fidelidad se quedaba en el esqueleto para siempre, sin un error en n
 lado. **Lo encontró el e2e del Admin**, no el typecheck ni PGlite, porque los tests
 siembran `store_settings` para otras cosas y ahí la función nunca se quedaba sin fila.
 Es la misma clase de falso verde que ADR-121 documentó con la wishlist.
+
+---
+
+## ADR-142 — Quien compró sin cuenta vuelve a su pedido con un enlace que lleva un token propio
+
+**Fecha:** 2026-09-28
+**Estado:** Accepted
+
+**Contexto**
+Quien compra como invitada ve la confirmación una sola vez: vive en el
+`sessionStorage` de esa pestaña, así que cerrarla o volver al día siguiente deja la
+pantalla vacía. El pedido existe igual, pero no había forma de volver a verlo sin
+crear una cuenta. Estaba en LIMITACIONES como algo que bloquea vender.
+
+**Por número no se puede**: la numeración es secuencial por tienda, así que
+`/pedido/41` abriría el pedido de otra persona —con su dirección y su teléfono— con
+sólo probar números.
+
+**Decisión**
+
+- **Cada pedido lleva un token propio**, `orders.access_token`: 64 caracteres
+  hexadecimales, dos `uuid` v4 sin guiones, 244 bits. Se genera con
+  `gen_random_uuid()`, que es del núcleo de Postgres —`pgcrypto` no está en la suite
+  de aislamiento—, y los pedidos que ya existían recibieron el suyo al agregarse la
+  columna: un default volátil se evalúa fila por fila.
+- **El enlace es número más token**: `/pedido/<número>?t=<token>`. Quien lo tiene ve
+  ese pedido y ninguno más.
+- **El token viaja en `order_json`**, y por eso llega solo a los dos lugares donde
+  hace falta —la confirmación y el correo— sin un segundo camino. Todo lo que lee
+  `order_json` ya podía ver el pedido entero: el checkout al crearlo, el comprador con
+  cuenta y el comercio. El token no le abre nada a nadie que no lo tuviera abierto.
+- **Va en todos los correos de pedido**, no sólo en el de la confirmación: el correo
+  es donde la gente de verdad vuelve a buscar una compra.
+- `order_by_token` se concede **sólo a `service_role`**. El comprador con cuenta ya
+  ve sus pedidos por RLS; dársela a `authenticated` ampliaría la superficie de la
+  suite de aislamiento sin necesidad.
+- **Número inexistente, token equivocado y pedido de otra tienda responden el mismo 404.** Distinguirlos diría si ese número de pedido existe.
+- La página es `noindex`: un buscador que la indexe estaría publicando un pedido.
+- El detalle del pedido pasa a un componente compartido, `OrderDetail.astro`, que
+  usan esta página y la de la cuenta. Mostrar lo mismo en los dos lugares no es
+  comodidad: si una mostrara el envío y la otra no, el total de una no cerraría.
+
+**Consecuencias**
+
+- **El enlace es un secreto al portador.** Quien lo tenga —porque se lo reenviaron,
+  porque quedó en un historial compartido— ve el pedido, dirección incluida. Es el
+  mismo modelo que el enlace de seguimiento de cualquier tienda, y está en
+  LIMITACIONES.
+- **No se puede revocar ni rotar.** No hay pantalla para generar un token nuevo; si
+  hiciera falta, es un `update` a mano. Se hace cuando alguien lo pida.
+- Crear una cuenta con el mismo correo sigue siendo el camino completo: engancha los
+  pedidos de invitada sin migrar nada, y ahí no hace falta el enlace.

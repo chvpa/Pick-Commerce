@@ -288,3 +288,42 @@ test('desde el umbral el checkout dice que el envío es gratis', async ({ page }
 
   await expect(page.getByText('Envío', { exact: true }).locator('..')).toContainText('Gratis');
 });
+
+/*
+ * El enlace de acuse (ADR-142): quien compró sin cuenta puede volver a ver su
+ * pedido, y sólo con el enlace entero. La numeración es secuencial por tienda,
+ * así que el token es lo único que separa a un curioso del pedido de otro: un
+ * token alterado tiene que dar 404, igual que un número que no existe.
+ */
+test('la confirmación deja un enlace para volver al pedido, y sin el token no abre', async ({
+  page,
+}) => {
+  // Sembrado, como el resto de este archivo: el recorrido por la PDP ya lo cubre
+  // el primer test, y hacerlo de nuevo lo haría depender del stock que le quede.
+  await sembrarCarrito(page, 1);
+
+  await page.goto('/checkout');
+  await expect(page.getByRole('button', { name: /confirmar pedido/i })).toBeEnabled();
+  await completarFormulario(page);
+  await page.getByRole('button', { name: /confirmar pedido/i }).click();
+  await expect(page).toHaveURL(/\/checkout\/confirmacion/);
+
+  const enlace = page.getByRole('link', { name: 'este enlace' });
+  await expect(enlace).toBeVisible();
+  const href = (await enlace.getAttribute('href')) ?? '';
+  expect(href).toMatch(/^\/pedido\/\d+\?t=[0-9a-f]{64}$/);
+
+  // Con el enlace entero, el pedido.
+  await page.goto(href);
+  await expect(page.getByRole('heading', { name: /^Pedido #\d+$/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lo que pediste' })).toBeVisible();
+
+  // Con un carácter cambiado, lo mismo que un pedido que no existe.
+  const alterado = href.replace(/.$/, (c) => (c === 'a' ? 'b' : 'a'));
+  const respuesta = await page.goto(alterado);
+  expect(respuesta?.status()).toBe(404);
+
+  // Y el número solo, sin token, tampoco.
+  const soloNumero = await page.goto(href.split('?')[0]!);
+  expect(soloNumero?.status()).toBe(404);
+});

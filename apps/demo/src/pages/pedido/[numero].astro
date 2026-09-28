@@ -1,0 +1,62 @@
+---
+import Container from '@pick/commerce-astro/layout/Container.astro';
+import OrderDetail from '@pick/commerce-astro/order/OrderDetail.astro';
+import Base from '../../layouts/Base.astro';
+import { pagos, pedidoPorToken, tiendaActual } from '../../lib/db.ts';
+
+/*
+ * El pedido de quien compró sin cuenta, por su enlace de acuse (ADR-142).
+ *
+ * On-demand, como todo lo que lee un pedido: prerenderizada, la sirve el disco
+ * sin ejecutar el Worker y no hay pedido que leer (ADR-099).
+ */
+export const prerender = false;
+
+async function noExiste() {
+  const pagina = await Astro.rewrite('/404');
+  return new Response(pagina.body, { status: 404, headers: pagina.headers });
+}
+
+const numero = Number.parseInt(Astro.params.numero ?? '', 10);
+const token = Astro.url.searchParams.get('t') ?? '';
+
+/*
+ * **Un número sin su token no abre nada**, y es todo el diseño: la numeración
+ * es secuencial por tienda, así que el número solo es adivinable. Número que no
+ * existe, token equivocado y pedido de otra tienda responden el mismo 404 —la
+ * función devuelve `null` en los tres casos—: distinguirlos diría si ese número
+ * existe.
+ */
+let pedido;
+try {
+  pedido = await pedidoPorToken(numero, token);
+} catch (error) {
+  console.error('[pedido] no se pudo leer', error);
+  pedido = null;
+}
+if (!pedido) return await noExiste();
+
+const { locale } = await tiendaActual();
+const formasDePago = await pagos();
+
+/** Cómo pagarlo, si todavía falta y se paga por transferencia. */
+const instrucciones =
+  pedido.paymentMethod === 'bank_transfer' && pedido.paymentStatus === 'pending'
+    ? formasDePago.bankTransfer?.instructions
+    : undefined;
+---
+
+{
+  /* `noindex`: el enlace es de una persona. Que un buscador lo indexe sería
+    publicar un pedido. */
+}
+<Base title={`Pedido #${pedido.number}`} description="El estado de tu pedido." noindex>
+  <Container class="max-w-3xl py-12">
+    <OrderDetail
+      pedido={pedido}
+      locale={locale}
+      volverA={{ href: '/', texto: 'Volver a la tienda' }}
+      {...instrucciones ? { instrucciones } : {}}
+    />
+  </Container>
+</Base>

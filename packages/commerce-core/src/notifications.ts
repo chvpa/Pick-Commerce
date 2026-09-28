@@ -47,6 +47,12 @@ export interface ContextoDeCorreo {
    */
   readonly instrucciones?: string;
   readonly locale?: string;
+  /**
+   * El enlace para volver a ver el pedido (ADR-142). Va en todos los correos de
+   * pedido: el correo es donde la gente de verdad vuelve a buscar una compra, y
+   * quien compró sin cuenta no tiene otro camino.
+   */
+  readonly enlaceDelPedido?: string;
 }
 
 /** Sin dependencias: escapa lo que va dentro del HTML del correo. */
@@ -166,6 +172,7 @@ export function plantillaDeCorreo(
           `Indicá el número #${order.number} al enviar el comprobante.`,
         ]
       : []),
+    ...(ctx.enlaceDelPedido ? ['', `Ver el pedido: ${ctx.enlaceDelPedido}`] : []),
     '',
     ctx.tiendaNombre,
   ].join('\n');
@@ -212,6 +219,11 @@ export function plantillaDeCorreo(
     <p style="margin:0 0 8px;white-space:pre-line">${escapar(instrucciones)}</p>
     <p style="margin:0;color:#444">Indicá el número <strong>#${order.number}</strong> al enviar el comprobante.</p>
   </div>`
+      : ''
+  }
+  ${
+    ctx.enlaceDelPedido
+      ? `<p style="margin:0 0 20px"><a href="${escapar(ctx.enlaceDelPedido)}" style="color:#111;font-weight:600">Ver el pedido</a></p>`
       : ''
   }
   <p style="margin:0;color:#666;font-size:13px">${escapar(ctx.tiendaNombre)}</p>

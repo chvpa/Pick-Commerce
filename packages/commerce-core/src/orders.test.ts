@@ -130,3 +130,17 @@ test('un evento de correo desconocido se muestra sin romper', () => {
   });
   assert.match(texto, /welcome/);
 });
+
+test('el enlace del pedido lleva número y token, sin barra doble', async () => {
+  const { enlaceDelPedido } = await import('./orders.ts');
+  const token = 'a'.repeat(64);
+  assert.equal(
+    enlaceDelPedido('https://sontres.shop/', { number: 41, accessToken: token }),
+    `https://sontres.shop/pedido/41?t=${token}`,
+  );
+});
+
+test('sin token no hay enlace, en vez de uno que lleve a una página vacía', async () => {
+  const { enlaceDelPedido } = await import('./orders.ts');
+  assert.equal(enlaceDelPedido('https://sontres.shop', { number: 41 }), null);
+});

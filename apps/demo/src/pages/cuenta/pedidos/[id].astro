@@ -1,6 +1,6 @@
 ---
 import Container from '@pick/commerce-astro/layout/Container.astro';
-import { ETIQUETA_ESTADO_PAGO, ETIQUETA_ESTADO_PEDIDO, formatMoney } from '@pick/commerce-core';
+import OrderDetail from '@pick/commerce-astro/order/OrderDetail.astro';
 import Base from '../../../layouts/Base.astro';
 import { miPedido } from '../../../lib/cuenta.ts';
 import { pagos, tiendaActual } from '../../../lib/db.ts';
@@ -34,102 +34,20 @@ if (!pedido) return await noExiste();
 const { locale } = await tiendaActual();
 const formasDePago = await pagos();
 
-const fecha = new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeStyle: 'short' });
-
 /** Lo que el comprador tiene que hacer para pagar, si la tienda lo explicó. */
 const instrucciones =
   pedido.paymentMethod === 'bank_transfer' && pedido.paymentStatus === 'pending'
     ? formasDePago.bankTransfer?.instructions
     : undefined;
-
-const direccion = [
-  pedido.address.street,
-  pedido.address.city,
-  pedido.address.zone,
-  pedido.address.reference,
-].filter(Boolean);
 ---
 
 <Base title={`Pedido #${pedido.number}`} description="El detalle de tu pedido." noindex>
-  <Container class="flex max-w-3xl flex-col gap-8 py-12">
-    <div class="flex flex-col gap-2">
-      <a
-        href="/cuenta"
-        class="self-start text-sm text-fg-muted underline underline-offset-4 hover:text-fg"
-      >
-        ← Mis pedidos
-      </a>
-      <h1 class="font-display text-2xl font-semibold tracking-tight">Pedido #{pedido.number}</h1>
-      <p class="text-sm text-fg-muted">
-        {fecha.format(new Date(pedido.createdAt))} · {ETIQUETA_ESTADO_PEDIDO[pedido.status]} · {
-          ETIQUETA_ESTADO_PAGO[pedido.paymentStatus]
-        }
-      </p>
-    </div>
-
-    {
-      instrucciones && (
-        <section class="flex flex-col gap-2 rounded-md border border-border bg-surface-muted p-4">
-          <h2 class="text-sm font-medium">Cómo pagarlo</h2>
-          <p class="whitespace-pre-line text-sm text-fg-muted">{instrucciones}</p>
-        </section>
-      )
-    }
-
-    <section class="flex flex-col gap-3">
-      <h2 class="text-lg font-medium">Lo que pediste</h2>
-      <ul class="flex flex-col divide-y divide-border rounded-md border border-border">
-        {
-          pedido.items.map((item) => (
-            <li class="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3">
-              <span class="flex flex-col gap-0.5">
-                <span>{item.title}</span>
-                {item.variantTitle && (
-                  <span class="text-sm text-fg-muted">{item.variantTitle}</span>
-                )}
-              </span>
-              <span class="text-sm text-fg-muted">
-                {item.quantity} × {formatMoney(item.unitPrice, locale)}
-              </span>
-            </li>
-          ))
-        }
-      </ul>
-
-      <dl class="flex flex-col gap-1 text-sm">
-        <div class="flex justify-between">
-          <dt class="text-fg-muted">Subtotal</dt>
-          <dd>{formatMoney(pedido.subtotal, locale)}</dd>
-        </div>
-        {
-          pedido.discount.amount > 0 && (
-            <div class="flex justify-between">
-              <dt class="text-fg-muted">Descuento</dt>
-              <dd>−{formatMoney(pedido.discount, locale)}</dd>
-            </div>
-          )
-        }
-        <div class="flex justify-between">
-          <dt class="text-fg-muted">Envío</dt>
-          <dd>
-            {pedido.shipping.amount > 0 ? formatMoney(pedido.shipping, locale) : 'Sin cargo'}
-          </dd>
-        </div>
-        <div class="flex justify-between border-t border-border pt-1 font-medium">
-          <dt>Total</dt>
-          <dd>{formatMoney(pedido.total, locale)}</dd>
-        </div>
-      </dl>
-    </section>
-
-    <section class="flex flex-col gap-2">
-      <h2 class="text-lg font-medium">A dónde va</h2>
-      {
-        /* La dirección del pedido, no la de la cuenta: `orders.address` guarda su
-          propio snapshot, así que cambiar una dirección guardada no reescribe a
-          dónde se despachó esto (PROJECT.md §13). */
-      }
-      <p class="text-sm text-fg-muted">{direccion.join(' · ')}</p>
-    </section>
+  <Container class="max-w-3xl py-12">
+    <OrderDetail
+      pedido={pedido}
+      locale={locale}
+      volverA={{ href: '/cuenta', texto: 'Mis pedidos' }}
+      {...instrucciones ? { instrucciones } : {}}
+    />
   </Container>
 </Base>
