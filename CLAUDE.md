@@ -394,10 +394,12 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
 - Un Worker con `assets` sirve el archivo antes que el código: para que una ruta llegue al Worker hay que declararla en `run_worker_first`. **`wrangler dev` no lo respeta** —ejecuta el Worker para cualquier ruta sin asset, esté declarada o no— así que un `run_worker_first` faltante pasa el e2e en verde y falla recién al desplegar. Medido quitándolo (ADR-103).
 - Una **subconsulta correlacionada contra un CTE** no tiene índice que usar:
   Postgres recorre el CTE entero una vez por fila. Es lo que hacía que el
-  catálogo tardara 2,3 s con 5000 productos, en una sola línea. Contra una tabla
-  el mismo patrón usa el índice y no se nota, así que el error aparece recién con
-  volumen. Si el valor se necesita por fila, agregarlo una vez en su propio CTE y
-  entrar por join.
+  catálogo tardara 2,3 s con 5000 productos, en una sola línea. **Contra una
+  tabla pasa lo mismo si ningún índice le sirve a esa forma**, y esta regla decía
+  lo contrario: `vendidas` en `catalog_search` recorría `order_items` —sin índice
+  por producto, porque guarda la variante— una vez por producto, 610 de los 1070
+  ms del listado. El error aparece recién con volumen. Si el valor se necesita por
+  fila, agregarlo una vez en su propio CTE y entrar por join.
 - Postgres 17 empuja el tope de un `row_number()` adentro de la ventana
   —`Run Condition` en el plan—, pero **sólo el límite superior**. Una paginación
   `rn > a and rn <= b` corta bien en la página 1 y en la 100 serializa `b` filas
