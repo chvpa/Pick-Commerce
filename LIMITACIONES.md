@@ -532,5 +532,10 @@ Cada tamaño distinto de cada foto cuenta como una transformación, así que un 
 grande la consume rápido — y también la consume **cada corrida del e2e**, que pide
 imágenes reales.
 
-**Qué lo desbloquea:** habilitar Images en un plan pago, o esperar el mes. Bajar el
-consumo es otra tarea: menos candidatos en el `srcset` y menos tamaños distintos.
+El consumo ya se bajó a menos de la mitad: las fotos se piden a cuatro anchos
+—400, 800, 1200 y 1600— en vez de la lista de Astro, que llegaba a 3840 y además
+sumaba el tamaño original de cada foto. Sobre la home, el catálogo y un producto de
+la demo, de **110 a 49** transformaciones únicas. Lo que no cambia es que la cuota
+sigue existiendo: con un catálogo grande y tráfico real se puede volver a agotar.
+
+**Qué lo desbloquea:** habilitar Images en un plan pago, o esperar el mes.

@@ -1,5 +1,6 @@
 ---
 import { Image } from 'astro:assets';
+import { medidasParaMostrar } from '@pick/commerce-core';
 import type { Banner } from '@pick/commerce-core';
 import { buttonVariants, cn } from '@pick/commerce-ui';
 import CarouselControls from '../primitives/CarouselControls.astro';
@@ -111,8 +112,7 @@ const esSlider = layout === 'slider' && !unaSola;
               <Image
                 src={(pieza.imageMobile ?? pieza.image).url}
                 alt={(pieza.imageMobile ?? pieza.image).alt}
-                width={(pieza.imageMobile ?? pieza.image).width}
-                height={(pieza.imageMobile ?? pieza.image).height}
+                {...medidasParaMostrar(pieza.imageMobile ?? pieza.image, 1600)}
                 layout="full-width"
                 sizes="100vw"
                 loading={i === 0 ? 'eager' : 'lazy'}

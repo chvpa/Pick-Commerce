@@ -480,3 +480,29 @@ export function textoDeEstrellas(promedio: number | null, total: number): string
   if (promedio === null || total === 0) return 'Todavía no tiene reseñas';
   return `${promedio} de 5, sobre ${total} ${total === 1 ? 'reseña' : 'reseñas'}`;
 }
+
+// ---------------------------------------------------------------------------
+// Medidas de las fotos
+// ---------------------------------------------------------------------------
+
+/**
+ * El ancho y el alto con los que se pide una foto: sin pasar de `maximo` y sin
+ * cambiar su proporción.
+ *
+ * Existe por cómo arma Astro el `srcset` con `layout="constrained"`: suma
+ * **siempre** `width` y `2 × width`, y los componentes le pasaban las medidas
+ * *originales* de la foto —hacen falta para la proporción, contra CLS—. Con una
+ * foto de 2638 px, cada tarjeta pedía una variante de 2638 y otra de 5276, más
+ * todos los breakpoints del medio: de 8 a 10 transformaciones por foto, y cada una
+ * cuenta para la cuota de Cloudflare Images.
+ *
+ * Con esto, `width` pasa a ser el ancho máximo en que se **muestra**, que es lo
+ * que Astro espera ahí.
+ */
+export function medidasParaMostrar(
+  imagen: { readonly width: number; readonly height: number },
+  maximo: number,
+): { width: number; height: number } {
+  if (imagen.width <= maximo) return { width: imagen.width, height: imagen.height };
+  return { width: maximo, height: Math.round((maximo * imagen.height) / imagen.width) };
+}

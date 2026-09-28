@@ -57,6 +57,20 @@ export default defineConfig({
    * está en ADR-082, y se cierra el día que haya un dominio de medios propio.
    */
   image: {
+    /*
+     * Los anchos con que se piden las fotos, y **nada más**.
+     *
+     * Cada ancho distinto de cada foto es una transformación de Cloudflare Images,
+     * y el plan gratuito tiene un tope mensual por cuenta que ya se agotó una vez
+     * (LIMITACIONES § Imágenes). La lista por defecto de Astro llega a 3840 y
+     * pedía de 8 a 10 variantes por foto; con estas cuatro, ninguna pasa de 4.
+     *
+     * 1600 es el techo porque es lo que pide un banner a lo ancho en una pantalla
+     * común. En una retina muy grande el banner sale apenas menos nítido: es el
+     * precio de no gastar la cuota en píxeles que casi nadie ve. Las tarjetas y la
+     * galería piden 400 y 800 (`medidasParaMostrar`), así que comparten variantes.
+     */
+    breakpoints: [400, 800, 1200, 1600],
     remotePatterns: [
       {
         protocol: 'https',

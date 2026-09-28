@@ -2,6 +2,10 @@
 import { Image } from 'astro:assets';
 import type { ProductImage } from '@pick/commerce-types';
 import { cn } from '@pick/commerce-ui';
+import { medidasParaMostrar } from '@pick/commerce-core';
+
+/** El ancho máximo con que se pide la foto de una tarjeta: 2× de lo que ocupa en desktop. */
+const ANCHO_DE_TARJETA = 400;
 
 interface Props {
   image?: ProductImage;
@@ -36,8 +40,7 @@ const {
       <Image
         src={image.url}
         alt={image.alt}
-        width={image.width}
-        height={image.height}
+        {...medidasParaMostrar(image, ANCHO_DE_TARJETA)}
         layout="constrained"
         sizes={sizes}
         loading={priority ? 'eager' : 'lazy'}

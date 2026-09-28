@@ -2,6 +2,10 @@
 import { Image } from 'astro:assets';
 import type { ProductImage } from '@pick/commerce-types';
 import { cn } from '@pick/commerce-ui';
+import { medidasParaMostrar } from '@pick/commerce-core';
+
+/** La foto grande del PDP: ocupa la mitad de la pantalla en desktop. */
+const ANCHO_DE_GALERIA = 800;
 
 interface Props {
   images: readonly ProductImage[];
@@ -62,8 +66,7 @@ const { images, title, id, class: className } = Astro.props;
             <Image
               src={image.url}
               alt={image.alt}
-              width={image.width}
-              height={image.height}
+              {...medidasParaMostrar(image, ANCHO_DE_GALERIA)}
               layout="constrained"
               sizes="(min-width: 768px) 50vw, 100vw"
               loading={index === 0 ? 'eager' : 'lazy'}

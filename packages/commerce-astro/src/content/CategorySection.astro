@@ -2,6 +2,7 @@
 import { Image } from 'astro:assets';
 import type { ProductImage } from '@pick/commerce-types';
 import { cn } from '@pick/commerce-ui';
+import { medidasParaMostrar } from '@pick/commerce-core';
 
 export interface CategoryEntry {
   label: string;
@@ -51,8 +52,7 @@ const { categories, layout = 'static', class: className } = Astro.props;
               <Image
                 src={category.image.url}
                 alt=""
-                width={category.image.width}
-                height={category.image.height}
+                {...medidasParaMostrar(category.image, 400)}
                 layout="constrained"
                 sizes="(min-width: 768px) 25vw, 50vw"
                 loading="lazy"

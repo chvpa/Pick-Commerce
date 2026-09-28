@@ -241,3 +241,24 @@ test('el precio se convierte a unidades mínimas con la moneda de la tienda', ()
     precioMax: 20000,
   });
 });
+
+/*
+ * Las medidas con que se pide una foto: acotan el ancho sin tocar la proporción,
+ * que es lo que evita el salto del layout (ADR-034).
+ */
+test('una foto más ancha que el máximo se achica conservando la proporción', async () => {
+  const { medidasParaMostrar } = await import('./catalog.ts');
+  assert.deepEqual(medidasParaMostrar({ width: 2638, height: 1698 }, 400), {
+    width: 400,
+    height: 257,
+  });
+});
+
+test('una foto más chica que el máximo queda como está', async () => {
+  const { medidasParaMostrar } = await import('./catalog.ts');
+  // Agrandarla pediría una variante más grande que el original, que no existe.
+  assert.deepEqual(medidasParaMostrar({ width: 300, height: 400 }, 400), {
+    width: 300,
+    height: 400,
+  });
+});

@@ -1,5 +1,6 @@
 ---
 import { Image } from 'astro:assets';
+import { medidasParaMostrar } from '@pick/commerce-core';
 import type { ProductImage } from '@pick/commerce-types';
 import { cn } from '@pick/commerce-ui';
 
@@ -22,8 +23,7 @@ const { image, width = 'contained', class: className } = Astro.props;
       <Image
         src={image.url}
         alt={image.alt}
-        width={image.width}
-        height={image.height}
+        {...medidasParaMostrar(image, 1600)}
         layout="full-width"
         sizes="100vw"
         loading="eager"
