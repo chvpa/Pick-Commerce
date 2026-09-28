@@ -392,6 +392,12 @@ Restricciones de Astro ya verificadas contra la doc, que condicionan el diseño:
 - Una migración que dependa de una extensión o de un schema que PGlite no tenga —`pg_net`, `storage`— deja la suite de aislamiento sin arrancar. Va guardada con un `do` que compruebe que existe.
 - Con Workers Assets, una página **prerenderizada se sirve desde el disco sin ejecutar el Worker**: no corre el middleware. En `astro dev` y `astro preview` todo es SSR, así que lo que dependa del middleware se ve en desarrollo y desaparece al desplegar. Por eso `/carrito` es on-demand aunque no lea la base (ADR-099).
 - Un Worker con `assets` sirve el archivo antes que el código: para que una ruta llegue al Worker hay que declararla en `run_worker_first`. **`wrangler dev` no lo respeta** —ejecuta el Worker para cualquier ruta sin asset, esté declarada o no— así que un `run_worker_first` faltante pasa el e2e en verde y falla recién al desplegar. Medido quitándolo (ADR-103).
+- **Dos apps de Astro con el adapter de Cloudflare no se construyen en paralelo.**
+  Cada build levanta un `workerd` con el inspector en `127.0.0.1:9229`, y `pnpm -r
+build` corría la demo y Treeshop a la vez: una de las dos moría con
+  `EADDRINUSE`, dos de cada tres corridas. Por eso `build` es
+  `--workspace-concurrency=1`. Pasaba también en CI, que corre el mismo comando, y
+  se veía como un build inestable sin causa.
 - Una **subconsulta correlacionada contra un CTE** no tiene índice que usar:
   Postgres recorre el CTE entero una vez por fila. Es lo que hacía que el
   catálogo tardara 2,3 s con 5000 productos, en una sola línea. **Contra una
