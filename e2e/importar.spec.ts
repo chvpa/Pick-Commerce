@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { ADMIN_E2E } from '../scripts/datos-admin-e2e.ts';
 import { ADMIN, entrar, irALaTiendaDelSmoke } from './_admin.ts';
 
 /**
@@ -63,4 +64,11 @@ test('el archivo se revisa fila por fila, y una errata deja afuera a su producto
     timeout: 15_000,
   });
   await expect(page.getByRole('button', { name: /^Editar la variante/ })).toHaveCount(2);
+
+  // Quien importó queda como autor, y la historia lo cuenta (ADR-159).
+  await expect(page.getByText(/^Creado por/)).toContainText(ADMIN_E2E.email);
+  await page.getByRole('button', { name: /^Ver cambios/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Historial de cambios' })).toContainText(
+    'creó el producto',
+  );
 });

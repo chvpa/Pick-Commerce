@@ -8,6 +8,7 @@ export {
   type PickSupabaseClient,
 } from './client.ts';
 export { repositorioTiendas } from './tiendas.ts';
+export { historialDe } from './actividad.ts';
 export {
   avisoDePedidoNuevo,
   cerrarSesion,

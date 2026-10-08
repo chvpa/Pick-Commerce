@@ -268,3 +268,38 @@ test('lo lee quien administra el equipo; el personal y los de afuera, nada', asy
     assert.equal(filas[0]!.n, 0);
   }
 });
+
+// --- La historia de un pedido o un producto (ADR-159) ------------------------------
+
+test('el personal ve la historia del producto, sin IP ni navegador', async () => {
+  const filas = await como<{ j: { total: number; items: Record<string, unknown>[] } }>(
+    db,
+    PERSONAL,
+    `select admin_subject_activity('${TIENDA}', '${PRODUCTO}') as j`,
+  );
+  const { total, items } = filas[0]!.j;
+  assert.ok(total >= 1);
+  const precio = items.find((i) => i.entity === 'product_variants')!;
+  assert.equal(precio.actor, 'duena@a.test');
+  assert.deepEqual(precio.changes, { price: [150000, 175000] });
+  assert.ok(!('ip' in precio) && !('user_agent' in precio));
+});
+
+test('ni los ajustes ni el equipo salen por la historia, aunque se pidan', async () => {
+  // El sujeto de un ajuste es la tienda: pedirla devuelve nada, también a la dueña.
+  const filas = await como<{ j: { total: number } }>(
+    db,
+    DUENA,
+    `select admin_subject_activity('${TIENDA}', '${TIENDA}') as j`,
+  );
+  assert.equal(filas[0]!.j.total, 0);
+});
+
+test('alguien de otro comercio no ve la historia', async () => {
+  const filas = await como<{ j: { total: number; items: unknown[] } }>(
+    db,
+    FORASTERA,
+    `select admin_subject_activity('${TIENDA}', '${PRODUCTO}') as j`,
+  );
+  assert.deepEqual(filas[0]!.j, { total: 0, items: [] });
+});

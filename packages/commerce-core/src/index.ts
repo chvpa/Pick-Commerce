@@ -9,6 +9,7 @@ export * from './tenant.ts';
 export * from './field-sources.ts';
 export * from './catalog-config.ts';
 export * from './currency-config.ts';
+export * from './actividad.ts';
 export * from './checkout.ts';
 export * from './datos-de-checkout.ts';
 export * from './orders.ts';

@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    22% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    23% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1891,7 +1891,7 @@ Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
 ## Fase 3 — Auditoría
 
-**Avance: 67%**
+**Avance: 83%**
 
 El registro antifraude interno, que el handoff marca como pedido explícito.
 
@@ -1902,8 +1902,8 @@ El registro antifraude interno, que el handoff marca como pedido explícito.
 - [x] Append-only: nadie tiene `update` ni `delete`, comprobado al revés en la
       suite.
 - [x] Se guarda dos años, y lo purga sólo el sistema, con pg_cron.
-- [ ] La franja «Creado por · Modificado por» y su historial, en el pedido y en el
-      producto.
+- [x] La franja «Creado por · Modificado por» y su historial, en el pedido y en el
+      producto, para cualquier miembro y sin los ajustes ni el equipo (ADR-159).
 - [ ] Configuración › Registro de actividad: filtros, exportar, la marca de
       «sensible» y el aviso por correo de los cambios sensibles.
 - [x] Medido lo que el registro le cuesta a `create_order`: 3,24 ms por pedido
@@ -2421,6 +2421,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-08 | **v3 Fase 2: el aviso de pedido nuevo** (ADR-156). El primer correo que le llega al equipo y no a quien compró: uno por pedido, a cada persona que lo prendió en Mi cuenta, apagado para todos al desplegar. Va por la misma cola sin `order_id`, como el código de acceso, para que un aviso al equipo que falló no aparezca como un comprador sin aviso; y un pedido de demostración no le escribe a nadie                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v3 Fase 2 |          85% |            92% |
 | 2026-10-08 | **v3 Fase 2: el inicio de sesión** (ADR-157). Entrar, recuperar y la contraseña nueva como una pantalla en tres estados, con lo que se le pide a la contraseña marcado mientras se escribe. Sin las cifras de ejemplo del panel ni el soporte que no existe. Y el menú de la cuenta vuelve a mostrar el correo cuando hay un nombre: lo encontró el smoke                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | v3 Fase 2 |          92% |           100% |
 | 2026-10-08 | **v3 Fase 3: la captura** (ADR-158). Un trigger en las siete tablas donde un cambio cuesta plata o acceso: quién, con qué rol, desde qué IP y navegador, y cada campo con su antes y su después. Sólo lo que hace una persona; el checkout no paga nada por él, medido. Nadie lo edita ni lo borra, intentado con cada llave; se purga a los dos años con pg_cron, y lo lee sólo quien administra el equipo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | v3 Fase 3 |           0% |            67% |
+| 2026-10-08 | **v3 Fase 3: la franja** (ADR-159). El pedido y el producto dicen quién los creó, quién los modificó y cuándo, y «Ver cambios» abre la historia con cada campo de antes y de después. Para cualquier miembro, por una función que nunca devuelve los ajustes ni el equipo; la creación de un pedido la dice el pedido, y lo que no tiene autor no se inventa                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v3 Fase 3 |          67% |            83% |
 
 ---
 
@@ -2430,8 +2431,8 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 red de puntos de la Fase 9, condicionada a la cantidad de comercios y no a una
 fecha.
 
-**Lo que sigue es lo que falta de la Fase 3 de v3**: la franja y el historial en
-el pedido y en el producto, y el registro de actividad en Configuración. Las fases van en el orden del bloque v3.
+**Lo que sigue es lo que falta de la Fase 3 de v3**: el registro de actividad en
+Configuración, con lo sensible y su aviso. Las fases van en el orden del bloque v3.
 
 En paralelo, lo que queda para poder vender está en
 [LIMITACIONES.md](LIMITACIONES.md), casi todo del lado del dueño:

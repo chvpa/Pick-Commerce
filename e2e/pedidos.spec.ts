@@ -178,6 +178,14 @@ test('el detalle lleva el pedido de a un paso, guarda notas y pasa al siguiente'
   await expect(page.getByRole('button', { name: 'Empezar a preparar' })).toBeVisible();
   await expect(page.getByText('Confirmado · paso 2 de 6')).toBeVisible();
 
+  // El registro anotó los dos pasos, y la franja los muestra sin recargar (ADR-159).
+  await page.getByRole('button', { name: /^Ver cambios/ }).click();
+  const cambios = page.getByRole('dialog', { name: 'Historial de cambios' });
+  await expect(cambios).toContainText('cambió el pago');
+  await expect(cambios).toContainText('cambió el estado');
+  await page.keyboard.press('Escape');
+  await expect(cambios).toBeHidden();
+
   // Una nota suelta, sin cambiar nada del pedido.
   await page.getByRole('button', { name: /^Ver historial/ }).click();
   const nota = page.getByRole('textbox', { name: 'Agregar una nota al pedido' });

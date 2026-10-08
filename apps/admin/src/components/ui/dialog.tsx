@@ -95,4 +95,17 @@ function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
 
 const DialogClose = DialogPrimitive.Close;
 
-export { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle };
+/** Lo que lo abre, cuando el diálogo vive al lado de su botón. */
+function DialogTrigger(props: DialogPrimitive.Trigger.Props) {
+  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
+}
+
+export {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+};

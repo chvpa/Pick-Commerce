@@ -1,3 +1,4 @@
+import { Franja } from '@/features/actividad/Franja';
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import {
   useFieldArray,
@@ -373,6 +374,7 @@ export function FormularioProducto({ id }: { id?: string }) {
       // Y la ficha, que quedaba cacheada con lo de antes: volver a abrirla
       // mostraba el valor viejo hasta que la consulta se revalidara sola.
       await cliente.invalidateQueries({ queryKey: ['producto', tienda.id] });
+      void cliente.invalidateQueries({ queryKey: ['actividad', tienda.id] });
       await cliente.invalidateQueries({ queryKey: ['sucursales', tienda.id] });
       await navegar({ to: '/productos' });
     },
@@ -501,6 +503,7 @@ export function FormularioProducto({ id }: { id?: string }) {
           </>
         }
       >
+        {original && id && <Franja subjectId={id} />}
         {guardar.isError && (
           <p className="text-destructive text-sm" role="alert">
             {(guardar.error as Error).message}

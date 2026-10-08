@@ -7986,3 +7986,41 @@ enlace que no queda, el append-only con cada llave, la purga y quién lee.
 Comprobado en producción con una escritura real por PostgREST: la fila tiene el
 rol, el cambio, la IP y el navegador. Las dos entradas explícitas de antes siguen
 —dicen qué acción fue— y conviven con la fila del trigger.
+
+## ADR-159 — La historia de un pedido o un producto, para quien trabaja con ellos
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+El registro de actividad lo lee entero sólo quien administra el equipo
+(ADR-158). Pero quien despacha un pedido también necesita saber quién lo marcó
+pagado, y el handoff (ADR-143) pone en el pedido y en el producto la franja
+«Creado por · Modificado por · Última modificación» con su historial.
+
+**Una función, la historia de una cosa**
+`admin_subject_activity` devuelve las filas de un sujeto —el pedido, o el
+producto con sus variantes y su stock— para cualquier miembro de la
+organización, con la pertenencia en una línea. Nunca los ajustes ni el equipo,
+aunque se los pida por su id —el sujeto de un ajuste es la tienda, y pedirla
+devuelve nada—, y sin IP ni navegador: son para revisar, no para trabajar.
+
+**Lo que la franja no inventa**
+Un pedido lo crea quien compra, en la tienda, y eso no pasa por el registro, que
+anota a las personas del comercio: «Creado por» sale del pedido. Un producto
+creado antes del registro o por un importador no tiene autor que mostrar, y la
+franja no lo dice. Quien ya no tiene usuario aparece como «Alguien que ya no
+está»: la fila queda, el nombre no.
+
+**Una sola traducción**
+`cambiosLegibles` y `queHizo` viven en el core: la franja y el registro de
+actividad dicen «cambió el precio de «M»» y «Gs. 150.000 → Gs. 175.000» con la
+misma función, porque dos traducciones del mismo campo que no coinciden son peores
+que ninguna. Un id se dice «otra»: el valor no le dice nada a nadie.
+
+**Consecuencias**
+`auditoria.test.ts` prueba que el personal ve la historia del producto sin IP,
+que la tienda no devuelve sus ajustes, y que alguien de afuera recibe nada; la
+función está entre las bloqueadas de la suite de aislamiento. El e2e de pedidos ve
+los dos pasos en la franja sin recargar, y el de importar ve quién creó el
+producto.

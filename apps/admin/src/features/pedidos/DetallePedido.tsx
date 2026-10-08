@@ -1,3 +1,4 @@
+import { Franja } from '@/features/actividad/Franja';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useRouterState } from '@tanstack/react-router';
@@ -133,6 +134,8 @@ export function DetallePedido({ id }: DetallePedidoProps) {
     void cliente.invalidateQueries({ queryKey: ['pedidos', tienda.id] });
     void cliente.invalidateQueries({ queryKey: ['tareas', tienda.id] });
     void cliente.invalidateQueries({ queryKey: ['cliente', tienda.id] });
+    // La franja también: el cambio que se acaba de hacer ya está en el registro.
+    void cliente.invalidateQueries({ queryKey: ['actividad', tienda.id, id] });
     return cliente.invalidateQueries({ queryKey: ['pedido', tienda.id, id] });
   }
 
@@ -305,6 +308,10 @@ export function DetallePedido({ id }: DetallePedidoProps) {
         </div>
       }
     >
+      <Franja
+        subjectId={order.id}
+        creacion={{ por: order.customer.name || 'Quien compró', cuando: order.createdAt }}
+      />
       {error && (
         <p className="text-destructive text-sm" role="alert">
           {(error as Error).message}

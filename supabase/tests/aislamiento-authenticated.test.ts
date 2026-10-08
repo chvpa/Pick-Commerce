@@ -183,6 +183,8 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
     'public.admin_apply_description_proposals',
     `admin_apply_description_proposals('${TIENDA}', '{}'::uuid[])`,
   ],
+  // La historia de un pedido o un producto (ADR-159).
+  ['public.admin_subject_activity', `admin_subject_activity('${TIENDA}', '${PRODUCTO}')`],
 ];
 
 /**

@@ -2723,6 +2723,10 @@ export type Database = {
         Returns: Json
       }
       admin_store_tasks: { Args: { p_store_id: string }; Returns: Json }
+      admin_subject_activity: {
+        Args: { p_limit?: number; p_store_id: string; p_subject_id: string }
+        Returns: Json
+      }
       admin_team: { Args: { p_tenant: string }; Returns: Json }
       ai_credential_secret: { Args: { p_store_id: string }; Returns: Json }
       ai_credential_status: { Args: { p_store_id: string }; Returns: Json }
