@@ -9,9 +9,11 @@ export {
 } from './client.ts';
 export { repositorioTiendas } from './tiendas.ts';
 export {
+  avisoDePedidoNuevo,
   cerrarSesion,
   cerrarLasDemas,
   cerrarOtraSesion,
+  guardarAvisoDePedidoNuevo,
   guardarNombre,
   iniciarSesion,
   membresiasDe,

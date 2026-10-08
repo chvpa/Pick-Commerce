@@ -5,6 +5,7 @@ import {
   esEventoConocido,
   plantillaDeCodigo,
   plantillaDeCorreo,
+  plantillaDePedidoAlEquipo,
   type EventoDeNotificacion,
 } from './notifications.ts';
 
@@ -200,4 +201,26 @@ test('sin enlace el correo sale igual, sin un botón roto', () => {
   const m = plantillaDeCorreo('order_received', { tiendaNombre: 'Tienda', order: PEDIDO });
   assert.doesNotMatch(m.html, /Ver el pedido/);
   assert.doesNotMatch(m.texto, /Ver el pedido/);
+});
+
+test('el aviso al equipo dice quién compró, cuánto y si está pago', () => {
+  const m = plantillaDePedidoAlEquipo({ tiendaNombre: 'Pick Demo', order: PEDIDO });
+  assert.match(m.asunto, /#1042/);
+  assert.match(m.asunto, /Ana López/);
+  assert.match(m.texto, /Todavía no está pago/);
+  assert.match(m.texto, /0981123456/);
+  // Por qué le llega y cómo se apaga: sin eso, un correo así termina en spam.
+  assert.match(m.texto, /Mi cuenta/);
+  assert.match(m.html, /Mi cuenta/);
+
+  const pago = plantillaDePedidoAlEquipo({
+    tiendaNombre: 'Pick Demo',
+    order: {
+      ...PEDIDO,
+      paymentStatus: 'paid',
+      customer: { ...PEDIDO.customer, name: '<b>Eva</b>' },
+    },
+  });
+  assert.match(pago.texto, /Ya está pago/);
+  assert.ok(!pago.html.includes('<b>Eva</b>'), 'el nombre del comprador va escapado');
 });

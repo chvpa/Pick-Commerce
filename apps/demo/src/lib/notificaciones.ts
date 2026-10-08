@@ -1,10 +1,12 @@
 import { getSecret } from 'astro:env/server';
 import {
   EVENTO_CODIGO,
+  EVENTO_PEDIDO_AL_EQUIPO,
   enlaceDelPedido,
   esEventoConocido,
   plantillaDeCodigo,
   plantillaDeCorreo,
+  plantillaDePedidoAlEquipo,
   type MensajeDeCorreo,
   type NotificacionPendiente,
   type NotificationProvider,
@@ -79,6 +81,13 @@ function redactar(
     const minutos = pendiente.datos?.minutos;
     if (typeof codigo !== 'string' || typeof minutos !== 'number') return null;
     return plantillaDeCodigo({ tiendaNombre, codigo, minutos });
+  }
+
+  // Al equipo, no al comprador: va sin enlace al pedido, que es del comprador (ADR-156).
+  if (pendiente.event === EVENTO_PEDIDO_AL_EQUIPO) {
+    return pendiente.order
+      ? plantillaDePedidoAlEquipo({ tiendaNombre, order: pendiente.order, locale })
+      : null;
   }
 
   if (!esEventoConocido(pendiente.event) || !pendiente.order) return null;

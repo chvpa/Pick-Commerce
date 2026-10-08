@@ -342,3 +342,57 @@ export interface RepositorioNotificaciones {
 export function esEventoConocido(evento: string): evento is EventoDeNotificacion {
   return (EVENTOS_DE_NOTIFICACION as readonly string[]).includes(evento);
 }
+
+/**
+ * El aviso al equipo de que entró un pedido (ADR-156).
+ *
+ * Como el código de acceso, comparte la cola y nada más: no es un aviso al
+ * comprador, va sin `order_id` y no aparece entre los avisos del pedido. Cada
+ * persona lo prende en «Mi cuenta», y el pie lo dice: un correo que llega sin
+ * saber por qué termina marcado como spam.
+ */
+export const EVENTO_PEDIDO_AL_EQUIPO = 'team_new_order';
+
+export function plantillaDePedidoAlEquipo(ctx: {
+  readonly tiendaNombre: string;
+  readonly order: Order;
+  readonly locale?: string;
+}): MensajeDeCorreo {
+  const { order } = ctx;
+  const locale = ctx.locale ?? 'es-PY';
+  const total = formatMoney(order.total, locale);
+  const cliente = order.customer.name || order.customer.email || 'Sin nombre';
+  const contacto = [order.customer.phone, order.customer.email].filter(Boolean).join(' · ');
+  const pago = order.paymentStatus === 'paid' ? 'Ya está pago.' : 'Todavía no está pago.';
+  const items = order.items.map((i) => lineaDeItem(i, locale));
+  const pie = 'Te llega porque lo prendiste en Mi cuenta, en el Admin. Se apaga desde ahí.';
+
+  const asunto = `Pedido #${order.number} de ${cliente} — ${total}`;
+
+  const texto = [
+    `Entró un pedido en ${ctx.tiendaNombre}.`,
+    '',
+    `#${order.number} · ${cliente}`,
+    ...(contacto ? [contacto] : []),
+    pago,
+    '',
+    ...items.map((l) => `  ${l}`),
+    `  Total: ${total}`,
+    '',
+    'Lo ves en el Admin, en Pedidos.',
+    '',
+    pie,
+  ].join('\n');
+
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.5;color:#111;max-width:560px">
+  <p style="margin:0 0 4px;color:#666">Entró un pedido en ${escapar(ctx.tiendaNombre)}</p>
+  <h1 style="font-size:19px;margin:0 0 4px">#${order.number} · ${escapar(cliente)}</h1>
+  ${contacto ? `<p style="margin:0 0 4px;color:#444">${escapar(contacto)}</p>` : ''}
+  <p style="margin:0 0 20px;color:#444">${escapar(pago)}</p>
+  <p style="margin:0 0 20px">${items.map((l) => escapar(l)).join('<br>')}<br><strong>Total: ${escapar(total)}</strong></p>
+  <p style="margin:0 0 20px;color:#444">Lo ves en el Admin, en Pedidos.</p>
+  <p style="margin:0;color:#666;font-size:13px">${escapar(pie)}</p>
+</div>`;
+
+  return { asunto, html, texto };
+}

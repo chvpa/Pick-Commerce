@@ -196,3 +196,33 @@ export function observarSesion(
 
   return () => data.subscription.unsubscribe();
 }
+
+/**
+ * Si a esta persona le llega un correo por cada pedido nuevo de esa
+ * organización (ADR-156). El filtro por usuario hace falta por lo mismo que en
+ * `membresiasDe`: la política deja ver a todo el equipo.
+ */
+export async function avisoDePedidoNuevo(
+  db: PickSupabaseClient,
+  tenantId: string,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await db
+    .from('memberships')
+    .select('notify_new_order')
+    .eq('tenant_id', tenantId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throw new Error(`No se pudieron leer tus avisos: ${error.message}`);
+  return data?.notify_new_order ?? false;
+}
+
+/** Lo prende o lo apaga. Cada persona el suyo: la función no toca a nadie más. */
+export async function guardarAvisoDePedidoNuevo(
+  db: PickSupabaseClient,
+  tenantId: string,
+  prendido: boolean,
+): Promise<void> {
+  const { error } = await db.rpc('set_my_new_order_notice', { p_tenant: tenantId, p_on: prendido });
+  if (error) throw new Error(`No se pudo guardar el aviso: ${error.message}`);
+}

@@ -7829,3 +7829,48 @@ nuevo —con su interruptor por persona— es el trabajo siguiente.
 el secreto no sale y que la actual no se cierra desde ahí; las dos funciones
 están clasificadas en la suite de aislamiento. `e2e/mi-cuenta.spec.ts` usa dos
 navegadores de verdad. Los e2e de la IA y de sucursales entran por su sección.
+
+## ADR-156 — Un correo al equipo por cada pedido nuevo, y sólo a quien lo pidió
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+El handoff (ADR-143) pone en «Mi cuenta» cuatro avisos por correo: pedido nuevo,
+pagos rechazados y correos fallidos, el resumen del día y el uso de la IA cerca
+del tope. Hasta acá todo correo de la cola iba a quien compró: al equipo no le
+llegaba nada. ADR-155 dejó la sección sin interruptores para no mostrar avisos
+que no existen.
+
+**Uno solo, el que alguien usa**
+Pedido nuevo. Los otros tres siguen sin hacerse, y por eso no aparecen: el
+resumen diario necesita un horario que el proyecto no tiene, el tope de la IA es
+de la IA de Pick (Fase 8), y un pago rechazado hoy lo informa la pasarela
+simulada.
+
+**Por persona y por organización, apagado**
+`memberships.notify_new_order`, que cada persona prende para sí con
+`set_my_new_order_notice` —`definer`, con la identidad en el `where`—: escribir
+`memberships` es de quien administra el equipo, y qué le llega a cada uno no
+puede depender de eso. Arranca apagado: prenderlo para todos al desplegar le
+escribiría a cuentas que nunca lo pidieron, y sin dominio verificado en Resend el
+correo sólo llega al dueño de la cuenta. Medido después de aplicar: cero de cinco
+membresías prendidas.
+
+**En la misma cola, sin `order_id`**
+El trigger que encola los avisos del comprador suma una fila por persona que lo
+pidió, con el pedido en el payload y sin `order_id`, igual que el código de
+acceso (ADR-123). Es a propósito: el Inicio, la bandeja de pedidos y el detalle
+del pedido muestran «avisos que no salieron» filtrando por `order_id`, y un
+correo al equipo que falló no es un comprador sin aviso. Sale antes de mirar el
+correo del comprador —que no lo haya dejado no es motivo para que la tienda no se
+entere— y un pedido de demostración no le escribe a nadie (ADR-108). Lo redacta
+la tienda que vende, con su remitente, como el resto de la cola.
+
+**Consecuencias**
+`aviso-al-equipo.test.ts` prueba que arranca apagado, que cada persona decide lo
+suyo y nada de otra organización, que llega aunque el comprador no dejó correo,
+que el modo demostración lo calla y que no aparece entre los avisos del pedido.
+La plantilla dice por qué llega y dónde se apaga. Las dos tiendas aprenden el
+evento: el storefront de la demo lo hace con el próximo push, Treeshop con su
+deploy.

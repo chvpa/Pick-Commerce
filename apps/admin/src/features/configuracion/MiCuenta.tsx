@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  avisoDePedidoNuevo,
   cerrarLasDemas,
   cerrarOtraSesion,
+  guardarAvisoDePedidoNuevo,
   guardarNombre,
   misSesiones,
 } from '@pick/adapter-supabase';
@@ -13,6 +15,7 @@ import { Esqueleto, EstadoDeError, Tarjeta, TituloDeTarjeta } from '@/components
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { useSesion } from '@/features/auth/SesionContext';
 import { haceCuanto } from '@/features/dashboard/tareas';
 import { useTienda, useTiendaActiva } from '@/features/tienda/TiendaContext';
@@ -210,6 +213,8 @@ export function MiCuenta() {
         </div>
       </Tarjeta>
 
+      <AvisosPorCorreo correo={correo} />
+
       <Tarjeta sinRelleno>
         <TituloDeTarjeta>Tus tiendas</TituloDeTarjeta>
         <ul aria-label="Tus tiendas">
@@ -235,5 +240,54 @@ export function MiCuenta() {
         </ul>
       </Tarjeta>
     </>
+  );
+}
+
+/**
+ * Lo que le llega por correo a esta persona, en la organización de la tienda que
+ * está mirando (ADR-156). Uno solo: el pedido nuevo. Los otros avisos del handoff
+ * —pagos rechazados, el resumen del día, el tope de la IA— no existen, y un
+ * interruptor de algo que no se manda sería mentir.
+ */
+function AvisosPorCorreo({ correo }: { correo: string }) {
+  const { sesion } = useSesion();
+  const tienda = useTiendaActiva();
+  const cliente = useQueryClient();
+  const userId = sesion?.userId ?? '';
+
+  const clave = ['aviso-de-pedido', tienda.tenantId, userId];
+  const consulta = useQuery({
+    queryKey: clave,
+    queryFn: () => avisoDePedidoNuevo(db, tienda.tenantId, userId),
+    enabled: userId !== '',
+  });
+  const guardar = useMutation({
+    mutationFn: (prendido: boolean) => guardarAvisoDePedidoNuevo(db, tienda.tenantId, prendido),
+    onSuccess: (_, prendido) => cliente.setQueryData(clave, prendido),
+  });
+
+  return (
+    <Tarjeta sinRelleno>
+      <TituloDeTarjeta>Avisos por correo</TituloDeTarjeta>
+      <div className="border-line-row flex items-center gap-3 border-t px-5 py-3.5">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="text-sm font-medium">Pedido nuevo</span>
+          <span className="text-ink-3 text-[13px]">
+            Un correo a {correo} por cada pedido que entra en {tienda.name}.
+          </span>
+        </div>
+        <Switch
+          aria-label="Pedido nuevo"
+          checked={consulta.data ?? false}
+          disabled={consulta.isPending || guardar.isPending}
+          onCheckedChange={(v) => guardar.mutate(v === true)}
+        />
+      </div>
+      {(consulta.error ?? guardar.error) && (
+        <p className="text-destructive px-5 pb-3 text-sm" role="alert">
+          {((consulta.error ?? guardar.error) as Error).message}
+        </p>
+      )}
+    </Tarjeta>
   );
 }

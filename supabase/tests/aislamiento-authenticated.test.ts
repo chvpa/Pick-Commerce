@@ -232,6 +232,9 @@ const PUBLICAS = [
   // cierran las de otro (ADR-155).
   'public.my_sessions',
   'public.close_my_session',
+  // Prende o apaga el aviso de quien llama, en una organización suya; para
+  // cualquier otra, falla. `aviso-al-equipo.test.ts` lo prueba (ADR-156).
+  'public.set_my_new_order_notice',
 ] as const;
 
 let db: PGlite;

@@ -34,7 +34,8 @@ Sin `EMAIL_FROM` configurado el remitente cae a `Pick Commerce
 casilla del dueño de la cuenta**: un pedido con el correo de un comprador real
 devuelve 403. El pipeline funciona igual —la fila queda en la cola, el intento se
 cuenta y el fallo se ve en el pedido (ADR-102)—, así que lo que falta es el
-dominio, no código. Está diferido a propósito mientras el piloto sea la tienda
+dominio, no código. Lo mismo vale para el aviso de pedido nuevo al equipo
+(ADR-156): hoy le llega sólo a quien es dueño de la cuenta de Resend. Está diferido a propósito mientras el piloto sea la tienda
 del propio dueño.
 
 **Qué lo desbloquea:** verificar un dominio en `resend.com/domains` y cargar

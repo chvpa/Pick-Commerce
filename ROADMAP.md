@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    17% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    18% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1826,7 +1826,7 @@ notificaciones, la ayuda y el uso de IA alrededor del avatar— llega con su fas
 
 ## Fase 2 — Las pantallas del Admin, sobre lo que ya existe
 
-**Avance: 85%**
+**Avance: 92%**
 
 Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
@@ -1877,8 +1877,9 @@ Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
       —nombre, contraseña por enlace, dónde está abierta la cuenta y las tiendas— y
       Equipo adentro, con Propietario y Personal (ADR-155). «Salir» dejó de cerrar
       la cuenta en todos los dispositivos. Invitar va con la Fase 7.
-- [ ] Los avisos por correo de Mi cuenta: un correo al equipo por cada pedido
-      nuevo, con un interruptor por persona. Hoy todo aviso va a quien compró.
+- [x] Los avisos por correo de Mi cuenta: un correo al equipo por cada pedido
+      nuevo, apagado hasta que cada persona lo prende (ADR-156). Los otros tres del
+      handoff no existen y no se muestran.
 - [ ] El inicio de sesión del Admin.
 
 ---
@@ -2410,6 +2411,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-08 | **v3 Fase 2: Analytics** (ADR-153). Un rango de fechas propio, de días enteros en la hora local y validado antes de pedir; las cifras en tarjetas con la conversión en un anillo, el embudo con lo que se pierde en cada paso y las búsquedas sin resultado en rojo. «Recuperar» los abandonos espera a la Fase 6, que es la que guarda el contacto. Y en el teléfono, la acción de una tarjeta ya no corta su botón: baja debajo del título                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v3 Fase 2 |          67% |            75% |
 | 2026-10-08 | **v3 Fase 2: Importar y Cargar con la cámara** (ADR-154). Importar en tres pasos, con cada fila del archivo y qué va a pasar con ella; la cámara en cuatro, con la cantidad de cada talle, un tope de seis fotos —cada una es una limpieza de fondo paga— y «Guardar borrador». Y lo que apareció: una errata en una fila de un producto existente le borraba esa variante con su stock, porque el archivo manda y la fila mala no venía. Ahora un producto con una fila mala no entra entero                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | v3 Fase 2 |          75% |            83% |
 | 2026-10-08 | **v3 Fase 2: Configuración y Mi cuenta** (ADR-155). Cinco grupos con una dirección por sección; en el teléfono, la lista y cada sección en su pantalla. Mi cuenta es de cualquier rol: el nombre, la contraseña por el enlace del correo y dónde está abierta la cuenta, leído de `auth.sessions` sin sus secretos y con cada sesión cerrable. Y lo que apareció: «Salir» era `signOut()` sin argumentos, que cierra la cuenta en todos los dispositivos; ahora sale de uno, medido con dos navegadores                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | v3 Fase 2 |          83% |            85% |
+| 2026-10-08 | **v3 Fase 2: el aviso de pedido nuevo** (ADR-156). El primer correo que le llega al equipo y no a quien compró: uno por pedido, a cada persona que lo prendió en Mi cuenta, apagado para todos al desplegar. Va por la misma cola sin `order_id`, como el código de acceso, para que un aviso al equipo que falló no aparezca como un comprador sin aviso; y un pedido de demostración no le escribe a nadie                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v3 Fase 2 |          85% |            92% |
 
 ---
 

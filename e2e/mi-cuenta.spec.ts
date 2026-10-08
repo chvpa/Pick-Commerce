@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { ADMIN, entrar } from './_admin.ts';
+import { ADMIN, entrar, irALaTiendaDelSmoke } from './_admin.ts';
 
 /**
  * «Mi cuenta» (ADR-155): el nombre, y dónde está abierta la cuenta.
@@ -78,4 +78,30 @@ test('una sesión ve a la otra, la cierra, y salir de una no saca a la otra', as
   await expect(filas(page)).toHaveCount(1, { timeout: 15_000 });
   await expect(filas(page).first()).toContainText('Esta sesión');
   await otro.close();
+});
+
+test('el aviso de pedido nuevo se prende, y queda prendido', async ({ page }) => {
+  /*
+   * En la tienda del smoke, que el teardown borra con su organización: prendido
+   * en la demo, los pedidos de los demás specs le escribirían a este usuario
+   * (ADR-156). Y se apaga al final igual.
+   */
+  await entrar(page);
+  await irALaTiendaDelSmoke(page);
+  await irAMiCuenta(page);
+
+  const aviso = () => page.getByRole('switch', { name: 'Pedido nuevo' });
+  await expect(aviso()).toBeEnabled({ timeout: 15_000 });
+  await expect(aviso()).not.toBeChecked();
+
+  await aviso().click();
+  await expect(aviso()).toBeChecked();
+  await expect(aviso()).toBeEnabled({ timeout: 15_000 });
+
+  await page.reload();
+  await expect(aviso()).toBeChecked({ timeout: 15_000 });
+
+  await aviso().click();
+  await expect(aviso()).not.toBeChecked();
+  await expect(aviso()).toBeEnabled({ timeout: 15_000 });
 });

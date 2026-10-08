@@ -1282,6 +1282,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          notify_new_order: boolean
           role: Database["public"]["Enums"]["member_role"]
           tenant_id: string
           updated_at: string
@@ -1290,6 +1291,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          notify_new_order?: boolean
           role?: Database["public"]["Enums"]["member_role"]
           tenant_id: string
           updated_at?: string
@@ -1298,6 +1300,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          notify_new_order?: boolean
           role?: Database["public"]["Enums"]["member_role"]
           tenant_id?: string
           updated_at?: string
@@ -2852,6 +2855,10 @@ export type Database = {
       search_suggest: {
         Args: { p_limit?: number; p_q: string; p_store_id: string }
         Returns: Json
+      }
+      set_my_new_order_notice: {
+        Args: { p_on: boolean; p_tenant: string }
+        Returns: undefined
       }
       visitor_preferences: {
         Args: { p_device_id: string; p_store_id: string }
