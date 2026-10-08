@@ -442,10 +442,12 @@ build` corría la demo y Treeshop a la vez: una de las dos moría con
   valor. Para leer varias, `getSetCookie()`. Y al **escribir** una cookie con
   JSON adentro hay que codificarla —`cookies.set` de Astro lo hace solo, un
   script no—, porque una coma cruda en el valor es un separador para el servidor.
-- **`supabase.auth.signOut()` revoca las sesiones del usuario del lado del
-  servidor**, no sólo las del cliente que lo llama: un token capturado antes deja
-  de valer. Un `signOut` «por prolijidad» después de pedir tokens los invalida, y
-  se ve como «no hay sesión» en un lugar que no tiene nada que ver.
+- **`supabase.auth.signOut()` sin argumentos es `scope: 'global'`: revoca las
+  sesiones del usuario del lado del servidor**, no sólo las del cliente que lo
+  llama: un token capturado antes deja de valer. Un `signOut` «por prolijidad»
+  después de pedir tokens los invalida, y se ve como «no hay sesión» en un lugar
+  que no tiene nada que ver. Para salir de un solo navegador va
+  `{ scope: 'local' }`, que es como sale el Admin (ADR-155).
 - **`verifyOtp` y `setSession` le dejan la sesión puesta al cliente sobre el que
   corren**, y `persistSession: false` no lo evita: eso sólo habla del disco. Con
   un cliente memoizado por isolate —como el del storefront— la identidad de quien
@@ -502,7 +504,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..154 y tres decisiones pendientes:
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..155 y tres decisiones pendientes:
    P-001 (primer gateway real), P-005 (CLI/provisioner) y P-006 (cómo se le
    cobra la IA a un comercio). P-002, P-003 y P-004 están resueltas.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.

@@ -6,6 +6,7 @@ import {
   LogOutIcon,
   SearchIcon,
   SwitchIcon,
+  UserCircleIcon,
   UserMultipleIcon,
 } from '@/components/iconos';
 import {
@@ -89,7 +90,8 @@ function MenuDeCuenta() {
   const avisar = useAvisar();
 
   const correo = sesion?.email ?? '';
-  const inicial = correo.slice(0, 1).toUpperCase() || '?';
+  const nombre = sesion?.nombre;
+  const inicial = (nombre ?? correo).slice(0, 1).toUpperCase() || '?';
   const rol = sesion?.membresias.find((m) => m.tenantId === tienda?.tenantId)?.role;
 
   return (
@@ -113,7 +115,9 @@ function MenuDeCuenta() {
               {inicial}
             </span>
             <span className="flex min-w-0 flex-col leading-snug">
-              <span className="text-foreground truncate text-[13.5px] font-medium">{correo}</span>
+              <span className="text-foreground truncate text-[13.5px] font-medium">
+                {nombre ?? correo}
+              </span>
               <span className="text-muted-foreground truncate text-xs font-normal">
                 {rol ? ETIQUETA_ROL[rol] : 'Sin rol'}
                 {tienda ? ` · ${tienda.name}` : ''}
@@ -153,8 +157,16 @@ function MenuDeCuenta() {
           </DropdownMenuSub>
         )}
 
+        <DropdownMenuItem
+          render={<Link to="/configuracion/$seccion" params={{ seccion: 'cuenta' }} />}
+        >
+          <UserCircleIcon className="text-muted-foreground size-[17px]" />
+          Mi cuenta
+        </DropdownMenuItem>
         {puede('member.manage') && (
-          <DropdownMenuItem render={<Link to="/equipo" />}>
+          <DropdownMenuItem
+            render={<Link to="/configuracion/$seccion" params={{ seccion: 'equipo' }} />}
+          >
             <UserMultipleIcon className="text-muted-foreground size-[17px]" />
             Equipo
           </DropdownMenuItem>

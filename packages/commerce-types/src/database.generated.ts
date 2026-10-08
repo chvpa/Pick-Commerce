@@ -2747,6 +2747,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      close_my_session: { Args: { p_session: string }; Returns: boolean }
       create_order: {
         Args: { p_idempotency_key: string; p_input: Json; p_store_id: string }
         Returns: Json
@@ -2793,6 +2794,16 @@ export type Database = {
         Returns: Json
       }
       my_preferences: { Args: { p_store_id: string }; Returns: Json }
+      my_sessions: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          is_current: boolean
+          last_active_at: string
+          user_agent: string
+        }[]
+      }
       order_by_token: {
         Args: { p_number: number; p_store_id: string; p_token: string }
         Returns: Json

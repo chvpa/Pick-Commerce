@@ -218,7 +218,7 @@ export function pasosDeAlta(alta: PasosDeAlta): PasoDeAlta[] {
       detalle: 'Nombre, dominio y moneda',
       hecho: true,
       accion: 'Ver',
-      to: '/configuracion',
+      to: '/configuracion/moneda',
     },
     {
       clave: 'productos',
@@ -234,7 +234,7 @@ export function pasosDeAlta(alta: PasosDeAlta): PasoDeAlta[] {
       detalle: 'Los datos de la transferencia, o una pasarela',
       hecho: alta.pagos,
       accion: 'Configurar',
-      to: '/configuracion',
+      to: '/configuracion/pagos',
     },
     {
       clave: 'envio',
@@ -242,7 +242,7 @@ export function pasosDeAlta(alta: PasosDeAlta): PasoDeAlta[] {
       detalle: 'Tarifa única, por zona, o sin cobrar',
       hecho: alta.envio,
       accion: 'Configurar',
-      to: '/configuracion',
+      to: '/configuracion/envio',
     },
     {
       clave: 'portada',
@@ -257,8 +257,9 @@ export function pasosDeAlta(alta: PasosDeAlta): PasoDeAlta[] {
       titulo: 'Invitar a tu equipo',
       detalle: 'Quien despacha pedidos o carga el catálogo',
       hecho: alta.equipo,
-      accion: 'Invitar',
-      to: '/equipo',
+      // «Ver» y no «Invitar»: desde el Admin todavía no se invita (ADR-155).
+      accion: 'Ver',
+      to: '/configuracion/equipo',
     },
   ];
 }

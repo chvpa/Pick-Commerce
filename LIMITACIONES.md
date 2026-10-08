@@ -198,6 +198,20 @@ sola vez, para que un fallo de red no recargue en bucle— en vez de quedar
 muerta (`apps/admin/src/lib/pantalla.ts`). Es un parpadeo, pero lo que se esté
 escribiendo en un formulario sin guardar se va con la recarga.
 
+### Al equipo no se lo invita desde el Admin
+
+Una persona nueva se suma con `pnpm admin:crear` (ver [ONBOARDING.md](ONBOARDING.md)):
+crear un usuario necesita la secret key, y el Worker del Admin no la tiene.
+Invitar con su rol, aceptando con un código por correo, llega con la Cuenta Pick
+(ADR-155).
+
+### Cerrar una sesión tarda hasta una hora
+
+Desde «Mi cuenta» se cierra la sesión de otro navegador, y deja de poder
+renovarse en el acto. Lo que ese navegador ya tiene abierto sigue funcionando
+hasta que vence su token de acceso, a la hora: un JWT no se puede revocar
+(ADR-155).
+
 ### Un solo entorno
 
 No hay staging: lo que se pushea a `main` es producción. El CI **no bloquea el

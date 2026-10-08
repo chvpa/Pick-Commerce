@@ -57,7 +57,7 @@ test.describe('Sucursales', () => {
     await irALaTiendaDelSmoke(page);
 
     // 1 · La segunda sucursal, que es lo que destapa el problema.
-    await page.goto(`${ADMIN}/configuracion`);
+    await page.goto(`${ADMIN}/configuracion/sucursales`);
     const sucursales = page.getByRole('list', { name: 'Sucursales' });
     await expect(sucursales).toBeVisible({ timeout: 30_000 });
 
@@ -107,7 +107,7 @@ test.describe('Sucursales', () => {
     await expect(stock(page)).toHaveValue('3');
 
     // 5 · Y la configuración lo cuenta por sucursal, que es donde vive el stock.
-    await page.goto(`${ADMIN}/configuracion`);
+    await page.goto(`${ADMIN}/configuracion/sucursales`);
     await expect(fila(page, NORTE)).toContainText('3 unidades', { timeout: 30_000 });
   });
 });

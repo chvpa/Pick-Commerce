@@ -22,6 +22,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/features/navegacion/AppSidebar';
 import { BarraSuperior } from '@/features/navegacion/BarraSuperior';
+import { esSeccion, type SeccionDeConfiguracion } from '@/features/configuracion/secciones';
 import { Comandos } from '@/features/navegacion/Comandos';
 import { Migas } from '@/features/navegacion/Migas';
 import { useSesion } from '@/features/auth/SesionContext';
@@ -99,8 +100,7 @@ const DetalleCliente = pantalla<{ id: string }>(
   () => import('@/features/clientes/DetalleCliente'),
   'DetalleCliente',
 );
-const Equipo = pantalla(() => import('@/features/equipo/Equipo'), 'Equipo');
-const Configuracion = pantalla(
+const Configuracion = pantalla<{ seccion?: SeccionDeConfiguracion }>(
   () => import('@/features/configuracion/Configuracion'),
   'Configuracion',
 );
@@ -548,24 +548,35 @@ const clienteRoute = createRoute({
   },
 });
 
+/** Equipo vivió aparte hasta ADR-155; la dirección vieja se sigue atendiendo. */
 const equipoRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/equipo',
-  component: () => (
-    <Gate permiso="member.manage">
-      <Equipo />
-    </Gate>
-  ),
+  beforeLoad: () => {
+    throw redirect({ to: '/configuracion/$seccion', params: { seccion: 'equipo' } });
+  },
 });
 
+/*
+ * Sin `Gate`: «Mi cuenta» es de cualquiera que entra, y cada sección pide su
+ * permiso adentro (ADR-155).
+ */
 const configuracionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/configuracion',
-  component: () => (
-    <Gate permiso="settings.write">
-      <Configuracion />
-    </Gate>
-  ),
+  component: () => <Configuracion />,
+});
+
+const seccionDeConfiguracionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/configuracion/$seccion',
+  beforeLoad: ({ params }) => {
+    if (!esSeccion(params.seccion)) throw redirect({ to: '/configuracion' });
+  },
+  component: function SeccionDeConfiguracion() {
+    const { seccion } = seccionDeConfiguracionRoute.useParams();
+    return <Configuracion seccion={seccion as SeccionDeConfiguracion} />;
+  },
 });
 
 const arbol = rootRoute.addChildren([
@@ -600,6 +611,7 @@ const arbol = rootRoute.addChildren([
   clienteRoute,
   equipoRoute,
   configuracionRoute,
+  seccionDeConfiguracionRoute,
 ]);
 
 export const router = createRouter({ routeTree: arbol });

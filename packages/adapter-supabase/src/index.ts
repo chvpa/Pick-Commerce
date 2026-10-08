@@ -10,11 +10,16 @@ export {
 export { repositorioTiendas } from './tiendas.ts';
 export {
   cerrarSesion,
+  cerrarLasDemas,
+  cerrarOtraSesion,
+  guardarNombre,
   iniciarSesion,
   membresiasDe,
+  misSesiones,
   pedirReset,
   actualizarPassword,
   observarSesion,
+  type SesionAbierta,
   type SesionActiva,
   type UsuarioAutenticado,
 } from './auth.ts';

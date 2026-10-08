@@ -7752,3 +7752,80 @@ e2e nuevo importa un archivo con una errata en la tienda del smoke y comprueba e
 producto que quedó. El de la cámara comprueba en la ficha guardada que cada
 talle tiene la cantidad que se cargó. El selector de período de Analytics y el
 filtro de la revisión comparten `Segmentado`.
+
+## ADR-155 — Configuración por secciones, Mi cuenta con sus sesiones, y «Salir» que sale de un solo lado
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+Configuración era una pantalla larga con ocho tarjetas, cada una con su
+«Guardar», y Equipo vivía aparte. El handoff (ADR-143) la ordena en cinco grupos
+con una lista al costado —tu cuenta, la tienda, el catálogo y los clientes, lo
+avanzado y la organización— y suma «Mi cuenta»: el perfil, la contraseña, dónde
+está abierta la cuenta, los avisos por correo y las tiendas de la persona.
+
+**Una sección por vez, con su dirección**
+`/configuracion/$seccion`: se puede enlazar desde el Inicio, la paleta o un
+aviso, y cada uno lleva a la sección que pide. En la pantalla grande la lista
+queda a la izquierda; en el teléfono `/configuracion` es la lista y cada sección
+abre su pantalla. `/equipo` redirige a la sección. Lo que el handoff agrupa acá
+y no existe todavía —el registro de actividad, el uso de la IA, las conexiones—
+no aparece hasta que exista: una entrada que lleva a «próximamente» es una
+promesa.
+
+**Mi cuenta es de cualquiera que entra**
+Antes la pantalla entera pedía `settings.write`, así que el personal no tenía
+dónde cerrar la sesión que dejó abierta en otra computadora. Ahora cada sección
+pide su permiso y el personal ve sólo «Mi cuenta». El nombre va en los metadatos
+del usuario de Supabase Auth —no hace falta una tabla— y se ve en el menú de la
+cuenta. La foto del handoff no se hizo: no hay dónde guardarla, y una inicial
+cumple.
+
+**La contraseña se cambia con el enlace, no con un formulario**
+«Cambiar» manda el mismo enlace que «¿Te la olvidaste?», y la contraseña nueva
+se elige en el formulario que ya existe. El proyecto no le pide a
+`updateUser` que la persona se vuelva a identificar
+(`security_update_password_require_reauthentication` está apagado), así que un
+formulario en esta pantalla dejaría cambiarla a cualquiera frente a una sesión
+abierta, sin saber la anterior. El enlace prueba que el correo es de quien lo
+pide. Sale por el SMTP del proyecto (ADR-122), con su límite de destinatarios.
+
+**Las sesiones, desde `auth.sessions`**
+`my_sessions()` y `close_my_session()` son `security definer` y se acotan a
+`auth.uid()` en una línea. No devuelven `refresh_token_hmac_key`, con el que se
+firma la renovación, ni la IP: alcanza con el navegador y la última actividad para
+reconocer «esa soy yo». La actual se reconoce por el `session_id` del JWT y no se
+cierra desde ahí —eso es «Salir», que además limpia el navegador—. «Cerrar las
+otras» es `signOut({ scope: 'others' })`, de la API de Supabase Auth. Una sesión
+cerrada deja de renovarse en el acto, pero el token de acceso que ya tiene vale
+hasta que vence, a la hora: un JWT no se revoca
+([documentación](https://supabase.com/docs/reference/javascript/auth-signout)), y
+la pantalla lo dice.
+
+**Lo que apareció: «Salir» sacaba de todos lados**
+`signOut()` sin argumentos es `scope: 'global'`: salir del teléfono cerraba
+también la computadora. Con las sesiones a la vista eso dejaba de ser un detalle,
+así que el Admin sale con `scope: 'local'`. Medido: con la llamada vieja, el e2e
+nuevo falla donde debe —salir de un navegador deja al otro sin sesión en la
+lista—.
+
+**Equipo**
+Se ofrecen Propietario y Personal; `admin` y `viewer` siguen en la base y se
+muestran a quien ya los tiene, sin dárselos a nadie más. Invitar no existe:
+crear un usuario necesita la secret key, que el Worker del Admin no tiene. Va
+con la Cuenta Pick, aceptando con el código por correo. Mientras tanto la
+pantalla dice que se usa `pnpm admin:crear`, la paleta dejó de ofrecer
+«Invitar al equipo» —llevaba a una pantalla que no podía hacerlo— y el paso del
+alta dice «Ver».
+
+**Los avisos por correo, aparte**
+Hoy todo correo de la cola va a quien compró: nada le llega al equipo. Mostrar
+interruptores de avisos que no existen sería mentir, así que el aviso de pedido
+nuevo —con su interruptor por persona— es el trabajo siguiente.
+
+**Consecuencias**
+`mis-sesiones.test.ts` prueba que cada persona ve y cierra sólo las suyas, que
+el secreto no sale y que la actual no se cierra desde ahí; las dos funciones
+están clasificadas en la suite de aislamiento. `e2e/mi-cuenta.spec.ts` usa dos
+navegadores de verdad. Los e2e de la IA y de sucursales entran por su sección.

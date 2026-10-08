@@ -60,14 +60,15 @@ test.describe('Inteligencia artificial', () => {
   test('la configuración ofrece cargar la clave, y nada más hasta que exista', async ({ page }) => {
     await entrar(page);
     await irALaTiendaDelSmoke(page);
-    await page.goto(`${ADMIN}/configuracion`);
+    await page.goto(`${ADMIN}/configuracion/ia`);
 
     await expect(page.getByLabel('Clave de OpenAI')).toBeVisible({ timeout: 30_000 });
 
     /*
-     * Acotado a su propio formulario: la pantalla tiene tres tarjetas y cada una
-     * tiene su «Guardar». Sin el filtro, el localizador encuentra los tres y el
-     * test falla por ambigüedad en vez de por lo que quiere afirmar.
+     * Acotado a su propio formulario: la configuración tuvo varias tarjetas con
+     * su «Guardar» en la misma pantalla, y desde ADR-155 cada sección va aparte.
+     * El filtro sigue: lo que se afirma es sobre este formulario y no sobre la
+     * pantalla.
      */
     const tarjeta = page.locator('form').filter({ has: page.getByLabel('Clave de OpenAI') });
 

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { repositorioConfiguracion, repositorioCredencialDeIA } from '@pick/adapter-supabase';
 import {
@@ -20,7 +19,8 @@ import {
 } from '@pick/commerce-core';
 import type { TiendaResumen } from '@pick/commerce-core';
 import { Button } from '@/components/ui/button';
-import { EstadoDeError, PaginaAdmin, Selector, Tarjeta } from '@/components/pagina';
+import { ArrowLeftIcon, ChevronRightIcon } from '@/components/iconos';
+import { EstadoDeError, EstadoVacio, PaginaAdmin, Selector, Tarjeta } from '@/components/pagina';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,6 +30,12 @@ import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { guardarCredencial, probarCredencial } from '@/lib/ia';
 import { SelectItem } from '@/components/ui/select';
+import { Link } from '@tanstack/react-router';
+import { usePuede } from '@/features/auth/usePuede';
+import { Equipo } from '@/features/equipo/Equipo';
+import { cn } from '@/lib/utils';
+import { MiCuenta } from './MiCuenta';
+import { GRUPOS, seccionDe, type SeccionDeConfiguracion } from './secciones';
 import { Sucursales } from './Sucursales';
 
 type Settings = Readonly<Record<string, unknown>>;
@@ -40,19 +46,130 @@ interface Guardado {
 }
 
 /**
- * Configuración de la tienda.
+ * Configuración, en los grupos del handoff (ADR-155).
  *
- * Cada tarjeta guarda **sólo su sección** —`payments` o `currency`— y el RPC
- * mergea por clave de primer nivel. Es lo que permite que editar los medios de
- * pago no toque la moneda: un guardado único de todo el formulario reenviaría
- * también lo que no se miró, y bastaría un render con datos viejos para pisarlo.
+ * Una sección por vez, con su dirección. En la pantalla grande la lista queda a
+ * la izquierda; en el teléfono `/configuracion` **es** la lista y cada sección
+ * abre su propia pantalla, como los ajustes de un teléfono. Sin sección, la
+ * pantalla grande muestra «Mi cuenta», que es la única que tiene cualquiera.
  *
- * Los formularios viven en componentes aparte y se montan cuando la
- * configuración ya llegó, así que arrancan de ella sin ningún efecto que
- * re-siembre campos. Sembrar en un efecto es lo que hace que lo que alguien está
- * escribiendo desaparezca cuando vuelve una consulta de fondo.
+ * Cada formulario guarda **sólo su parte** —`payments` o `currency`— y el RPC
+ * mergea por clave de primer nivel: editar los medios de pago no toca la moneda.
+ * Los formularios se montan cuando la configuración ya llegó, así que arrancan
+ * de ella sin ningún efecto que re-siembre campos. Sembrar en un efecto es lo que
+ * hace que lo que alguien está escribiendo desaparezca cuando vuelve una consulta
+ * de fondo.
  */
-export function Configuracion() {
+export function Configuracion({ seccion }: { seccion?: SeccionDeConfiguracion }) {
+  const puede = usePuede();
+  const actual = seccion ?? 'cuenta';
+  const info = seccionDe(actual);
+
+  // Lo que el rol no puede tocar, no se ofrece: el personal ve sólo «Mi cuenta».
+  const grupos = GRUPOS.map((g) => ({
+    ...g,
+    secciones: g.secciones.filter((s) => !s.permiso || puede(s.permiso)),
+  })).filter((g) => g.secciones.length > 0);
+
+  return (
+    <PaginaAdmin
+      titulo="Configuración"
+      descripcion="Cómo cobra, envía y se muestra la tienda, y quién la administra."
+    >
+      <div className="grid items-start gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-10">
+        <nav
+          aria-label="Secciones de la configuración"
+          className={cn('flex-col gap-5', seccion ? 'hidden lg:flex' : 'flex')}
+        >
+          {grupos.map((g) => (
+            <div key={g.titulo} className="flex flex-col gap-0.5">
+              <span className="text-ink-faint px-2.5 pb-1 text-[11.5px] font-semibold tracking-[0.04em] uppercase">
+                {g.titulo}
+              </span>
+              {g.secciones.map((s) => {
+                const activa = s.id === actual;
+                return (
+                  <Link
+                    key={s.id}
+                    to="/configuracion/$seccion"
+                    params={{ seccion: s.id }}
+                    aria-current={activa ? 'page' : undefined}
+                    className={cn(
+                      'focus-visible:ring-focus-tint flex h-10 items-center gap-2.5 rounded-lg px-2.5 text-[13.5px] outline-none focus-visible:ring-3 lg:h-9',
+                      activa
+                        ? 'text-foreground bg-[#f1f3f8] font-semibold'
+                        : 'text-ink-2 font-medium hover:bg-[#f4f5f8]',
+                    )}
+                  >
+                    <s.icono
+                      className={cn('size-4 shrink-0', activa ? 'text-foreground' : 'text-ink-3')}
+                    />
+                    {s.titulo}
+                    <ChevronRightIcon className="text-ink-icon ml-auto size-4 lg:hidden" />
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        <div className={cn('min-w-0 flex-col gap-4', seccion ? 'flex' : 'hidden lg:flex')}>
+          <Link
+            to="/configuracion"
+            className="text-ink-3 hover:text-foreground flex items-center gap-1.5 self-start text-sm lg:hidden"
+          >
+            <ArrowLeftIcon className="size-4" />
+            Configuración
+          </Link>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-[17px] font-semibold">{info.titulo}</h2>
+            <p className="text-ink-3 text-sm">{info.descripcion}</p>
+          </div>
+          {!info.permiso || puede(info.permiso) ? (
+            <Contenido seccion={actual} />
+          ) : (
+            <Tarjeta>
+              <EstadoVacio titulo="Tu rol no incluye esta sección">
+                Pedíselo a un propietario.
+              </EstadoVacio>
+            </Tarjeta>
+          )}
+        </div>
+      </div>
+    </PaginaAdmin>
+  );
+}
+
+function Contenido({ seccion }: { seccion: SeccionDeConfiguracion }) {
+  const tienda = useTiendaActiva();
+  switch (seccion) {
+    case 'cuenta':
+      return <MiCuenta />;
+    case 'equipo':
+      return <Equipo />;
+    case 'sucursales':
+      return (
+        <Tarjeta>
+          <Sucursales tienda={tienda} />
+        </Tarjeta>
+      );
+    case 'ia':
+      return (
+        <Tarjeta>
+          <InteligenciaArtificial tienda={tienda} />
+        </Tarjeta>
+      );
+    default:
+      return <AjustesDeLaTienda seccion={seccion} />;
+  }
+}
+
+/** Las secciones que se guardan en `store_settings`: una lectura y un guardado. */
+function AjustesDeLaTienda({
+  seccion,
+}: {
+  seccion: Exclude<SeccionDeConfiguracion, 'cuenta' | 'equipo' | 'sucursales' | 'ia'>;
+}) {
   const tienda = useTiendaActiva();
   const cliente = useQueryClient();
 
@@ -74,28 +191,21 @@ export function Configuracion() {
     },
   });
 
-  if (consulta.isPending) {
-    return (
-      <Envoltura tienda={tienda}>
-        <div className="bg-muted h-64 animate-pulse rounded-xl" />
-      </Envoltura>
-    );
-  }
+  if (consulta.isPending) return <div className="bg-muted h-64 animate-pulse rounded-xl" />;
 
   if (consulta.isError) {
     return (
-      <Envoltura tienda={tienda}>
-        <Tarjeta sinRelleno>
-          <EstadoDeError
-            titulo="No se pudo cargar la configuración"
-            error={consulta.error as Error}
-            onReintentar={() => void consulta.refetch()}
-          />
-        </Tarjeta>
-      </Envoltura>
+      <Tarjeta sinRelleno>
+        <EstadoDeError
+          titulo="No se pudo cargar la configuración"
+          error={consulta.error as Error}
+          onReintentar={() => void consulta.refetch()}
+        />
+      </Tarjeta>
     );
   }
 
+  const settings = consulta.data;
   const guardado: Guardado = {
     guardar: (parcial, auditoria) =>
       mutacion.mutate({ parcial, ...(auditoria ? { auditoria } : {}) }),
@@ -103,106 +213,28 @@ export function Configuracion() {
   };
 
   return (
-    <Envoltura tienda={tienda}>
+    <>
       {mutacion.isError && (
         <p className="text-destructive text-sm" role="alert">
           {(mutacion.error as Error).message}
         </p>
       )}
-
-      <Seccion
-        titulo="Medios de pago"
-        descripcion="Con qué puede pagar quien compra, y qué le decís para que lo haga."
-      >
-        <Pagos settings={consulta.data} guardado={guardado} />
-      </Seccion>
-
-      <Seccion
-        titulo="Moneda"
-        descripcion="En qué se cobra y con qué tipo de cambio se muestran los precios."
-      >
-        <Moneda settings={consulta.data} tienda={tienda} guardado={guardado} />
-      </Seccion>
-
-      <Seccion
-        titulo="Envío"
-        descripcion="Cuánto se cobra por despachar, y desde qué monto no se cobra."
-      >
-        <Envio settings={consulta.data} tienda={tienda} guardado={guardado} />
-      </Seccion>
-
-      <Seccion
-        titulo="Sucursales"
-        descripcion="Dónde está el stock. Con más de una, cargar mercadería pregunta a cuál entra."
-      >
-        <Sucursales tienda={tienda} />
-      </Seccion>
-
-      <Seccion titulo="Catálogo" descripcion="Qué se lista en la tienda.">
-        <Catalogo settings={consulta.data} guardado={guardado} />
-      </Seccion>
-
-      <Seccion
-        titulo="Modo demostración"
-        descripcion="Para mostrarle la tienda a alguien sin mandarle correos a nadie."
-      >
-        <ModoDemo settings={consulta.data} guardado={guardado} />
-      </Seccion>
-
-      <Seccion
-        titulo="Cuentas de comprador"
-        descripcion="Si quien compra puede entrar y ver sus pedidos anteriores."
-      >
-        <CuentasDeComprador settings={consulta.data} guardado={guardado} />
-      </Seccion>
-
-      <Seccion
-        titulo="Inteligencia artificial"
-        descripcion="Tu clave de OpenAI, para que el Admin pueda proponer fichas de producto."
-      >
-        <InteligenciaArtificial tienda={tienda} />
-      </Seccion>
-    </Envoltura>
-  );
-}
-
-/** El encabezado de la pantalla, que también se dibuja mientras carga y al fallar. */
-function Envoltura({ tienda, children }: { tienda: TiendaResumen; children: ReactNode }) {
-  return (
-    <PaginaAdmin
-      titulo="Configuración"
-      descripcion={`Cómo cobra, en qué moneda opera y con qué IA trabaja ${tienda.name}.`}
-    >
-      {children}
-    </PaginaAdmin>
-  );
-}
-
-/**
- * Un ajuste: a la izquierda de qué se trata, a la derecha los controles.
- *
- * Es la sección anotada de los ajustes de Shopify. Con las tarjetas sueltas hay
- * que leer los campos para saber qué hace cada una; con el rótulo al costado se
- * encuentra la que se vino a tocar sin abrirlas todas. En pantalla angosta el
- * rótulo se apila arriba, que es lo mismo pero sin columna.
- */
-function Seccion({
-  titulo,
-  descripcion,
-  children,
-}: {
-  titulo: string;
-  descripcion: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="grid items-start gap-3 lg:grid-cols-[15rem_1fr] lg:gap-6">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-sm font-medium">{titulo}</h2>
-        <p className="text-muted-foreground text-sm">{descripcion}</p>
-      </div>
-      <Tarjeta>{children}</Tarjeta>
-    </section>
+      <Tarjeta>
+        {seccion === 'pagos' ? (
+          <Pagos settings={settings} guardado={guardado} />
+        ) : seccion === 'moneda' ? (
+          <Moneda settings={settings} tienda={tienda} guardado={guardado} />
+        ) : seccion === 'envio' ? (
+          <Envio settings={settings} tienda={tienda} guardado={guardado} />
+        ) : seccion === 'catalogo' ? (
+          <Catalogo settings={settings} guardado={guardado} />
+        ) : seccion === 'cuentas' ? (
+          <CuentasDeComprador settings={settings} guardado={guardado} />
+        ) : (
+          <ModoDemo settings={settings} guardado={guardado} />
+        )}
+      </Tarjeta>
+    </>
   );
 }
 

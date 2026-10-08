@@ -120,7 +120,11 @@ export function ResumenConIA({
         {codigo === 'sin_credencial' ? (
           <p className="text-muted-foreground text-sm" role="alert">
             Esta tienda todavía no tiene una clave de OpenAI.{' '}
-            <Link to="/configuracion" className="underline underline-offset-4">
+            <Link
+              to="/configuracion/$seccion"
+              params={{ seccion: 'ia' }}
+              className="underline underline-offset-4"
+            >
               Cargala en Configuración
             </Link>{' '}
             para que el Admin pueda escribir el resumen.

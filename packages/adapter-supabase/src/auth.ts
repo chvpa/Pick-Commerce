@@ -5,11 +5,14 @@ import type { PickSupabaseClient } from './client.ts';
 export interface UsuarioAutenticado {
   readonly userId: string;
   readonly email: string;
+  /** Cómo quiere que la llamen. Lo escribe ella en «Mi cuenta»; puede faltar. */
+  readonly nombre?: string;
 }
 
 export interface SesionActiva {
   readonly userId: string;
   readonly email: string;
+  readonly nombre?: string;
   /** Organizaciones donde el usuario es miembro, con su rol en cada una. */
   readonly membresias: readonly ActorContext[];
 }
@@ -62,8 +65,63 @@ export async function iniciarSesion(
   }
 }
 
+/**
+ * Sale de **este** navegador.
+ *
+ * `signOut()` sin argumentos es `scope: 'global'`: cierra la cuenta en todos los
+ * dispositivos, y salir del teléfono dejaba afuera también a la computadora. Con
+ * las sesiones a la vista en «Mi cuenta», cada una se cierra por su lado
+ * (ADR-155; https://supabase.com/docs/reference/javascript/auth-signout).
+ */
 export async function cerrarSesion(db: PickSupabaseClient): Promise<void> {
-  await db.auth.signOut();
+  await db.auth.signOut({ scope: 'local' });
+}
+
+/** Una sesión abierta de la cuenta, sin nada con qué renovarla. */
+export interface SesionAbierta {
+  readonly id: string;
+  readonly creada: string;
+  readonly ultimaActividad: string;
+  /** El `User-Agent` con el que se abrió; `null` si no vino. */
+  readonly navegador: string | null;
+  /** Es la de esta pestaña. */
+  readonly actual: boolean;
+}
+
+/** Dónde está abierta la cuenta de quien llama, la más reciente primero. */
+export async function misSesiones(db: PickSupabaseClient): Promise<readonly SesionAbierta[]> {
+  const { data, error } = await db.rpc('my_sessions');
+  if (error) throw new Error(`No se pudieron cargar las sesiones: ${error.message}`);
+  return (data ?? []).map((s) => ({
+    id: s.id,
+    creada: s.created_at,
+    ultimaActividad: s.last_active_at,
+    navegador: s.user_agent || null,
+    actual: s.is_current,
+  }));
+}
+
+/**
+ * Cierra otra sesión de la cuenta.
+ *
+ * Deja de poder renovarse en el acto, pero el acceso que ya tiene vale hasta que
+ * vence —una hora en este proyecto—: un JWT no se puede revocar.
+ */
+export async function cerrarOtraSesion(db: PickSupabaseClient, id: string): Promise<void> {
+  const { error } = await db.rpc('close_my_session', { p_session: id });
+  if (error) throw new Error(`No se pudo cerrar la sesión: ${error.message}`);
+}
+
+/** Cierra todas menos la de esta pestaña, con la API de Supabase Auth. */
+export async function cerrarLasDemas(db: PickSupabaseClient): Promise<void> {
+  const { error } = await db.auth.signOut({ scope: 'others' });
+  if (error) throw new Error(`No se pudieron cerrar las otras sesiones: ${error.message}`);
+}
+
+/** Guarda cómo se llama, en los metadatos del usuario: no hace falta una tabla. */
+export async function guardarNombre(db: PickSupabaseClient, nombre: string): Promise<void> {
+  const { error } = await db.auth.updateUser({ data: { name: nombre.trim() } });
+  if (error) throw new Error(`No se pudo guardar el nombre: ${error.message}`);
 }
 
 /**
@@ -122,8 +180,15 @@ export function observarSesion(
     // Se difiere: la documentación de Supabase advierte que llamar a sus
     // funciones dentro del callback puede bloquear.
     setTimeout(() => {
+      const nombre = String(session?.user.user_metadata?.name ?? '').trim();
       alCambiar(
-        session?.user ? { userId: session.user.id, email: session.user.email ?? '' } : null,
+        session?.user
+          ? {
+              userId: session.user.id,
+              email: session.user.email ?? '',
+              ...(nombre ? { nombre } : {}),
+            }
+          : null,
         _evento === 'PASSWORD_RECOVERY' ? 'recovery' : undefined,
       );
     }, 0);

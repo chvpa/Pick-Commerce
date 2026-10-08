@@ -227,6 +227,11 @@ const PUBLICAS = [
   // Devuelve todo en false para quien no compró en esa tienda, que es lo que
   // necesita el PDP para decidir si ofrece el formulario (ADR-140).
   'public.mi_resena',
+  // Responden por las sesiones de quien llama, acotadas a `auth.uid()`: no hay
+  // comercio de por medio. `mis-sesiones.test.ts` prueba que ni se ven ni se
+  // cierran las de otro (ADR-155).
+  'public.my_sessions',
+  'public.close_my_session',
 ] as const;
 
 let db: PGlite;

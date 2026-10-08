@@ -29,7 +29,6 @@ import {
   SettingsIcon,
   TagIcon,
   UploadIcon,
-  UserAddIcon,
   UserCircleIcon,
   UserGroupIcon,
 } from '@/components/iconos';
@@ -101,7 +100,13 @@ const SECCIONES: readonly {
   { to: '/contenido/secciones', label: 'Secciones', icono: LayoutIcon },
   { to: '/contenido/colecciones', label: 'Colecciones', icono: LayersIcon },
   { to: '/contenido/categorias', label: 'Categorías', icono: TagIcon },
-  { to: '/equipo', label: 'Equipo', icono: UserCircleIcon, permiso: 'member.manage' },
+  { to: '/configuracion/cuenta', label: 'Mi cuenta', icono: UserCircleIcon },
+  {
+    to: '/configuracion/equipo',
+    label: 'Equipo',
+    icono: UserGroupIcon,
+    permiso: 'member.manage',
+  },
   { to: '/configuracion', label: 'Configuración', icono: SettingsIcon, permiso: 'settings.write' },
 ];
 
@@ -137,7 +142,6 @@ const ACCIONES: readonly {
     icono: DiscountIcon,
     permiso: 'promotion.write',
   },
-  { to: '/equipo', label: 'Invitar al equipo', icono: UserAddIcon, permiso: 'member.manage' },
 ];
 
 export function Comandos({

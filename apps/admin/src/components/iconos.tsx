@@ -15,6 +15,9 @@ import {
   CancelCircleIcon as CancelCircle,
   Download04Icon as Download,
   File01Icon as File01,
+  ComputerIcon as Computer,
+  SmartPhone01Icon as SmartPhone,
+  SquareLock02Icon as SquareLock,
   CheckmarkCircle02Icon as CheckmarkCircle,
   DiscountTag01Icon as DiscountTag,
   GiftIcon as Gift,
@@ -167,6 +170,9 @@ export const SwitchIcon = icono(ArrowDataTransferHorizontal);
 export const TagIcon = icono(Tag);
 export const UploadIcon = icono(Upload);
 export const FileIcon = icono(File01);
+export const ComputerIcon = icono(Computer);
+export const SmartPhoneIcon = icono(SmartPhone);
+export const LockIcon = icono(SquareLock);
 export const UserAddIcon = icono(UserAdd);
 export const UserCircleIcon = icono(UserCircle);
 export const UserGroupIcon = icono(UserGroup);
