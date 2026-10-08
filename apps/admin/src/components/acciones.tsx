@@ -1,5 +1,11 @@
 import { useState, type ReactNode } from 'react';
-import { ArrowDownIcon, ArrowUpIcon, PencilIcon, Trash2Icon } from '@/components/iconos';
+import {
+  AlertCircleIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
+  PencilIcon,
+  Trash2Icon,
+} from '@/components/iconos';
 import { Link } from '@tanstack/react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -98,7 +104,9 @@ export function EnlaceDeEdicion({
  * bloqueante, sin estilo, sin foco gestionado y ocultable por el browser.
  *
  * El botón que confirma dice **el verbo**, no «Sí»: un «Sí» aislado no dice a
- * qué se le está diciendo que sí.
+ * qué se le está diciendo que sí. Y el que se arrepiente dice «Volver», no
+ * «Cancelar»: con «Cancelar el pedido» al lado, un «Cancelar» suelto se lee como
+ * la misma acción.
  */
 export function DialogoDeConfirmacion({
   abierto,
@@ -124,6 +132,14 @@ export function DialogoDeConfirmacion({
   return (
     <AlertDialog open={abierto} onOpenChange={onAbierto}>
       <AlertDialogContent>
+        {destructivo && (
+          <div
+            aria-hidden="true"
+            className="flex size-10 items-center justify-center rounded-[11px] bg-[#fdeceb] text-[#bf3324] [&_svg]:size-5"
+          >
+            <AlertCircleIcon />
+          </div>
+        )}
         <AlertDialogTitle>{titulo}</AlertDialogTitle>
         <AlertDialogDescription>{descripcion}</AlertDialogDescription>
         <AlertDialogFooter>
@@ -131,7 +147,7 @@ export function DialogoDeConfirmacion({
             render={<Button type="button" variant="outline" />}
             disabled={pendiente}
           >
-            Cancelar
+            Volver
           </AlertDialogClose>
           <Button
             type="button"

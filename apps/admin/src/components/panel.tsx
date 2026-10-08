@@ -45,33 +45,32 @@ export function PanelDeEdicion({
       <Dialog.Portal>
         <Dialog.Backdrop
           className={cn(
-            'fixed inset-0 z-50 bg-black/20 transition-opacity duration-150',
+            'fixed inset-0 z-50 bg-[rgba(14,21,37,0.32)] transition-opacity duration-150',
             'data-ending-style:opacity-0 data-starting-style:opacity-0',
-            'supports-backdrop-filter:backdrop-blur-xs',
           )}
         />
         <Dialog.Popup
           className={cn(
-            'bg-popover text-popover-foreground fixed z-50 flex flex-col shadow-lg',
+            'bg-popover text-popover-foreground shadow-modal fixed z-50 flex flex-col',
             'transition duration-200 ease-in-out',
             'data-ending-style:opacity-0 data-starting-style:opacity-0',
             esMobile
               ? [
                   // Hoja: pegada abajo, con tope de alto para que el teclado no
                   // la empuje fuera de la pantalla.
-                  'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl border-t',
+                  'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl',
                   'data-ending-style:translate-y-8 data-starting-style:translate-y-8',
                 ]
               : [
                   'top-1/2 left-1/2 w-[min(32rem,calc(100vw-2rem))] max-h-[85dvh]',
-                  '-translate-x-1/2 -translate-y-1/2 rounded-xl border',
+                  '-translate-x-1/2 -translate-y-1/2 rounded-2xl',
                   'data-ending-style:scale-98 data-starting-style:scale-98',
                 ],
           )}
         >
-          <div className="flex items-start justify-between gap-4 border-b px-5 py-4">
+          <div className="flex items-start justify-between gap-4 border-b border-[#eef0f3] px-6 py-5">
             <div className="flex flex-col gap-0.5">
-              <Dialog.Title className="text-base font-medium">{titulo}</Dialog.Title>
+              <Dialog.Title className="text-[17px] font-semibold">{titulo}</Dialog.Title>
               {descripcion && (
                 <Dialog.Description className="text-muted-foreground text-sm">
                   {descripcion}
@@ -89,11 +88,13 @@ export function PanelDeEdicion({
 
           {/* El cuerpo desplaza, no el panel: el pie con las acciones queda
               siempre a la vista, que es todo el punto del cambio. */}
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
             {children}
           </div>
 
-          <div className="flex items-center justify-end gap-3 border-t px-5 py-4">{acciones}</div>
+          <div className="flex items-center justify-end gap-2 border-t border-[#eef0f3] px-6 py-4">
+            {acciones}
+          </div>
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

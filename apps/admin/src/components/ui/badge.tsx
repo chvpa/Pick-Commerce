@@ -4,18 +4,36 @@ import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@/lib/utils';
 
+/*
+ * La pill de estado del handoff: 22 px de alto, redonda, con un punto de 6 px.
+ *
+ * Los seis tonos tienen significado y no son decoración: ámbar es «falta algo
+ * de tu lado» —cobrar, confirmar—, azul es «en curso», verde es «terminado bien»,
+ * rojo es «salió mal», gris es «quieto» y violeta es «lo hizo la IA». Un estado
+ * nuevo elige el tono por lo que le pide a quien mira, no por cómo combina.
+ */
+/** El color de cada tono, también para lo que no es una pill —un desplegable de estado—. */
+export const COLOR_DE_TONO = {
+  amber: 'bg-[#fdf4e3] text-[#9a5b0b] [--punto:#e8930c]',
+  blue: 'bg-[#edf1fe] text-[#2b47bd] [--punto:#3b5bdb]',
+  green: 'bg-[#e8f6ee] text-[#13774a] [--punto:#22a565]',
+  red: 'bg-[#fdeceb] text-[#bf3324] [--punto:#e5484d]',
+  gray: 'bg-[#f1f2f5] text-ink-3 [--punto:#a3aab8]',
+  violet: 'bg-[#f2eefe] text-[#5f37cf] [--punto:#7c5cf0]',
+} as const;
+
 const badgeVariants = cva(
-  'group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!',
+  'group/badge inline-flex h-[22px] w-fit shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full border border-transparent px-2 text-[12.5px] font-medium whitespace-nowrap transition-colors focus-visible:ring-3 focus-visible:ring-focus-tint [&>svg]:pointer-events-none [&>svg]:size-3!',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground [a]:hover:bg-primary/80',
-        secondary: 'bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80',
-        destructive:
-          'bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20',
-        outline: 'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',
-        ghost: 'hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50',
-        link: 'text-primary underline-offset-4 hover:underline',
+        default: 'bg-primary text-primary-foreground',
+        secondary: 'bg-[#f1f2f5] text-ink-3',
+        destructive: 'bg-[#fdeceb] text-[#bf3324]',
+        outline: 'border-border text-foreground',
+        ghost: 'hover:bg-muted hover:text-muted-foreground',
+        link: 'text-link underline-offset-4 hover:underline',
+        ...COLOR_DE_TONO,
       },
     },
     defaultVariants: {
@@ -24,17 +42,32 @@ const badgeVariants = cva(
   },
 );
 
+/** Los tonos con significado; los demás variantes son las de shadcn. */
+export type Tono = keyof typeof COLOR_DE_TONO;
+
 function Badge({
   className,
   variant = 'default',
   render,
+  children,
   ...props
 }: useRender.ComponentProps<'span'> & VariantProps<typeof badgeVariants>) {
+  // El punto va sólo en los tonos: en las variantes de shadcn no hay color de
+  // estado que repetir.
+  const conPunto = variant != null && variant in COLOR_DE_TONO;
   return useRender({
     defaultTagName: 'span',
     props: mergeProps<'span'>(
       {
         className: cn(badgeVariants({ variant }), className),
+        children: (
+          <>
+            {conPunto && (
+              <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-(--punto)" />
+            )}
+            {children}
+          </>
+        ),
       },
       props,
     ),

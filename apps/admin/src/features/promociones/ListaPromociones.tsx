@@ -3,7 +3,6 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { Link } from '@tanstack/react-router';
 import { repositorioPromociones } from '@pick/adapter-supabase';
 import { esDeCatalogo, formatMoney, type Promotion } from '@pick/commerce-core';
-import { PercentIcon } from '@/components/iconos';
 import {
   Esqueleto,
   EstadoDeError,
@@ -97,7 +96,6 @@ export function ListaPromociones() {
   return (
     <PaginaAdmin
       titulo="Promociones"
-      icono={PercentIcon}
       descripcion="Bajan el precio sin tocar el catálogo. El descuento se calcula en el servidor."
       acciones={
         puede('promotion.write') && (

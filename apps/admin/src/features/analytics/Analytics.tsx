@@ -7,7 +7,6 @@ import {
   type PasoDelEmbudo,
   type Periodo,
 } from '@pick/commerce-core';
-import { ChartNoAxesColumnIcon } from '@/components/iconos';
 import {
   EstadoDeError,
   EstadoVacio,
@@ -146,7 +145,6 @@ export function Analytics() {
   return (
     <PaginaAdmin
       titulo="Analytics"
-      icono={ChartNoAxesColumnIcon}
       descripcion="Cuánta gente miró, qué buscó y dónde se fue. Sale de la navegación, no de los pedidos."
       acciones={
         <Selector

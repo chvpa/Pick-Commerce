@@ -3,7 +3,6 @@ import Papa from 'papaparse';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { repositorioAdminCatalogo, repositorioCatalogo } from '@pick/adapter-supabase';
 import type { ResultadoImport } from '@pick/commerce-core';
-import { PackageIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
 import { PaginaAdmin, Selector, Tarjeta, TituloDeTarjeta } from '@/components/pagina';
 import { SelectItem } from '@/components/ui/select';
@@ -162,7 +161,6 @@ export function ImportarProductos() {
   return (
     <PaginaAdmin
       titulo="Importar / exportar"
-      icono={PackageIcon}
       descripcion="El catálogo entero en un CSV: para traerlo de otro sistema o para editarlo en planilla."
     >
       <div className="flex max-w-4xl flex-col gap-5">

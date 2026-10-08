@@ -1,161 +1,140 @@
-import { useState } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
-import {
-  ChartNoAxesColumnIcon,
-  ChevronRightIcon,
-  ChevronsUpDownIcon,
-  GalleryVerticalEndIcon,
-  HourglassIcon,
-  ResenaIcon,
-  LayoutDashboardIcon,
-  LayoutTemplateIcon,
-  LibraryBigIcon,
-  LogOutIcon,
-  CameraIcon,
-  PackageIcon,
-  PercentIcon,
-  ReceiptTextIcon,
-  SettingsIcon,
-  SparklesIcon,
-  StoreIcon,
-  TagsIcon,
-  RepeatIcon,
-  UsersIcon,
-  UsersRoundIcon,
-} from '@/components/iconos';
+import { useQuery } from '@tanstack/react-query';
+import { repositorioAdminCatalogo, repositorioAdminPedidos } from '@pick/adapter-supabase';
+import type { TiendaResumen } from '@pick/commerce-core';
 import type { Permission } from '@pick/commerce-types';
+import {
+  AnalyticsIcon,
+  CameraOffIcon,
+  CheckIcon,
+  ChevronsUpDownIcon,
+  DiscountIcon,
+  GiftIcon,
+  HomeIcon,
+  HourglassIcon,
+  InvoiceIcon,
+  LayersIcon,
+  LayoutIcon,
+  NoteEditIcon,
+  PackageIcon,
+  RepeatIcon,
+  ResenaIcon,
+  SettingsIcon,
+  TagIcon,
+  UserGroupIcon,
+} from '@/components/iconos';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
-  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-  SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { useSesion } from '@/features/auth/SesionContext';
+import { useAvisar } from '@/components/aviso';
 import { usePuede } from '@/features/auth/usePuede';
 import { useTienda } from '@/features/tienda/TiendaContext';
+import { db } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
 
 /**
- * La navegación del Admin.
+ * La navegación del Admin, como la dibuja el handoff (ADR-143).
  *
- * Tres bloques, que es lo que hace útil un sidebar frente a una barra: arriba
- * sobre qué tienda se trabaja, en el medio a dónde ir, abajo quién sos. Con seis
- * secciones la barra horizontal ya se quedaba corta, y la lista sólo va a crecer.
+ * Arriba la tienda sobre la que se trabaja, abajo las secciones en grupos que
+ * siguen lo que hace un comercio: **vender**, el **catálogo**, los **clientes** y
+ * la **tienda**. La cuenta de la persona dejó de vivir acá: está en la barra de
+ * arriba, junto al buscador.
  *
- * Los enlaces de Equipo y Configuración aparecen según el permiso. Eso no
- * autoriza nada —quien fuerce la URL igual recibe el rechazo de la base
- * (ADR-052)— pero no tiene sentido ofrecerle a alguien una sección que no puede
- * abrir.
+ * Los enlaces aparecen según el permiso. Eso no autoriza nada —quien fuerce la
+ * URL igual recibe el rechazo de la base (ADR-052)— pero no tiene sentido
+ * ofrecerle a alguien una sección que no puede abrir.
+ *
+ * **Lo que el handoff no tiene y sigue acá**, hasta que su pantalla lo absorba:
+ * «Sin foto» y «Stock quieto» pasan a ser pestañas de Productos, y
+ * «Recurrencia» de Clientes, en la Fase 2 de v3; «Descripciones» va al
+ * Asistente de la Fase 10. Mientras tanto se quedan en su grupo: sacarlas antes
+ * dejaba esas pantallas sin camino de llegada.
  */
 
-interface Hijo {
-  readonly to: string;
-  readonly label: string;
-  readonly icono: typeof PackageIcon;
-}
-
-interface Seccion {
+interface Entrada {
   readonly to: string;
   readonly label: string;
   readonly icono: typeof PackageIcon;
   readonly permiso?: Permission;
-  /** Si los tiene, la entrada no navega: despliega. Ver `EntradaConHijos`. */
-  readonly hijos?: readonly Hijo[];
+  /** Un contador a la derecha. Ver `useContadores`. */
+  readonly contador?: 'pedidos' | 'resenas';
 }
 
-const SECCIONES: readonly Seccion[] = [
-  { to: '/', label: 'Resumen', icono: LayoutDashboardIcon },
-  { to: '/productos', label: 'Productos', icono: PackageIcon },
-  /*
-   * Una entrada propia y no un filtro del listado: es una tarea —salir a sacar
-   * fotos, desde el teléfono— y en el teléfono el sidebar es el único menú. Se
-   * ve con sólo pertenecer al comercio; subir la foto pide `catalog.write`, y
-   * eso lo decide la pantalla.
-   */
-  { to: '/productos/sin-foto', label: 'Sin foto', icono: CameraIcon },
-  { to: '/productos/stock-quieto', label: 'Stock quieto', icono: HourglassIcon },
-  /*
-   * Las reseñas están acá y no en Contenido porque son del producto: se llega
-   * desde Productos igual que «Sin foto», y por el mismo motivo —es una cola de
-   * trabajo, no una pantalla que se mira—.
-   */
-  { to: '/productos/resenas', label: 'Reseñas', icono: ResenaIcon },
-  /*
-   * Otra tarea de teléfono, y por eso también está acá: en el teléfono el
-   * sidebar es el único menú. Pide `settings.write` porque gasta la clave de
-   * OpenAI del comercio (ADR-131), a diferencia de «Sin foto».
-   */
+interface Grupo {
+  readonly label?: string;
+  readonly entradas: readonly Entrada[];
+}
+
+const GRUPOS: readonly Grupo[] = [
+  { entradas: [{ to: '/', label: 'Inicio', icono: HomeIcon }] },
   {
-    to: '/productos/camara',
-    label: 'Cargar con la cámara',
-    icono: SparklesIcon,
-    permiso: 'settings.write',
-  },
-  /*
-   * Descripciones. Va acá y no en el encabezado del listado porque es una
-   * tarea con su propia cola —3674 productos en el piloto—, no una acción
-   * sobre lo que está seleccionado. Se ve con `catalog.write`: leerlas y
-   * aprobarlas es trabajo de catálogo; pedirle a la IA que las escriba gasta la
-   * clave, y eso lo decide la pantalla.
-   */
-  {
-    to: '/productos/descripciones',
-    label: 'Descripciones',
-    icono: SparklesIcon,
-    permiso: 'catalog.write',
-  },
-  { to: '/pedidos', label: 'Pedidos', icono: ReceiptTextIcon },
-  // Sin `permiso`: la lista se ve con sólo pertenecer a la organización, porque
-  // saber qué campañas están corriendo es información operativa. Crear y editar
-  // sí exigen `promotion.write`, y eso lo decide la ruta.
-  { to: '/promociones', label: 'Promociones', icono: PercentIcon },
-  /*
-   * Contenido agrupa a otras tres y no es una pantalla.
-   *
-   * Antes era una sola con pestañas adentro. La diferencia no es estética: con
-   * pestañas, para llegar a Categorías había que entrar a Contenido y recién ahí
-   * elegir, y cuál estaba abierta vivía en un parámetro de búsqueda que había
-   * que arrastrar en cada navegación (ADR-098).
-   */
-  {
-    to: '/contenido',
-    label: 'Contenido',
-    icono: LayoutTemplateIcon,
-    hijos: [
-      { to: '/contenido/secciones', label: 'Secciones', icono: GalleryVerticalEndIcon },
-      { to: '/contenido/colecciones', label: 'Colecciones', icono: LibraryBigIcon },
-      { to: '/contenido/categorias', label: 'Categorías', icono: TagsIcon },
+    label: 'Vender',
+    entradas: [
+      { to: '/pedidos', label: 'Pedidos', icono: InvoiceIcon, contador: 'pedidos' },
+      // Sin `permiso`: saber qué campañas corren es información operativa. Crear y
+      // editar exigen `promotion.write`, y eso lo decide la ruta.
+      { to: '/promociones', label: 'Promociones', icono: DiscountIcon },
+      { to: '/analytics', label: 'Analytics', icono: AnalyticsIcon },
     ],
   },
-  /*
-   * Analytics va después de Contenido y antes de Clientes: el sidebar sigue el
-   * recorrido del comercio —qué vendo, a quién, con qué campañas, cómo se ve, cómo
-   * le fue— y esto es el cierre de esa lectura, no una sección de configuración.
-   */
-  { to: '/analytics', label: 'Analytics', icono: ChartNoAxesColumnIcon },
-  { to: '/clientes', label: 'Clientes', icono: UsersIcon },
-  { to: '/clientes/recurrencia', label: 'Recurrencia', icono: RepeatIcon },
-  { to: '/clientes/fidelidad', label: 'Fidelidad', icono: SparklesIcon },
-  { to: '/equipo', label: 'Equipo', icono: UsersRoundIcon, permiso: 'member.manage' },
-  { to: '/configuracion', label: 'Configuración', icono: SettingsIcon, permiso: 'settings.write' },
+  {
+    label: 'Catálogo',
+    entradas: [
+      { to: '/productos', label: 'Productos', icono: PackageIcon },
+      { to: '/productos/resenas', label: 'Reseñas', icono: ResenaIcon, contador: 'resenas' },
+      { to: '/productos/sin-foto', label: 'Sin foto', icono: CameraOffIcon },
+      { to: '/productos/stock-quieto', label: 'Stock quieto', icono: HourglassIcon },
+      /*
+       * Leerlas y aprobarlas es trabajo de catálogo; pedirle a la IA que las
+       * escriba gasta la clave, y eso lo decide la pantalla.
+       */
+      {
+        to: '/productos/descripciones',
+        label: 'Descripciones',
+        icono: NoteEditIcon,
+        permiso: 'catalog.write',
+      },
+    ],
+  },
+  {
+    label: 'Clientes',
+    entradas: [
+      { to: '/clientes', label: 'Clientes', icono: UserGroupIcon },
+      { to: '/clientes/recurrencia', label: 'Recurrencia', icono: RepeatIcon },
+      { to: '/clientes/fidelidad', label: 'Fidelidad', icono: GiftIcon },
+    ],
+  },
+  {
+    label: 'Tienda',
+    entradas: [
+      { to: '/contenido/secciones', label: 'Secciones', icono: LayoutIcon },
+      { to: '/contenido/colecciones', label: 'Colecciones', icono: LayersIcon },
+      { to: '/contenido/categorias', label: 'Categorías', icono: TagIcon },
+      {
+        to: '/configuracion',
+        label: 'Configuración',
+        icono: SettingsIcon,
+        permiso: 'settings.write',
+      },
+    ],
+  },
 ];
 
 /** La sección activa. `/` sólo coincide consigo misma; el resto, por prefijo. */
@@ -163,289 +142,203 @@ function estaActiva(ruta: string, to: string): boolean {
   return to === '/' ? ruta === '/' : ruta === to || ruta.startsWith(`${to}/`);
 }
 
+const TODAS = GRUPOS.flatMap((g) => g.entradas);
+
+/**
+ * Activa, salvo que una hermana más específica coincida: en
+ * «/productos/resenas» la activa es Reseñas, no también Productos.
+ */
+function marcada(ruta: string, to: string): boolean {
+  return (
+    estaActiva(ruta, to) && !TODAS.some((o) => o.to.startsWith(`${to}/`) && estaActiva(ruta, o.to))
+  );
+}
+
+/**
+ * El color del cuadrado de una tienda.
+ *
+ * Sale del id y no se elige: hasta que la tienda tenga su color de marca
+ * guardado (Fase 6 de v3), lo que importa es que dos tiendas se distingan de un
+ * vistazo y que la misma tienda tenga siempre el mismo.
+ */
+const COLORES = ['#d42a30', '#3b5bdb', '#13774a', '#7c5cf0', '#c2410c', '#0e1525'] as const;
+
+function colorDe(tienda: TiendaResumen): string {
+  let h = 0;
+  for (const c of tienda.id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return COLORES[h % COLORES.length]!;
+}
+
+function Cuadrado({ tienda, chico = false }: { tienda: TiendaResumen; chico?: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{ background: colorDe(tienda) }}
+      className={cn(
+        'flex shrink-0 items-center justify-center font-bold text-white',
+        chico ? 'size-6 rounded-md text-[11.5px]' : 'size-[30px] rounded-lg text-sm',
+      )}
+    >
+      {tienda.name.trim().slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+
 function SelectorDeTienda() {
   const { tiendas, tienda, elegir } = useTienda();
-  const { isMobile } = useSidebar();
+  const avisar = useAvisar();
 
   if (!tienda) return null;
 
   const marca = (
     <>
-      <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-        <StoreIcon className="size-4" />
-      </div>
-      <div className="grid flex-1 text-left text-sm leading-tight">
-        <span className="truncate font-medium">{tienda.name}</span>
-        <span className="text-muted-foreground truncate text-xs">Pick Admin</span>
-      </div>
+      <Cuadrado tienda={tienda} />
+      <span className="flex min-w-0 flex-1 flex-col text-left leading-tight">
+        <span className="text-foreground truncate text-sm font-semibold">{tienda.name}</span>
+        {tienda.domain && (
+          <span className="text-muted-foreground truncate text-xs font-normal">
+            {tienda.domain}
+          </span>
+        )}
+      </span>
     </>
   );
 
   // Con una sola tienda no hay nada que elegir, y un menú de un ítem es ruido.
   if (tiendas.length <= 1) {
-    return (
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton size="lg" className="pointer-events-none">
-            {marca}
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    );
+    return <div className="flex items-center gap-2.5 rounded-[10px] p-1.5">{marca}</div>;
   }
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <SidebarMenuButton
-                size="lg"
-                aria-label="Cambiar de tienda"
-                className="data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
-              />
-            }
-          >
-            {marca}
-            <ChevronsUpDownIcon className="ml-auto" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-56"
-            align="start"
-            side={isMobile ? 'bottom' : 'right'}
-            sideOffset={4}
-          >
-            {/*
-              El rótulo va DENTRO del grupo, no antes. `DropdownMenuLabel` es un
-              `Menu.GroupLabel` de Base UI y fuera de un `Menu.Group` no se
-              degrada: lanza al abrir el menú y se lleva la pantalla puesta.
-              Adentro, además, el grupo queda con `role="group"` y su
-              `aria-labelledby`, que es para lo que existe la pieza.
-            */}
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="text-muted-foreground text-xs">
-                Tiendas
-              </DropdownMenuLabel>
-              {tiendas.map((t) => (
-                <DropdownMenuItem key={t.id} onClick={() => elegir(t.id)} className="gap-2 p-2">
-                  <div className="flex size-6 items-center justify-center rounded-md border">
-                    <StoreIcon className="size-3.5" />
-                  </div>
-                  <span className="truncate">{t.name}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
-  );
-}
-
-function MenuDeUsuario() {
-  const { sesion, salir } = useSesion();
-  const { isMobile } = useSidebar();
-
-  const correo = sesion?.email ?? '';
-  const inicial = correo.slice(0, 1).toUpperCase() || '?';
-
-  return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={<SidebarMenuButton size="lg" className="aria-expanded:bg-sidebar-accent" />}
-          >
-            <div className="bg-muted text-foreground flex aspect-square size-8 items-center justify-center rounded-lg text-sm font-medium">
-              {inicial}
-            </div>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">{correo}</span>
-            </div>
-            <ChevronsUpDownIcon className="ml-auto size-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-56"
-            side={isMobile ? 'bottom' : 'right'}
-            align="end"
-            sideOffset={4}
-          >
-            {/* Mismo motivo que en el selector de tienda: el rótulo va adentro. */}
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                {correo}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => void salir()}>
-                <LogOutIcon />
-                Salir
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label="Cambiar de tienda"
+        className="hover:bg-sidebar-accent data-popup-open:bg-sidebar-accent focus-visible:ring-sidebar-ring flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] p-1.5 outline-none focus-visible:ring-2"
+      >
+        {marca}
+        <ChevronsUpDownIcon className="text-ink-faint size-[15px] shrink-0" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-(--anchor-width) min-w-56" align="start" sideOffset={6}>
+        {/*
+          El rótulo va DENTRO del grupo, no antes. `DropdownMenuLabel` es un
+          `Menu.GroupLabel` de Base UI y fuera de un `Menu.Group` no se degrada:
+          lanza al abrir el menú y se lleva la pantalla puesta.
+        */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Tiendas</DropdownMenuLabel>
+          {tiendas.map((t) => (
+            <DropdownMenuItem
+              key={t.id}
+              onClick={() => {
+                if (t.id === tienda.id) return;
+                elegir(t.id);
+                avisar(`Estás trabajando en ${t.name}`);
+              }}
+              className="py-1.5"
+            >
+              <Cuadrado tienda={t} chico />
+              <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                <span className="truncate text-[13.5px] font-medium">{t.name}</span>
+                {t.domain && (
+                  <span className="text-muted-foreground truncate text-[11.5px]">{t.domain}</span>
+                )}
+              </span>
+              {t.id === tienda.id && <CheckIcon className="text-link size-[15px]" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 /**
- * Una entrada que agrupa a otras: no navega, despliega.
+ * Los números al lado de Pedidos y de Reseñas: lo que espera a alguien.
  *
- * Es la diferencia que importa. Si «Contenido» fuera un enlace, en mobile —donde
- * el menú es un sheet que se cierra al navegar— tocarlo llevaría a la primera
- * subpantalla y **cerraría el menú antes de que las otras dos se vieran**: para
- * llegar a Colecciones habría que volver a abrirlo. Como disclosure, un toque
- * las muestra y el segundo elige.
- *
- * El estado arranca abierto si ya estás adentro de la sección, así que entrar
- * por una miga o pegando la URL deja el menú diciendo dónde estás. No se
- * sincroniza después: si alguien lo cierra a propósito, se queda cerrado.
+ * Las claves cuelgan de las de cada pantalla —`['pedidos', tienda]`,
+ * `['resenas', tienda]`—, así que marcar un pedido como pagado o moderar una
+ * reseña los refresca sin que nadie se acuerde de invalidarlos aparte. Un
+ * contador que falla no se muestra: es una ayuda, no algo por lo que valga la
+ * pena llenar el menú de errores.
  */
-function EntradaConHijos({ seccion, ruta }: { seccion: Seccion; ruta: string }) {
-  const { state, isMobile, setOpen, setOpenMobile } = useSidebar();
-  const dentro = estaActiva(ruta, seccion.to);
-  const [abierto, setAbierto] = useState(dentro);
-
-  const hijos = seccion.hijos ?? [];
-  const id = `submenu-${seccion.to.replace(/\W+/g, '-')}`;
-
-  /*
-   * Abierto **y a la vista**.
-   *
-   * No es lo mismo: colapsada a íconos, la barra esconde el submenú por CSS
-   * aunque el estado siga en abierto. Sin esta distinción, estando adentro de
-   * Contenido y con la barra en íconos no quedaba **ninguna** fila marcada, y la
-   * barra no decía en qué sección estabas.
-   */
-  const submenuALaVista = abierto && !(state === 'collapsed' && !isMobile);
-
-  return (
-    <SidebarMenuItem>
-      <SidebarMenuButton
-        // Sólo se marca cuando el submenú no se ve: con las tres desplegadas ya
-        // hay una fila activa adentro, y pintar las dos señala dos lugares para
-        // uno solo.
-        isActive={dentro && !submenuALaVista}
-        tooltip={seccion.label}
-        aria-expanded={abierto}
-        /*
-         * `aria-controls` sólo mientras el submenú existe: cerrado se desmonta, y
-         * un `aria-controls` que apunta a un id inexistente es una referencia
-         * rota. La APG lo da por opcional en el patrón disclosure —lo que hace
-         * falta es `aria-expanded`—, así que se omite en vez de dejar mentir.
-         */
-        {...(abierto ? { 'aria-controls': id } : {})}
-        onClick={() => {
-          /*
-           * Colapsado a íconos el submenú está oculto por CSS
-           * (`group-data-[collapsible=icon]:hidden`), así que desde ahí el clic
-           * **abre**, no alterna: alternar podía expandir la barra y cerrar el
-           * grupo en el mismo gesto —el estado seguía en «abierto» de antes de
-           * colapsar—, dejando a la persona con menos a la vista que lo que
-           * acababa de pedir.
-           *
-           * En mobile el sheet ya está abierto —es lo que se está tocando—, así
-           * que no aplica.
-           */
-          if (!isMobile && state === 'collapsed') {
-            setOpen(true);
-            setAbierto(true);
-            return;
-          }
-          setAbierto((v) => !v);
-        }}
-      >
-        <seccion.icono />
-        <span>{seccion.label}</span>
-        <ChevronRightIcon
-          className={`ml-auto transition-transform ${abierto ? 'rotate-90' : ''}`}
-          aria-hidden="true"
-        />
-      </SidebarMenuButton>
-
-      {abierto && (
-        <SidebarMenuSub id={id}>
-          {hijos.map((h) => (
-            <SidebarMenuSubItem key={h.to}>
-              <SidebarMenuSubButton
-                isActive={estaActiva(ruta, h.to)}
-                // Mismo motivo que en las entradas de primer nivel: en mobile el
-                // sidebar es un sheet modal y navegar sin cerrarlo deja la
-                // pantalla nueva tapada.
-                onClick={() => setOpenMobile(false)}
-                render={<Link to={h.to} />}
-              >
-                <h.icono />
-                <span>{h.label}</span>
-              </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
-          ))}
-        </SidebarMenuSub>
-      )}
-    </SidebarMenuItem>
-  );
+function useContadores(tienda: TiendaResumen | null): Record<'pedidos' | 'resenas', number> {
+  const pedidos = useQuery({
+    queryKey: ['pedidos', tienda?.id, 'pendientes'],
+    queryFn: () => repositorioAdminPedidos(db).pendientes(tienda!.id),
+    enabled: tienda !== null,
+    staleTime: 60_000,
+  });
+  const resenas = useQuery({
+    queryKey: ['resenas', tienda?.id, 'pendientes'],
+    queryFn: () => repositorioAdminCatalogo(db).resenas(tienda!.id, 'pending', 1, 1),
+    enabled: tienda !== null,
+    staleTime: 60_000,
+  });
+  return {
+    pedidos: pedidos.data ? pedidos.data.porCobrar + pedidos.data.paraPreparar : 0,
+    resenas: resenas.data?.total ?? 0,
+  };
 }
 
 export function AppSidebar() {
   const puede = usePuede();
   const ruta = useRouterState({ select: (s) => s.location.pathname });
   const { setOpenMobile } = useSidebar();
+  const { tienda } = useTienda();
+  const contadores = useContadores(tienda);
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader>
+    <Sidebar collapsible="offcanvas">
+      <SidebarHeader className="px-3 pt-3.5 pb-2.5">
         <SelectorDeTienda />
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {SECCIONES.filter((s) => !s.permiso || puede(s.permiso)).map((s) =>
-                s.hijos ? (
-                  <EntradaConHijos key={s.to} seccion={s} ruta={ruta} />
-                ) : (
-                  <SidebarMenuItem key={s.to}>
-                    <SidebarMenuButton
-                      /*
-                       * Salvo que una hermana más específica coincida: en
-                       * «/productos/descripciones» la activa es Descripciones, no
-                       * también Productos, que coincide por prefijo.
-                       */
-                      isActive={
-                        estaActiva(ruta, s.to) &&
-                        !SECCIONES.some(
-                          (o) => o.to.startsWith(`${s.to}/`) && estaActiva(ruta, o.to),
-                        )
-                      }
-                      tooltip={s.label}
-                      /*
-                       * En mobile el sidebar es un sheet modal: navegar sin
-                       * cerrarlo deja la sección nueva tapada por el menú, y como
-                       * el sheet marca el resto de la página `aria-hidden`, un
-                       * lector de pantalla tampoco llega al contenido. En desktop
-                       * no hay sheet y esto no hace nada.
-                       */
-                      onClick={() => setOpenMobile(false)}
-                      render={<Link to={s.to} />}
-                    >
-                      <s.icono />
-                      <span>{s.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ),
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent className="gap-5 px-3 pt-1.5 pb-3">
+        {GRUPOS.map((grupo, i) => {
+          const visibles = grupo.entradas.filter((e) => !e.permiso || puede(e.permiso));
+          if (visibles.length === 0) return null;
+          return (
+            <SidebarGroup key={grupo.label ?? i} className="p-0">
+              {grupo.label && <SidebarGroupLabel>{grupo.label}</SidebarGroupLabel>}
+              <SidebarMenu>
+                {visibles.map((e) => {
+                  const cuenta = e.contador ? contadores[e.contador] : 0;
+                  return (
+                    <SidebarMenuItem key={e.to}>
+                      <SidebarMenuButton
+                        isActive={marcada(ruta, e.to)}
+                        /*
+                         * En la hoja de mobile, navegar sin cerrarla deja la
+                         * sección nueva tapada por el menú, y como la hoja marca
+                         * el resto de la página `aria-hidden`, un lector de
+                         * pantalla tampoco llega al contenido.
+                         */
+                        onClick={() => setOpenMobile(false)}
+                        render={<Link to={e.to} />}
+                      >
+                        <e.icono />
+                        <span>{e.label}</span>
+                      </SidebarMenuButton>
+                      {cuenta > 0 && (
+                        <SidebarMenuBadge
+                          aria-label={`${cuenta} pendientes`}
+                          className={
+                            e.contador === 'pedidos'
+                              ? 'bg-link text-white'
+                              : 'text-ink-2 bg-[#e6e8ee]'
+                          }
+                        >
+                          {cuenta > 99 ? '99+' : cuenta}
+                        </SidebarMenuBadge>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroup>
+          );
+        })}
       </SidebarContent>
-
-      <SidebarFooter>
-        <MenuDeUsuario />
-      </SidebarFooter>
-
-      <SidebarRail />
     </Sidebar>
   );
 }

@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { repositorioEquipo } from '@pick/adapter-supabase';
 import { DESCRIPCION_ROL, ETIQUETA_ROL, ROLES, esUltimoOwner } from '@pick/commerce-core';
 import type { MemberRole } from '@pick/commerce-types';
-import { UsersRoundIcon } from '@/components/iconos';
 import {
   Esqueleto,
   EstadoDeError,
@@ -74,7 +73,6 @@ export function Equipo() {
   return (
     <PaginaAdmin
       titulo="Equipo"
-      icono={UsersRoundIcon}
       descripcion={
         <>
           Quién puede entrar al Admin de esta organización. Para dar de alta a alguien nuevo se usa{' '}

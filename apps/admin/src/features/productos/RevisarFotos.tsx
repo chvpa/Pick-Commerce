@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { repositorioAdminCatalogo } from '@pick/adapter-supabase';
 import type { PropuestaDeFoto } from '@pick/commerce-core';
-import { SparklesIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -67,7 +66,6 @@ export function RevisarFotos() {
   return (
     <PaginaAdmin
       titulo="Fotos con fondo limpio"
-      icono={SparklesIcon}
       descripcion="Lo que propuso la IA, al lado de la foto original. Nada se publica hasta que lo apruebes, y la original se guarda por si querés volver."
     >
       {(aprobar.error ?? rechazar.error) && (

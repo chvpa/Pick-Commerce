@@ -1,6 +1,32 @@
 import { HugeiconsIcon } from '@hugeicons/react';
 import type { IconSvgElement } from '@hugeicons/react';
 import {
+  Add01Icon as Add,
+  AlertCircleIcon as AlertCircle,
+  Analytics01Icon as Analytics,
+  ArrowDataTransferHorizontalIcon as ArrowDataTransferHorizontal,
+  ArrowLeft02Icon as ArrowLeft,
+  ArrowTurnBackwardIcon as ArrowTurnBackward,
+  CameraOff01Icon as CameraOff,
+  CheckmarkCircle02Icon as CheckmarkCircle,
+  DiscountTag01Icon as DiscountTag,
+  GiftIcon as Gift,
+  Home01Icon as Home,
+  Invoice01Icon as Invoice,
+  Layers01Icon as Layers,
+  Layout01Icon as Layout,
+  Menu01Icon as Menu,
+  Money03Icon as Money,
+  NoteEditIcon as NoteEdit,
+  Search01Icon as Search,
+  Settings01Icon as Settings01,
+  SquareArrowUpRightIcon as SquareArrowUpRight,
+  Tag01Icon as Tag,
+  Upload04Icon as Upload,
+  UserAdd01Icon as UserAdd,
+  UserCircleIcon as UserCircle,
+  UserGroupIcon as UserGroup,
+  UserMultipleIcon as UserMultiple,
   ArrowDownIcon as ArrowDown,
   ArrowUpIcon as ArrowUp,
   CameraIcon as Camera,
@@ -23,7 +49,6 @@ import {
   PercentIcon as Percent,
   ReceiptTextIcon as ReceiptText,
   RepeatIcon as Repeat,
-  SettingsIcon as Settings,
   SparklesIcon as Sparkles,
   StoreIcon as Store,
   TagsIcon as Tags,
@@ -52,12 +77,13 @@ import {
  * inventario acá es lo que hace que el próximo cambio de librería sea este
  * archivo y no una búsqueda por todo el repositorio.
  *
- * `strokeWidth` fijo en 2: es el trazo con el que se dibujaron estas pantallas,
- * y el de hugeicons por defecto es 1.5, que se ve pálido al lado del texto.
+ * `strokeWidth` en 1,5, el de hugeicons: es el trazo del handoff de diseño
+ * (ADR-143). Con Onest se había subido a 2 porque se veía pálido al lado del
+ * texto; con Geist y la tinta del handoff, 1,5 es lo que se dibujó.
  */
 function icono(svg: IconSvgElement) {
   return function Icono({ className }: { className?: string }) {
-    return <HugeiconsIcon icon={svg} className={className} strokeWidth={2} />;
+    return <HugeiconsIcon icon={svg} className={className} strokeWidth={1.5} />;
   };
 }
 
@@ -85,7 +111,7 @@ export const PencilIcon = icono(Pencil);
 export const PercentIcon = icono(Percent);
 export const ReceiptTextIcon = icono(ReceiptText);
 export const RepeatIcon = icono(Repeat);
-export const SettingsIcon = icono(Settings);
+export const SettingsIcon = icono(Settings01);
 export const SparklesIcon = icono(Sparkles);
 export const StoreIcon = icono(Store);
 export const TagsIcon = icono(Tags);
@@ -94,3 +120,33 @@ export const Trash2Icon = icono(Trash);
 export const UsersIcon = icono(Users);
 export const UsersRoundIcon = icono(UsersRound);
 export const XIcon = icono(X);
+
+// Los del handoff (ADR-143): el sidebar, la barra de arriba y la paleta de comandos.
+export const AlertCircleIcon = icono(AlertCircle);
+export const AnalyticsIcon = icono(Analytics);
+export const ArrowLeftIcon = icono(ArrowLeft);
+export const CameraOffIcon = icono(CameraOff);
+export const CheckCircleIcon = icono(CheckmarkCircle);
+export const DiscountIcon = icono(DiscountTag);
+/** Abrir en otra pestaña: «Ver tienda». */
+export const ExternalLinkIcon = icono(SquareArrowUpRight);
+export const GiftIcon = icono(Gift);
+export const HomeIcon = icono(Home);
+export const InvoiceIcon = icono(Invoice);
+export const LayersIcon = icono(Layers);
+export const LayoutIcon = icono(Layout);
+export const MenuIcon = icono(Menu);
+export const MoneyIcon = icono(Money);
+export const NoteEditIcon = icono(NoteEdit);
+export const PlusIcon = icono(Add);
+/** La tecla Enter en la paleta de comandos. */
+export const ReturnIcon = icono(ArrowTurnBackward);
+export const SearchIcon = icono(Search);
+/** Cambiar de tienda. */
+export const SwitchIcon = icono(ArrowDataTransferHorizontal);
+export const TagIcon = icono(Tag);
+export const UploadIcon = icono(Upload);
+export const UserAddIcon = icono(UserAdd);
+export const UserCircleIcon = icono(UserCircle);
+export const UserGroupIcon = icono(UserGroup);
+export const UserMultipleIcon = icono(UserMultiple);

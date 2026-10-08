@@ -3,7 +3,6 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { repositorioAdminClientes } from '@pick/adapter-supabase';
 import { ETIQUETA_PERIODO, formatMoney, rangoDePeriodo, type Periodo } from '@pick/commerce-core';
-import { UsersIcon } from '@/components/iconos';
 import {
   BarraDeFiltros,
   Esqueleto,
@@ -86,7 +85,6 @@ export function ListaClientes() {
   return (
     <PaginaAdmin
       titulo="Clientes"
-      icono={UsersIcon}
       descripcion="Quiénes compraron. Se crean solos con el primer pedido; no se dan de alta acá."
     >
       <Tarjeta sinRelleno>

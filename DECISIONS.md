@@ -3872,7 +3872,7 @@ que con muchas deja de ser un adorno.
 ## ADR-097 — La distribución del Admin se toma de Shopify, y las piezas repetidas se unifican
 
 **Fecha:** 2026-08-29
-**Estado:** Accepted
+**Estado:** Accepted. **Corregida por ADR-144** en el fondo, el ícono del título y el buscador global.
 
 **Contexto**
 Cada pantalla del Admin se había armado por su cuenta. El resultado no eran
@@ -3951,7 +3951,7 @@ estar bien o mal—.
 ## ADR-098 — Contenido deja de ser una pantalla con pestañas y pasa a ser un grupo del sidebar
 
 **Fecha:** 2026-08-29
-**Estado:** Accepted. **Corrige ADR-096** en lo que decía de las migas de contenido.
+**Estado:** Accepted. **Corrige ADR-096** en lo que decía de las migas de contenido. **Corregida por ADR-144**: el desplegable pasó a ser un grupo con enlaces.
 
 **Contexto**
 Secciones, Colecciones y Categorías vivían como tres pestañas dentro de una
@@ -7123,3 +7123,69 @@ handoff.
 - Los datos de ejemplo del handoff no son datos: 3.674 productos, 64 pedidos o
   «Gs. 184.500 de Gs. 500.000» son dibujo. Ninguna pantalla se da por terminada
   mostrando un número que no salga de la base.
+
+---
+
+## ADR-144 — El shell del Admin pasa a la Pick UI: la cuenta arriba, un buscador y la página blanca
+
+**Fecha:** 2026-10-07
+**Estado:** Accepted. **Corrige ADR-097** en el fondo de la página, el ícono del
+título y «sin buscador global», y **ADR-098** en el grupo de Contenido.
+
+**Contexto**
+La Fase 1 de v3 aplica el shell del handoff de diseño (ADR-143). Varias de sus
+piezas contradicen lo que ADR-097 y ADR-098 habían decidido, y quedan escritas
+acá con su motivo para que no parezcan descuidos.
+
+**Lo que cambia**
+
+- **La página es blanca y las tarjetas tienen borde.** ADR-097 había apagado el
+  fondo para separar tarjeta y página sin líneas. El handoff separa con el borde
+  `#e9ebf0` y reserva el gris para el sidebar, que es lo único que no es
+  contenido.
+- **El título va sin ícono.** El sidebar ya dice en qué sección se está, y el
+  handoff no lo dibuja. Se sacó de las 26 pantallas que lo pasaban.
+- **Hay un buscador global**, que ADR-097 dejó afuera porque no lo teníamos. Es
+  la paleta de ⌘K / Ctrl+K: sin escribir ofrece acciones, secciones y los últimos
+  pedidos; escribiendo busca pedidos, productos y clientes **en el servidor**, con
+  las mismas funciones que sus pantallas, después de 200 ms quieto. Es un
+  combobox: el foco se queda en el campo y la opción activa va por
+  `aria-activedescendant`.
+- **La cuenta sube a la barra de arriba**, con el rol en esta tienda y el cambio
+  de tienda. El pie del sidebar desaparece.
+- **Contenido deja de ser un desplegable** (ADR-098). Secciones, Colecciones y
+  Categorías son enlaces del grupo «Tienda». El motivo del desplegable era que en
+  mobile un enlace cerraba la hoja antes de que se vieran las otras dos; con los
+  grupos rotulados del handoff, las tres están a la vista desde el principio y el
+  problema no existe.
+- **Las migas son un «← volver»** encima del título: sólo el nivel de arriba,
+  porque el actual ya lo dice el título. Conservan el nombre «Migas de pan» como
+  landmark.
+- **El sidebar no se pliega en desktop**, y por eso se quitó el Ctrl/Cmd+B de
+  shadcn: escondía el panel sin dejar a la vista ningún botón para volver a
+  abrirlo. Pasa a hoja por debajo de **900 px**, no de 768: entre esos dos
+  anchos, un panel fijo de 244 px dejaba al contenido menos de 660. Los paneles
+  de edición siguen cambiando a hoja inferior en 768, que es lo que mide un
+  teléfono.
+- **Los estados tienen color**, y uno solo por estado: `TONO_DE_PEDIDO`,
+  `TONO_DE_PAGO` y `TONO_DE_PRODUCTO` en `components/estados.ts`, sobre seis
+  tonos con significado —ámbar falta algo de tu lado, azul en curso, verde
+  terminado, rojo salió mal, gris quieto, violeta lo hizo la IA—.
+- **El que se arrepiente dice «Volver»** en los diálogos de confirmación, no
+  «Cancelar»: al lado de «Cancelar el pedido», un «Cancelar» suelto se lee como
+  la misma acción.
+- **Un aviso a la vez** para confirmar lo que salió bien (`useAvisar`), abajo al
+  centro, que se va solo. No reemplaza al error, que se muestra donde ocurrió.
+
+**Lo que el handoff dibuja y todavía no entra**
+Las notificaciones, la ayuda y el anillo de uso de IA alrededor del avatar no
+tienen de dónde salir hasta sus fases. Se dejaron afuera en vez de mostrarlos
+vacíos. Los contadores del sidebar sí: «Pedidos» cuenta lo que espera cobrarse
+o prepararse (`pendientes` del repositorio de pedidos) y «Reseñas» las que
+esperan moderación. Cuelgan de las claves de cada pantalla, así que se refrescan
+con sus mismas invalidaciones.
+
+**Consecuencia en los tests**
+El smoke espera la barra de arriba y no el botón del sidebar, que en desktop ya
+no existe, y prueba la navegación de contenido por enlaces y no por el
+desplegable. Pasó en desktop y en mobile.

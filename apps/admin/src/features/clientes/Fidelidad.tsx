@@ -7,7 +7,6 @@ import {
   type Premio,
   type PremioParaGuardar,
 } from '@pick/commerce-core';
-import { SparklesIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -129,7 +128,6 @@ export function Fidelidad() {
   return (
     <PaginaAdmin
       titulo="Fidelidad"
-      icono={SparklesIcon}
       descripcion="Puntos por comprar y por reseñar, y qué se puede canjear con ellos. El libro es del comercio: cada movimiento queda registrado."
     >
       {fallo && (

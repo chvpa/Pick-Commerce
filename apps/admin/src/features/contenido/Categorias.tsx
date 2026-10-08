@@ -3,7 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { repositorioContenido } from '@pick/adapter-supabase';
 import { slugify, type CategoriaAdmin } from '@pick/commerce-core';
 import type { ProductImage } from '@pick/commerce-types';
-import { PencilIcon, TagsIcon } from '@/components/iconos';
+import { PencilIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -129,7 +129,6 @@ export function Categorias() {
   return (
     <PaginaAdmin
       titulo="Categorías"
-      icono={TagsIcon}
       descripcion="Cómo se agrupa el catálogo. Qué categorías muestra la portada y en qué orden se decide en la sección de Categorías."
       acciones={
         puede('catalog.write') && (

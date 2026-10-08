@@ -1,5 +1,5 @@
 import { Children, isValidElement } from 'react';
-import type { ComponentType, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
@@ -7,33 +7,28 @@ import { cn } from '@/lib/utils';
 /**
  * La estructura de una pantalla del Admin.
  *
- * Sigue la distribución de Shopify, que resuelve bien tres cosas que acá estaban
- * repartidas de cualquier manera:
+ * Las medidas son las del handoff de diseño (ADR-143), que conserva lo que ya
+ * hacía esta pieza:
  *
- * - **El título vive en el contenido, no en la barra de arriba.** Con el título
- *   arriba, la barra crece con migas y acciones y el contenido empieza sin
- *   contexto. Acá el encabezado es parte de la página: ícono, nombre, y las
- *   acciones a la derecha en la misma línea.
+ * - **El título vive en el contenido, no en la barra de arriba.** La barra es
+ *   del buscador y de la cuenta; el encabezado es parte de la página: nombre,
+ *   una línea que explica, y las acciones a la derecha.
  * - **La acción principal está siempre en el mismo lugar**: arriba a la derecha,
- *   y es la única oscura. Antes cada pantalla la ponía donde le quedaba —una al
- *   lado de un párrafo, otra debajo de un filtro—.
- * - **El contenido va en tarjetas** sobre un fondo apagado. Es lo que separa
- *   «esto es una lista» de «esto es la página», sin líneas divisorias.
+ *   y es la única oscura.
+ * - **En un teléfono las acciones bajan a su propia línea** en vez de salirse
+ *   de la pantalla: antes «Nuevo producto» quedaba cortado contra el borde.
  *
- * No se copia lo que Shopify tiene y nosotros no: ni buscador global, ni pestañas
- * guardadas, ni barra de progreso de configuración.
+ * Sin ícono al lado del título: el handoff no lo tiene, y el sidebar ya dice en
+ * qué sección se está.
  */
 export function PaginaAdmin({
   titulo,
-  icono: Icono,
   insignias,
   descripcion,
   acciones,
   children,
 }: {
   titulo: string;
-  /** El mismo ícono que la sección tiene en el menú lateral. */
-  icono?: ComponentType<{ className?: string }>;
   /** Etiquetas de estado, a la derecha del título. Para pantallas de detalle. */
   insignias?: ReactNode;
   /** Una línea que explica de qué va la pantalla. Opcional y breve. */
@@ -43,19 +38,16 @@ export function PaginaAdmin({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
-              {Icono && <Icono className="text-muted-foreground size-5 shrink-0" />}
-              {titulo}
-            </h1>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-[26px] leading-8 font-semibold tracking-[-0.02em]">{titulo}</h1>
             {insignias}
           </div>
-          {descripcion && <p className="text-muted-foreground text-sm">{descripcion}</p>}
+          {descripcion && <p className="text-ink-3 text-sm">{descripcion}</p>}
         </div>
-        {acciones && <div className="flex shrink-0 flex-wrap items-center gap-2">{acciones}</div>}
+        {acciones && <div className="flex flex-wrap items-center gap-2">{acciones}</div>}
       </div>
 
       {children}
@@ -66,9 +58,10 @@ export function PaginaAdmin({
 /**
  * El encabezado de una tarjeta que contiene una lista, una tabla o un bloque.
  *
- * Un `h2` chico sobre una línea divisoria, y no un título suelto encima de la
- * caja: el rótulo pertenece a la caja, y afuera se leía como si fuera un nivel
- * más de la página.
+ * Un `h2` dentro de la caja y no un título suelto encima: el rótulo pertenece a
+ * la caja, y afuera se leía como si fuera un nivel más de la página. Sin línea
+ * debajo: las filas traen la suya arriba, y dos líneas seguidas se leen como un
+ * borde grueso.
  */
 export function TituloDeTarjeta({
   children,
@@ -79,15 +72,16 @@ export function TituloDeTarjeta({
   accion?: ReactNode;
 }) {
   return (
-    <div className="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
-      <h2 className="text-sm font-medium">{children}</h2>
+    <div className="flex items-center justify-between gap-3 px-5 pt-[18px] pb-3">
+      <h2 className="text-[15px] font-semibold">{children}</h2>
       {accion}
     </div>
   );
 }
 
 /**
- * La caja blanca sobre el fondo apagado.
+ * La caja blanca con su borde: con la página también blanca, es el borde lo que
+ * la separa del fondo.
  *
  * `overflow-hidden` para que una tabla ancha se recorte con el radio de la
  * tarjeta en vez de asomar por la esquina.
@@ -105,8 +99,8 @@ export function Tarjeta({
   return (
     <div
       className={cn(
-        'bg-card border-border overflow-hidden rounded-xl border shadow-xs',
-        !sinRelleno && 'p-4',
+        'bg-card border-border overflow-hidden rounded-[14px] border',
+        !sinRelleno && 'p-5',
         className,
       )}
     >
@@ -243,8 +237,8 @@ export function Paginacion({
   if (datos.pageCount <= 1) return null;
 
   return (
-    <div className="border-border flex items-center justify-between gap-3 border-t p-3">
-      <p className="text-muted-foreground text-sm" aria-live="polite">
+    <div className="border-line-row flex items-center justify-between gap-3 border-t px-5 py-3">
+      <p className="text-muted-foreground text-[13px] tabular-nums" aria-live="polite">
         {datos.total} {sustantivo} · página {datos.page} de {datos.pageCount}
       </p>
       <div className="flex gap-2">
@@ -272,7 +266,9 @@ export function Paginacion({
 /** La franja de filtros que va arriba de una tabla, dentro de su tarjeta. */
 export function BarraDeFiltros({ children }: { children: ReactNode }) {
   return (
-    <div className="border-border flex flex-wrap items-end gap-3 border-b p-3">{children}</div>
+    <div className="flex flex-wrap items-end gap-3 border-b border-[#eceef2] px-5 py-4">
+      {children}
+    </div>
   );
 }
 
@@ -293,10 +289,10 @@ export function EstadoVacio({
   accion?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <p className="text-base font-medium">{titulo}</p>
+    <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
+      <p className="text-[15px] font-semibold">{titulo}</p>
       {children && <p className="text-muted-foreground max-w-md text-sm">{children}</p>}
-      {accion && <div className="mt-1">{accion}</div>}
+      {accion && <div className="mt-2">{accion}</div>}
     </div>
   );
 }
@@ -318,8 +314,8 @@ export function EstadoDeError({
   onReintentar?: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <p className="text-base font-medium">{titulo}</p>
+    <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
+      <p className="text-[15px] font-semibold">{titulo}</p>
       <p className="text-muted-foreground max-w-md text-sm">{error.message}</p>
       {onReintentar && (
         <Button variant="outline" size="sm" onClick={onReintentar}>
@@ -351,8 +347,8 @@ export function BarraDeAcciones({ children }: { children: ReactNode }) {
   return (
     <div
       className={
-        'bg-background/85 border-border sticky bottom-0 z-10 -mx-4 flex flex-wrap ' +
-        'items-center justify-end gap-3 border-t px-4 py-3 backdrop-blur-sm sm:mx-0 sm:rounded-b-xl'
+        'border-border sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-end gap-2 ' +
+        'border-t bg-white/90 px-4 py-3 backdrop-blur-[10px] sm:mx-0 sm:rounded-b-[14px]'
       }
     >
       {children}

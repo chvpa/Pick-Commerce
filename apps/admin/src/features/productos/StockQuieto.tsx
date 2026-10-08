@@ -8,7 +8,6 @@ import {
   type PaginaAntiguedad,
   type TramoDeAntiguedad,
 } from '@pick/commerce-core';
-import { HourglassIcon } from '@/components/iconos';
 import {
   Esqueleto,
   EstadoDeError,
@@ -112,7 +111,6 @@ export function StockQuieto() {
   return (
     <PaginaAdmin
       titulo="Stock quieto"
-      icono={HourglassIcon}
       descripcion="Cuánto stock hay, agrupado por cuánto hace que no se vende. Lo que nunca se vendió cuenta desde el alta del producto."
     >
       {consulta.isError ? (

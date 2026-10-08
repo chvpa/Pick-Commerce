@@ -1,4 +1,4 @@
-import { Suspense, type ReactNode } from 'react';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import {
   createRootRoute,
   createRoute,
@@ -6,14 +6,14 @@ import {
   Link,
   Outlet,
   redirect,
-  useRouterState,
 } from '@tanstack/react-router';
 import type { Permission } from '@pick/commerce-types';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/features/navegacion/AppSidebar';
-import { Migas, migasDe } from '@/features/navegacion/Migas';
+import { BarraSuperior } from '@/features/navegacion/BarraSuperior';
+import { Comandos } from '@/features/navegacion/Comandos';
+import { Migas } from '@/features/navegacion/Migas';
 import { useSesion } from '@/features/auth/SesionContext';
 import { usePuede } from '@/features/auth/usePuede';
 import { ProveedorTienda, useTienda } from '@/features/tienda/TiendaContext';
@@ -107,13 +107,15 @@ function Gate({ permiso, children }: { permiso: Permission; children: ReactNode 
   if (puede(permiso)) return <>{children}</>;
 
   return (
-    <div className="flex flex-col items-start gap-3">
-      <h1 className="text-lg font-semibold">No tenés acceso a esta sección</h1>
-      <p className="text-muted-foreground text-sm">
-        Tu rol en esta organización no incluye este permiso. Pedíselo a un propietario.
+    <div className="flex flex-col items-start gap-2">
+      <h1 className="text-[26px] leading-8 font-semibold tracking-[-0.02em]">
+        No tenés acceso a esta sección
+      </h1>
+      <p className="text-ink-3 text-sm">
+        Tu rol no incluye este permiso. Pedíselo a un propietario.
       </p>
-      <Link to="/" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-        Volver al resumen
+      <Link to="/" className={buttonVariants({ variant: 'outline', className: 'mt-3' })}>
+        Volver al inicio
       </Link>
     </div>
   );
@@ -132,8 +134,22 @@ function Aviso({ titulo, children }: { titulo: string; children?: ReactNode }) {
 function Cascara() {
   const { salir } = useSesion();
   const { tienda, cargando, error } = useTienda();
-  const rutaActual = useRouterState({ select: (s) => s.location.pathname });
-  const migas = migasDe(rutaActual);
+  const [buscando, setBuscando] = useState(false);
+
+  /*
+   * ⌘K o Ctrl+K abre el buscador desde cualquier pantalla, también con el foco
+   * en un campo: es la tecla que se aprende una vez y se usa en todos lados.
+   */
+  useEffect(() => {
+    const alApretar = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setBuscando((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', alApretar);
+    return () => window.removeEventListener('keydown', alApretar);
+  }, []);
 
   if (cargando) {
     return (
@@ -174,26 +190,14 @@ function Cascara() {
       <AppSidebar />
       <SidebarInset>
         {/*
-          La barra de arriba quedó mínima: el botón del panel y, si la pantalla
-          es de detalle, las migas.
-
-          El **título dejó de vivir acá** y pasó al contenido, junto a su ícono y
-          sus acciones. Con el título arriba, esta barra crecía con migas y
-          botones mientras el contenido empezaba sin ningún contexto; y cada
-          pantalla ponía su acción principal donde le quedaba. Es la distribución
-          del Admin de Shopify, que resuelve las dos cosas de una.
+          La barra de arriba es del buscador y de la cuenta. El título de cada
+          pantalla vive en el contenido, con sus acciones, y el «← volver» de las
+          pantallas de detalle va encima del título (ADR-143).
         */}
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          {migas.length > 0 && (
-            <>
-              <Separator orientation="vertical" className="mr-1 h-4" />
-              <Migas />
-            </>
-          )}
-        </header>
+        <BarraSuperior onBuscar={() => setBuscando(true)} />
 
-        <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+        <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col px-4 pt-6 pb-[120px] min-[900px]:px-10 min-[900px]:pt-8">
+          <Migas />
           {/*
             Un solo límite para todas las pantallas: el chunk tarda lo que tarde
             la red la primera vez, y sin esto el click no da ninguna señal hasta
@@ -225,6 +229,8 @@ function Cascara() {
           </Suspense>
         </div>
       </SidebarInset>
+
+      <Comandos abierto={buscando} onAbierto={setBuscando} />
     </SidebarProvider>
   );
 }

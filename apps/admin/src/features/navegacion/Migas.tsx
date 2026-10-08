@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router';
-import { ChevronRightIcon } from '@/components/iconos';
+import { ArrowLeftIcon } from '@/components/iconos';
 
 /**
  * Las migas de pan del Admin.
@@ -13,8 +13,9 @@ import { ChevronRightIcon } from '@/components/iconos';
  * Se derivan de la ruta y no de un prop por pantalla: una miga que hay que
  * acordarse de pasar es una miga que va a faltar en la próxima pantalla.
  *
- * **El último nivel no es un enlace.** Es dónde estás parado, y ofrecerlo como
- * enlace a sí mismo es ruido para el teclado y para un lector de pantalla.
+ * Se dibujan como el handoff (ADR-143): sólo el nivel de arriba, con una flecha,
+ * encima del título —«← Pedidos»—. El nivel actual ya lo dice el título de la
+ * página, y repetirlo al lado era decir lo mismo dos veces.
  */
 
 interface Miga {
@@ -124,33 +125,21 @@ function ruta1(label: string, to: string): Miga {
 
 export function Migas() {
   const ruta = useRouterState({ select: (s) => s.location.pathname });
-  const migas = migasDe(ruta);
 
-  // En una pantalla de primer nivel el encabezado ya dice dónde estás: unas
-  // migas de un solo elemento serían una miga que miente sobre la jerarquía.
-  if (migas.length === 0) return null;
+  // En una pantalla de primer nivel no hay a dónde volver: el sidebar ya dice
+  // dónde estás.
+  const arriba = [...migasDe(ruta)].reverse().find((m) => m.to);
+  if (!arriba?.to) return null;
 
   return (
-    <nav aria-label="Migas de pan" className="min-w-0">
-      <ol className="text-muted-foreground flex flex-wrap items-center gap-1 text-sm">
-        {migas.map((miga, i) => (
-          <li key={`${miga.label}-${i}`} className="flex min-w-0 items-center gap-1">
-            {i > 0 && <ChevronRightIcon className="size-3.5 shrink-0" aria-hidden="true" />}
-            {miga.to ? (
-              <Link
-                to={miga.to}
-                className="hover:text-foreground truncate rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
-              >
-                {miga.label}
-              </Link>
-            ) : (
-              <span aria-current="page" className="text-foreground truncate font-medium">
-                {miga.label}
-              </span>
-            )}
-          </li>
-        ))}
-      </ol>
+    <nav aria-label="Migas de pan" className="mb-5">
+      <Link
+        to={arriba.to}
+        className="text-ink-3 hover:text-foreground focus-visible:ring-focus-tint inline-flex items-center gap-1.5 rounded-md text-sm font-medium outline-none focus-visible:ring-3"
+      >
+        <ArrowLeftIcon className="size-4" />
+        {arriba.label}
+      </Link>
     </nav>
   );
 }

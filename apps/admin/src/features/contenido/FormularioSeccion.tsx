@@ -17,7 +17,6 @@ import {
   type TipoDeSeccion,
 } from '@pick/commerce-core';
 import type { ProductImage } from '@pick/commerce-types';
-import { LayoutTemplateIcon } from '@/components/iconos';
 import { Badge } from '@/components/ui/badge';
 import {
   BarraDeAcciones,
@@ -83,7 +82,7 @@ export function FormularioSeccion({ id }: { id?: string }) {
 
   if (existentes.isPending) {
     return (
-      <PaginaAdmin titulo="Sección" icono={LayoutTemplateIcon}>
+      <PaginaAdmin titulo="Sección">
         <Tarjeta sinRelleno>
           <Esqueleto />
         </Tarjeta>
@@ -93,7 +92,7 @@ export function FormularioSeccion({ id }: { id?: string }) {
 
   if (existentes.isError) {
     return (
-      <PaginaAdmin titulo="Sección" icono={LayoutTemplateIcon}>
+      <PaginaAdmin titulo="Sección">
         <Tarjeta sinRelleno>
           <EstadoDeError
             titulo="No se pudieron cargar las secciones"
@@ -109,7 +108,7 @@ export function FormularioSeccion({ id }: { id?: string }) {
 
   if (id && !seccion) {
     return (
-      <PaginaAdmin titulo="Sección" icono={LayoutTemplateIcon}>
+      <PaginaAdmin titulo="Sección">
         <Tarjeta sinRelleno>
           <EstadoVacio titulo="Esa sección ya no existe">
             Puede que la hayan borrado desde otra pestaña.
@@ -211,7 +210,6 @@ function Campos({
   return (
     <PaginaAdmin
       titulo={id ? 'Editar sección' : 'Nueva sección'}
-      icono={LayoutTemplateIcon}
       descripcion={id ? ETIQUETA_TIPO[type] : 'Un bloque de la portada.'}
     >
       <div className="flex max-w-2xl flex-col gap-5">

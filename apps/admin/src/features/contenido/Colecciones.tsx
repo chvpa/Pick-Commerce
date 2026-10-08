@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { repositorioContenido } from '@pick/adapter-supabase';
 import { tipoDe, type Coleccion } from '@pick/commerce-core';
-import { LibraryBigIcon } from '@/components/iconos';
 import { buttonVariants } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { BorrarConConfirmacion, EnlaceDeEdicion } from '@/components/acciones';
@@ -61,7 +60,6 @@ export function Colecciones() {
   return (
     <PaginaAdmin
       titulo="Colecciones"
-      icono={LibraryBigIcon}
       descripcion="Listas de productos. Para mostrar una en la portada, creá una sección de carrusel."
       acciones={
         puede('catalog.write') && (

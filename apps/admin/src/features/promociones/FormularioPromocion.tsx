@@ -9,7 +9,6 @@ import {
   repositorioPromociones,
 } from '@pick/adapter-supabase';
 import { formatMoney, percentageOf, subtractMoney } from '@pick/commerce-core';
-import { PercentIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
 import {
   BarraDeAcciones,
@@ -178,7 +177,7 @@ export function FormularioPromocion({ id }: { id?: string }) {
 
   if (id && existente.isPending) {
     return (
-      <PaginaAdmin titulo="Editar promoción" icono={PercentIcon}>
+      <PaginaAdmin titulo="Editar promoción">
         <Tarjeta sinRelleno>
           <Esqueleto />
         </Tarjeta>
@@ -195,7 +194,7 @@ export function FormularioPromocion({ id }: { id?: string }) {
         guardar.mutate(v);
       })}
     >
-      <PaginaAdmin titulo={id ? 'Editar promoción' : 'Nueva promoción'} icono={PercentIcon}>
+      <PaginaAdmin titulo={id ? 'Editar promoción' : 'Nueva promoción'}>
         {errorGeneral && (
           <p className="text-destructive text-sm" role="alert">
             {errorGeneral}

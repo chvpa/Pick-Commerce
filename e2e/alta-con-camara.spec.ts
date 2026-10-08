@@ -47,13 +47,11 @@ test('sin credencial de IA, el alta con la cámara igual carga el producto', asy
   await page.goto(`${ADMIN}/productos/camara`);
 
   /*
-   * La miga dice dónde está. Sin su patrón propio, `/productos/camara` cae en el
-   * de `/productos/$id` y el encabezado dice «Editar producto»: lo encontró esta
+   * El título dice dónde está. Sin su ruta propia, `/productos/camara` cae en la
+   * de `/productos/$id` y la pantalla dice «Editar producto»: lo encontró esta
    * misma prueba, mirando la página cuando falló por otra cosa.
    */
-  await expect(page.getByRole('navigation', { name: 'Migas de pan' })).toContainText(
-    'Cargar con la cámara',
-  );
+  await expect(page.getByRole('heading', { name: 'Cargar con la cámara', level: 1 })).toBeVisible();
 
   // Paso 1: la foto entra por el mismo input que usa la cámara de atrás.
   const entrada = page.locator('input[type="file"]');

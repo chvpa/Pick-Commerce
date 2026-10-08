@@ -9,7 +9,6 @@ import {
   type PaginaSegmentos,
   type SegmentoRfm,
 } from '@pick/commerce-core';
-import { RepeatIcon } from '@/components/iconos';
 import {
   Esqueleto,
   EstadoDeError,
@@ -215,7 +214,6 @@ export function Recurrencia() {
   return (
     <PaginaAdmin
       titulo="Recurrencia"
-      icono={RepeatIcon}
       descripcion="Quién vuelve a comprar y quién no. Sale de los pedidos, sin los cancelados."
     >
       <Tarjeta sinRelleno>

@@ -16,8 +16,9 @@ import {
   type ResumenProducto,
 } from '@pick/commerce-core';
 import type { ProductStatus } from '@pick/commerce-types';
-import { PackageIcon, SparklesIcon } from '@/components/iconos';
+import { SparklesIcon } from '@/components/iconos';
 import { Badge } from '@/components/ui/badge';
+import { TONO_DE_PRODUCTO } from '@/components/estados';
 import {
   BarraDeFiltros,
   Esqueleto,
@@ -53,13 +54,6 @@ import { SelectItem } from '@/components/ui/select';
 const POR_PAGINA = 20;
 
 const ESTADOS: readonly ProductStatus[] = ['draft', 'active', 'inactive', 'archived'];
-
-const TONO: Record<ProductStatus, string> = {
-  active: 'border-transparent bg-primary/10 text-primary',
-  draft: 'border-transparent bg-muted text-muted-foreground',
-  inactive: 'border-transparent bg-muted text-muted-foreground',
-  archived: 'border-transparent bg-muted text-muted-foreground line-through',
-};
 
 const columna = createColumnHelper<ResumenProducto>();
 
@@ -294,7 +288,7 @@ export function ListaProductos() {
                   setPorArchivar(row.original);
                 }}
               />
-              <Badge className={cn(TONO[estado])}>{ETIQUETA_ESTADO[estado]}</Badge>
+              <Badge variant={TONO_DE_PRODUCTO[estado]}>{ETIQUETA_ESTADO[estado]}</Badge>
             </span>
           );
         },
@@ -358,7 +352,6 @@ export function ListaProductos() {
   return (
     <PaginaAdmin
       titulo="Productos"
-      icono={PackageIcon}
       descripcion="Lo que la tienda vende. El interruptor publica y archiva sin abrir el producto."
       acciones={
         /*

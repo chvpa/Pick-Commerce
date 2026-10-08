@@ -14,7 +14,6 @@ import {
 } from '@pick/commerce-core';
 import type { EventoDeNotificacion } from '@pick/commerce-core';
 import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
-import { ReceiptTextIcon } from '@/components/iconos';
 import { Badge } from '@/components/ui/badge';
 import {
   Esqueleto,
@@ -91,7 +90,7 @@ export function DetallePedido({ id }: DetallePedidoProps) {
 
   if (consulta.isPending) {
     return (
-      <PaginaAdmin titulo="Pedido" icono={ReceiptTextIcon}>
+      <PaginaAdmin titulo="Pedido">
         <Tarjeta sinRelleno>
           <Esqueleto />
         </Tarjeta>
@@ -101,7 +100,7 @@ export function DetallePedido({ id }: DetallePedidoProps) {
 
   if (consulta.isError) {
     return (
-      <PaginaAdmin titulo="Pedido" icono={ReceiptTextIcon}>
+      <PaginaAdmin titulo="Pedido">
         <Tarjeta sinRelleno>
           <EstadoDeError
             titulo="No se pudo cargar el pedido"
@@ -115,7 +114,7 @@ export function DetallePedido({ id }: DetallePedidoProps) {
 
   if (!consulta.data) {
     return (
-      <PaginaAdmin titulo="Pedido" icono={ReceiptTextIcon}>
+      <PaginaAdmin titulo="Pedido">
         <Tarjeta sinRelleno>
           <EstadoVacio
             titulo="Este pedido no existe en esta tienda"
@@ -151,7 +150,6 @@ export function DetallePedido({ id }: DetallePedidoProps) {
   return (
     <PaginaAdmin
       titulo={`#${order.number}`}
-      icono={ReceiptTextIcon}
       descripcion={fecha(order.createdAt, tienda.locale)}
       insignias={
         <>

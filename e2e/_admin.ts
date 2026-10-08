@@ -31,25 +31,24 @@ export async function entrar(page: Page): Promise<void> {
   await page.locator('#password').fill(ADMIN_E2E.password);
   await page.getByRole('button', { name: 'Ingresar' }).click();
   /*
-   * Se espera el botón del sidebar y no el sidebar mismo: en mobile el panel
-   * vive dentro de un sheet que arranca cerrado y todavía no existe en el DOM.
-   * El botón de la cabecera está en los dos tamaños. Se localiza por su
-   * `data-slot` y no por su nombre accesible: el riel lateral se llama igual
-   * —«Toggle Sidebar»— y por nombre la búsqueda encuentra dos.
+   * Se espera la barra de arriba y no el sidebar: en mobile el panel vive dentro
+   * de una hoja que arranca cerrada y todavía no existe en el DOM, y en desktop
+   * no hay botón de menú —el sidebar no se pliega (ADR-143)—. La barra está en
+   * los dos tamaños.
    */
-  await expect(page.locator('[data-slot="sidebar-trigger"]')).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('[data-slot="barra-superior"]')).toBeVisible({ timeout: 30_000 });
 }
 
 /**
  * Deja el sidebar abierto, venga de donde venga.
  *
- * En desktop ya está desplegado y tocar el botón lo **colapsaría**, así que
- * primero se mira si el panel se ve. En mobile hay que abrir el sheet, y además
- * navegar lo vuelve a cerrar: por eso se llama antes de cada interacción y no
- * una sola vez.
+ * En desktop está siempre a la vista y no hay botón de menú. En mobile hay que
+ * abrir la hoja, y además navegar la vuelve a cerrar: por eso se llama antes de
+ * cada interacción y no una sola vez. Lo que dice «está abierto» es la cabecera
+ * con la tienda, que existe en los dos tamaños sólo si el panel se ve.
  */
 export async function abrirSidebar(page: Page): Promise<void> {
-  const pie = page.locator('[data-slot="sidebar-footer"]');
+  const pie = page.locator('[data-slot="sidebar-header"]');
   const sheet = page.locator('[role="dialog"]');
   /*
    * El sheet abierto **y quieto**.
@@ -66,12 +65,8 @@ export async function abrirSidebar(page: Page): Promise<void> {
   if ((await sheet.count()) === 0) {
     if (await pie.isVisible().catch(() => false)) return;
   } else if ((await abierto.count()) === 1) {
-    /*
-     * Mobile con el sheet ya abierto: no hay nada que hacer, y tocar el botón lo
-     * cerraría. Pasa desde que «Contenido» es un disclosure — desplegarlo no
-     * navega, así que el menú se queda abierto y el siguiente `abrirSidebar` lo
-     * encuentra así.
-     */
+    // Mobile con la hoja ya abierta: no hay nada que hacer, y tocar el botón la
+    // cerraría.
     await expect(pie).toBeVisible();
     return;
   }
@@ -89,28 +84,18 @@ export async function abrirSidebar(page: Page): Promise<void> {
 }
 
 /**
- * Entra a una de las tres subpantallas de Contenido por el sidebar.
+ * Entra a una de las pantallas de contenido por el sidebar.
  *
- * «Contenido» dejó de ser un enlace: es un disclosure que despliega Secciones,
- * Colecciones y Categorías. Un toque las muestra y el segundo elige — que es lo
- * que lo hace usable en mobile, donde navegar cierra el sheet y un enlace habría
- * cerrado el menú antes de que las otras dos se vieran.
- *
- * Se comprueba `aria-expanded` en vez de tocar siempre: el grupo se queda
- * abierto entre navegaciones, y un clic de más lo cerraría.
+ * Desde ADR-143 son enlaces del grupo «Tienda» y no un disclosure. Se acota al
+ * sidebar porque «Colecciones» también nombra el «← volver» y los encabezados.
  */
 export async function irAContenido(
   page: Page,
   sub: 'Secciones' | 'Colecciones' | 'Categorías',
 ): Promise<void> {
   await abrirSidebar(page);
-
-  const grupo = page.getByRole('button', { name: 'Contenido' });
-  if ((await grupo.getAttribute('aria-expanded')) !== 'true') await grupo.click();
-
-  // Acotado al submenú: «Colecciones» también nombra migas y encabezados.
   await page
-    .locator('[data-slot="sidebar-menu-sub"]')
+    .locator('[data-sidebar="sidebar"]')
     .getByRole('link', { name: sub, exact: true })
     .click();
 }

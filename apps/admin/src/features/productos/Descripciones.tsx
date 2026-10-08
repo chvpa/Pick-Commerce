@@ -148,7 +148,6 @@ export function Descripciones() {
   return (
     <PaginaAdmin
       titulo="Descripciones"
-      icono={SparklesIcon}
       descripcion="Un producto sin descripción es un producto que sólo se encuentra escribiendo su nombre exacto. La IA propone y vos aprobás."
       acciones={
         gasta && cuantos > 0 ? (

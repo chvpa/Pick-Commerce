@@ -13,7 +13,6 @@ import {
   type Periodo,
 } from '@pick/commerce-core';
 import type { OrderStatus } from '@pick/commerce-types';
-import { LayoutDashboardIcon } from '@/components/iconos';
 import { Badge } from '@/components/ui/badge';
 import {
   Esqueleto,
@@ -306,7 +305,6 @@ export function Dashboard() {
   return (
     <PaginaAdmin
       titulo="Resumen"
-      icono={LayoutDashboardIcon}
       descripcion={`${tienda.name} · sale de los pedidos, no de las visitas.`}
       acciones={
         <Selector

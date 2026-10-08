@@ -1,6 +1,6 @@
 import { clienteDeServidor } from '@pick/adapter-supabase';
 import { expect, test, type Page } from '@playwright/test';
-import { ADMIN_E2E } from '../scripts/datos-admin-e2e.ts';
+import { entrar } from './_admin.ts';
 
 /**
  * La tubería de eventos, de punta a punta.
@@ -29,14 +29,6 @@ function vigilar(page: Page): string[] {
     if (msg.type() === 'error') problemas.push(`console.error: ${msg.text()}`);
   });
   return problemas;
-}
-
-async function entrarAlAdmin(page: Page): Promise<void> {
-  await page.goto(ADMIN);
-  await page.locator('#email').fill(ADMIN_E2E.email);
-  await page.locator('#password').fill(ADMIN_E2E.password);
-  await page.getByRole('button', { name: 'Ingresar' }).click();
-  await expect(page.locator('[data-slot="sidebar-trigger"]')).toBeVisible({ timeout: 30_000 });
 }
 
 /** El número de una tarjeta del panel, por su rótulo. */
@@ -80,7 +72,7 @@ test('la navegación de la tienda llega al panel del Admin', async ({ page }) =>
 
   // --- Y ahora el panel ------------------------------------------------------
 
-  await entrarAlAdmin(page);
+  await entrar(page);
   await page.goto(`${ADMIN}/analytics`);
   await expect(page.getByRole('heading', { name: 'Analytics', level: 1 })).toBeVisible({
     timeout: 15_000,

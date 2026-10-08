@@ -5,7 +5,6 @@ import { repositorioAdminClientes, repositorioAdminPedidos } from '@pick/adapter
 import { ETIQUETA_ESTADO_PEDIDO, formatMoney } from '@pick/commerce-core';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
-import { UsersIcon } from '@/components/iconos';
 import {
   Esqueleto,
   EstadoDeError,
@@ -78,7 +77,7 @@ export function DetalleCliente({ id }: { id: string }) {
 
   if (cliente.isPending) {
     return (
-      <PaginaAdmin titulo="Cliente" icono={UsersIcon}>
+      <PaginaAdmin titulo="Cliente">
         <Tarjeta sinRelleno>
           <Esqueleto filas={3} />
         </Tarjeta>
@@ -88,7 +87,7 @@ export function DetalleCliente({ id }: { id: string }) {
 
   if (cliente.isError) {
     return (
-      <PaginaAdmin titulo="Cliente" icono={UsersIcon}>
+      <PaginaAdmin titulo="Cliente">
         <Tarjeta sinRelleno>
           <EstadoDeError
             titulo="No se pudo cargar el cliente"
@@ -102,7 +101,7 @@ export function DetalleCliente({ id }: { id: string }) {
 
   if (!cliente.data) {
     return (
-      <PaginaAdmin titulo="Cliente" icono={UsersIcon}>
+      <PaginaAdmin titulo="Cliente">
         <Tarjeta sinRelleno>
           <EstadoVacio
             titulo="Este cliente no existe en esta tienda"
@@ -122,11 +121,7 @@ export function DetalleCliente({ id }: { id: string }) {
   const c = cliente.data;
 
   return (
-    <PaginaAdmin
-      titulo={c.name}
-      icono={UsersIcon}
-      descripcion={`Cliente desde ${fecha(c.createdAt, tienda.locale)}`}
-    >
+    <PaginaAdmin titulo={c.name} descripcion={`Cliente desde ${fecha(c.createdAt, tienda.locale)}`}>
       <div className="grid items-start gap-5 lg:grid-cols-3">
         <Tarjeta sinRelleno>
           <TituloDeTarjeta>Contacto</TituloDeTarjeta>

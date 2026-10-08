@@ -11,8 +11,8 @@ import {
 } from '@pick/commerce-core';
 import type { PedidoDeLista } from '@pick/commerce-core';
 import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
-import { ReceiptTextIcon } from '@/components/iconos';
-import { Badge } from '@/components/ui/badge';
+import { Badge, COLOR_DE_TONO } from '@/components/ui/badge';
+import { TONO_DE_PAGO, TONO_DE_PEDIDO } from '@/components/estados';
 import {
   BarraDeFiltros,
   Esqueleto,
@@ -54,31 +54,6 @@ const SELECT_DE_ESTADO =
   'h-7 cursor-pointer rounded-lg border px-2 text-xs outline-none ' +
   'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3 ' +
   'disabled:cursor-wait disabled:opacity-60';
-
-/**
- * Tono por estado.
- *
- * Sólo tres tonos y no ocho: el color distingue "hay algo que hacer" de "está en
- * curso" de "terminó". Ocho colores distintos no serían información, serían
- * ruido, y encima quedarían ilegibles en una tabla.
- */
-const TONO: Record<OrderStatus, string> = {
-  received: 'border-transparent bg-primary/10 text-primary',
-  confirmed: 'border-transparent bg-primary/10 text-primary',
-  preparing: 'border-transparent bg-muted text-muted-foreground',
-  ready: 'border-transparent bg-muted text-muted-foreground',
-  shipped: 'border-transparent bg-muted text-muted-foreground',
-  in_transit: 'border-transparent bg-muted text-muted-foreground',
-  delivered: 'border-transparent bg-muted text-muted-foreground',
-  cancelled: 'border-transparent bg-muted text-muted-foreground line-through',
-};
-
-const TONO_PAGO: Record<PaymentStatus, string> = {
-  paid: 'border-transparent bg-primary/10 text-primary',
-  pending: 'border-transparent bg-muted text-muted-foreground',
-  // Rechazado es lo único que pide atención: el pedido está ahí y no se cobró.
-  failed: 'border-transparent bg-destructive/10 text-destructive',
-};
 
 function fecha(iso: string, locale: string): string {
   return new Date(iso).toLocaleString(locale, {
@@ -147,7 +122,6 @@ export function ListaPedidos() {
   return (
     <PaginaAdmin
       titulo="Pedidos"
-      icono={ReceiptTextIcon}
       descripcion="Lo que se vendió. El pago y el estado se cambian sin abrir el pedido."
     >
       {(cambiarEstado.isError || cambiarPago.isError) && (
@@ -265,7 +239,7 @@ export function ListaPedidos() {
                           refunds están fuera del core (ADR-008).
                         */}
                         {!escribe || p.status === 'cancelled' ? (
-                          <Badge className={cn(TONO_PAGO[p.paymentStatus])}>
+                          <Badge variant={TONO_DE_PAGO[p.paymentStatus]}>
                             {ETIQUETA_ESTADO_PAGO[p.paymentStatus]}
                           </Badge>
                         ) : (
@@ -279,7 +253,10 @@ export function ListaPedidos() {
                                 pago: valor as PaymentStatus,
                               })
                             }
-                            className={cn(SELECT_DE_ESTADO, TONO_PAGO[p.paymentStatus])}
+                            className={cn(
+                              SELECT_DE_ESTADO,
+                              COLOR_DE_TONO[TONO_DE_PAGO[p.paymentStatus]],
+                            )}
                           >
                             {ESTADOS_DE_PAGO.map((e) => (
                               <SelectItem key={e} value={e}>
@@ -301,7 +278,7 @@ export function ListaPedidos() {
                           viewer ve la etiqueta y no el selector.
                         */}
                         {p.status === 'cancelled' || !escribe ? (
-                          <Badge className={TONO[p.status]}>
+                          <Badge variant={TONO_DE_PEDIDO[p.status]}>
                             {ETIQUETA_ESTADO_PEDIDO[p.status]}
                           </Badge>
                         ) : (
@@ -325,7 +302,10 @@ export function ListaPedidos() {
                               }
                               cambiarEstado.mutate({ id: p.id, estado });
                             }}
-                            className={cn(SELECT_DE_ESTADO, TONO[p.status])}
+                            className={cn(
+                              SELECT_DE_ESTADO,
+                              COLOR_DE_TONO[TONO_DE_PEDIDO[p.status]],
+                            )}
                           >
                             {ESTADOS_DE_PEDIDO.map((e) => (
                               <SelectItem key={e} value={e}>

@@ -48,7 +48,6 @@ export function SinFoto() {
   return (
     <PaginaAdmin
       titulo="Sin foto"
-      icono={CameraIcon}
       descripcion="Productos que la tienda no muestra porque no tienen foto. Primero los que tienen stock: una foto los vuelve a poner en la vitrina."
     >
       {cuentas && (

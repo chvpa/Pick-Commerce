@@ -1,13 +1,20 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@fontsource-variable/onest';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 
+/*
+ * `dark:` no se usa —el Admin no tiene modo oscuro—, pero los componentes de
+ * shadcn traen clases `dark:`. Sin esta variante, Tailwind v4 las activa con el
+ * modo oscuro del sistema operativo y el Admin quedaría a medio teñir.
+ */
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: 'Onest Variable', sans-serif;
+  --font-sans: 'Geist Variable', system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -39,6 +46,20 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+
+  /* Pick UI: lo que shadcn no nombra. Ver el README del handoff (ADR-143). */
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-faint: var(--ink-faint);
+  --color-ink-icon: var(--ink-icon);
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
+  --color-focus-tint: var(--focus-tint);
+  --color-line-row: var(--line-row);
+  --color-row-hover: var(--row-hover);
+  --color-nav-hover: var(--nav-hover);
+  --color-danger: var(--danger);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -46,85 +67,72 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  --shadow-menu: 0 12px 32px rgba(16, 24, 40, 0.12), 0 2px 6px rgba(16, 24, 40, 0.06);
+  --shadow-modal: 0 24px 60px rgba(16, 24, 40, 0.24);
+  --shadow-nav: 0 1px 2px rgba(16, 24, 40, 0.06), 0 0 0 1px #e6e8ee;
 }
 
 :root {
   /*
-   * La página es gris y las tarjetas blancas.
+   * La paleta de la Pick UI, del handoff de diseño (ADR-143).
    *
-   * Antes las dos eran blanco puro, así que una lista y el fondo sobre el que
-   * vivía eran la misma superficie y hacía falta un borde para separarlas. Con
-   * el fondo apagado la jerarquía la da el color: lo blanco es contenido, lo
-   * gris es dónde está apoyado. Es lo que hace legible el Admin de Shopify sin
-   * una sola línea divisoria.
+   * La página es blanca y las tarjetas también: lo que separa una caja del fondo
+   * es su borde, no un gris. El gris queda para el sidebar, que es lo que no es
+   * contenido. Es al revés de como estaba —página gris, tarjetas blancas— y es
+   * lo que dibuja el handoff en todas sus pantallas.
+   *
+   * La tinta tiene cinco pasos y no uno: el principal para lo que se lee, dos
+   * intermedios para rótulos y texto secundario, uno para lo que se puede no
+   * leer —ayudas, metadatos— y uno para íconos tenues.
    */
-  --background: oklch(0.968 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --background: #ffffff;
+  --foreground: #0e1525;
+  --card: #ffffff;
+  --card-foreground: #0e1525;
+  --popover: #ffffff;
+  --popover-foreground: #0e1525;
+  --primary: #0e1525;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f5f8;
+  --secondary-foreground: #0e1525;
+  --muted: #f4f5f8;
+  --muted-foreground: #6f7789;
+  --accent: #f3f4f7;
+  --accent-foreground: #0e1525;
+  --destructive: #b42318;
+  --border: #e9ebf0;
+  --input: #e1e4ea;
+  /* El foco es azul, no gris: es el único lugar donde el azul no es un enlace. */
+  --ring: #3b5bdb;
+  --chart-1: #3b5bdb;
+  --chart-2: #7d93ea;
+  --chart-3: #c9d4f8;
+  --chart-4: #dfe5fb;
+  --chart-5: #e6e8ee;
   --radius: 0.625rem;
-  /* Apenas más claro que la página: se distingue sin necesitar un borde fuerte. */
-  --sidebar: oklch(0.98 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --ink-2: #353d50;
+  --ink-3: #535b6e;
+  --ink-faint: #8a91a2;
+  --ink-icon: #a3aab8;
+  --link: #3b5bdb;
+  --link-hover: #2b47bd;
+  --focus-tint: #e4e9fc;
+  --line-row: #f0f1f4;
+  --row-hover: #fafbfc;
+  --nav-hover: #eef0f4;
+  /* El rojo de un error de campo; `--destructive` es el del texto y el botón. */
+  --danger: #d92d20;
+
+  --sidebar: #f7f8fa;
+  --sidebar-foreground: #353d50;
+  --sidebar-primary: #0e1525;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef0f4;
+  --sidebar-accent-foreground: #0e1525;
+  --sidebar-border: #eceef2;
+  --sidebar-ring: #3b5bdb;
 }
 
 @layer base {
@@ -133,8 +141,20 @@
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
   }
   html {
     @apply font-sans;
+  }
+  /*
+   * Un enlace dentro de un texto es azul. Los enlaces que son botones o filas
+   * traen su propio color, así que esto alcanza sólo a los que no lo declaran.
+   */
+  a:not([class]) {
+    color: var(--link);
+  }
+  a:not([class]):hover {
+    color: var(--link-hover);
+    text-decoration: underline;
   }
 }

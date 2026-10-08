@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { repositorioAdminCatalogo } from '@pick/adapter-supabase';
 import type { EstadoDeResena, ResenaAdmin } from '@pick/commerce-core';
-import { ResenaIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -72,7 +71,6 @@ export function Resenas() {
   return (
     <PaginaAdmin
       titulo="Reseñas"
-      icono={ResenaIcon}
       descripcion="Lo que escribió quien compró. Se publica o se rechaza; el texto y la estrella no se editan."
       acciones={
         <Selector

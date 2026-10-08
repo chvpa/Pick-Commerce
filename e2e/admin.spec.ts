@@ -31,9 +31,9 @@ test.describe('Admin', () => {
   test('el menú de usuario abre y deja cerrar sesión', async ({ page }) => {
     const problemas = vigilar(page);
     await entrar(page);
-    await abrirSidebar(page);
 
-    await page.locator('[data-slot="sidebar-footer"] button').first().click();
+    // Vive en la barra de arriba, en los dos tamaños (ADR-143).
+    await page.getByRole('button', { name: 'Tu cuenta' }).click();
 
     // Que el menú **abra** es la aserción: antes reventaba justo acá.
     const menu = page.getByRole('menu');
@@ -82,26 +82,13 @@ test.describe('Admin', () => {
       await abrirSidebar(page);
     }
 
-    // Contenido no es una pantalla sino un grupo, así que se prueba lo que hace:
-    // desplegar tres entradas que llevan cada una a la suya.
+    // Las tres de la tienda, cada una a la suya.
     for (const sub of ['Secciones', 'Colecciones', 'Categorías'] as const) {
       await irAContenido(page, sub);
       await expect(page.getByRole('heading', { name: sub, level: 1 })).toBeVisible({
         timeout: 15_000,
       });
     }
-
-    /*
-     * Y se vuelve a plegar. Va aparte porque `irAContenido` sólo lo toca cuando
-     * está cerrado: sin esta comprobación, cambiar el toggle por un
-     * `setAbierto(true)` dejaba la suite entera en verde.
-     */
-    await abrirSidebar(page);
-    const grupo = page.getByRole('button', { name: 'Contenido' });
-    await expect(grupo).toHaveAttribute('aria-expanded', 'true');
-    await grupo.click();
-    await expect(grupo).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.locator('[data-slot="sidebar-menu-sub"]')).toHaveCount(0);
 
     expect(problemas, problemas.join('\n')).toEqual([]);
   });
@@ -113,7 +100,7 @@ test.describe('Admin', () => {
      *
      * `/contenido` dejó de ser una pantalla, pero sigue viva en marcadores y en
      * el historial de quien ya la usaba: tiene que redirigir, no dar 404. Y
-     * entrar directo a una subpantalla tiene que dejar el grupo desplegado —si
+     * entrar directo a una subpantalla tiene que dejar marcada su entrada —si
      * no, el menú diría que estás en otro lado que donde estás—.
      */
     const problemas = vigilar(page);
@@ -141,10 +128,9 @@ test.describe('Admin', () => {
     });
 
     await abrirSidebar(page);
-    await expect(page.getByRole('button', { name: 'Contenido' })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
+    await expect(
+      page.locator('[data-sidebar="sidebar"]').getByRole('link', { name: 'Categorías' }),
+    ).toHaveAttribute('data-active', '');
 
     expect(problemas, problemas.join('\n')).toEqual([]);
   });
@@ -271,11 +257,11 @@ test.describe('Admin', () => {
     await irAContenido(page, 'Colecciones');
     await page.getByRole('link', { name: 'Nueva colección' }).click();
 
+    // Desde ADR-143 son el «← Colecciones» de arriba del título: sólo el nivel de
+    // arriba, porque el actual ya lo dice el título.
     const migas = page.getByRole('navigation', { name: 'Migas de pan' });
-    // Arrancan en la subpantalla y no en «Contenido»: ése dejó de ser una
-    // pantalla, y enlazarlo daría dos migas seguidas al mismo lugar.
     await expect(migas).toContainText('Colecciones');
-    await expect(migas).toContainText('Nueva colección');
+    await expect(page.getByRole('heading', { name: 'Nueva colección', level: 1 })).toBeVisible();
 
     await migas.getByRole('link', { name: 'Colecciones' }).click();
     await expect(page).toHaveURL(/\/contenido\/colecciones$/);
@@ -363,7 +349,7 @@ test.describe('Admin', () => {
     // Primero cancelar: la colección tiene que seguir ahí.
     await fila.getByRole('button', { name: `Borrar ${titulo}` }).click();
     await expect(page.getByRole('alertdialog')).toBeVisible();
-    await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    await page.getByRole('button', { name: 'Volver', exact: true }).click();
     await expect(page.getByRole('alertdialog')).toHaveCount(0);
     await expect(fila).toBeVisible();
 

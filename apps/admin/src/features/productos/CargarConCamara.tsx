@@ -309,7 +309,7 @@ export function CargarConCamara() {
 
   if (!escribe) {
     return (
-      <PaginaAdmin titulo="Cargar con la cámara" icono={CameraIcon}>
+      <PaginaAdmin titulo="Cargar con la cámara">
         <Tarjeta>
           <EstadoVacio titulo="Esta pantalla la usa quien administra la tienda">
             El alta con la cámara usa la clave de OpenAI del comercio, así que la abre quien puede
@@ -323,7 +323,6 @@ export function CargarConCamara() {
   return (
     <PaginaAdmin
       titulo="Cargar con la cámara"
-      icono={CameraIcon}
       descripcion="Sacale una foto al producto y revisá la ficha que propone la IA. Nada se guarda hasta que lo confirmes."
     >
       <ol className="text-muted-foreground flex max-w-3xl gap-2 text-xs" aria-label="Pasos">

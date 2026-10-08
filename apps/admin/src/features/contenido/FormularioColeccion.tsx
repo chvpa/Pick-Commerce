@@ -8,7 +8,6 @@ import {
   type CatalogSort,
   type Coleccion,
 } from '@pick/commerce-core';
-import { LayoutTemplateIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
 import {
   BarraDeAcciones,
@@ -69,7 +68,7 @@ export function FormularioColeccion({ id }: { id?: string }) {
 
   if (id && existente.isPending) {
     return (
-      <PaginaAdmin titulo="Editar colección" icono={LayoutTemplateIcon}>
+      <PaginaAdmin titulo="Editar colección">
         <Tarjeta sinRelleno>
           <Esqueleto />
         </Tarjeta>
@@ -79,7 +78,7 @@ export function FormularioColeccion({ id }: { id?: string }) {
 
   if (existente.isError) {
     return (
-      <PaginaAdmin titulo="Editar colección" icono={LayoutTemplateIcon}>
+      <PaginaAdmin titulo="Editar colección">
         <Tarjeta sinRelleno>
           <EstadoDeError
             titulo="No se pudo cargar la colección"
@@ -150,7 +149,6 @@ function Campos({ id, inicial }: { id?: string; inicial?: Coleccion }) {
     >
       <PaginaAdmin
         titulo={id ? 'Editar colección' : 'Nueva colección'}
-        icono={LayoutTemplateIcon}
         descripcion="Una lista de productos. Para mostrarla en la portada, creá una sección de carrusel."
       >
         {error && (

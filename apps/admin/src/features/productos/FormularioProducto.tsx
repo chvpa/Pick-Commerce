@@ -23,7 +23,6 @@ import {
   type FieldSources,
 } from '@pick/commerce-core';
 import type { ProductStatus } from '@pick/commerce-types';
-import { PackageIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
 import {
   BarraDeAcciones,
@@ -291,7 +290,7 @@ export function FormularioProducto({ id }: { id?: string }) {
 
   if (id !== undefined && cargado.isPending) {
     return (
-      <PaginaAdmin titulo="Editar producto" icono={PackageIcon}>
+      <PaginaAdmin titulo="Editar producto">
         <Tarjeta sinRelleno>
           <Esqueleto />
         </Tarjeta>
@@ -301,7 +300,7 @@ export function FormularioProducto({ id }: { id?: string }) {
 
   if (id !== undefined && cargado.data === null) {
     return (
-      <PaginaAdmin titulo="Editar producto" icono={PackageIcon}>
+      <PaginaAdmin titulo="Editar producto">
         <Tarjeta sinRelleno>
           <EstadoVacio
             titulo="Este producto no existe en la tienda seleccionada"
@@ -337,10 +336,7 @@ export function FormularioProducto({ id }: { id?: string }) {
       }}
       noValidate
     >
-      <PaginaAdmin
-        titulo={id === undefined ? 'Nuevo producto' : 'Editar producto'}
-        icono={PackageIcon}
-      >
+      <PaginaAdmin titulo={id === undefined ? 'Nuevo producto' : 'Editar producto'}>
         {guardar.isError && (
           <p className="text-destructive text-sm" role="alert">
             No se pudo guardar: {(guardar.error as Error).message}

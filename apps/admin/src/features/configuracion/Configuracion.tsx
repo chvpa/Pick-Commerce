@@ -20,7 +20,6 @@ import {
 } from '@pick/commerce-core';
 import type { TiendaResumen } from '@pick/commerce-core';
 import { Button } from '@/components/ui/button';
-import { SettingsIcon } from '@/components/iconos';
 import { EstadoDeError, PaginaAdmin, Selector, Tarjeta } from '@/components/pagina';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -172,7 +171,6 @@ function Envoltura({ tienda, children }: { tienda: TiendaResumen; children: Reac
   return (
     <PaginaAdmin
       titulo="Configuración"
-      icono={SettingsIcon}
       descripcion={`Cómo cobra, en qué moneda opera y con qué IA trabaja ${tienda.name}.`}
     >
       {children}

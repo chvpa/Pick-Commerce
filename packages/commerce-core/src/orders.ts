@@ -200,7 +200,33 @@ export interface RepositorioAdminPedidos {
    * la misma máquina de estados obligaría a inventar combinaciones.
    */
   cambiarPago(storeId: string, id: string, pago: PaymentStatus, nota?: string): Promise<Order>;
+  /** Cuántos pedidos esperan algo de la tienda. Ver `PedidosPendientes`. */
+  pendientes(storeId: string): Promise<PedidosPendientes>;
 }
+
+/**
+ * Lo que la tienda tiene que hacer con sus pedidos, en dos números.
+ *
+ * - **Por cobrar**: el pago no entró y el pedido sigue vivo. Con transferencia
+ *   es el comprobante que nadie miró todavía.
+ * - **Para preparar**: cobrado y todavía sin salir.
+ *
+ * Son los ejes de pago y estado cruzados, que es lo que ninguno de los dos
+ * filtros dice por separado: «Recibido» incluye pedidos sin cobrar que no hay
+ * que preparar todavía.
+ */
+export interface PedidosPendientes {
+  readonly porCobrar: number;
+  readonly paraPreparar: number;
+}
+
+/** Los estados de un pedido cobrado que todavía no salió de la tienda. */
+export const ESTADOS_PARA_PREPARAR: readonly OrderStatus[] = [
+  'received',
+  'confirmed',
+  'preparing',
+  'ready',
+];
 
 // ---------------------------------------------------------------------------
 // Clientes

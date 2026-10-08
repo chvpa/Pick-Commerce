@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { repositorioContenido } from '@pick/adapter-supabase';
 import { TOPE_DE_COLECCIONES, formatMoney, moverEn, type SeccionDeHome } from '@pick/commerce-core';
-import { GalleryVerticalEndIcon } from '@/components/iconos';
 import { buttonVariants } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { BorrarConConfirmacion, ControlDeOrden, EnlaceDeEdicion } from '@/components/acciones';
@@ -102,7 +101,6 @@ export function Secciones() {
   return (
     <PaginaAdmin
       titulo="Secciones"
-      icono={GalleryVerticalEndIcon}
       descripcion="Los bloques de la portada, de arriba hacia abajo. Sólo se ven los publicados."
       acciones={
         puede('catalog.write') && (

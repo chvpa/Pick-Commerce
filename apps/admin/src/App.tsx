@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
+import { ProveedorDeAvisos } from '@/components/aviso';
 import { Login } from '@/features/auth/Login';
 import { NuevaPassword, Recuperar } from '@/features/auth/Recuperar';
 import { ProveedorSesion, useSesion } from '@/features/auth/SesionContext';
@@ -78,7 +79,9 @@ export function App() {
   return (
     <QueryClientProvider client={cliente}>
       <ProveedorSesion>
-        <Contenido />
+        <ProveedorDeAvisos>
+          <Contenido />
+        </ProveedorDeAvisos>
       </ProveedorSesion>
     </QueryClientProvider>
   );
