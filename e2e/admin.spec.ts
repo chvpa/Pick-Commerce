@@ -7,6 +7,7 @@ import {
   elegir,
   entrar,
   irAContenido,
+  irALaTiendaDelSmoke,
   vigilar,
 } from './_admin.ts';
 
@@ -44,6 +45,43 @@ test.describe('Admin', () => {
 
     // Cerrar sesión devuelve al login.
     await expect(page.locator('#email')).toBeVisible({ timeout: 15_000 });
+    expect(problemas, problemas.join('\n')).toEqual([]);
+  });
+
+  test('el Inicio dice cómo vamos y qué hay para hacer; una tienda nueva, sus pasos', async ({
+    page,
+  }) => {
+    /*
+     * Lo que los tests de PGlite no ven: que `admin_store_tasks` y
+     * `admin_dashboard_series` responden por la API con la sesión del Admin
+     * —grants y RLS de verdad— y que la pantalla dibuja lo que vuelve (ADR-145).
+     */
+    const problemas = vigilar(page);
+    await entrar(page);
+
+    // La demo tiene pedidos: el Inicio con sus números y su lista de pendientes.
+    await expect(page.getByRole('heading', { name: 'Cómo vamos' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByRole('heading', { name: 'Para hacer' })).toBeVisible();
+    const periodo = page.getByRole('group', { name: 'Período' });
+    await expect(periodo.getByRole('button', { name: '30 días' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await periodo.getByRole('button', { name: 'Hoy' }).click();
+    await expect(periodo.getByRole('button', { name: 'Hoy' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    // La del smoke no vendió nunca: ve los pasos para empezar, leídos de sus datos.
+    await irALaTiendaDelSmoke(page);
+    await expect(
+      page.getByRole('heading', { name: 'Te damos la bienvenida a Pick', level: 1 }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('progressbar', { name: 'Pasos hechos' })).toBeVisible();
+
     expect(problemas, problemas.join('\n')).toEqual([]);
   });
 

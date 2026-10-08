@@ -7189,3 +7189,66 @@ con sus mismas invalidaciones.
 El smoke espera la barra de arriba y no el botón del sidebar, que en desktop ya
 no existe, y prueba la navegación de contenido por enlaces y no por el
 desplegable. Pasó en desktop y en mobile.
+
+---
+
+## ADR-145 — El Inicio pregunta qué hay para hacer, y lo cuenta una sola consulta
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+El Resumen del Admin respondía «cuánto vendí» con cinco números, una tabla por
+estado y las ventas por producto. El Inicio del handoff (ADR-143) responde tres
+preguntas en otro orden: qué tengo que hacer, cómo vamos contra el período
+anterior y qué pasó recién. Una tienda que no vendió nunca ve en cambio los pasos
+para empezar.
+
+**Una sola consulta para lo pendiente**
+`admin_store_tasks` cuenta en una consulta lo que espera a la tienda: pagos por
+confirmar, pedidos para preparar, avisos que no van a salir (ADR-102), productos
+publicados sin foto, reseñas por moderar y propuestas de la IA. Con la **misma
+clave** la usan el «Para hacer» del Inicio y los contadores del sidebar, que en
+la Fase 1 contaban por su cuenta: el sidebar y el Inicio no pueden contar
+distinto lo mismo. Es `security definer` porque la cola de avisos no tiene
+políticas, y el corte por organización es una línea escrita adentro, con un
+test que falla si se borra —comprobado al revés—.
+
+**Las series y la comparación**
+`admin_dashboard_series` da ventas y pedidos por hora o por día en el huso de
+quien mira, **con las cubetas vacías** —un gráfico que salta los días sin ventas
+dibuja una línea que miente— y con techo de 400 puntos. Cada número se compara con
+el período anterior del mismo largo, y **hoy con ayer a la misma hora**, no con
+las últimas horas de ayer. Sin nada antes, no hay flecha: de cero a algo no es
+«+∞ %».
+
+**Los tramos del ticket se cortan alrededor del propio ticket**
+El handoff los dibuja en guaraníes fijos —hasta 300.000, hasta un millón—, que no
+sirven para otra moneda ni para otra tienda. Se cortan en la mitad y el doble del
+ticket del período, redondeados a una cifra significativa para que el rótulo se
+lea.
+
+**El checklist sale de los datos, no de casillas**
+El handoff tilda los pasos a mano. Acá se leen de lo que la tienda ya hizo: hay
+productos, la transferencia tiene los datos de la cuenta o hay otro método,
+el envío está decidido —«sin cobrar» también es decidir—, hay secciones en la
+portada, hay alguien más en el equipo. Una casilla tildada a mano puede mentir, y
+una tienda sin datos de cobro no vende aunque alguien la haya marcado. Es tienda
+nueva mientras no tenga un pedido y le falte algún paso.
+
+**«Cómo vamos» es para quien decide**
+Propietario y administrador, como en el handoff, que se lo oculta al personal.
+No es una barrera —los pedidos los lee igual por RLS—: es no poner la facturación
+en la pantalla de quien despacha.
+
+**Lo que se mudó**
+«Ventas por producto» y «Qué pasó, en palabras» (ADR-138) no están en el Inicio del
+handoff y no se quitan: pasan a Analytics, en un bloque «Lo que se vendió». El
+Inicio muestra lo más vendido en cinco filas y enlaza ahí. El «promedio del
+rubro» del handoff no entra, por lo dicho en ADR-143.
+
+**Consecuencias**
+El smoke del Admin prueba que las dos funciones responden por la API con la sesión
+del Admin —grants y RLS reales— y que una tienda sin pedidos ve sus pasos. Y
+apareció de paso un problema de la Fase 1: en mobile, cambiar de tienda dejaba la
+hoja del menú abierta tapando la página. Ahora se cierra, como al navegar.

@@ -71,6 +71,7 @@ export function DetallePedido({ id }: DetallePedidoProps) {
     setNota('');
     avisarStorefront(tienda.domain);
     void cliente.invalidateQueries({ queryKey: ['pedidos', tienda.id] });
+    void cliente.invalidateQueries({ queryKey: ['tareas', tienda.id] });
     return cliente.invalidateQueries({ queryKey: ['pedido', tienda.id, id] });
   }
 

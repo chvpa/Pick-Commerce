@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { repositorioAnalytics } from '@pick/adapter-supabase';
+import { repositorioAnalytics, repositorioDashboard } from '@pick/adapter-supabase';
 import {
   ETIQUETA_PERIODO,
   rangoDePeriodo,
@@ -26,6 +26,8 @@ import {
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { SelectItem } from '@/components/ui/select';
+import { ResumenConIA } from './ResumenConIA';
+import { VentasPorProducto } from './VentasPorProducto';
 
 const PERIODOS: readonly Periodo[] = ['hoy', '7d', '30d'];
 
@@ -131,6 +133,17 @@ export function Analytics() {
   const datos = consulta.data;
 
   /*
+   * Lo que se vendió en el mismo período, con la misma clave que el Inicio: si
+   * ya se abrió, esto no pide nada. Lo usan el resumen en palabras y las ventas
+   * por producto, que llegaron acá desde el viejo Resumen (ADR-145).
+   */
+  const ventas = useQuery({
+    queryKey: ['dashboard', tienda.id, periodo],
+    queryFn: () => repositorioDashboard(db).resumen(tienda.id, rango.from, rango.to),
+    placeholderData: keepPreviousData,
+  });
+
+  /*
    * Si el período empezó antes de que hubiera medición.
    *
    * Pasa siempre los primeros treinta días: `orders` viene de la Fase 5 y está
@@ -145,7 +158,7 @@ export function Analytics() {
   return (
     <PaginaAdmin
       titulo="Analytics"
-      descripcion="Cuánta gente miró, qué buscó y dónde se fue. Sale de la navegación, no de los pedidos."
+      descripcion="Cuánta gente miró, qué buscó, dónde se fue y qué se vendió."
       acciones={
         <Selector
           value={periodo}
@@ -290,6 +303,18 @@ export function Analytics() {
           </>
         )
       )}
+
+      {/*
+        Lo que se vendió va aparte de la navegación y aunque no haya visitas
+        medidas: sale de los pedidos, que existen desde la Fase 5 (ADR-067).
+      */}
+      <section className="flex flex-col gap-4" aria-labelledby="lo-que-se-vendio">
+        <h2 id="lo-que-se-vendio" className="text-[17px] font-semibold">
+          Lo que se vendió
+        </h2>
+        {ventas.data && <ResumenConIA rango={rango} periodo={periodo} ventas={ventas.data} />}
+        <VentasPorProducto rango={rango} periodo={periodo} />
+      </section>
     </PaginaAdmin>
   );
 }

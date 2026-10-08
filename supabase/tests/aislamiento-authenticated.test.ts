@@ -95,6 +95,14 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   ['public.premios_disponibles', `premios_disponibles('${TIENDA}')`],
   ['public.canjear_premio', `canjear_premio('${TIENDA}', '00000000-0000-4000-8000-000000000000')`],
   ['public.admin_dashboard', `admin_dashboard('${TIENDA}', now() - interval '30 days', now())`],
+  // El Inicio (v3 Fase 2). Las tareas son `definer` —leen la cola de avisos— con
+  // el corte por organización escrito adentro; las series, `invoker` sobre
+  // `orders`.
+  ['public.admin_store_tasks', `admin_store_tasks('${TIENDA}')`],
+  [
+    'public.admin_dashboard_series',
+    `admin_dashboard_series('${TIENDA}', now() - interval '7 days', now(), 'UTC', false)`,
+  ],
   ['public.admin_analytics', `admin_analytics('${TIENDA}', now() - interval '30 days', now())`],
   [
     'public.admin_product_performance',

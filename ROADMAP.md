@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |     6% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |     7% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1826,14 +1826,16 @@ notificaciones, la ayuda y el uso de IA alrededor del avatar— llega con su fas
 
 ## Fase 2 — Las pantallas del Admin, sobre lo que ya existe
 
-**Avance: 0%**
+**Avance: 8%**
 
 Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
-- [ ] Inicio: los números del período, «Para hacer» ordenado por urgencia —avisos
+- [x] Inicio: los números del período, «Para hacer» ordenado por urgencia —avisos
       que no salieron, pagos por confirmar, pedidos para preparar, productos sin
       foto, reseñas, propuestas de IA— y el checklist de una tienda nueva, derivado
-      de los datos.
+      de los datos (ADR-145). Cada número contra el período anterior; los
+      contadores del sidebar salen de la misma consulta. «Ventas por producto» y
+      el resumen en palabras pasaron a Analytics.
 - [ ] Pedidos: pestañas por estado con su conteo, filtros, selección y acciones en
       lote, y exportar.
 - [ ] Detalle de pedido: una sola próxima acción según el estado, el historial
@@ -2368,6 +2370,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-28 | **Quien compró sin cuenta vuelve a su pedido** (ADR-142). Cada pedido lleva un token propio y el enlace —número más token— va en la confirmación y en todos los correos. Por número solo no se podía: la numeración es secuencial, así que probar números abría pedidos ajenos. Número inexistente, token equivocado y pedido de otra tienda dan el mismo 404, y el e2e lo comprueba alterando un carácter del token. Sale de LIMITACIONES como algo que bloqueaba vender; queda anotado que el enlace es un secreto al portador                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | v2        |            — |              — |
 | 2026-10-07 | **v3 arranca: el handoff de diseño.** Cinco prototipos —Admin, Tienda, Checkout, Mi cuenta y Login comprador— relevados pantalla por pantalla contra el código: cerca de la mitad es rediseño sobre lo que ya existe y la otra mitad es backend nuevo. Cuatro decisiones del dueño cambian reglas escritas —la IA la pone y la cobra Pick, la Cuenta Pick cruza tiendas desde ya, un checkout para todas servido en el dominio de cada una, y la pasarela real sigue esperando credenciales— y quedan en ADR-143 con lo que no entra y por qué. La v3 anterior pasa a v4. De paso, el límite de productos por sección que pidió Treeshop                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | v3 Fase 0 |           0% |           100% |
 | 2026-10-07 | **v3 Fase 1: el shell del Admin en Pick UI** (ADR-144). Geist y la paleta del handoff, la página blanca con tarjetas de borde, el sidebar en grupos con contadores de pedidos por cobrar o preparar y de reseñas, la cuenta en la barra de arriba, la paleta de ⌘K que busca en el servidor, los estados con color desde un solo mapa y un aviso que se va solo. Contenido deja de ser un desplegable y el sidebar deja de plegarse; las migas pasan a ser «← volver». El smoke del Admin pasa en desktop y mobile                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | v3 Fase 1 |           0% |           100% |
+| 2026-10-08 | **v3 Fase 2: el Inicio** (ADR-145). Saludo, «Cómo vamos» con ventas, pedidos, ticket y conversión contra el período anterior —hoy contra ayer a la misma hora—, «Para hacer» ordenado por urgencia, últimos pedidos y lo más vendido. Una tienda sin pedidos ve sus pasos para empezar, leídos de sus datos. Dos funciones nuevas: `admin_store_tasks`, que también cuenta para el sidebar, y `admin_dashboard_series`, con las cubetas vacías y los tramos del ticket alrededor del propio ticket. De paso: los enlaces con forma de botón se veían como texto, y en mobile cambiar de tienda dejaba el menú abierto                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | v3 Fase 2 |           0% |             8% |
 
 ---
 

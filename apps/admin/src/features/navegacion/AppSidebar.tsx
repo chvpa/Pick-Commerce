@@ -1,6 +1,6 @@
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
-import { repositorioAdminCatalogo, repositorioAdminPedidos } from '@pick/adapter-supabase';
+import { repositorioDashboard } from '@pick/adapter-supabase';
 import type { TiendaResumen } from '@pick/commerce-core';
 import type { Permission } from '@pick/commerce-types';
 import {
@@ -186,6 +186,7 @@ function Cuadrado({ tienda, chico = false }: { tienda: TiendaResumen; chico?: bo
 
 function SelectorDeTienda() {
   const { tiendas, tienda, elegir } = useTienda();
+  const { setOpenMobile } = useSidebar();
   const avisar = useAvisar();
 
   if (!tienda) return null;
@@ -232,6 +233,9 @@ function SelectorDeTienda() {
               onClick={() => {
                 if (t.id === tienda.id) return;
                 elegir(t.id);
+                // En la hoja de mobile, igual que al navegar: se elige una tienda
+                // para ver su contenido, y la hoja abierta lo tapaba.
+                setOpenMobile(false);
                 avisar(`Estás trabajando en ${t.name}`);
               }}
               className="py-1.5"
@@ -255,28 +259,22 @@ function SelectorDeTienda() {
 /**
  * Los números al lado de Pedidos y de Reseñas: lo que espera a alguien.
  *
- * Las claves cuelgan de las de cada pantalla —`['pedidos', tienda]`,
- * `['resenas', tienda]`—, así que marcar un pedido como pagado o moderar una
- * reseña los refresca sin que nadie se acuerde de invalidarlos aparte. Un
- * contador que falla no se muestra: es una ayuda, no algo por lo que valga la
- * pena llenar el menú de errores.
+ * Salen de la misma consulta que el «Para hacer» del Inicio
+ * (`admin_store_tasks`), con la misma clave: el sidebar y el Inicio no pueden
+ * contar distinto lo mismo. Las pantallas que cobran, despachan o moderan
+ * invalidan `['tareas', tienda]`. Un contador que falla no se muestra: es una
+ * ayuda, no algo por lo que valga la pena llenar el menú de errores.
  */
 function useContadores(tienda: TiendaResumen | null): Record<'pedidos' | 'resenas', number> {
-  const pedidos = useQuery({
-    queryKey: ['pedidos', tienda?.id, 'pendientes'],
-    queryFn: () => repositorioAdminPedidos(db).pendientes(tienda!.id),
+  const tareas = useQuery({
+    queryKey: ['tareas', tienda?.id],
+    queryFn: () => repositorioDashboard(db).tareas(tienda!.id),
     enabled: tienda !== null,
-    staleTime: 60_000,
   });
-  const resenas = useQuery({
-    queryKey: ['resenas', tienda?.id, 'pendientes'],
-    queryFn: () => repositorioAdminCatalogo(db).resenas(tienda!.id, 'pending', 1, 1),
-    enabled: tienda !== null,
-    staleTime: 60_000,
-  });
+  const t = tareas.data;
   return {
-    pedidos: pedidos.data ? pedidos.data.porCobrar + pedidos.data.paraPreparar : 0,
-    resenas: resenas.data?.total ?? 0,
+    pedidos: t ? t.porCobrar.n + t.paraPreparar.n : 0,
+    resenas: t?.resenas.n ?? 0,
   };
 }
 

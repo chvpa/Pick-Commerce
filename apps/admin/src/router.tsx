@@ -33,7 +33,7 @@ import { pantalla } from '@/lib/pantalla';
  * `pantalla` es además donde se recarga la pestaña cuando un chunk quedó viejo.
  */
 
-const Dashboard = pantalla(() => import('@/features/dashboard/Dashboard'), 'Dashboard');
+const Inicio = pantalla(() => import('@/features/dashboard/Inicio'), 'Inicio');
 const Analytics = pantalla(() => import('@/features/analytics/Analytics'), 'Analytics');
 const ListaProductos = pantalla(
   () => import('@/features/productos/ListaProductos'),
@@ -246,7 +246,7 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: Dashboard,
+  component: Inicio,
 });
 
 const productosRoute = createRoute({

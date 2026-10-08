@@ -6,6 +6,10 @@ import {
   Analytics01Icon as Analytics,
   ArrowDataTransferHorizontalIcon as ArrowDataTransferHorizontal,
   ArrowLeft02Icon as ArrowLeft,
+  ArrowDownRight01Icon as ArrowDownRight,
+  ArrowRight02Icon as ArrowRight,
+  ArrowUpRight01Icon as ArrowUpRight,
+  Mail01Icon as Mail,
   ArrowTurnBackwardIcon as ArrowTurnBackward,
   CameraOff01Icon as CameraOff,
   CheckmarkCircle02Icon as CheckmarkCircle,
@@ -150,3 +154,9 @@ export const UserAddIcon = icono(UserAdd);
 export const UserCircleIcon = icono(UserCircle);
 export const UserGroupIcon = icono(UserGroup);
 export const UserMultipleIcon = icono(UserMultiple);
+export const ArrowRightIcon = icono(ArrowRight);
+export const MailIcon = icono(Mail);
+/** Subió contra el período anterior. */
+export const TrendUpIcon = icono(ArrowUpRight);
+/** Bajó contra el período anterior. */
+export const TrendDownIcon = icono(ArrowDownRight);

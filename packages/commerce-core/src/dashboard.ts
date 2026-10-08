@@ -41,6 +41,41 @@ export function rangoDePeriodo(periodo: Periodo, ahora: Date): { from: string; t
   return { from: desde.toISOString(), to: ahora.toISOString() };
 }
 
+/** Un día en milisegundos, para correr `hoy` a ayer. */
+const UN_DIA_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * El período con el que se compara: el inmediatamente anterior, del mismo largo.
+ *
+ * `hoy` se compara con **ayer a la misma hora**, no con las últimas horas de
+ * ayer: a las tres de la tarde, «hoy» es de la medianoche a las tres, y lo justo
+ * es contrastarlo con ayer de la medianoche a las tres. Los otros dos son
+ * ventanas móviles y se comparan con la ventana de antes.
+ */
+export function periodoAnterior(
+  periodo: Periodo,
+  rango: { readonly from: string; readonly to: string },
+): { from: string; to: string } {
+  const desde = new Date(rango.from).getTime();
+  const hasta = new Date(rango.to).getTime();
+  const corrimiento = periodo === 'hoy' ? UN_DIA_MS : hasta - desde;
+  return {
+    from: new Date(desde - corrimiento).toISOString(),
+    to: new Date(hasta - corrimiento).toISOString(),
+  };
+}
+
+/**
+ * Cuánto cambió un número contra el período anterior, en tanto por uno.
+ *
+ * `null` cuando antes fue cero: de cero a algo no es «+∞ %», es que antes no
+ * había nada con qué comparar, y la pantalla no muestra la flecha.
+ */
+export function variacion(actual: number, anterior: number): number | null {
+  if (anterior === 0) return null;
+  return (actual - anterior) / anterior;
+}
+
 export interface Dinero {
   readonly amount: number;
   readonly currency: string;
@@ -114,8 +149,78 @@ export interface PaginaDeRendimiento {
   readonly pageCount: number;
 }
 
+/**
+ * Lo que espera a la tienda: «Para hacer» del Inicio, el checklist de una
+ * tienda nueva y los contadores del sidebar, de una sola consulta.
+ */
+export interface TareasDeLaTienda {
+  /** El pago no entró y el pedido sigue vivo. `desde` es el más viejo. */
+  readonly porCobrar: { readonly n: number; readonly desde: string | null };
+  /** Cobrado y todavía sin salir de la tienda. */
+  readonly paraPreparar: { readonly n: number; readonly desde: string | null };
+  /** Avisos que no van a salir nunca (ADR-102), con el pedido del último. */
+  readonly avisosFallidos: {
+    readonly n: number;
+    readonly pedido: {
+      readonly id: string;
+      readonly number: number;
+      readonly customerName?: string;
+    } | null;
+  };
+  /** Publicados y sin foto. `ocultos` si la tienda no los muestra. */
+  readonly sinFoto: { readonly n: number; readonly ocultos: boolean };
+  readonly resenas: {
+    readonly n: number;
+    readonly ultima: { readonly producto: string; readonly rating: number } | null;
+  };
+  /** Lo que propuso la IA y espera que alguien lo mire. */
+  readonly propuestas: { readonly descripciones: number; readonly fotos: number };
+  /** Los pedidos de toda la vida de la tienda: decide si es nueva. */
+  readonly pedidos: number;
+  readonly alta: PasosDeAlta;
+}
+
+/** El checklist de una tienda nueva, leído de lo que la tienda ya hizo. */
+export interface PasosDeAlta {
+  readonly productos: boolean;
+  readonly pagos: boolean;
+  readonly envio: boolean;
+  readonly portada: boolean;
+  readonly equipo: boolean;
+}
+
+export interface PuntoDeSerie {
+  /** El comienzo de la hora o del día, en el huso de quien mira y sin offset. */
+  readonly desde: string;
+  readonly ventas: number;
+  readonly pedidos: number;
+}
+
+export interface SerieDelPeriodo {
+  /** Una cubeta por hora o por día, también las vacías. */
+  readonly puntos: readonly PuntoDeSerie[];
+  /**
+   * Los pedidos según cuánto gastaron, en tres tramos cortados alrededor del
+   * ticket del período: hasta la mitad, hasta el doble, y más. `null` si no
+   * hubo ventas.
+   */
+  readonly tramos: {
+    readonly hasta: readonly [number, number];
+    readonly pedidos: readonly [number, number, number];
+  } | null;
+}
+
 export interface RepositorioDashboard {
   resumen(storeId: string, from: string, to: string): Promise<ResumenDelPeriodo>;
+  /** `null` si la tienda no es de quien pregunta. */
+  tareas(storeId: string): Promise<TareasDeLaTienda | null>;
+  serie(
+    storeId: string,
+    from: string,
+    to: string,
+    zonaHoraria: string,
+    porHora: boolean,
+  ): Promise<SerieDelPeriodo>;
   /** Ventas por producto, o lo que no se movió. Pagina: ADR-024. */
   rendimiento(
     storeId: string,

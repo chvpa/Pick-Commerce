@@ -2567,6 +2567,16 @@ export type Database = {
         Args: { p_from: string; p_store_id: string; p_to: string }
         Returns: Json
       }
+      admin_dashboard_series: {
+        Args: {
+          p_from: string
+          p_hourly?: boolean
+          p_store_id: string
+          p_to: string
+          p_tz?: string
+        }
+        Returns: Json
+      }
       admin_inventory_aging: {
         Args: {
           p_bucket?: string
@@ -2673,6 +2683,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_store_tasks: { Args: { p_store_id: string }; Returns: Json }
       admin_team: { Args: { p_tenant: string }; Returns: Json }
       ai_credential_secret: { Args: { p_store_id: string }; Returns: Json }
       ai_credential_status: { Args: { p_store_id: string }; Returns: Json }

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
  * anillo azul de 3 px, el mismo que los campos: con un anillo gris el foco no
  * se distinguía del borde.
  */
-const buttonVariants = cva(
+const variantes = cva(
   "group/button inline-flex shrink-0 cursor-pointer items-center justify-center rounded-[9px] border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-focus-tint disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-danger aria-invalid:ring-3 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
@@ -44,16 +44,28 @@ const buttonVariants = cva(
   },
 );
 
+/**
+ * Las clases de un botón, ya resueltas.
+ *
+ * Pasan por `cn` porque se usan sueltas sobre enlaces —`<Link className={…}>`—
+ * y no sólo dentro de `Button`: sin resolver, la base deja `border-transparent`
+ * junto al `border-input` de la variante, y en un enlace ganaba el transparente.
+ * «Configurar» o «Importar productos» se veían como texto plano.
+ */
+function buttonVariants(props?: Parameters<typeof variantes>[0]): string {
+  return cn(variantes(props));
+}
+
 function Button({
   className,
   variant = 'default',
   size = 'default',
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props & VariantProps<typeof variantes>) {
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={buttonVariants({ variant, size, className })}
       {...props}
     />
   );

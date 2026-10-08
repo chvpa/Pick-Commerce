@@ -62,6 +62,7 @@ export function Resenas() {
     onSuccess: async () => {
       setMarcadas([]);
       await cliente.invalidateQueries({ queryKey: ['resenas', tienda.id] });
+      void cliente.invalidateQueries({ queryKey: ['tareas', tienda.id] });
     },
   });
 

@@ -1,9 +1,7 @@
-import { ESTADOS_PARA_PREPARAR } from '@pick/commerce-core';
 import type {
   AvisoDelPedido,
   PaginaPedidos,
   PedidoConTimeline,
-  PedidosPendientes,
   RepositorioAdminPedidos,
 } from '@pick/commerce-core';
 import type { Order, OrderEvent } from '@pick/commerce-types';
@@ -102,26 +100,6 @@ export function repositorioAdminPedidos(db: PickSupabaseClient): RepositorioAdmi
 
       if (error) throw new Error(`No se pudo cambiar el estado de pago: ${error.message}`);
       return data as unknown as Order;
-    },
-
-    async pendientes(storeId): Promise<PedidosPendientes> {
-      /*
-       * Dos conteos sobre la tabla y no una función: RLS ya acota a la
-       * organización, y `head: true` no trae filas, sólo el número. Los dos
-       * entran por el índice `(store_id, created_at)`.
-       */
-      const contar = () =>
-        db.from('orders').select('id', { count: 'exact', head: true }).eq('store_id', storeId);
-      const [cobrar, preparar] = await Promise.all([
-        contar().neq('payment_status', 'paid').neq('status', 'cancelled'),
-        contar()
-          .eq('payment_status', 'paid')
-          .in('status', [...ESTADOS_PARA_PREPARAR]),
-      ]);
-
-      const error = cobrar.error ?? preparar.error;
-      if (error) throw new Error(`No se pudieron contar los pedidos: ${error.message}`);
-      return { porCobrar: cobrar.count ?? 0, paraPreparar: preparar.count ?? 0 };
     },
   };
 }

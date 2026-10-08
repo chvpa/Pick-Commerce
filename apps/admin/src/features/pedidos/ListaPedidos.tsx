@@ -102,6 +102,8 @@ export function ListaPedidos() {
     // El cambio pudo encolar un correo —confirmado, enviado, entregado— y el
     // storefront es quien lo manda.
     avisarStorefront(tienda.domain);
+    // Las tareas cuentan lo que falta cobrar y preparar: el sidebar y el Inicio.
+    void cliente.invalidateQueries({ queryKey: ['tareas', tienda.id] });
     return cliente.invalidateQueries({ queryKey: ['pedidos', tienda.id] });
   };
 
