@@ -14,6 +14,7 @@ import {
   CameraOff01Icon as CameraOff,
   CancelCircleIcon as CancelCircle,
   Download04Icon as Download,
+  File01Icon as File01,
   CheckmarkCircle02Icon as CheckmarkCircle,
   DiscountTag01Icon as DiscountTag,
   GiftIcon as Gift,
@@ -165,6 +166,7 @@ export const SearchIcon = icono(Search);
 export const SwitchIcon = icono(ArrowDataTransferHorizontal);
 export const TagIcon = icono(Tag);
 export const UploadIcon = icono(Upload);
+export const FileIcon = icono(File01);
 export const UserAddIcon = icono(UserAdd);
 export const UserCircleIcon = icono(UserCircle);
 export const UserGroupIcon = icono(UserGroup);

@@ -7685,3 +7685,70 @@ aplica un rango al revés —«Aplicar» deshabilitado, con el motivo— y despu
 válido, que pasa a ser lo que dice el botón. El de la tubería de eventos sigue
 pasando con la pantalla nueva: las métricas, el embudo y el término sin
 resultados.
+
+## ADR-154 — Importar y Cargar con la cámara por pasos, y una errata que ya no borra una variante
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+El handoff (ADR-143) divide Importar en tres pasos —subir la planilla, revisarla
+fila por fila y el resultado— y Cargar con la cámara en cuatro —fotos, fondo,
+datos y listo—, con la cantidad de cada talle, las marcas de lo que propuso la
+IA y «Guardar borrador» al lado de «Publicar».
+
+**Lo que apareció: una errata borraba una variante**
+`admin_save_product` borra las variantes que no vienen en lo que se guarda: para
+un producto que ya existe, el archivo manda. Y `prepararImport` descartaba una
+fila inválida pero mandaba igual su producto con las filas buenas. Juntas, una
+errata en el precio de un talle de un producto existente borraba esa variante,
+con su stock —`inventory_levels` cae en cascada— y su vínculo con los pedidos
+que la vendieron, que pasa a nulo. La pantalla lo anunciaba como «una fila
+rechazada».
+
+Se arregló en `prepararImport`, que es por donde pasa todo import: un producto
+con una fila rechazada no entra entero, y cada una de sus filas buenas dice qué
+línea lo frenó. Es la misma atomicidad por producto que ya tenía
+`import_products`. La columna `variante`, que cada fila exige, pasó a la lista de
+obligatorias del encabezado: un archivo sin ella se rechaza de una vez, nombrando
+la columna, y no con un error por fila.
+
+**La revisión fila por fila**
+Cada fila con lo que dice el archivo —el precio sin formatear, para que una
+errata se vea como está— y qué va a pasar: nuevo, se actualiza, o por qué no
+entra. Pagina de a 50 y se puede filtrar a las que tienen errores: un archivo
+puede traer miles. El reporte descargable junta las filas que no entraron y lo
+que respondió la base por cada producto.
+
+**Lo que el handoff dice y no es así**
+
+- «Se actualizan por SKU»: se reconocen por el handle, que es como funcionó
+  siempre, y eso dice la pantalla.
+- «CSV o Excel»: sólo CSV. Leer Excel pide una dependencia nueva, y cualquier
+  planilla se guarda como CSV. Arrastrar otro archivo lo explica.
+- «Uso de IA: Gs.» al terminar el alta: no hay medición hasta la IA de Pick, así
+  que no se muestra.
+
+**El alta con la cámara**
+
+- El visor abre la cámara del sistema, la de atrás en el teléfono: no hay que
+  pedir permisos ni dibujar un video.
+- **Hasta seis fotos**, un tope que antes no había. Cada foto dispara una
+  limpieza de fondo, que es la operación más cara de la IA y la paga el
+  comercio. La ficha lee sólo las tres primeras: el adapter ya tenía ese tope.
+- **Cada talle con su cantidad**: llegan dos del 40 y tres del 41, y antes
+  entraba la misma cantidad en todos. `variantesDelAlta` recibe
+  `stockPorTalle`.
+- **«Guardar borrador» y «Publicar»** reemplazan al desplegable de estado.
+- Lo que propuso la IA lleva la marca «IA» mientras nadie lo cambie, que es lo
+  que el aviso pide revisar.
+- Lo que se lee de la etiqueta se sigue ofreciendo con «Usarlo», como manda
+  ADR-131: el precio impreso incluido. La IA no propone precios.
+
+**Consecuencias**
+`csv.test.ts` prueba que una errata deja afuera a su producto entero y que la
+revisión trae cada fila con su motivo; `alta.test.ts`, la cantidad por talle. Un
+e2e nuevo importa un archivo con una errata en la tienda del smoke y comprueba el
+producto que quedó. El de la cámara comprueba en la ficha guardada que cada
+talle tiene la cantidad que se cargó. El selector de período de Analytics y el
+filtro de la revisión comparten `Segmentado`.

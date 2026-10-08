@@ -18,11 +18,17 @@ export function Campo({
   label,
   error,
   ayuda,
+  marca,
   children,
   className,
 }: {
   id: string;
   label: string;
+  /**
+   * Algo chico al lado del rótulo —«IA» en lo que propuso la IA, «opcional»—.
+   * Va fuera del `<label>`: el nombre del campo sigue siendo sólo el rótulo.
+   */
+  marca?: ReactNode;
   error?: string;
   /** Qué se espera, cuando no es evidente. Va arriba del error, no en su lugar. */
   ayuda?: ReactNode;
@@ -31,7 +37,14 @@ export function Campo({
 }) {
   return (
     <div className={className ?? 'flex flex-col gap-1.5'}>
-      <Label htmlFor={id}>{label}</Label>
+      {marca ? (
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor={id}>{label}</Label>
+          {marca}
+        </div>
+      ) : (
+        <Label htmlFor={id}>{label}</Label>
+      )}
       {children}
       {ayuda && <span className="text-muted-foreground text-xs">{ayuda}</span>}
       {error && (

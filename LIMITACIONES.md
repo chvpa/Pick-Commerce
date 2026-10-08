@@ -134,6 +134,13 @@ filtra, a propósito, porque un enlace que ayer funcionaba no puede dar 404 porq
 se vendió la última unidad. Quien cargue un producto y no lo vea en su tienda,
 mire primero el stock y la foto.
 
+### El import lee CSV, no Excel
+
+Importar productos lee un CSV. Una planilla de Excel o de Google se guarda como
+CSV y entra igual; leer el formato de Excel pide una dependencia nueva, y no se
+agregó (ADR-154). Un producto con una sola fila mala no entra entero: se corrige
+la fila y se vuelve a subir el archivo.
+
 ### El stock del storefront es un espejo
 
 La navegación usa un espejo cacheado. Add to Cart y el checkout revalidan contra

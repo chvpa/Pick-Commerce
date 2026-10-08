@@ -35,6 +35,15 @@ export const COLUMNAS = [
 
 export type Fila = Record<(typeof COLUMNAS)[number], string>;
 
+/** Las columnas sin las que una fila no se puede leer. La pantalla las marca. */
+export const OBLIGATORIAS: readonly (typeof COLUMNAS)[number][] = [
+  'handle',
+  'titulo',
+  'sku',
+  'variante',
+  'precio',
+];
+
 /**
  * El archivo no lleva imágenes.
  *
@@ -134,9 +143,23 @@ export interface ErrorFila {
   readonly motivo: string;
 }
 
+/** Una fila del archivo como la ve la revisión: lo que dice y si entra. */
+export interface FilaRevisada {
+  readonly linea: number;
+  readonly handle: string;
+  readonly sku: string;
+  readonly titulo: string;
+  readonly precio: string;
+  readonly stock: string;
+  /** Por qué no entra. Sin motivo, la fila se importa. */
+  readonly motivo?: string;
+}
+
 export interface Preparado {
   readonly productos: readonly ProductoEditable[];
   readonly errores: readonly ErrorFila[];
+  /** Cada fila con contenido, en el orden del archivo. */
+  readonly filas: readonly FilaRevisada[];
   /** Cuántos productos se crearían y cuántos se actualizarían. */
   readonly nuevos: number;
   readonly existentes: number;
@@ -167,16 +190,19 @@ export function prepararImport(
   const errores: ErrorFila[] = [];
   const porHandle = new Map<
     string,
-    { producto: ProductoEditable; variantes: VarianteEditable[] }
+    { producto: ProductoEditable; variantes: VarianteEditable[]; lineas: number[] }
   >();
+
+  // Una fila totalmente vacía es el final del archivo, no un error.
+  const vacia = (cruda: Partial<Fila>) =>
+    Object.values(cruda).every((v) => (v ?? '').trim() === '');
 
   filas.forEach((cruda, i) => {
     // +2: la línea 1 es el encabezado y las planillas cuentan desde 1.
     const linea = i + 2;
     const handle = (cruda.handle ?? '').trim();
 
-    // Una fila totalmente vacía es el final del archivo, no un error.
-    if (Object.values(cruda).every((v) => (v ?? '').trim() === '')) return;
+    if (vacia(cruda)) return;
 
     const parseada = filaSchema.safeParse({
       handle: cruda.handle ?? '',
@@ -241,10 +267,12 @@ export function prepararImport(
         return;
       }
       existente.variantes.push(variante);
+      existente.lineas.push(linea);
       return;
     }
 
     porHandle.set(f.handle, {
+      lineas: [linea],
       producto: {
         handle: f.handle,
         title: f.titulo,
@@ -259,14 +287,59 @@ export function prepararImport(
     });
   });
 
+  /*
+   * Un producto con una fila rechazada no entra entero, ni siquiera con sus
+   * filas buenas. Para uno que ya existe el archivo manda: `admin_save_product`
+   * borra las variantes que no vienen, así que importar las buenas y saltear la
+   * mala borraba la variante de la fila mala por un error de tipeo (ADR-154).
+   */
+  const primeraMala = new Map<string, number>();
+  for (const e of errores) {
+    if (!primeraMala.has(e.handle)) primeraMala.set(e.handle, e.linea);
+  }
+  for (const [handle, mala] of primeraMala) {
+    const grupo = porHandle.get(handle);
+    if (!grupo) continue;
+    for (const linea of grupo.lineas) {
+      errores.push({
+        linea,
+        handle,
+        motivo: `no se importa: la línea ${mala} de este producto tiene errores`,
+      });
+    }
+    porHandle.delete(handle);
+  }
+  errores.sort((a, b) => a.linea - b.linea);
+
   const productos = [...porHandle.values()].map(({ producto, variantes }): ProductoEditable => ({
     ...producto,
     variants: variantes,
   }));
 
+  const motivos = new Map<number, string[]>();
+  for (const e of errores) motivos.set(e.linea, [...(motivos.get(e.linea) ?? []), e.motivo]);
+
+  const revisadas = filas.flatMap((cruda, i): FilaRevisada[] => {
+    if (vacia(cruda)) return [];
+    const linea = i + 2;
+    const motivo = motivos.get(linea);
+    return [
+      {
+        linea,
+        handle: (cruda.handle ?? '').trim(),
+        sku: (cruda.sku ?? '').trim(),
+        titulo: (cruda.titulo ?? '').trim(),
+        precio: (cruda.precio ?? '').trim(),
+        stock: (cruda.stock ?? '').trim(),
+        ...(motivo ? { motivo: motivo.join('; ') } : {}),
+      },
+    ];
+  });
+
   return {
     productos,
     errores,
+    filas: revisadas,
     nuevos: productos.filter((p) => !opciones.existentes.has(p.handle)).length,
     existentes: productos.filter((p) => opciones.existentes.has(p.handle)).length,
   };

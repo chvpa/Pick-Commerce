@@ -15,6 +15,7 @@ import {
   EstadoDeError,
   EstadoVacio,
   PaginaAdmin,
+  Segmentado,
   Tarjeta,
   TituloDeTarjeta,
 } from '@/components/pagina';
@@ -152,29 +153,16 @@ export function Analytics() {
       descripcion="Cuánta gente miró, qué buscó y dónde se fue."
       acciones={
         <div className="flex flex-wrap items-center gap-2">
-          <div
-            role="group"
-            aria-label="Período"
-            className="flex gap-0.5 rounded-[9px] bg-[#f1f2f5] p-[3px]"
-          >
-            {PERIODOS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                aria-pressed={periodo === p}
-                title={ETIQUETA_PERIODO[p]}
-                onClick={() => setPeriodo(p)}
-                className={cn(
-                  'h-[30px] cursor-pointer rounded-[7px] px-3 text-[13px] font-medium outline-none focus-visible:ring-3 focus-visible:ring-[#e4e9fc]',
-                  periodo === p
-                    ? 'text-foreground bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08)]'
-                    : 'text-ink-3 hover:text-foreground',
-                )}
-              >
-                {CORTO[p]}
-              </button>
-            ))}
-          </div>
+          <Segmentado
+            etiqueta="Período"
+            valor={periodo === 'propio' ? null : periodo}
+            onCambiar={setPeriodo}
+            opciones={PERIODOS.map((p) => ({
+              valor: p,
+              etiqueta: CORTO[p],
+              titulo: ETIQUETA_PERIODO[p],
+            }))}
+          />
           <Button
             variant="outline"
             aria-pressed={periodo === 'propio'}

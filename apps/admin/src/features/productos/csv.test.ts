@@ -94,10 +94,54 @@ test('un handle con mayúsculas o espacios se rechaza', () => {
   assert.match(r.errores[0]!.motivo, /minúsculas/);
 });
 
-test('un SKU repetido dentro del mismo producto se marca', () => {
+test('un SKU repetido dentro del mismo producto lo deja afuera entero', () => {
   const r = prepararImport([fila({}), fila({ variante: 'otra' })], OPCIONES);
-  assert.equal(r.productos[0]?.variants.length, 1);
-  assert.match(r.errores[0]!.motivo, /repetido/);
+  assert.equal(r.productos.length, 0);
+  assert.match(r.errores.find((e) => e.linea === 3)!.motivo, /repetido/);
+  assert.match(r.errores.find((e) => e.linea === 2)!.motivo, /línea 3/);
+});
+
+test('una fila mala deja afuera a su producto, no sólo a la fila', () => {
+  /*
+   * El producto ya existe, y para uno que existe el archivo manda: guardar las
+   * filas buenas borraría la variante de la mala. Una errata en un precio no
+   * puede costar una variante.
+   */
+  const r = prepararImport(
+    [
+      fila({ handle: 'ya-existe' }),
+      fila({ handle: 'ya-existe', sku: 'CAM-2', precio: 'gratis' }),
+      fila({ handle: 'otro', sku: 'OTR-1' }),
+    ],
+    OPCIONES,
+  );
+
+  assert.deepEqual(
+    r.productos.map((p) => p.handle),
+    ['otro'],
+  );
+  assert.equal(r.existentes, 0);
+  assert.deepEqual(
+    r.errores.map((e) => e.linea),
+    [2, 3],
+  );
+  assert.match(r.errores[0]!.motivo, /línea 3/);
+});
+
+test('la revisión trae cada fila con su motivo, en el orden del archivo', () => {
+  const r = prepararImport(
+    [fila({ handle: 'buena' }), {}, fila({ handle: 'mala', sku: 'M-1', precio: '' })],
+    OPCIONES,
+  );
+
+  assert.deepEqual(
+    r.filas.map((f) => [f.linea, f.handle, f.motivo === undefined]),
+    [
+      [2, 'buena', true],
+      [4, 'mala', false],
+    ],
+  );
+  assert.match(r.filas[1]!.motivo!, /precio/);
 });
 
 test('distingue lo que se crea de lo que se actualiza', () => {

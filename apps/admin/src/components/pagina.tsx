@@ -370,6 +370,50 @@ export function Pestanas<T extends string>({
 }
 
 /**
+ * Botones excluyentes en una cápsula: el período de Analytics, el filtro de una
+ * revisión. A diferencia de `Pestanas`, no van en la URL: cambian una vista que
+ * vive en la pantalla. `valor` nulo deja ninguno marcado —un rango propio no es
+ * ninguno de los períodos fijos—.
+ */
+export function Segmentado<T extends string>({
+  opciones,
+  valor,
+  onCambiar,
+  etiqueta,
+}: {
+  opciones: readonly { readonly valor: T; readonly etiqueta: string; readonly titulo?: string }[];
+  valor: T | null;
+  onCambiar: (valor: T) => void;
+  etiqueta: string;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={etiqueta}
+      className="flex w-fit gap-0.5 rounded-[9px] bg-[#f1f2f5] p-[3px]"
+    >
+      {opciones.map((o) => (
+        <button
+          key={o.valor}
+          type="button"
+          aria-pressed={valor === o.valor}
+          title={o.titulo}
+          onClick={() => onCambiar(o.valor)}
+          className={cn(
+            'focus-visible:ring-focus-tint h-[30px] cursor-pointer rounded-[7px] px-3 text-[13px] font-medium whitespace-nowrap outline-none focus-visible:ring-3',
+            valor === o.valor
+              ? 'text-foreground bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08)]'
+              : 'text-ink-3 hover:text-foreground',
+          )}
+        >
+          {o.etiqueta}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
  * El buscador de una lista, con su lupa adentro.
  *
  * La búsqueda va al servidor, así que quien lo usa espera a que se deje de

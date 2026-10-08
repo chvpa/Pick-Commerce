@@ -18,6 +18,11 @@ export interface DatosDeVariantes {
   readonly precio: number;
   readonly costo?: number;
   readonly stock?: number;
+  /**
+   * La cantidad de cada talle, cuando no es la misma para todos: llegan dos del
+   * 40 y tres del 41. Un talle que no figura acá lleva `stock`.
+   */
+  readonly stockPorTalle?: Readonly<Record<string, number>>;
   readonly barcode?: string;
 }
 
@@ -50,6 +55,10 @@ export function variantesDelAlta(datos: DatosDeVariantes): VarianteDelAlta[] {
   };
 
   const talles = [...new Set(datos.talles.map((t) => t.trim()).filter((t) => t !== ''))];
+  const delTalle = (talle: string) => {
+    const propio = datos.stockPorTalle?.[talle];
+    return propio === undefined ? comun : { ...comun, stock: propio };
+  };
 
   if (talles.length === 0) {
     return [
@@ -69,7 +78,7 @@ export function variantesDelAlta(datos: DatosDeVariantes): VarianteDelAlta[] {
         sku: skuSugerido(datos.sku, talles[0]),
         title: talles[0]!,
         ...(datos.barcode ? { barcode: datos.barcode } : {}),
-        ...comun,
+        ...delTalle(talles[0]!),
         atributos: { Talle: talles[0]! },
       },
     ];
@@ -78,7 +87,7 @@ export function variantesDelAlta(datos: DatosDeVariantes): VarianteDelAlta[] {
   return talles.map((talle) => ({
     sku: skuSugerido(datos.sku, talle),
     title: talle,
-    ...comun,
+    ...delTalle(talle),
     atributos: { Talle: talle },
   }));
 }

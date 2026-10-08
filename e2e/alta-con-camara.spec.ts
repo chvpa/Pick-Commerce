@@ -82,23 +82,26 @@ test('sin credencial de IA, el alta con la cámara igual carga el producto', asy
   await page.getByRole('button', { name: 'Continuar' }).click();
 
   // Paso 3: a mano, que es lo que queda cuando la IA no está.
-  await page.getByLabel('Nombre del producto').fill(NOMBRE);
+  await page.getByLabel('Título').fill(NOMBRE);
   await page.getByLabel('Agregar un talle').fill('M');
-  await page.getByRole('button', { name: 'Agregar', exact: true }).click();
+  await page.getByRole('button', { name: 'Agregar variante' }).click();
   await page.getByLabel('Agregar un talle').fill('L');
-  await page.getByRole('button', { name: 'Agregar', exact: true }).click();
+  await page.getByRole('button', { name: 'Agregar variante' }).click();
   await expect(page.getByText('2 variantes, una por talle.')).toBeVisible();
+  // Cada talle con su cantidad: llegaron tres M y una L.
+  await page.getByLabel('Cantidad de M').fill('3');
 
   await page.getByLabel('Precio').fill('250000');
-  await page.getByRole('button', { name: 'Guardar producto' }).click();
+  await page.getByRole('button', { name: 'Publicar' }).click();
 
-  await expect(page.getByText(`«${NOMBRE}» quedó cargado`)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Publicado en la tienda')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(`${NOMBRE} · 2 talles · 1 foto`)).toBeVisible();
 
   /*
    * Y se comprueba el artefacto: el producto está en el catálogo, con su foto y
    * con las dos variantes que se pidieron —no la intención de haberlas creado—.
    */
-  await page.getByRole('button', { name: 'Ir al listado' }).click();
+  await page.getByRole('link', { name: 'Ir al listado' }).click();
   await page.getByPlaceholder('Título, marca o SKU').fill(NOMBRE);
 
   const fila = page.getByRole('row').filter({ hasText: NOMBRE });
@@ -109,4 +112,7 @@ test('sin credencial de IA, el alta con la cámara igual carga el producto', asy
   // La ficha se titula con el producto, y con dos variantes las muestra en tabla.
   await expect(page.getByRole('heading', { name: NOMBRE })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('button', { name: /^Editar la variante/ })).toHaveCount(2);
+  // Y cada una con la cantidad que se cargó, no la misma para las dos.
+  await expect(page.getByLabel('Stock de la variante 1', { exact: true })).toHaveValue('3');
+  await expect(page.getByLabel('Stock de la variante 2', { exact: true })).toHaveValue('1');
 });

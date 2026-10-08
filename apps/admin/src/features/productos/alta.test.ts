@@ -60,3 +60,21 @@ test('el costo y el stock se omiten cuando no se cargaron', () => {
   assert.ok(!('costo' in variante!));
   assert.ok(!('stock' in variante!));
 });
+
+test('cada talle puede llevar su cantidad', () => {
+  const variantes = variantesDelAlta({
+    sku: 'ZP',
+    talles: ['40', '41', '42'],
+    precio: 1,
+    stock: 1,
+    stockPorTalle: { '40': 2, '41': 0 },
+  });
+  assert.deepEqual(
+    variantes.map((v) => [v.title, v.stock]),
+    [
+      ['40', 2],
+      ['41', 0],
+      ['42', 1],
+    ],
+  );
+});
