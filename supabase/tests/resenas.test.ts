@@ -289,3 +289,60 @@ test('la cola del Admin no le dice nada a un comprador', async () => {
   // `definer` con el filtro de membresía escrito a mano: un comprador no es staff.
   assert.equal(filas[0]!.j.total, 0);
 });
+
+test('el resumen cuenta por estado y promedia sólo lo publicado', async () => {
+  await limpiar();
+  const [ana, beto, caro] = [await fichaDe(ANA), await fichaDe(BETO), await fichaDe(CARO)];
+  const fila = (cliente: string, producto: string, rating: number, status: string) =>
+    // El pedido de Ana como prueba de todas: lo que se mira es la cuenta.
+    `('${ORG}', '${TIENDA}', '${producto}', '${cliente}', '${pedidos.get('ana')}', ${rating}, '${status}')`;
+  // Con la secret key: lo que se prueba es la cuenta, no quién puede escribir.
+  await comoServicio(
+    db,
+    `insert into product_reviews (tenant_id, store_id, product_id, customer_id, order_id, rating, status) values
+       ${fila(ana, PRODUCTO, 5, 'published')},
+       ${fila(beto, PRODUCTO, 3, 'published')},
+       ${fila(caro, PRODUCTO, 4, 'pending')},
+       ${fila(ana, OTRO_PRODUCTO, 1, 'rejected')},
+       ${fila(beto, OTRO_PRODUCTO, 5, 'published')}`,
+  );
+
+  type Resumen = {
+    pending: number;
+    published: number;
+    rejected: number;
+    promedio: number | null;
+    estrellas: number[];
+    puntosPorResena?: number | null;
+  };
+  const leer = async () =>
+    (
+      await como<{ j: { total: number; resumen: Resumen } }>(
+        db,
+        DUENO,
+        `select admin_product_reviews('${TIENDA}'::uuid, 'published') as j`,
+      )
+    )[0]!.j;
+
+  const r = await leer();
+  assert.equal(r.total, 3, 'la página es de la pestaña, el resumen de todas');
+  assert.equal(r.resumen.pending, 1);
+  assert.equal(r.resumen.published, 3);
+  assert.equal(r.resumen.rejected, 1);
+  // 5, 3 y 5: la pendiente de 4 y la rechazada de 1 no entran en la nota.
+  assert.equal(Number(r.resumen.promedio), 4.3);
+  assert.deepEqual(r.resumen.estrellas, [0, 0, 1, 0, 2]);
+  // Sin programa de puntos no se promete nada.
+  assert.equal(r.resumen.puntosPorResena ?? null, null);
+
+  await comoServicio(
+    db,
+    `insert into store_settings (tenant_id, store_id, settings)
+     values ('${ORG}', '${TIENDA}', '{"loyalty":{"enabled":true,"porResena":30}}')
+     on conflict (store_id) do update set settings = excluded.settings`,
+  );
+  assert.equal((await leer()).resumen.puntosPorResena, 30);
+
+  await comoServicio(db, `delete from store_settings where store_id = '${TIENDA}'`);
+  await limpiar();
+});

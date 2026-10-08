@@ -9,9 +9,11 @@ import {
 } from '@tanstack/react-router';
 import {
   BANDEJAS_DE_PEDIDOS,
+  ESTADOS_DE_RESENA,
   PESTANAS_DE_PRODUCTOS,
   SEGMENTOS_RFM,
   type BandejaDePedidos,
+  type EstadoDeResena,
   type PestanaDeProductos,
   type SegmentoRfm,
 } from '@pick/commerce-core';
@@ -302,6 +304,10 @@ const stockQuietoRoute = createRoute({
 const resenasRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/productos/resenas',
+  validateSearch: (busqueda: Record<string, unknown>): { tab?: EstadoDeResena } =>
+    ESTADOS_DE_RESENA.includes(busqueda.tab as EstadoDeResena)
+      ? { tab: busqueda.tab as EstadoDeResena }
+      : {},
   component: Resenas,
 });
 

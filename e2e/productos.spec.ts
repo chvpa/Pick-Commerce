@@ -94,3 +94,22 @@ test('la ficha edita las variantes en la fila y en su diálogo, y descartar vuel
 
   expect(problemas).toEqual([]);
 });
+
+test('las reseñas tienen su nota arriba y sus estados en pestañas', async ({ page }) => {
+  const problemas = vigilar(page);
+  await entrar(page);
+  await page.goto(`${ADMIN}/productos/resenas`);
+
+  // La nota de la tienda: un promedio, o que todavía no hay publicadas.
+  await expect(
+    page.getByText(/reseñas? publicadas?|Todavía no hay reseñas publicadas/),
+  ).toBeVisible({
+    timeout: 15_000,
+  });
+  const pestanas = page.getByRole('navigation', { name: 'Reseñas por estado' });
+  await expect(pestanas.getByRole('link')).toHaveCount(3);
+  await pestanas.getByRole('link', { name: /^Publicadas/ }).click();
+  await expect(page).toHaveURL(/tab=published/);
+
+  expect(problemas).toEqual([]);
+});

@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    12% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    13% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1826,7 +1826,7 @@ notificaciones, la ayuda y el uso de IA alrededor del avatar— llega con su fas
 
 ## Fase 2 — Las pantallas del Admin, sobre lo que ya existe
 
-**Avance: 50%**
+**Avance: 58%**
 
 Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
@@ -1857,7 +1857,10 @@ Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
       grupo, los siete segmentos RFM como pestañas, y la ficha con sus pedidos, su
       contacto y sus puntos con lo vencido descontado (ADR-150). «Recurrencia» salió
       del sidebar y queda a un clic desde la cabecera.
-- [ ] Reseñas y Fidelidad.
+- [x] Reseñas y Fidelidad: la nota de la tienda con su distribución por estrella,
+      los estados en pestañas y los puntos que paga una reseña; el programa con lo
+      entregado repartido en canjeado, vencido y sin canjear, los clientes con
+      puntos, las reglas y los premios en un diálogo (ADR-151).
 - [ ] Secciones: portada, estilo, columnas en el teléfono, vista previa y borrar
       con confirmación.
 - [ ] Analytics: un rango de fechas propio y las búsquedas sin resultado a la
@@ -2386,6 +2389,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-08 | **v3 Fase 2: Productos** (ADR-148). Pestañas con su conteo —todos, publicados, borradores, sin foto, stock quieto, archivados— definidas una vez en `app.producto_en_pestana` sobre señales contadas por join; «sin foto» y «stock quieto» pasan a ser bandas que llevan a sus pantallas, que salen del sidebar. Filtros por categoría con sus hijas, marca y stock, «se ven en la tienda» con la regla de `catalog_search` y un test que compara las dos cuentas, y el corte de página antes de armar las filas. La barra de lote de Pedidos pasa a ser compartida                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | v3 Fase 2 |          25% |            33% |
 | 2026-10-08 | **v3 Fase 2: la ficha del producto** (ADR-149). Dos columnas con el título del producto arriba y el interruptor de publicado; el SKU del modelo, el código interno y el de barras de cada variante —`admin_save_product` escribía sólo el de barras, y ahora los otros dos si vienen y si no son del ERP—; «Precio y stock» con una sola variante, tabla con «Para todas» y diálogo con varias; fotos en grilla y la vista de Google. De paso: siete pantallas compartían la clave de las categorías con dos funciones distintas, y la caché le daba a cada una la que hubiera cargado primero                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | v3 Fase 2 |          33% |            42% |
 | 2026-10-08 | **v3 Fase 2: Clientes** (ADR-150). La cabecera cuenta los nuevos por mes, cuántos volvieron y cuánto gasta cada grupo con las cohortes y los segmentos que ya existían —un test de la base falla si una regla RFM cambia de lado de la línea de una compra—; los siete segmentos son pestañas en la URL. La ficha del cliente muestra sus pedidos, su contacto y su saldo de puntos con `admin_customer_points`, que pasa el vencimiento antes de contar como `mis_puntos`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | v3 Fase 2 |          42% |            50% |
+| 2026-10-08 | **v3 Fase 2: Reseñas y Fidelidad** (ADR-151). Reseñas abre con la nota de lo publicado —promedio y distribución por estrella, sin contar lo pendiente ni lo rechazado— y separa los estados en pestañas con su conteo, desde la misma función que lista. Fidelidad reparte lo entregado en canjeado, vencido y sin canjear, y no traduce los puntos a plata aunque el handoff lo haga: no hay una razón entre los dos                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | v3 Fase 2 |          50% |            58% |
 
 ---
 

@@ -1,13 +1,27 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { repositorioConfiguracion, repositorioFidelidad } from '@pick/adapter-supabase';
+import {
+  repositorioAdminClientes,
+  repositorioConfiguracion,
+  repositorioFidelidad,
+} from '@pick/adapter-supabase';
 import {
   formatMoney,
+  resumenDeRecurrencia,
   tipoDeCambio,
   type Premio,
   type PremioParaGuardar,
 } from '@pick/commerce-core';
+import { GiftIcon, PlusIcon } from '@/components/iconos';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { DialogoDeConfirmacion } from '@/components/acciones';
@@ -55,7 +69,7 @@ function Campo({
 }
 
 /**
- * El programa de puntos (ADR-141).
+ * El programa de puntos, como lo dibuja el handoff (ADR-141, ADR-151).
  *
  * Tres cosas en una pantalla porque son tres partes de la misma decisión: **qué paga
  * el programa**, **cuánto debe** y **qué se puede canjear**. Separarlas obligaría a
@@ -64,6 +78,10 @@ function Campo({
  * Lo más importante que hace es la línea del tipo de cambio debajo del costo en
  * puntos. Sin ella, un premio a diez puntos se convierte en un descuento permanente
  * del 12 % sobre cada pedido y nadie lo nota hasta que aparece en el margen.
+ *
+ * Lo sin canjear no se traduce a plata, aunque el handoff lo haga: no hay una
+ * razón entre puntos y guaraníes —un premio puede ser un porcentaje—, y un número
+ * inventado acá sería el que el comercio usaría para decidir (ADR-141).
  */
 export function Fidelidad() {
   const tienda = useTiendaActiva();
@@ -82,6 +100,12 @@ export function Fidelidad() {
   const premios = useQuery({
     queryKey: ['premios', tienda.id],
     queryFn: () => repo.premios(tienda.id),
+  });
+
+  // Cuántos compraron, para decir «de cuántos»: la misma consulta que Clientes.
+  const segmentos = useQuery({
+    queryKey: ['segmentos', tienda.id, 'resumen'],
+    queryFn: () => repositorioAdminClientes(db).segmentos(tienda.id, { page: 1, perPage: 1 }),
   });
 
   const refrescar = async () => {
@@ -121,14 +145,16 @@ export function Fidelidad() {
   const datos = resumen.data;
   const reglas = datos?.reglas;
   const fallo = (guardarReglas.error ?? guardarPremio.error ?? archivar.error) as Error | null;
+  const compraron = segmentos.data ? resumenDeRecurrencia(segmentos.data.segments).clientes : null;
 
   const dinero = (minimas: number): string =>
     formatMoney({ amount: minimas, currency: tienda.currency }, tienda.locale);
+  const numero = (n: number) => n.toLocaleString(tienda.locale);
 
   return (
     <PaginaAdmin
       titulo="Fidelidad"
-      descripcion="Puntos por comprar y por reseñar, y qué se puede canjear con ellos. El libro es del comercio: cada movimiento queda registrado."
+      descripcion="Puntos por comprar y por reseñar, y qué se puede canjear con ellos."
     >
       {fallo && (
         <p className="text-destructive text-sm" role="alert">
@@ -150,89 +176,85 @@ export function Fidelidad() {
         </Tarjeta>
       ) : (
         <>
-          <Tarjeta sinRelleno>
-            <TituloDeTarjeta>El programa</TituloDeTarjeta>
-            <div className="flex flex-col gap-4 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium">
-                    {reglas.enabled ? 'Encendido' : 'Apagado'}
-                  </span>
-                  <span className="text-muted-foreground text-sm">
-                    {reglas.enabled
-                      ? 'Cada compra cobrada y cada reseña publicada suman puntos.'
-                      : 'Nadie gana puntos hasta que lo enciendas. Nada se emite por atrás.'}
-                  </span>
-                </div>
-                <Switch
-                  checked={reglas.enabled}
-                  disabled={!administra || guardarReglas.isPending}
-                  aria-label="Programa de puntos"
-                  onCheckedChange={(v) =>
-                    guardarReglas.mutate({
-                      enabled: v === true,
-                      porCompra: reglas.porCompra,
-                      porResena: reglas.porResena,
-                      diasDeVencimiento: reglas.diasDeVencimiento,
-                    })
-                  }
-                />
-              </div>
+          <Tarjeta className="flex flex-wrap items-center gap-4">
+            <span
+              aria-hidden="true"
+              className="flex size-10 shrink-0 items-center justify-center rounded-[11px] bg-[#f2eefe] text-[#5f37cf]"
+            >
+              <GiftIcon className="size-5" />
+            </span>
+            <div className="min-w-[220px] flex-1">
+              <p className="font-semibold">Programa de puntos</p>
+              <p className="text-ink-3 text-[13.5px]">
+                {reglas.enabled
+                  ? 'Encendido: cada compra cobrada y cada reseña publicada suman puntos.'
+                  : 'Apagado: nadie gana puntos hasta que lo enciendas. Nada se emite por atrás.'}
+              </p>
+            </div>
+            <Switch
+              checked={reglas.enabled}
+              disabled={!administra || guardarReglas.isPending}
+              aria-label="Programa de puntos"
+              onCheckedChange={(v) =>
+                guardarReglas.mutate({
+                  enabled: v === true,
+                  porCompra: reglas.porCompra,
+                  porResena: reglas.porResena,
+                  diasDeVencimiento: reglas.diasDeVencimiento,
+                })
+              }
+            />
+          </Tarjeta>
 
+          <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <Entregados
+              emitidos={datos.emitidos}
+              gastados={datos.gastados}
+              vencidos={datos.vencidos}
+              pasivo={datos.pasivo}
+              porCompras={datos.porCompras}
+              porResenas={datos.porResenas}
+            />
+            <Tarjeta className="flex items-center gap-4">
+              <Anillo proporcion={compraron ? datos.conPuntos / compraron : 0} />
+              <div className="flex flex-col">
+                <span className="text-ink-3 text-[13px] font-medium">Clientes con puntos</span>
+                <span className="text-[26px] leading-8 font-semibold tabular-nums">
+                  {numero(datos.conPuntos)}
+                </span>
+                {compraron !== null && (
+                  <span className="text-ink-3 text-[12.5px]">
+                    de {numero(compraron)} que compraron
+                  </span>
+                )}
+              </div>
+            </Tarjeta>
+          </div>
+
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+            <Tarjeta className="flex flex-col gap-4">
+              <h2 className="text-[15px] font-semibold">Cómo se ganan</h2>
               <ReglasDelPrograma
                 reglas={reglas}
                 editable={administra}
                 pendiente={guardarReglas.isPending}
                 onGuardar={(nuevas) => guardarReglas.mutate({ ...nuevas, enabled: reglas.enabled })}
               />
-            </div>
-          </Tarjeta>
+            </Tarjeta>
 
-          {/*
-            El pasivo aparte de lo emitido: es lo que el comercio va a tener que
-            entregar, y es el número que nadie mira hasta que duele.
-          */}
-          <div className="grid gap-4 sm:grid-cols-4">
-            <Numero titulo="Puntos emitidos" valor={datos.emitidos} />
-            <Numero titulo="Canjeados" valor={datos.gastados} />
-            <Numero
-              titulo="Pasivo abierto"
-              valor={datos.pasivo}
-              nota="Lo emitido y no gastado: lo que vas a tener que entregar"
-            />
-            <Numero titulo="Clientes con puntos" valor={datos.conPuntos} />
-          </div>
-
-          <p className="text-muted-foreground text-sm">
-            Por compras: <strong className="text-foreground">{datos.porCompras}</strong> · por
-            reseñas: <strong className="text-foreground">{datos.porResenas}</strong> · vencidos:{' '}
-            <strong className="text-foreground">{datos.vencidos}</strong>
-          </p>
-
-          <Tarjeta sinRelleno>
-            <TituloDeTarjeta
-              accion={
-                administra && !editando ? (
-                  <Button size="sm" onClick={() => setEditando(NUEVO)}>
-                    Nuevo premio
-                  </Button>
-                ) : undefined
-              }
-            >
-              Qué se puede canjear
-            </TituloDeTarjeta>
-
-            <div className="flex flex-col gap-4 p-4">
-              {editando && (
-                <FormularioDePremio
-                  premio={editando}
-                  porCompra={reglas.porCompra}
-                  moneda={tienda.currency}
-                  pendiente={guardarPremio.isPending}
-                  onCancelar={() => setEditando(null)}
-                  onGuardar={(p) => guardarPremio.mutate(p)}
-                />
-              )}
+            <Tarjeta sinRelleno>
+              <TituloDeTarjeta
+                accion={
+                  administra ? (
+                    <Button size="sm" variant="outline" onClick={() => setEditando(NUEVO)}>
+                      <PlusIcon />
+                      Nuevo premio
+                    </Button>
+                  ) : undefined
+                }
+              >
+                Qué se puede canjear
+              </TituloDeTarjeta>
 
               {premios.isPending ? (
                 <Esqueleto />
@@ -242,78 +264,111 @@ export function Fidelidad() {
                   emite un cupón de un solo uso.
                 </EstadoVacio>
               ) : (
-                <ul className="flex flex-col gap-3" aria-label="Premios">
+                <ul aria-label="Premios">
                   {(premios.data ?? []).map((premio) => (
                     <li
                       key={premio.id}
-                      className="border-border flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
+                      className="flex flex-wrap items-center gap-3 border-t border-[#f0f1f4] px-5 py-3.5"
                     >
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        <span className="font-medium">{premio.title}</span>
-                        <span className="text-muted-foreground text-xs">
-                          {premio.pointsCost} puntos ·{' '}
+                      <div className="flex min-w-[200px] flex-1 flex-col gap-0.5">
+                        <span className="flex items-center gap-2 font-medium">
+                          {premio.title}
+                          <Badge variant={premio.status === 'active' ? 'green' : 'gray'}>
+                            {premio.status === 'active'
+                              ? 'Activo'
+                              : premio.status === 'draft'
+                                ? 'Borrador'
+                                : 'Archivado'}
+                          </Badge>
+                        </span>
+                        <span className="text-ink-3 text-[12.5px]">
+                          {numero(premio.pointsCost)} puntos ·{' '}
                           {premio.discountType === 'percentage'
                             ? `${premio.discountValue / 100}% de descuento`
                             : `${dinero(premio.discountValue)} de descuento`}{' '}
                           · cupón por {premio.validDays} días
-                          {premio.maxRedemptions !== undefined
-                            ? ` · ${premio.redemptions} de ${premio.maxRedemptions} canjeados`
-                            : ` · ${premio.redemptions} canjeados`}
                         </span>
-                        <span className="text-muted-foreground text-xs">
+                        <span className="text-ink-faint text-[12px]">
                           {tipoDeCambio(reglas.porCompra, premio.pointsCost)}
                         </span>
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground text-xs">
-                          {premio.status === 'active'
-                            ? 'Activo'
-                            : premio.status === 'draft'
-                              ? 'Borrador'
-                              : 'Archivado'}
+                      <div className="flex w-32 flex-col items-end gap-1">
+                        <span className="text-[12.5px] tabular-nums">
+                          {premio.maxRedemptions !== undefined
+                            ? `${premio.redemptions} de ${premio.maxRedemptions} canjes`
+                            : `${premio.redemptions} ${premio.redemptions === 1 ? 'canje' : 'canjes'}`}
                         </span>
-                        {administra && premio.status !== 'archived' && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setEditando({
-                                  id: premio.id,
-                                  title: premio.title,
-                                  pointsCost: premio.pointsCost,
-                                  discountType: premio.discountType,
-                                  discountValue: premio.discountValue,
-                                  status: premio.status,
-                                  validDays: premio.validDays,
-                                  ...(premio.maxRedemptions === undefined
-                                    ? {}
-                                    : { maxRedemptions: premio.maxRedemptions }),
-                                  ...(premio.maxPerCustomer === undefined
-                                    ? {}
-                                    : { maxPerCustomer: premio.maxPerCustomer }),
-                                } as PremioParaGuardar)
-                              }
-                            >
-                              Editar
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setPorArchivar(premio)}
-                            >
-                              Archivar
-                            </Button>
-                          </>
+                        {premio.maxRedemptions !== undefined && (
+                          <span
+                            className="h-1.5 w-full rounded-full bg-[#eceef2]"
+                            aria-hidden="true"
+                          >
+                            <span
+                              className="block h-full rounded-full bg-[#3b5bdb]"
+                              style={{
+                                width: `${Math.min(1, premio.redemptions / Math.max(1, premio.maxRedemptions)) * 100}%`,
+                              }}
+                            />
+                          </span>
                         )}
                       </div>
+                      {administra && premio.status !== 'archived' && (
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setEditando({
+                                id: premio.id,
+                                title: premio.title,
+                                pointsCost: premio.pointsCost,
+                                discountType: premio.discountType,
+                                discountValue: premio.discountValue,
+                                status: premio.status,
+                                validDays: premio.validDays,
+                                ...(premio.maxRedemptions === undefined
+                                  ? {}
+                                  : { maxRedemptions: premio.maxRedemptions }),
+                                ...(premio.maxPerCustomer === undefined
+                                  ? {}
+                                  : { maxPerCustomer: premio.maxPerCustomer }),
+                              } as PremioParaGuardar)
+                            }
+                          >
+                            Editar
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setPorArchivar(premio)}>
+                            Archivar
+                          </Button>
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
               )}
-            </div>
-          </Tarjeta>
+            </Tarjeta>
+          </div>
+
+          <Dialog
+            open={editando !== null}
+            onOpenChange={(abierto) => !abierto && setEditando(null)}
+          >
+            {editando && (
+              <DialogContent className="max-w-[640px]">
+                <DialogHeader>
+                  <DialogTitle>{editando.id ? 'Editar premio' : 'Nuevo premio'}</DialogTitle>
+                </DialogHeader>
+                <FormularioDePremio
+                  premio={editando}
+                  porCompra={reglas.porCompra}
+                  moneda={tienda.currency}
+                  pendiente={guardarPremio.isPending}
+                  onCancelar={() => setEditando(null)}
+                  onGuardar={(p) => guardarPremio.mutate(p)}
+                />
+              </DialogContent>
+            )}
+          </Dialog>
         </>
       )}
 
@@ -330,15 +385,86 @@ export function Fidelidad() {
   );
 }
 
-function Numero({ titulo, valor, nota }: { titulo: string; valor: number; nota?: string }) {
+/**
+ * Lo entregado y a dónde fue: canjeado, vencido o todavía en manos de los
+ * clientes. Lo último es el pasivo, lo que el comercio va a tener que entregar, y
+ * es el número que nadie mira hasta que duele.
+ */
+function Entregados({
+  emitidos,
+  gastados,
+  vencidos,
+  pasivo,
+  porCompras,
+  porResenas,
+}: {
+  emitidos: number;
+  gastados: number;
+  vencidos: number;
+  pasivo: number;
+  porCompras: number;
+  porResenas: number;
+}) {
+  const tienda = useTiendaActiva();
+  const numero = (n: number) => n.toLocaleString(tienda.locale);
+  const parte = (n: number) => (emitidos > 0 ? (n / emitidos) * 100 : 0);
+  const tramos = [
+    { etiqueta: 'Ya canjeados', valor: gastados, color: '#3b5bdb' },
+    { etiqueta: 'Vencidos', valor: vencidos, color: '#a3aab8' },
+    {
+      etiqueta: 'Sin canjear todavía',
+      valor: pasivo,
+      color: '#c9d4f8',
+      nota: 'lo que vas a tener que entregar',
+    },
+  ];
   return (
-    <Tarjeta>
-      <div className="flex flex-col gap-1">
-        <span className="text-muted-foreground text-sm">{titulo}</span>
-        <span className="text-2xl font-semibold tabular-nums">{valor}</span>
-        {nota && <span className="text-muted-foreground text-xs">{nota}</span>}
-      </div>
+    <Tarjeta className="flex flex-col gap-3">
+      <span className="text-ink-3 text-[13px] font-medium">Puntos entregados</span>
+      <span className="text-[26px] leading-8 font-semibold tabular-nums">{numero(emitidos)}</span>
+      <span className="flex h-2.5 overflow-hidden rounded-full bg-[#eceef2]" aria-hidden="true">
+        {tramos.map((t) => (
+          <span key={t.etiqueta} style={{ width: `${parte(t.valor)}%`, background: t.color }} />
+        ))}
+      </span>
+      <ul className="flex flex-col gap-1.5 text-[13px]">
+        {tramos.map((t) => (
+          <li key={t.etiqueta} className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="size-2 shrink-0 rounded-full"
+              style={{ background: t.color }}
+            />
+            <span className="text-ink-2">{t.etiqueta}</span>
+            <span className="ml-auto font-medium tabular-nums">{numero(t.valor)} puntos</span>
+            {t.nota && <span className="text-ink-3 hidden text-[12px] sm:inline">· {t.nota}</span>}
+          </li>
+        ))}
+      </ul>
+      <p className="text-ink-3 text-[12.5px]">
+        Por compras {numero(porCompras)} · por reseñas {numero(porResenas)}
+      </p>
     </Tarjeta>
+  );
+}
+
+/** Un anillo con la proporción, sin librería: un gradiente cónico alcanza. */
+function Anillo({ proporcion }: { proporcion: number }) {
+  const tienda = useTiendaActiva();
+  const grados = Math.round(Math.min(1, Math.max(0, proporcion)) * 360);
+  return (
+    <span
+      className="relative flex size-16 shrink-0 items-center justify-center rounded-full"
+      style={{ background: `conic-gradient(#3b5bdb ${grados}deg, #eceef2 0deg)` }}
+    >
+      <span className="bg-card absolute inset-[7px] rounded-full" />
+      <span className="relative text-[13px] font-semibold tabular-nums">
+        {new Intl.NumberFormat(tienda.locale, {
+          style: 'percent',
+          maximumFractionDigits: 0,
+        }).format(Math.min(1, proporcion))}
+      </span>
+    </span>
   );
 }
 
@@ -371,7 +497,7 @@ function ReglasDelPrograma({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3">
         <Campo label="Puntos por compra" ayuda="Por pedido cobrado, no por monto">
           <Input
             inputMode="numeric"
@@ -456,8 +582,8 @@ function FormularioDePremio({
     (tipo !== 'percentage' || valorN <= 100);
 
   return (
-    <div className="border-border flex flex-col gap-4 rounded-lg border p-4">
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="flex flex-col">
+      <div className="grid gap-3 px-5 py-4 sm:grid-cols-2">
         <Campo label="Nombre del premio" ayuda="Es lo que ve quien lo canjea">
           <Input
             value={title}
@@ -514,9 +640,12 @@ function FormularioDePremio({
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <DialogFooter>
+        <Button variant="outline" onClick={onCancelar}>
+          Cancelar
+        </Button>
         <Button
-          size="sm"
+          className="ml-auto"
           disabled={!valido || pendiente}
           onClick={() =>
             onGuardar({
@@ -536,10 +665,7 @@ function FormularioDePremio({
         >
           {pendiente ? 'Guardando…' : 'Guardar premio'}
         </Button>
-        <Button variant="outline" size="sm" onClick={onCancelar}>
-          Cancelar
-        </Button>
-      </div>
+      </DialogFooter>
     </div>
   );
 }

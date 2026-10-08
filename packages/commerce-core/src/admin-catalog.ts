@@ -525,12 +525,16 @@ export const ETIQUETA_ESTADO: Readonly<Record<ProductStatus, string>> = {
 
 export type EstadoDeResena = 'pending' | 'published' | 'rejected';
 
+export const ESTADOS_DE_RESENA: readonly EstadoDeResena[] = ['pending', 'published', 'rejected'];
+
 /** Una reseña en la cola del Admin. El texto y la estrella son de sólo lectura. */
 export interface ResenaAdmin {
   readonly id: string;
   readonly productId: string;
   readonly producto: string;
   readonly handle: string;
+  /** La primera foto del producto, si tiene. */
+  readonly imagen?: string;
   readonly rating: number;
   readonly body: string | null;
   readonly status: EstadoDeResena;
@@ -547,4 +551,15 @@ export interface PaginaDeResenas {
   readonly pageCount: number;
   /** Cuántas esperan revisión en toda la tienda, no en esta página. */
   readonly pendientes: number;
+  /** De toda la tienda, no de la pestaña. */
+  readonly resumen: ResumenDeResenas;
+}
+
+export interface ResumenDeResenas extends Readonly<Record<EstadoDeResena, number>> {
+  /** El promedio de lo publicado, con un decimal. Nulo sin publicadas. */
+  readonly promedio: number | null;
+  /** Cuántas publicadas de cada estrella, de la 1 a la 5. */
+  readonly estrellas: readonly [number, number, number, number, number];
+  /** Lo que paga una reseña publicada, si el programa de puntos está encendido. */
+  readonly puntosPorResena?: number | null;
 }

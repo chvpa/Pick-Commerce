@@ -7548,3 +7548,44 @@ activo.
 La ficha del cliente lleva a sus pedidos con la página como contexto, así que
 desde un pedido se pasa al anterior y al siguiente de ese cliente (ADR-147). El
 e2e recorre la cabecera, un segmento en la URL y la ficha.
+
+## ADR-151 — Reseñas con su nota arriba, y Fidelidad sin traducir puntos a plata
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+Reseñas filtraba por estado con un desplegable, y Fidelidad era una tarjeta de
+reglas, cuatro números y la lista de premios con su formulario abierto en el
+lugar. El handoff (ADR-143) abre Reseñas con la nota de la tienda —el promedio y
+cuántas hay de cada estrella— y separa los estados en pestañas con su conteo; y
+ordena Fidelidad en el interruptor del programa, a dónde fueron los puntos
+entregados, cuántos clientes tienen, cómo se ganan y qué se puede canjear.
+
+**La nota es de lo publicado**
+El promedio y la distribución cuentan sólo las reseñas publicadas, que es lo que
+ve quien compra: una pendiente o una rechazada no es parte de la nota. Salen de la
+misma función que lista, en la misma vuelta —`admin_product_reviews` suma un
+`resumen` con el conteo por estado, sin cambiar de firma—, que además corta la
+página antes de armar las filas y trae la foto de cada producto. Cuántos puntos
+paga una reseña se dice sólo si el programa está encendido: prometer puntos de un
+programa apagado sería mentir. Cada fila dice «Compró y recibió» porque es
+siempre cierto: no se puede reseñar sin eso (ADR-140).
+
+**Lo sin canjear no se traduce a plata**
+El handoff dice que los puntos sin canjear «equivalen a Gs. 1,2 M en premios». No
+hay una razón entre puntos y guaraníes —un premio puede ser un porcentaje, y su
+valor depende de lo que se compre— y un número inventado acá sería justo el que el
+comercio usaría para decidir (ADR-141). Se muestra en puntos, y se lo nombra por
+lo que es: lo que el comercio va a tener que entregar. Lo entregado se reparte en
+tres —canjeado, vencido y sin canjear—, que suman lo emitido; con dos no cerraba.
+
+**Lo que se mantuvo**
+El tipo de cambio debajo del costo de cada premio, que es lo que evita regalar un
+descuento permanente sin darse cuenta. El formulario del premio pasa a un
+diálogo, con los mismos campos.
+
+**Consecuencias**
+`resenas.test.ts` prueba que la nota no cuenta lo pendiente ni lo rechazado y que
+los puntos se prometen sólo con el programa encendido. El e2e recorre las
+pestañas de reseñas; el de fidelidad, el de siempre, sigue pasando.
