@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    19% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    22% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1891,21 +1891,23 @@ Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
 ## Fase 3 — Auditoría
 
-**Avance: 0%**
+**Avance: 67%**
 
 El registro antifraude interno, que el handoff marca como pedido explícito.
 
-- [ ] Cada cambio en productos, variantes, stock, pedidos, promociones, ajustes y
+- [x] Cada cambio en productos, variantes, stock, pedidos, promociones, ajustes y
       equipo deja una fila con autor, rol, IP o dispositivo, campo, valor anterior y
-      valor nuevo, con la hora del servidor.
-- [ ] Append-only: nadie tiene `update` ni `delete`, comprobado al revés en la
+      valor nuevo, con la hora del servidor (ADR-158). Sólo lo que hace una
+      persona: el sistema tiene su propio rastro.
+- [x] Append-only: nadie tiene `update` ni `delete`, comprobado al revés en la
       suite.
-- [ ] Se guarda dos años, y lo purga sólo el sistema.
+- [x] Se guarda dos años, y lo purga sólo el sistema, con pg_cron.
 - [ ] La franja «Creado por · Modificado por» y su historial, en el pedido y en el
       producto.
 - [ ] Configuración › Registro de actividad: filtros, exportar, la marca de
       «sensible» y el aviso por correo de los cambios sensibles.
-- [ ] Medido lo que el registro le cuesta a `create_order`.
+- [x] Medido lo que el registro le cuesta a `create_order`: 3,24 ms por pedido
+      contra 3,21 sin él, dentro del ruido.
 
 ---
 
@@ -2418,6 +2420,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-08 | **v3 Fase 2: Configuración y Mi cuenta** (ADR-155). Cinco grupos con una dirección por sección; en el teléfono, la lista y cada sección en su pantalla. Mi cuenta es de cualquier rol: el nombre, la contraseña por el enlace del correo y dónde está abierta la cuenta, leído de `auth.sessions` sin sus secretos y con cada sesión cerrable. Y lo que apareció: «Salir» era `signOut()` sin argumentos, que cierra la cuenta en todos los dispositivos; ahora sale de uno, medido con dos navegadores                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | v3 Fase 2 |          83% |            85% |
 | 2026-10-08 | **v3 Fase 2: el aviso de pedido nuevo** (ADR-156). El primer correo que le llega al equipo y no a quien compró: uno por pedido, a cada persona que lo prendió en Mi cuenta, apagado para todos al desplegar. Va por la misma cola sin `order_id`, como el código de acceso, para que un aviso al equipo que falló no aparezca como un comprador sin aviso; y un pedido de demostración no le escribe a nadie                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v3 Fase 2 |          85% |            92% |
 | 2026-10-08 | **v3 Fase 2: el inicio de sesión** (ADR-157). Entrar, recuperar y la contraseña nueva como una pantalla en tres estados, con lo que se le pide a la contraseña marcado mientras se escribe. Sin las cifras de ejemplo del panel ni el soporte que no existe. Y el menú de la cuenta vuelve a mostrar el correo cuando hay un nombre: lo encontró el smoke                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | v3 Fase 2 |          92% |           100% |
+| 2026-10-08 | **v3 Fase 3: la captura** (ADR-158). Un trigger en las siete tablas donde un cambio cuesta plata o acceso: quién, con qué rol, desde qué IP y navegador, y cada campo con su antes y su después. Sólo lo que hace una persona; el checkout no paga nada por él, medido. Nadie lo edita ni lo borra, intentado con cada llave; se purga a los dos años con pg_cron, y lo lee sólo quien administra el equipo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | v3 Fase 3 |           0% |            67% |
 
 ---
 
@@ -2427,9 +2430,8 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 red de puntos de la Fase 9, condicionada a la cantidad de comercios y no a una
 fecha.
 
-**Lo que sigue es la Fase 3 de v3**: la auditoría —quién cambió qué, con el
-valor de antes y el de después—, que la Fase 2 dejó nombrada en el detalle del
-pedido y en la ficha. Las fases van en el orden del bloque v3.
+**Lo que sigue es lo que falta de la Fase 3 de v3**: la franja y el historial en
+el pedido y en el producto, y el registro de actividad en Configuración. Las fases van en el orden del bloque v3.
 
 En paralelo, lo que queda para poder vender está en
 [LIMITACIONES.md](LIMITACIONES.md), casi todo del lado del dueño:

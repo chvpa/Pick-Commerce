@@ -7918,3 +7918,71 @@ los dos. Lo encontró el smoke del Admin, que buscaba el correo en el menú.
 enlace, interceptado: un correo de recuperación por corrida a una dirección que
 no existe le bajaría la reputación al dominio que manda los correos de verdad.
 `contrasena.test.ts` prueba las reglas.
+
+## ADR-158 — El registro de actividad: lo que hace una persona, campo por campo, y que nadie lo reescribe
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+El handoff (ADR-143) pide un registro antifraude: quién cambió qué, con el valor
+de antes y el de después, su rol y desde dónde. `audit_log` existía desde la Fase
+3 de v1 con dos escritores a mano —la tasa de cambio y la credencial de IA
+(ADR-069)— y lo podía leer cualquier miembro.
+
+**Un trigger, no una línea en cada función**
+`app.auditar()` corre después de cada escritura en productos, variantes, stock,
+pedidos, promociones, ajustes y equipo. Escribirlo en cada función del Admin era
+garantizar que la próxima pantalla se olvidara; con el trigger, una escritura
+que no pasa por él no existe. Guarda el campo con su antes y su después —los
+ajustes, por sección: «cambió settings» no le dice nada a nadie—, el actor, su
+rol en la organización, la IP y el navegador que PostgREST deja en
+`request.headers`, y el sujeto: lo que una persona mira para entenderlo, el
+producto de una variante o de un stock. Un guardado que no cambió nada no se
+registra.
+
+Nunca guarda `access_token` —la llave del enlace del pedido (ADR-142)— ni
+`idempotency_key`: el registro se exporta.
+
+**Sólo lo que hace una persona**
+Lo que escribe el sistema —el checkout que descuenta stock, los importadores, la
+cola— entra con la secret key, sin `auth.uid()`, y ya tiene su rastro en
+`order_events` y en los logs de sincronización. Mezclarlo enterraría lo que este
+registro existe para mostrar. Por la misma razón, el trigger no le cuesta nada al
+checkout: sale en su primera línea. **Medido** en PGlite, 300 pedidos de tres
+líneas por tanda: 3,24 ms por pedido con el registro y 3,21 sin él, mediana de
+cinco tandas, dentro del ruido.
+
+**Lo sensible**
+Un pedido anulado o con el pago cambiado a mano, una promoción borrada, la cuenta
+de cobro, y quién entra, quién sale y con qué rol en el equipo. Lo encontró la
+primera prueba en producción: prender el propio aviso de pedido nuevo (ADR-156)
+salía marcado igual que darle a alguien el rol de propietario, y se corrigió en
+una migración aparte.
+
+**Append-only, comprobado al revés**
+Nadie de la API tiene `insert`, `update`, `delete` ni `truncate` —lo escriben
+funciones `definer`—, y un trigger rechaza editar, borrar o vaciar aunque alguien
+tenga el privilegio: el dueño de la tabla incluido. La suite lo intenta con cada
+llave y ve que falla. Pasan tres cosas y nada más: la purga, la organización que
+se borra entera, y el actor que queda en nulo cuando se borra su usuario, que es
+lo que hace la clave foránea.
+
+**Dos años**
+`app.purgar_auditoria()` borra lo de más de dos años, y pg_cron la corre el
+primero de cada mes (`create extension pg_cron with schema pg_catalog`, como
+indica la [documentación de Supabase](https://supabase.com/docs/guides/cron/install)).
+Va guardado: PGlite no tiene pg_cron.
+
+**Quién lo lee**
+Quien administra el equipo (`member.manage`). Antes cualquier miembro, y con el
+antes y el después adentro eso le mostraría al personal los datos de cobro que
+no puede leer en los ajustes. La historia de un pedido o de un producto, para
+quien trabaja con ellos, va por su propia función con la franja y el historial.
+
+**Consecuencias**
+`auditoria.test.ts` prueba lo que entra, lo que no, lo sensible, la llave del
+enlace que no queda, el append-only con cada llave, la purga y quién lee.
+Comprobado en producción con una escritura real por PostgREST: la fila tiene el
+rol, el cambio, la IP y el navegador. Las dos entradas explícitas de antes siguen
+—dicen qué acción fue— y conviven con la fila del trigger.

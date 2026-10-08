@@ -490,6 +490,10 @@ build` corría la demo y Treeshop a la vez: una de las dos moría con
   encuentra dos controles —el botón y el `<select>` oculto—: tres coincidencias
   donde se esperaba una. Cuando el texto de una etiqueta contiene el de otra, el
   localizador va por el `name` que pone react-hook-form.
+- **Una tabla nueva donde un cambio cuesta plata o acceso lleva el trigger
+  `auditar`** (ADR-158), o sus cambios no quedan en el registro de actividad y
+  nada falla. Y `audit_log` no se edita ni se borra: un test o un script que
+  limpie filas a mano recibe un error del trigger, no un permiso denegado.
 - Un importador que reimporta **pisa lo que la tienda editó** si no mira el
   dueño de cada campo: `field_sources` declara el origen y sólo los campos
   marcados como del ERP se sobreescriben. Y el borrado de medios se acota a los
@@ -504,7 +508,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..157 y tres decisiones pendientes:
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..158 y tres decisiones pendientes:
    P-001 (primer gateway real), P-005 (CLI/provisioner) y P-006 (cómo se le
    cobra la IA a un comercio). P-002, P-003 y P-004 están resueltas.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.

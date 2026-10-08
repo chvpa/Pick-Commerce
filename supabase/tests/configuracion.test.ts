@@ -62,6 +62,11 @@ async function settingsDe(tienda = TIENDA): Promise<Settings> {
   return r.rows[0]?.settings ?? {};
 }
 
+/**
+ * Las entradas que pide quien guarda (`p_audit`). Las que escribe solo el
+ * registro de actividad —`insert`, `update`, `delete`— son otra cosa y las prueba
+ * `auditoria.test.ts` (ADR-158).
+ */
 async function auditorias(): Promise<
   { action: string; entity: string; actor_id: string | null; tenant_id: string }[]
 > {
@@ -70,7 +75,10 @@ async function auditorias(): Promise<
     entity: string;
     actor_id: string | null;
     tenant_id: string;
-  }>(`select action, entity, actor_id, tenant_id from audit_log order by id`);
+  }>(
+    `select action, entity, actor_id, tenant_id from audit_log
+     where action not in ('insert', 'update', 'delete') order by id`,
+  );
   return r.rows;
 }
 
@@ -172,7 +180,7 @@ test('la auditoría registra al actor que la función resuelve, no al que el pay
   assert.equal(filas[0]!.tenant_id, TENANT);
 });
 
-test('sin auditoría no se registra nada', async () => {
+test('sin auditoría pedida no se registra una entrada explícita', async () => {
   const antes = (await auditorias()).length;
   await guardar(DUENO, { payments: { default: 'bank_transfer' } });
   assert.equal((await auditorias()).length, antes, 'registró una auditoría que nadie pidió');

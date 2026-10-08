@@ -230,32 +230,53 @@ export type Database = {
         Row: {
           action: string
           actor_id: string | null
+          actor_role: Database["public"]["Enums"]["member_role"] | null
+          changes: Json | null
           created_at: string
           entity: string
           entity_id: string | null
           id: number
+          ip: string | null
           metadata: Json
+          sensitive: boolean
+          store_id: string | null
+          subject_id: string | null
           tenant_id: string
+          user_agent: string | null
         }
         Insert: {
           action: string
           actor_id?: string | null
+          actor_role?: Database["public"]["Enums"]["member_role"] | null
+          changes?: Json | null
           created_at?: string
           entity: string
           entity_id?: string | null
           id?: never
+          ip?: string | null
           metadata?: Json
+          sensitive?: boolean
+          store_id?: string | null
+          subject_id?: string | null
           tenant_id: string
+          user_agent?: string | null
         }
         Update: {
           action?: string
           actor_id?: string | null
+          actor_role?: Database["public"]["Enums"]["member_role"] | null
+          changes?: Json | null
           created_at?: string
           entity?: string
           entity_id?: string | null
           id?: never
+          ip?: string | null
           metadata?: Json
+          sensitive?: boolean
+          store_id?: string | null
+          subject_id?: string | null
           tenant_id?: string
+          user_agent?: string | null
         }
         Relationships: [
           {
