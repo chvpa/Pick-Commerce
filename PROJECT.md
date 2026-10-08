@@ -104,7 +104,7 @@ anteriores lo dibujaban:
   `@pick/*` como dominio compartido. El único servidor propio es el Worker del
   Admin, que atiende `/api/*` y existe **sólo** donde hace falta un secreto que
   no puede estar en el navegador (ADR-103).
-- **No existe un servidor MCP.** Es v3 ([ROADMAP.md](ROADMAP.md)); las reglas
+- **No existe un servidor MCP.** Es v4 ([ROADMAP.md](ROADMAP.md), ADR-143); las reglas
   con que tendrá que operar están en §26 y se escribieron antes que él.
 
 ---
@@ -1136,7 +1136,7 @@ Modelo BYOK:
 ### MCP
 
 Se usará cuando el usuario opere Pick Commerce desde ChatGPT. El servidor MCP es
-v3 y no existe todavía ([ROADMAP.md](ROADMAP.md)); lo de abajo es el alcance
+v4 y no existe todavía ([ROADMAP.md](ROADMAP.md)); lo de abajo es el alcance
 previsto, y §26 sus reglas.
 
 Ejemplos:

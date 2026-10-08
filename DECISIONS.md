@@ -410,6 +410,7 @@ El ERP permite un sandbox o writes seguros.
 | P-003 | ~~Analytics store inicial~~            | **Resuelta:** Postgres detrás de un puerto `AnalyticsDestination` (ADR-099). Analytics Engine muestrea, y el DoD exige cruzar eventos con `orders` en una consulta |
 | P-004 | ~~Primera estrategia de reservations~~ | **Resuelta:** el ORDS de Estilo Sport no las tiene, así que validar → cobrar → empujar, sin prometer cero overselling (ADR-084, ADR-085)                           |
 | P-005 | CLI/provisioner exacto                 | Puede empezar manual y automatizarse luego                                                                                                                         |
+| P-006 | Cómo se le cobra la IA a un comercio   | La IA la pone Pick (ADR-143) y se mide por tienda, pero no hay planes ni facturas de Pick: falta decidir con qué se cobra                                          |
 
 ---
 
@@ -7043,3 +7044,82 @@ sólo probar números.
   hiciera falta, es un `update` a mano. Se hace cuando alguien lo pida.
 - Crear una cuenta con el mismo correo sigue siendo el camino completo: engancha los
   pedidos de invitada sin migrar nada, y ahí no hace falta el enlace.
+
+---
+
+## ADR-143 — El handoff de diseño se aplica como v3, y cuatro decisiones de producto cambian reglas escritas
+
+**Fecha:** 2026-10-07
+**Estado:** Accepted
+
+**Contexto**
+Llegó [`design_handoff_pick_commerce/`](design_handoff_pick_commerce/README.md):
+cinco prototipos HTML de alta fidelidad —Admin, Tienda, Checkout, Mi cuenta y Login
+comprador— con tokens, copys e interacciones que el propio README da por finales.
+Se relevaron pantalla por pantalla contra el código. Cerca de la mitad es rediseño
+sobre funciones que ya existen: pedidos, reseñas, fidelidad, secciones, la cámara,
+el import. La otra mitad es backend nuevo, y cuatro piezas contradicen reglas
+escritas en CLAUDE.md, PROJECT.md o este archivo.
+
+**Decisión**
+El handoff es la fuente de la UI de esas cinco superficies: Pick UI para el Admin,
+el Checkout y Mi cuenta; el tema de cada tienda para la Tienda y el Login. Los
+`.dc.html` **se recrean con los componentes del repo, no se importan**: son una
+exportación de la herramienta del diseñador, y por eso están fuera de ESLint y de
+Prettier. El plan es la v3 del [ROADMAP.md](ROADMAP.md). La v3 anterior pasa a v4,
+salvo Internal Commerce Tools y el Copilot del Admin, que absorbe el Asistente IA del
+handoff.
+
+**Las cuatro decisiones**, tomadas por el dueño del producto el 2026-10-07:
+
+1. **La IA la pone y la cobra Pick.** Reemplaza «sólo OpenAI, BYOK por tenant».
+   Hasta que la Fase 8 de v3 escriba su ADR, la regla escrita sigue vigente, y nada
+   en el código la contradice. El video que el handoff genera con un modelo de
+   Google es **otro proveedor**: queda afuera hasta un ADR propio, con su
+   documentación oficial a la vista. Cobrarle a un comercio no existe todavía —no
+   hay planes ni facturas de Pick—: se mide y se informa, y cómo se cobra queda en
+   P-006.
+2. **La Cuenta Pick cruza tiendas desde ya.** La Fase 9 de v2 la condicionaba a que
+   hubiera varios comercios; la cuenta se adelanta, la red de puntos no. Cada tienda
+   conserva sus puntos, como muestra el propio handoff. Es la primera excepción al
+   tenant scope, así que su ADR va antes de la primera línea, con dos reglas que
+   tienen que ser tests y no frases: consentimiento explícito al crearla, y **una
+   tienda no ve lo que su cliente compró en otra**.
+3. **El checkout es uno solo, servido en el dominio de cada tienda.** «Único» es el
+   código, no el dominio. Un checkout central habría obligado a pasar el carrito
+   entre dominios y a resolver dos veces la sesión del comprador, que vive en una
+   cookie del Worker de cada tienda (ADR-121). Es también como lo hace hoy Shopify.
+4. **El cobro con tarjeta sigue esperando una pasarela.** No hay credenciales de
+   prueba de Bancard, Pagopar ni uPay: se construyen el contrato para iframe, la UI
+   de «Conectar» y las credenciales cifradas por tienda, y se prueba con la
+   simulada. P-001 sigue abierta.
+
+**Lo que el handoff trae y no entra, con su motivo**
+
+- **Facturación y returns engine**: fuera del core, que es una restricción que no se
+  negocia. «Pedir un cambio» se construye como una solicitud que avisa a la tienda,
+  sin mover stock ni reintegrar; «Descargar factura» no se muestra hasta que exista
+  un facturador externo. El RUC y la razón social sí, porque ya se guardan.
+- **Conexiones de marketing** —Meta Ads, Google Ads, GA4, WhatsApp Business,
+  Google Sheets—: pasan a v4. Cada una pide una app aprobada por su proveedor. El
+  WhatsApp del handoff que sí entra es el enlace `wa.me`: el mensaje lo manda la
+  persona.
+- **AEX**: espera su API y sus credenciales. Un adapter escrito sin el contrato real
+  es exactamente lo que CLAUDE.md prohíbe.
+- **Excel en el import**: pide una dependencia nueva que nada más necesita. Sigue
+  CSV.
+- **«Promedio del rubro»** en Inicio: con una tienda no hay rubro, y cruzar datos de
+  comercios para calcularlo sería otra excepción al aislamiento.
+- **Roles**: el handoff dibuja dos, Propietario y Personal. La UI los muestra sobre
+  `owner` y `staff`; `admin` y `viewer` siguen en la base, sin altas nuevas.
+
+**Consecuencias**
+
+- Cinco ADRs quedan comprometidos, uno por fase que cambia una regla: la auditoría
+  (extiende ADR-069), las promociones de ocho tipos (revisa ADR-091, porque llegó el
+  primer «Buy X Get Y» real), el checkout compartido (extiende el contrato de pagos
+  de ADR-080), la Cuenta Pick y la IA de Pick (reemplaza lo que ADR-105 asume de
+  BYOK).
+- Los datos de ejemplo del handoff no son datos: 3.674 productos, 64 pedidos o
+  «Gs. 184.500 de Gs. 500.000» son dibujo. Ninguna pantalla se da por terminada
+  mostrando un número que no salga de la base.

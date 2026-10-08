@@ -112,6 +112,12 @@ Y **v2**, que agregó al comprador y al descubrimiento. Va entera salvo la Fase 
   comercios, no a una fecha**: con una tienda, un programa de red es un programa
   normal con maquinaria de más.
 
+Y **v3**, que recrea el handoff de diseño de
+[`design_handoff_pick_commerce/`](design_handoff_pick_commerce/README.md): el Admin
+en Pick UI, un checkout para todas las tiendas, la Cuenta Pick que cruza tiendas y
+la IA de Pick. Qué entra, qué no y por qué está en ADR-143. Los `.dc.html` se
+recrean con los componentes del repo, nunca se importan.
+
 El contenido de la demo lo siembra `pnpm seed` desde `scripts/seed-data.ts`, que es la
 única fuente: el mock in-memory ya no existe. Para entrar al Admin hace falta un usuario,
 que crea `pnpm admin:crear`.
@@ -134,6 +140,7 @@ apps/
   treeshop/          el primer cliente real, misma anatomía que demo; header, pie y
                      preset propios (ADR-110). Corre en 4322 en local
 supabase/            migraciones y pruebas de aislamiento entre tenants
+design_handoff_pick_commerce/  la referencia de diseño de v3 (ADR-143); no es código
 e2e/                 Playwright: el storefront de la demo (4321), el Admin y el
                      presupuesto de performance. `e2e/treeshop/` prueba la app
                      del cliente en el 4323, servida contra los datos de la
@@ -495,9 +502,9 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..142 y dos decisiones pendientes:
-   P-001 (primer gateway real) y P-005 (CLI/provisioner). P-002, P-003 y P-004
-   están resueltas.
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..143 y tres decisiones pendientes:
+   P-001 (primer gateway real), P-005 (CLI/provisioner) y P-006 (cómo se le
+   cobra la IA a un comercio). P-002, P-003 y P-004 están resueltas.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.
 5. [LIMITACIONES.md](LIMITACIONES.md) — qué **no** hace el sistema, con el motivo
    y qué lo desbloquea. Es lo que se le entrega a un piloto.

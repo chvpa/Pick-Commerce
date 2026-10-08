@@ -22,7 +22,17 @@ import { basename } from 'node:path';
 const fallas = [];
 const anotar = (documento, detalle) => fallas.push({ documento, detalle });
 
-const documentos = execFileSync('git', ['ls-files', '*.md'], { encoding: 'utf8' })
+/*
+ * El handoff de diseño queda afuera: es una referencia congelada, exportada por
+ * la herramienta del diseñador (ADR-143), no un documento que se mantenga. Su
+ * mapa de pantallas nombra archivos del Admin que v3 va a mover, y la compuerta
+ * le pediría a una foto que se actualice.
+ */
+const documentos = execFileSync(
+  'git',
+  ['ls-files', '--', '*.md', ':!:design_handoff_pick_commerce/**'],
+  { encoding: 'utf8' },
+)
   .split('\n')
   .filter(Boolean);
 

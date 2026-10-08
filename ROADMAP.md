@@ -22,7 +22,8 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | MCP, intelligence layer y expansión LATAM   |   TODO |     0% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |     2% |
+| v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
 
@@ -1706,6 +1707,11 @@ programa de red es un programa normal con maquinaria de más; el efecto empieza
 alrededor de los cinco o diez comercios con tráfico real. Se diseña ahora para
 no cerrarse puertas, y se construye cuando la red exista.
 
+**La cuenta se adelantó; la red de puntos no.** ADR-143 pasó la cuenta que cruza
+tiendas a la Fase 7 de v3, con sus dos reglas —la excepción al tenant scope y el
+consentimiento explícito—, que en esta lista quedan marcadas como movidas. Lo que
+sigue condicionado acá es que los puntos de una tienda sirvan en otra.
+
 Objetivo: que comprar en una tienda de la red sirva en todas. Es lo único que
 puede dar un efecto de red —cada comercio nuevo hace el programa más valioso
 para el comprador, y eso lo hace más valioso para el comercio siguiente— y es un
@@ -1725,13 +1731,13 @@ cuenta y puntos para gastar.
       comercio que fija su tabla sabe contra qué juega.
 - [ ] **Adhesión opt-in por comercio.** Ninguno entra por defecto: quien no se
       adhiere no honra puntos y no aparece en la red.
-- [ ] **La primera excepción al tenant scope del sistema**, y por eso necesita su
+- [ ] _Pasó a la Fase 7 de v3._ **La primera excepción al tenant scope del sistema**, y por eso necesita su
       ADR antes de una línea de código: la cuenta y el ledger son datos que
       ninguna tienda posee, mientras que todo lo demás del esquema lleva
       `tenant_id` y su política. Con una regla que hay que hacer cumplir y no
       sólo escribir: **un comercio no ve que su cliente compró en otro**. «Mi
       cuenta» muestra los pedidos de las tiendas donde el comprador aceptó.
-- [ ] **Consentimiento explícito en el alta**, no el interruptor de la Fase 2:
+- [ ] _Pasó a la Fase 7 de v3._ **Consentimiento explícito en el alta**, no el interruptor de la Fase 2:
       compartir historial entre comercios independientes es otra categoría, y se
       pide con palabras claras en el momento de crear la cuenta.
 - [ ] **Se descartó el catálogo de tiendas asociadas.** Mostrarle a alguien que
@@ -1752,25 +1758,250 @@ cuenta y puntos para gastar.
 
 ---
 
-# v3 — Intelligence Layer y MCP
+# v3 — Pick UI, la Cuenta Pick y la IA de Pick
 
-## Fase 0 — Internal Commerce Tools
+Sale del handoff de diseño del 2026-10-07
+([`design_handoff_pick_commerce/`](design_handoff_pick_commerce/README.md)), y el
+porqué del orden y de lo que queda afuera está en ADR-143. Cerca de la mitad es
+rediseño sobre lo que ya existe; la otra mitad es backend nuevo, y cuatro
+decisiones de producto cambian reglas escritas: la IA la pone y la cobra Pick, la
+cuenta del comprador cruza tiendas desde ya, el checkout es uno solo servido en el
+dominio de cada tienda, y el cobro con tarjeta sigue esperando una pasarela
+(P-001).
 
-**Avance: 0%**
+**Cómo se trabaja.** De a una fase y, dentro de cada una, de a una pantalla, con el
+prototipo abierto al lado. Los `.dc.html` se recrean con los componentes del repo:
+no se importan, y sus números son dibujo.
 
-Objetivo: exponer servicios de dominio como tools reutilizables.
+**El orden sale de dependencias, no de gusto.** La UI del Admin va primero porque
+no toca datos. La auditoría va antes de que exista un asistente que escriba,
+porque cada acción de la IA tiene que caer en el registro. Las promociones nuevas
+van antes del checkout, que muestra el regalo y la barra del envío gratis. El
+checkout va antes de la Cuenta Pick, que se apoya en él. Y la IA de Pick va antes
+de todo lo que gasta IA: la búsqueda por foto y los dos asistentes.
 
-- [ ] read tools.
-- [ ] write-low-risk tools.
-- [ ] write-sensitive actions.
-- [ ] policy enforcement.
-- [ ] audit logs.
-- [ ] plans/previews.
-- [ ] confirm/execute flow.
+**Fuera de v3, con su motivo en ADR-143:** la facturación y el returns engine
+—«Pedir un cambio» es una solicitud y «Descargar factura» no se muestra—, las
+conexiones de marketing, que pasan a v4, AEX hasta tener su API, Excel en el
+import, el «promedio del rubro» y el video generado.
+
+## Fase 0 — Preparar
+
+**Avance: 100%**
+
+- [x] Lo pendiente, commiteado: el límite de productos por sección y la regla de
+      lint que hablaba de un compilador que no corre.
+- [x] El handoff, versionado como referencia: fuera de ESLint y de Prettier, y sin
+      el correo del dueño, porque el repo es público.
+- [x] ADR-143 y este bloque.
 
 ---
 
-## Fase 1 — MCP Server
+## Fase 1 — Pick UI y el shell del Admin
+
+**Avance: 0%**
+
+- [ ] Los tokens del handoff: Geist, la tinta, el acento azul, superficies, radios
+      y sombras.
+- [ ] Los componentes base a sus medidas: botón, input, pill de estado en seis
+      tonos, toggle, modal y toast.
+- [ ] El sidebar de 244 px en seis grupos, con el selector de tienda y su dominio,
+      y drawer por debajo de 900 px.
+- [ ] La paleta de comandos con ⌘K.
+- [ ] Los roles como los dibuja el handoff: Propietario y Personal. Con Personal se
+      ocultan el Asistente y Configuración, salvo Mi cuenta.
+
+---
+
+## Fase 2 — Las pantallas del Admin, sobre lo que ya existe
+
+**Avance: 0%**
+
+Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
+
+- [ ] Inicio: los números del período, «Para hacer» ordenado por urgencia —avisos
+      que no salieron, pagos por confirmar, pedidos para preparar, productos sin
+      foto, reseñas, propuestas de IA— y el checklist de una tienda nueva, derivado
+      de los datos.
+- [ ] Pedidos: pestañas por estado con su conteo, filtros, selección y acciones en
+      lote, y exportar.
+- [ ] Detalle de pedido: una sola próxima acción según el estado, el historial
+      colapsado y WhatsApp por `wa.me`.
+- [ ] Productos: pestañas con conteo, con «sin foto» y «stock quieto» como bandas
+      de la misma lista.
+- [ ] Editar producto: el layout nuevo, SKU por producto, código interno y de
+      barras por variante —las columnas existen—, variantes en un popup y la vista
+      de Google.
+- [ ] Clientes y Cliente: los nuevos por mes, los segmentos RFM como pestañas y la
+      ficha con sus puntos.
+- [ ] Reseñas y Fidelidad.
+- [ ] Secciones: portada, estilo, columnas en el teléfono, vista previa y borrar
+      con confirmación.
+- [ ] Analytics: un rango de fechas propio y las búsquedas sin resultado a la
+      vista.
+- [ ] Importar y Cargar con la cámara.
+- [ ] Configuración en cinco grupos, Mi cuenta —perfil, contraseña, sesiones
+      abiertas, avisos— y Equipo.
+- [ ] El inicio de sesión del Admin.
+
+---
+
+## Fase 3 — Auditoría
+
+**Avance: 0%**
+
+El registro antifraude interno, que el handoff marca como pedido explícito.
+
+- [ ] Cada cambio en productos, variantes, stock, pedidos, promociones, ajustes y
+      equipo deja una fila con autor, rol, IP o dispositivo, campo, valor anterior y
+      valor nuevo, con la hora del servidor.
+- [ ] Append-only: nadie tiene `update` ni `delete`, comprobado al revés en la
+      suite.
+- [ ] Se guarda dos años, y lo purga sólo el sistema.
+- [ ] La franja «Creado por · Modificado por» y su historial, en el pedido y en el
+      producto.
+- [ ] Configuración › Registro de actividad: filtros, exportar, la marca de
+      «sensible» y el aviso por correo de los cambios sensibles.
+- [ ] Medido lo que el registro le cuesta a `create_order`.
+
+---
+
+## Fase 4 — Características y modelos
+
+**Avance: 0%**
+
+- [ ] Características: el ABM de `attribute_definitions`, con tipo, opciones, «para
+      variantes» y «obligatoria».
+- [ ] Modelos sobre `product_groups`: productos distintos que son el mismo artículo
+      en otro color o material, con su pantalla y su vínculo en la ficha.
+- [ ] La PDP muestra el modelo como swatches. Es lo que resuelve la fila del backlog
+      del ERP que modela cada color como un producto.
+- [ ] Opcional, al final: número de serie por unidad.
+
+---
+
+## Fase 5 — Promociones de ocho tipos
+
+**Avance: 0%**
+
+Revisa ADR-091: llegó el primer «Buy X Get Y» real.
+
+- [ ] NxM, segunda unidad, por cantidad, escalonado por monto, regalo, bundle desde
+      colecciones y envío gratis por zona: primero en el core, que es la
+      especificación, y después en `cart_promotions` y `create_order`, con la
+      paridad probada.
+- [ ] El regalo es una línea a precio cero que descuenta stock; si se agota, la
+      promoción se pausa.
+- [ ] Las validaciones del formulario: un bundle con dos productos o más, pagar
+      menos unidades de las que se llevan, escalones crecientes, al menos una zona.
+- [ ] El carrito muestra lo que se aplicó, el regalo y lo que falta para el envío
+      gratis.
+
+---
+
+## Fase 6 — Un checkout para todas las tiendas
+
+**Avance: 0%**
+
+Un solo código, servido en el dominio de cada tienda, con su logo y su color.
+
+- [ ] Tres pasos que validan antes de avanzar y quedan colapsados en una línea.
+- [ ] Una sesión de checkout en el servidor, que guarda el contacto desde el
+      primer paso.
+- [ ] Retiro en sucursal, métodos de envío con su tiempo estimado, aviso por
+      WhatsApp e IVA incluido.
+- [ ] El pago dentro de la pantalla segura del proveedor —iframe—, además de la
+      redirección; un rechazo se reintenta sin perder el pedido.
+- [ ] Medios de pago con «Conectar»: credenciales por tienda, cifradas. Se prueba
+      con la simulada; la real es P-001.
+- [ ] Recuperar los carritos abandonados, por correo o por WhatsApp.
+
+---
+
+## Fase 7 — La Cuenta Pick
+
+**Avance: 0%**
+
+La primera excepción al tenant scope, adelantada de la Fase 9 de v2 por ADR-143.
+Su propio ADR va antes de la primera línea.
+
+- [ ] Una cuenta por persona para todas las tiendas: perfil, direcciones y avisos
+      sin `tenant_id`, con consentimiento explícito al crearla.
+- [ ] Mi cuenta junta los pedidos, los puntos y los favoritos de todas las tiendas,
+      cada uno con la suya.
+- [ ] **Una tienda no ve lo que su cliente compró en otra**, con test.
+- [ ] Las preferencias a la vista, con de dónde sale cada una y «Quitar».
+- [ ] Sesiones abiertas y eliminar la cuenta.
+- [ ] Entrar con Google, además del código por correo.
+- [ ] «Pedir un cambio» como una solicitud a la tienda.
+
+---
+
+## Fase 8 — La IA de Pick
+
+**Avance: 0%**
+
+Reemplaza el BYOK; su ADR corrige CLAUDE.md y PROJECT.md.
+
+- [ ] La clave es de Pick y vive en los Workers: ninguna tienda carga la suya.
+- [ ] Cada uso se mide por tienda y por operación, en guaraníes.
+- [ ] El tope mensual se controla antes de cada llamada, con aviso al 80 %.
+- [ ] Configuración › Inteligencia artificial, y Uso y facturación.
+- [ ] Todo lo que ya usaba IA —enriquecer, descripciones, fondos, la cámara, el
+      resumen, la búsqueda semántica— pasa a la clave de Pick.
+
+---
+
+## Fase 9 — La tienda
+
+**Avance: 0%**
+
+- [ ] El header de dos filas con el buscador grande, y el menú desplegable con
+      tipos, públicos y marcas contados, más un destacado.
+- [ ] El buscador dice qué entendió y qué corrigió, y cero resultados ofrece la
+      foto o el asistente.
+- [ ] Buscar con una foto, debajo del buscador, también pegando la imagen.
+- [ ] El asistente de compra: busca en el catálogo y sigue pedidos, con tope por
+      tienda y límite por visitante.
+- [ ] El carrito con lo que se aplicó y lo que falta para el envío gratis; la PDP
+      con los swatches del modelo, «quedan pocos» y la entrega estimada.
+
+---
+
+## Fase 10 — El Asistente IA del Admin
+
+**Avance: 0%**
+
+Absorbe lo que la v3 anterior llamaba Internal Commerce Tools y Admin AI Copilot.
+
+- [ ] Herramientas del Commerce Core: leer, preparar borradores y, para lo
+      sensible, PREVIEW → CONFIRM → EXECUTE.
+- [ ] Un permiso por herramienta: leer, preparar en pausa o publicar.
+- [ ] Cada acción queda en el registro de la Fase 3 como «Asistente IA», junto a
+      quién la aprobó.
+- [ ] Un solo chat, con menciones y adjuntos, y las conversaciones guardadas.
+- [ ] Studio de imágenes y las campañas, con su pantalla.
+
+---
+
+## Fase 11 — Conexiones
+
+**Avance: 0%**
+
+- [ ] AEX: cotizar en el checkout, generar e imprimir la guía. Espera su API y sus
+      credenciales.
+- [ ] Servidores MCP propios, como herramientas del Asistente.
+
+---
+
+# v4 — MCP y Campaign Intelligence
+
+Lo que quedaba de la v3 anterior. Internal Commerce Tools y el Copilot del Admin
+pasaron a la Fase 10 de v3 (ADR-143); acá quedan exponer el core por MCP hacia
+afuera y las campañas pagas, que son también las conexiones de marketing del
+handoff.
+
+## Fase 0 — MCP Server
 
 **Avance: 0%**
 
@@ -1790,21 +2021,7 @@ Objetivo: exponer servicios de dominio como tools reutilizables.
 
 ---
 
-## Fase 2 — Admin AI Copilot
-
-**Avance: 0%**
-
-- [ ] reutilizar tools del Commerce Core.
-- [ ] OpenAI API.
-- [ ] conversational analytics.
-- [ ] create drafts.
-- [ ] promotion plans.
-- [ ] catalog actions.
-- [ ] approval workflow.
-
----
-
-## Fase 3 — Campaign Intelligence
+## Fase 1 — Campaign Intelligence
 
 **Avance: 0%**
 
@@ -1814,6 +2031,8 @@ Objetivo: exponer servicios de dominio como tools reutilizables.
 - [ ] preview.
 - [ ] explicit confirmation.
 - [ ] write integration cuando esté suficientemente madura.
+- [ ] Las conexiones del handoff: Meta Ads, Google Ads, GA4, WhatsApp Business y
+      Google Sheets, cada una con su nivel de permiso para la IA.
 
 ---
 
@@ -1874,7 +2093,7 @@ caso que prueba de verdad si el contrato abstrae (ADR-084).
 | Fecha      | Hallazgo                                                                                                | Impacto                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Acción                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Fase destino | Estado    |
 | ---------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------- |
 | 2026-09-27 | El teardown del e2e borraba del bucket una foto **del seed** en cada corrida completa                   | `fotos-con-ia.spec.ts` siembra la propuesta apuntando a `seed/campera.jpg` —una foto real, para que la pantalla muestre dos imágenes que cargan—. Al publicarla, esa URL pasa a ser la del producto del smoke y `limpiar-e2e.ts` borraba el archivo. El síntoma aparecía lejos y no parecía relacionado: `/_image` del storefront devolvía 500 porque Supabase contestaba un JSON de 404 que sharp no puede leer                                                                                                                                                                            | Resuelto el 2026-09-27: el borrado excluye `/seed/`, mismo criterio que ADR-117 con los medios de Camelot, y `pnpm seed` restituye el archivo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | v2 Fase 8    | Resuelto  |
-| 2026-09-27 | La cuota gratuita de Cloudflare Images está agotada                                                     | `/_image` devuelve 500 para toda variante que no esté cacheada: `IMAGES_TRANSFORM_ERROR 9422`. La demo se ve sin fotos y Treeshop se ve bien sólo porque las suyas ya estaban transformadas. Cada tamaño de cada foto cuenta, y cada corrida del e2e consume                                                                                                                                                                                                                                                                                                                                | Consumo bajado el 2026-09-28 a menos de la mitad —de 110 a 49 transformaciones únicas sobre la home, el catálogo y un producto de la demo—: `image.breakpoints` acotado a 400/800/1200/1600, y las tarjetas, la galería y los banners piden la foto al ancho en que la muestran (`medidasParaMostrar`) en vez del original. La causa era de Astro: con `layout="constrained"` el `srcset` suma siempre `width` y `2 × width`, y le pasábamos las medidas originales —2638 px pedía una variante de 5276—. La cuota misma sigue agotada hasta el mes nuevo o un plan pago                                                                                                                                                                                                                                                    | v2 Fase 8    | Pendiente |
+| 2026-09-27 | La cuota gratuita de Cloudflare Images está agotada                                                     | `/_image` devuelve 500 para toda variante que no esté cacheada: `IMAGES_TRANSFORM_ERROR 9422`. La demo se ve sin fotos y Treeshop se ve bien sólo porque las suyas ya estaban transformadas. Cada tamaño de cada foto cuenta, y cada corrida del e2e consume                                                                                                                                                                                                                                                                                                                                | Consumo bajado el 2026-09-28 a menos de la mitad —de 110 a 49 transformaciones únicas sobre la home, el catálogo y un producto de la demo—: `image.breakpoints` acotado a 400/800/1200/1600, y las tarjetas, la galería y los banners piden la foto al ancho en que la muestran (`medidasParaMostrar`) en vez del original. La causa era de Astro: con `layout="constrained"` el `srcset` suma siempre `width` y `2 × width`, y le pasábamos las medidas originales —2638 px pedía una variante de 5276—. La cuota se renovó con el mes: medido el 2026-10-02, las fotos responden 200 en la demo y en Treeshop. Sigue abierto porque el techo es mensual y el e2e lo consume; lo cierra un plan pago                                                                                                                       | v2 Fase 8    | Pendiente |
 | 2026-09-27 | `navegacion.spec.ts` «Home → PLP → PDP y vuelta» falló una vez en la corrida completa y no se reproduce | Ese test falla por un `console.error` o un HTTP ≥ 400 durante el recorrido, así que un rojo suyo puede ser cualquier cosa. Corrido solo pasa, y los 81 de desktop juntos también. El informe se perdió porque la corrida siguiente limpia `test-results/`. Sospecha: un Worker de una corrida anterior todavía en el 4322 —la corrida siguiente abortó con ese mismo error y hubo que liberar el puerto a mano—, que serviría un build viejo                                                                                                                                                | Si vuelve, guardar `test-results/` antes de reintentar y mirar el `error-context.md`. La guarda del `global-setup` ya cubre el caso del puerto ocupado, pero no el de un proceso que muere a mitad de la corrida                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | v2 Fase 8    | Pendiente |
 | 2026-09-24 | Tres búsquedas con término a la vez ya pasan el statement timeout sobre el catálogo de Treeshop         | Lo encontró la simulación (ADR-133): una búsqueda sola tarda 1 a 2,7 s —«puma» 1590 ms en Treeshop, 2748 en la tienda simulada con el mismo catálogo— y con seis en paralelo, y después con tres, alguna se cancelaba por `statement timeout`, con reintento incluido. Con la secret key, igual que el storefront. Es el mismo costo que la fila de abajo, visto desde la concurrencia: con tráfico real, tres personas buscando a la vez pueden recibir un error en vez de resultados                                                                                                      | Mejoró con el arreglo de la fila de arriba y **no quedó resuelto**. Medido el 2026-09-28 por PostgREST con la secret key, como el storefront: 3 simultáneas pasan (~1 s cada una) y 6 también (4–7 s), pero **10 fallan todas** por `statement timeout`. Los tiempos escalan con la cantidad, así que lo que queda es capacidad de cómputo de la base por el costo de cada consulta, ~250–340 ms. Salidas: más cómputo en Supabase, que es plata y decisión del dueño; o bajar el costo por consulta, que ya no tiene un punto caliente —está repartido entre precios, inventario y facetas, ~100 ms cada uno— y pide rediseñar la función. Con una tienda sin tráfico no se justifica todavía: se revisa con tráfico real                                                                                                  | v2           | Pendiente |
 | 2026-09-14 | El PDP de Treeshop cuesta 355 ms de base de datos, y el catálogo 600                                    | Medido con `explain analyze` sobre el proyecto remoto: listado 600 ms, producto por handle 355 ms. El changelog del 2026-09-01 declara 233 ms y 37 ms, pero sobre otro catálogo —5006 productos con **una** variante cada uno—; Treeshop tiene 3752 productos con **10241** variantes y una promoción activa. La causa está localizada: `promos_producto` y `precios` se calculan sobre la tienda entera **también cuando se pide un solo producto**, porque el filtro de `p_handle` recién entra en `prods`, más abajo. El PDP arma el precio efectivo de 10241 variantes para mostrar una | Resuelto el 2026-09-28, y **la causa no era la anotada**. Medido de nuevo antes de tocar nada: el PDP ya estaba en ~50 ms, y del listado —1070 ms bajo `explain analyze`— 610 eran una subconsulta escalar correlacionada que calculaba `vendidas` recorriendo `order_items` entera **una vez por producto**: 2097 vueltas y tres millones de filas visitadas. El CTE `pav` de las facetas, al que apuntaba este diagnóstico, costaba 69 ms. Un CTE `vendidos` que agrega una vez y un `left join` lo dejan en **~300 ms** (620–720 en caliente antes, 1325 en frío), y la búsqueda en ~255. Comparado contra el cuerpo anterior sobre la base remota, en Treeshop y en la tienda simulada con 840 pedidos: seis casos —listado, página 50, más vendidos, búsqueda, PDP y rango— devuelven el mismo documento byte por byte | v2           | Resuelto  |
@@ -2135,28 +2354,32 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-09-28 | **El catálogo, tres veces más rápido.** El listado y la búsqueda de Treeshop bajan de ~620–720 ms a ~300 y ~255, y en la tienda simulada con 840 pedidos, de ~1200–1360 a ~340–510. La causa no era la que tenía anotada el backlog: una subconsulta correlacionada recorría `order_items` entera una vez por producto para calcular `vendidas`. Un CTE que agrega una vez la reemplaza, con el resultado comparado byte por byte contra el cuerpo anterior en seis casos. Tres y seis búsquedas simultáneas ya pasan; diez todavía no, y lo que queda es cómputo de la base, anotado en el backlog                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | v2        |            — |              — |
 | 2026-09-28 | **Las fotos piden menos de la mitad de transformaciones.** De 110 a 49 variantes únicas sobre la home, el catálogo y un producto, y el ancho máximo de 5276 a 1600. La causa era cómo arma Astro el `srcset` con `layout="constrained"`: suma siempre `width` y `2 × width`, y los componentes le pasaban las medidas originales de la foto. Ahora piden al ancho en que muestran —400 la tarjeta, 800 la galería, 1600 los banners— y comparten variantes entre sí. Importa por la cuota de Cloudflare Images, que se agotó                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v2        |            — |              — |
 | 2026-09-28 | **Quien compró sin cuenta vuelve a su pedido** (ADR-142). Cada pedido lleva un token propio y el enlace —número más token— va en la confirmación y en todos los correos. Por número solo no se podía: la numeración es secuencial, así que probar números abría pedidos ajenos. Número inexistente, token equivocado y pedido de otra tienda dan el mismo 404, y el e2e lo comprueba alterando un carácter del token. Sale de LIMITACIONES como algo que bloqueaba vender; queda anotado que el enlace es un secreto al portador                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | v2        |            — |              — |
+| 2026-10-07 | **v3 arranca: el handoff de diseño.** Cinco prototipos —Admin, Tienda, Checkout, Mi cuenta y Login comprador— relevados pantalla por pantalla contra el código: cerca de la mitad es rediseño sobre lo que ya existe y la otra mitad es backend nuevo. Cuatro decisiones del dueño cambian reglas escritas —la IA la pone y la cobra Pick, la Cuenta Pick cruza tiendas desde ya, un checkout para todas servido en el dominio de cada una, y la pasarela real sigue esperando credenciales— y quedan en ADR-143 con lo que no entra y por qué. La v3 anterior pasa a v4. De paso, el límite de productos por sección que pidió Treeshop                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | v3 Fase 0 |           0% |           100% |
 
 ---
 
 # Próximo paso recomendado
 
 **v1 y v2 hasta la Fase 8 están cerradas y desplegadas.** Lo que queda de v2 es la
-Fase 9, y está condicionada a la cantidad de comercios y no a una fecha: con una
-tienda, un programa de puntos de red es un programa normal con maquinaria de más.
+red de puntos de la Fase 9, condicionada a la cantidad de comercios y no a una
+fecha.
 
-Entonces lo que sigue no es una fase. El 2026-09-28 se hizo la parte que no
-dependía del dueño —el catálogo tres veces más rápido, la mitad de transformaciones
-de imágenes y el enlace de acuse para quien compra sin cuenta— y lo que queda para
-poder vender está en [LIMITACIONES.md](LIMITACIONES.md), casi todo del lado del
-dueño:
+**Lo que sigue es la Fase 1 de v3**, el shell del Admin en Pick UI: la primera del
+handoff de diseño, y la que no toca datos (ADR-143). Las fases van de a una, en el
+orden del bloque v3.
+
+En paralelo, lo que queda para poder vender está en
+[LIMITACIONES.md](LIMITACIONES.md), casi todo del lado del dueño:
 
 1. **Una pasarela de pago real** (P-001). Hoy se cobra por transferencia y hay una
    pasarela simulada. Falta elegir el proveedor y conseguir credenciales de sandbox;
    con eso, el adapter va sobre el contrato que ya existe (ADR-080).
 2. **Verificar el dominio de la tienda en Resend.** Sin eso los correos sólo llegan
    a la casilla del dueño de la cuenta, o sea que ningún comprador los recibe.
-3. **La cuota de Cloudflare Images**: un plan pago, o esperar el mes. El consumo ya
-   bajó a menos de la mitad, pero la cuota sigue agotada.
+3. **La cuota de Cloudflare Images.** Se renovó con el mes —medido el 2026-10-02:
+   las fotos responden 200 en la demo y en Treeshop— y el consumo ya bajó a menos
+   de la mitad, pero el techo es mensual y cada corrida del e2e lo consume. Un plan
+   pago lo saca del camino.
 4. **El ensayo de restore.** Los backups existen y el restore nunca se probó, así
    que el tiempo de recuperación es desconocido.
 5. **Usar lo que se construyó**: prender el programa de puntos, correr las
@@ -2192,7 +2415,7 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 - [x] Paginación Admin Orders. En el servidor, con búsqueda por número, nombre, correo y teléfono, y filtro por estado.
 - [x] Paginación Admin Customers. En el servidor, con búsqueda por nombre, correo y teléfono.
 - [x] Paginación Promotions/Discounts. En el servidor desde el 2026-08-29, con `count: 'exact'` y `range()`: el listado del Admin pide una página y dibuja su paginador.
-- [ ] Paginación Audit/Sync logs.
+- [ ] Paginación Audit/Sync logs. La de auditoría va con el Registro de actividad de la Fase 3 de v3.
 - [~] Evitar fetch de datasets completos. En el storefront y en las cuatro
   listas paginadas del Admin. Queda una excepción: el listado de colecciones
   trae la tabla entera, y está en el backlog con destino v2 Fase 0.
@@ -2234,6 +2457,8 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 ## Linked Colors
 
 **Avance: 30%**
+
+Lo que falta va en la Fase 4 de v3: los modelos del handoff son esto.
 
 - [x] Modelar product families/siblings. Tabla `product_groups` y `product_group_id` en el producto.
 - [ ] `linkedColors` feature.
