@@ -57,6 +57,12 @@ test('un solo aviso lleva a su pedido; varios, a la lista', () => {
   assert.equal(varios.titulo, '3 correos a clientes no se pudieron enviar');
 });
 
+test('pagar y preparar llevan a su pestaña de Pedidos', () => {
+  const tareas = listaDeTareas(TODO, opciones);
+  assert.deepEqual(tareas[1]!.search, { tab: 'cobrar' });
+  assert.deepEqual(tareas[2]!.search, { tab: 'preparar' });
+});
+
 test('el singular y el plural se dicen bien', () => {
   const tareas = listaDeTareas(TODO, opciones);
   assert.equal(tareas[1]!.titulo, '4 pedidos esperan que confirmes el pago');

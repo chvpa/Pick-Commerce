@@ -479,6 +479,7 @@ function ParaHacer({
                 <Link
                   to={t.to}
                   params={t.params}
+                  search={t.search}
                   className="hover:bg-row-hover focus-visible:bg-row-hover flex items-center gap-3.5 px-5 py-3.5 outline-none"
                 >
                   <span

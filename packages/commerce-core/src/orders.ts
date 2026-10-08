@@ -139,6 +139,8 @@ export interface PedidoDeLista {
   readonly number: number;
   readonly createdAt: string;
   readonly customerName: string;
+  /** La ciudad de entrega, si el pedido la tiene. */
+  readonly city?: string;
   readonly total: { readonly amount: number; readonly currency: string };
   readonly status: OrderStatus;
   readonly paymentStatus: PaymentStatus;
@@ -153,9 +155,47 @@ export interface PaginaPedidos {
   readonly pageCount: number;
 }
 
+/**
+ * Las pestañas de la lista de Pedidos (v3 Fase 2).
+ *
+ * Cruzan estado y pago, así que un pedido puede estar en dos: uno enviado y sin
+ * cobrar está «por cobrar» y «en camino» a la vez. La definición vive en la base
+ * —`app.pedido_en_bandeja`— y la usan la lista, sus conteos y el Inicio.
+ */
+export type BandejaDePedidos =
+  'todos' | 'cobrar' | 'preparar' | 'camino' | 'entregados' | 'cancelados';
+
+export const BANDEJAS_DE_PEDIDOS: readonly BandejaDePedidos[] = [
+  'todos',
+  'cobrar',
+  'preparar',
+  'camino',
+  'entregados',
+  'cancelados',
+];
+
+export const ETIQUETA_BANDEJA: Readonly<Record<BandejaDePedidos, string>> = {
+  todos: 'Todos',
+  cobrar: 'Por cobrar',
+  preparar: 'Para preparar',
+  camino: 'En camino',
+  entregados: 'Entregados',
+  cancelados: 'Cancelados',
+};
+
+export type ConteoDeBandejas = Readonly<Record<BandejaDePedidos, number>>;
+
 export interface ConsultaPedidos {
   readonly query?: string;
   readonly status?: OrderStatus;
+  readonly bandeja?: BandejaDePedidos;
+  readonly pago?: PaymentStatus;
+  /** Desde esta fecha, inclusive. */
+  readonly desde?: string;
+  /** Hasta esta fecha, exclusive. */
+  readonly hasta?: string;
+  /** Del más viejo al más nuevo. Por defecto, al revés. */
+  readonly antiguosPrimero?: boolean;
   readonly page?: number;
   readonly perPage?: number;
 }
@@ -200,6 +240,8 @@ export interface RepositorioAdminPedidos {
    * la misma máquina de estados obligaría a inventar combinaciones.
    */
   cambiarPago(storeId: string, id: string, pago: PaymentStatus, nota?: string): Promise<Order>;
+  /** Cuántos pedidos hay en cada pestaña. */
+  conteos(storeId: string): Promise<ConteoDeBandejas>;
 }
 
 // ---------------------------------------------------------------------------

@@ -2592,17 +2592,23 @@ export type Database = {
         Args: { p_ids: string[]; p_status: string; p_store_id: string }
         Returns: number
       }
+      admin_order_counts: { Args: { p_store_id: string }; Returns: Json }
       admin_order_notifications: {
         Args: { p_order_id: string; p_store_id: string }
         Returns: Json
       }
       admin_orders: {
         Args: {
+          p_bucket?: string
+          p_from?: string
+          p_oldest_first?: boolean
           p_page?: number
+          p_payment?: string
           p_per_page?: number
           p_query?: string
           p_status?: string
           p_store_id: string
+          p_to?: string
         }
         Returns: Json
       }

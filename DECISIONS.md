@@ -7252,3 +7252,68 @@ El smoke del Admin prueba que las dos funciones responden por la API con la sesi
 del Admin —grants y RLS reales— y que una tienda sin pedidos ve sus pasos. Y
 apareció de paso un problema de la Fase 1: en mobile, cambiar de tienda dejaba la
 hoja del menú abierta tapando la página. Ahora se cierra, como al navegar.
+
+## ADR-146 — Los pedidos se ordenan en bandejas que cruzan estado y pago
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+La lista de pedidos filtraba por estado y cambiaba pago y estado con dos
+desplegables por fila. El handoff (ADR-143) la ordena en pestañas con su conteo
+—Todos, Por cobrar, Para preparar, En camino, Entregados, Cancelados—, con
+filtros que se agregan, selección, acciones en lote y exportar. Dos de esas
+pestañas no son un estado: «Por cobrar» y «Para preparar» cruzan el estado con
+el pago, y son las dos colas de trabajo del día.
+
+**Una sola definición de cada bandeja**
+`app.pedido_en_bandeja(estado, pago, bandeja)` dice si un pedido cae en una
+pestaña, y la usan la lista, el conteo y `admin_store_tasks` (ADR-145). Así el
+«4 pedidos pagos para preparar» del Inicio y del sidebar es exactamente lo que
+muestra la pestaña: no hay dos `where` que puedan divergir. Por cobrar es lo no
+pagado y vivo —un pago fallido también espera cobro—; para preparar, lo pagado
+que todavía no salió, de recibido a listo; en camino, enviado y en tránsito.
+
+**La firma nueva no rompe a la vieja**
+`admin_orders` suma bandeja, pago, rango de fechas y orden, todos con valor por
+defecto. El Admin desplegado sigue llamando con la forma anterior mientras el
+nuevo no sale, y eso se comprobó por la API antes de construir la pantalla. La
+página se corta **antes** de armar el documento de cada fila, por lo de
+`row_number` en CLAUDE.md, y la ciudad entra en la búsqueda y en la fila. El
+conteo de las seis pestañas es una consulta, `admin_order_counts`.
+
+**El lote pasa por las mismas funciones que el cambio de a uno**
+Marcar pagados y pasar a preparación llaman, pedido por pedido, a las funciones
+que ya existían. No hay una función de lote: las reglas —cancelado es terminal,
+cancelar devuelve el stock, cada cambio encola su correo— viven en la base, y una
+segunda puerta las duplicaría. El costo es una llamada por pedido sobre una
+página de veinte. Si alguno falla, se dice cuántos y por qué, y los demás
+quedan hechos.
+
+El lote sólo toca lo que la acción puede tocar: no cobra lo cobrado y **no lleva
+atrás** lo que ya salió. De a uno, la base deja volver a un estado anterior a
+propósito, para corregir (ADR-066). En lote, un entregado que vuelve a «En
+preparación» no es una corrección: es un accidente de la selección. Si nada de
+lo elegido aplica, el botón está deshabilitado. Y la selección es de lo que se
+ve: cambiar de pestaña, de filtro o de página la vacía.
+
+**El pago, en el menú del estado**
+Con transferencia, cobrar es alguien mirando un comprobante, y es lo de todos los
+días: «Marcar como pagado» va en el mismo menú que el estado. En el teléfono la
+fila muestra el estado sin menú —no entra—, y se cambia en lote o desde el
+pedido.
+
+**La pestaña está en la URL**
+`/pedidos?tab=cobrar`. Es lo que deja que el «Para hacer» del Inicio y la paleta
+de comandos lleven a la cola y no a la lista entera.
+
+**Lo que no entra**
+El filtro «Entrega» del handoff separa envío de retiro, y el retiro en sucursal
+no existe todavía: llega con el checkout de la Fase 6, y el filtro con él.
+
+**Consecuencias**
+`supabase/tests/pedidos-por-bandeja.test.ts` prueba qué cae en cada pestaña, que
+el conteo dice lo mismo que la lista, los filtros, el corte de página y que otro
+comercio no ve ni cuenta lo ajeno. El e2e `pedidos.spec.ts` marca dos pedidos en
+lote, los ve pasar de «Por cobrar» a «Para preparar» y cambia el estado desde la
+fila.

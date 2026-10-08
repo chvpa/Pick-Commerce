@@ -1,6 +1,24 @@
 import { Children, isValidElement } from 'react';
 import type { ReactNode } from 'react';
+import { Link } from '@tanstack/react-router';
+import {
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  SearchIcon,
+  XIcon,
+} from '@/components/iconos';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
@@ -213,14 +231,14 @@ export function Esqueleto({ filas = 5 }: { filas?: number }) {
 }
 
 /**
- * El pie de una lista paginada.
+ * El pie de una lista paginada, como el handoff: «21–40 de 64» y dos flechas.
  *
  * Va **dentro** de la tarjeta, pegado a lo que pagina, y no suelto debajo. Es la
  * misma pieza en productos, pedidos, clientes y promociones: estaba escrita
  * cuatro veces, y una de las copias ya se había quedado con otro espaciado.
  *
- * Con una sola página no se dibuja: un «página 1 de 1» con los dos botones
- * apagados es decorado.
+ * Con una sola página no se dibuja: un «1–3 de 3» con las dos flechas apagadas
+ * es decorado.
  */
 export function Paginacion({
   datos,
@@ -228,7 +246,12 @@ export function Paginacion({
   cargando,
   onPagina,
 }: {
-  datos: { readonly total: number; readonly page: number; readonly pageCount: number };
+  datos: {
+    readonly total: number;
+    readonly page: number;
+    readonly pageCount: number;
+    readonly perPage?: number;
+  };
   /** En plural, para el recuento: «productos», «pedidos». */
   sustantivo: string;
   cargando: boolean;
@@ -236,30 +259,221 @@ export function Paginacion({
 }) {
   if (datos.pageCount <= 1) return null;
 
+  const porPagina = datos.perPage ?? Math.ceil(datos.total / datos.pageCount);
+  const desde = (datos.page - 1) * porPagina + 1;
+  const hasta = Math.min(datos.page * porPagina, datos.total);
+
   return (
     <div className="border-line-row flex items-center justify-between gap-3 border-t px-5 py-3">
       <p className="text-muted-foreground text-[13px] tabular-nums" aria-live="polite">
-        {datos.total} {sustantivo} · página {datos.page} de {datos.pageCount}
+        {desde}–{hasta} de {datos.total} {sustantivo}
       </p>
-      <div className="flex gap-2">
+      <div className="flex gap-1.5">
         <Button
           variant="outline"
-          size="sm"
+          size="icon-sm"
+          aria-label="Página anterior"
           disabled={datos.page <= 1 || cargando}
           onClick={() => onPagina(datos.page - 1)}
         >
-          Anterior
+          <ChevronLeftIcon />
         </Button>
         <Button
           variant="outline"
-          size="sm"
+          size="icon-sm"
+          aria-label="Página siguiente"
           disabled={datos.page >= datos.pageCount || cargando}
           onClick={() => onPagina(datos.page + 1)}
         >
-          Siguiente
+          <ChevronRightIcon />
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Las pestañas de una lista: «Todos», «Por cobrar», «Para preparar»…, cada una
+ * con su cuenta.
+ *
+ * Son **enlaces** y no un `role="tablist"`: no muestran paneles distintos,
+ * filtran la misma lista, y la pestaña va en la URL —`?tab=cobrar`— para que se
+ * pueda compartir, recargar y llegar a ella desde el Inicio o la paleta.
+ *
+ * Una cuenta `urgente` se pinta con el tono de lo que pide: ámbar lo que falta
+ * cobrar, azul lo que falta hacer. El resto, gris.
+ */
+export function Pestanas<T extends string>({
+  pestanas,
+  activa,
+  to,
+  etiqueta,
+}: {
+  pestanas: readonly {
+    readonly valor: T;
+    readonly etiqueta: string;
+    readonly cuenta?: number;
+    readonly urgente?: 'amber' | 'blue';
+  }[];
+  activa: T;
+  /** La ruta de la lista; la pestaña va en `?tab=`. */
+  to: string;
+  /** El nombre del grupo para un lector de pantalla: «Estados de los pedidos». */
+  etiqueta: string;
+}) {
+  return (
+    <nav
+      aria-label={etiqueta}
+      className="flex gap-0.5 overflow-x-auto border-b border-[#eceef2] [scrollbar-width:none]"
+    >
+      {pestanas.map((p) => {
+        const es = p.valor === activa;
+        const urgente = p.urgente && (p.cuenta ?? 0) > 0 ? p.urgente : null;
+        return (
+          <Link
+            key={p.valor}
+            to={to}
+            search={{ tab: p.valor }}
+            aria-current={es ? 'page' : undefined}
+            className={cn(
+              '-mb-px flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap outline-none',
+              'focus-visible:ring-focus-tint focus-visible:ring-3',
+              es
+                ? 'text-foreground border-[#3b5bdb]'
+                : 'text-ink-3 hover:text-foreground border-transparent',
+            )}
+          >
+            {p.etiqueta}
+            {p.cuenta !== undefined && (
+              <span
+                className={cn(
+                  'inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums',
+                  urgente === 'amber'
+                    ? 'bg-[#fdf4e3] text-[#9a5b0b]'
+                    : urgente === 'blue'
+                      ? 'bg-[#edf1fe] text-[#2b47bd]'
+                      : 'text-ink-3 bg-[#f1f2f5]',
+                )}
+              >
+                {p.cuenta}
+              </span>
+            )}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+/**
+ * El buscador de una lista, con su lupa adentro.
+ *
+ * La búsqueda va al servidor, así que quien lo usa espera a que se deje de
+ * escribir antes de consultar: sin eso, cada tecla sería un pedido a la base.
+ */
+export function CampoDeBusqueda({
+  valor,
+  onCambio,
+  placeholder,
+  etiqueta,
+  className,
+}: {
+  valor: string;
+  onCambio: (valor: string) => void;
+  placeholder: string;
+  /** Para un lector de pantalla: el campo no tiene rótulo a la vista. */
+  etiqueta: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn('relative min-w-48 flex-[0_1_340px]', className)}>
+      <SearchIcon className="text-ink-faint pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+      <Input
+        type="search"
+        value={valor}
+        onChange={(e) => onCambio(e.currentTarget.value)}
+        placeholder={placeholder}
+        aria-label={etiqueta}
+        className="h-9 pl-9"
+      />
+    </div>
+  );
+}
+
+/**
+ * Un filtro que se agrega: «+ Pago», y elegido, «Pago: Pagado ×».
+ *
+ * Es el filtro del handoff: no ocupa lugar mientras no se usa, y cuando se usa
+ * dice qué está filtrando y se saca de un toque. Un desplegable con «Todos»
+ * siempre a la vista ocupaba lo mismo filtrando o no.
+ */
+export function FiltroAgregable<T extends string>({
+  etiqueta,
+  valor,
+  opciones,
+  onCambiar,
+}: {
+  etiqueta: string;
+  valor: T | null;
+  opciones: readonly { readonly valor: T; readonly etiqueta: string }[];
+  onCambiar: (valor: T | null) => void;
+}) {
+  const elegida = opciones.find((o) => o.valor === valor);
+
+  if (elegida) {
+    return (
+      <span className="text-foreground inline-flex h-9 items-center rounded-[9px] border border-[#c9d4f8] bg-[#f5f7fe] text-[13.5px] font-medium">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="focus-visible:ring-focus-tint flex h-full cursor-pointer items-center gap-1 rounded-l-[9px] pr-1 pl-3 outline-none focus-visible:ring-3">
+            <span className="text-ink-3 font-normal">{etiqueta}:</span> {elegida.etiqueta}
+            <ChevronDownIcon className="text-ink-faint size-3" />
+          </DropdownMenuTrigger>
+          <MenuDeOpciones etiqueta={etiqueta} opciones={opciones} onCambiar={onCambiar} />
+        </DropdownMenu>
+        <button
+          type="button"
+          aria-label={`Sacar el filtro de ${etiqueta.toLowerCase()}`}
+          onClick={() => onCambiar(null)}
+          className="text-ink-3 hover:text-foreground focus-visible:ring-focus-tint flex h-full cursor-pointer items-center rounded-r-[9px] pr-2.5 pl-1 outline-none focus-visible:ring-3"
+        >
+          <XIcon className="size-3.5" />
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="text-ink-3 hover:text-foreground focus-visible:ring-focus-tint inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[9px] border border-dashed border-[#d3d7df] bg-white px-3 text-[13.5px] font-medium outline-none hover:border-[#b9bfcb] focus-visible:ring-3">
+        <PlusIcon className="size-3.5" />
+        {etiqueta}
+      </DropdownMenuTrigger>
+      <MenuDeOpciones etiqueta={etiqueta} opciones={opciones} onCambiar={onCambiar} />
+    </DropdownMenu>
+  );
+}
+
+function MenuDeOpciones<T extends string>({
+  etiqueta,
+  opciones,
+  onCambiar,
+}: {
+  etiqueta: string;
+  opciones: readonly { readonly valor: T; readonly etiqueta: string }[];
+  onCambiar: (valor: T | null) => void;
+}) {
+  return (
+    <DropdownMenuContent align="start" className="min-w-44">
+      {/* El rótulo va dentro de un grupo: fuera de uno, Base UI lanza al abrir. */}
+      <DropdownMenuGroup>
+        <DropdownMenuLabel>{etiqueta}</DropdownMenuLabel>
+        {opciones.map((o) => (
+          <DropdownMenuItem key={o.valor} onClick={() => onCambiar(o.valor)}>
+            {o.etiqueta}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuGroup>
+    </DropdownMenuContent>
   );
 }
 

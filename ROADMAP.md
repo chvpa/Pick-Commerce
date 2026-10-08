@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |     7% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |     8% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1826,7 +1826,7 @@ notificaciones, la ayuda y el uso de IA alrededor del avatar— llega con su fas
 
 ## Fase 2 — Las pantallas del Admin, sobre lo que ya existe
 
-**Avance: 8%**
+**Avance: 17%**
 
 Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
@@ -1836,8 +1836,10 @@ Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
       de los datos (ADR-145). Cada número contra el período anterior; los
       contadores del sidebar salen de la misma consulta. «Ventas por producto» y
       el resumen en palabras pasaron a Analytics.
-- [ ] Pedidos: pestañas por estado con su conteo, filtros, selección y acciones en
-      lote, y exportar.
+- [x] Pedidos: pestañas que cruzan estado y pago —«Por cobrar» y «Para preparar»
+      son las colas del día— con su conteo, filtros de pago y fecha, selección,
+      marcar pagados y pasar a preparación en lote, y exportar (ADR-146). El
+      filtro «Entrega» llega con el retiro en sucursal, en la Fase 6.
 - [ ] Detalle de pedido: una sola próxima acción según el estado, el historial
       colapsado y WhatsApp por `wa.me`.
 - [ ] Productos: pestañas con conteo, con «sin foto» y «stock quieto» como bandas
@@ -1922,7 +1924,7 @@ Un solo código, servido en el dominio de cada tienda, con su logo y su color.
 - [ ] Una sesión de checkout en el servidor, que guarda el contacto desde el
       primer paso.
 - [ ] Retiro en sucursal, métodos de envío con su tiempo estimado, aviso por
-      WhatsApp e IVA incluido.
+      WhatsApp e IVA incluido. Con el retiro, el filtro «Entrega» de Pedidos.
 - [ ] El pago dentro de la pantalla segura del proveedor —iframe—, además de la
       redirección; un rechazo se reintenta sin perder el pedido.
 - [ ] Medios de pago con «Conectar»: credenciales por tienda, cifradas. Se prueba
@@ -2371,6 +2373,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-07 | **v3 arranca: el handoff de diseño.** Cinco prototipos —Admin, Tienda, Checkout, Mi cuenta y Login comprador— relevados pantalla por pantalla contra el código: cerca de la mitad es rediseño sobre lo que ya existe y la otra mitad es backend nuevo. Cuatro decisiones del dueño cambian reglas escritas —la IA la pone y la cobra Pick, la Cuenta Pick cruza tiendas desde ya, un checkout para todas servido en el dominio de cada una, y la pasarela real sigue esperando credenciales— y quedan en ADR-143 con lo que no entra y por qué. La v3 anterior pasa a v4. De paso, el límite de productos por sección que pidió Treeshop                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | v3 Fase 0 |           0% |           100% |
 | 2026-10-07 | **v3 Fase 1: el shell del Admin en Pick UI** (ADR-144). Geist y la paleta del handoff, la página blanca con tarjetas de borde, el sidebar en grupos con contadores de pedidos por cobrar o preparar y de reseñas, la cuenta en la barra de arriba, la paleta de ⌘K que busca en el servidor, los estados con color desde un solo mapa y un aviso que se va solo. Contenido deja de ser un desplegable y el sidebar deja de plegarse; las migas pasan a ser «← volver». El smoke del Admin pasa en desktop y mobile                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | v3 Fase 1 |           0% |           100% |
 | 2026-10-08 | **v3 Fase 2: el Inicio** (ADR-145). Saludo, «Cómo vamos» con ventas, pedidos, ticket y conversión contra el período anterior —hoy contra ayer a la misma hora—, «Para hacer» ordenado por urgencia, últimos pedidos y lo más vendido. Una tienda sin pedidos ve sus pasos para empezar, leídos de sus datos. Dos funciones nuevas: `admin_store_tasks`, que también cuenta para el sidebar, y `admin_dashboard_series`, con las cubetas vacías y los tramos del ticket alrededor del propio ticket. De paso: los enlaces con forma de botón se veían como texto, y en mobile cambiar de tienda dejaba el menú abierto                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | v3 Fase 2 |           0% |             8% |
+| 2026-10-08 | **v3 Fase 2: Pedidos** (ADR-146). Pestañas que cruzan estado y pago, con una sola definición de cada una en `app.pedido_en_bandeja` —la usan la lista, el conteo y el «Para hacer» del Inicio, que no pueden contar distinto—. Filtros de pago y fecha, búsqueda por ciudad, elegir varios y marcarlos pagados o pasarlos a preparación pasando por las mismas funciones que el cambio de a uno, y exportar. La firma nueva de `admin_orders` no rompe al Admin desplegado. De paso: «Preparar» en lote ya no lleva atrás lo que salió, y en el teléfono la fila muestra el estado y la barra del lote entra                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v3 Fase 2 |           8% |            17% |
 
 ---
 
@@ -2428,7 +2431,7 @@ Estos requisitos aplican a varias fases y no deben tratarse como backlog cosmét
 - [x] Paginación PLP. Con ventana de páginas y `rel=prev/next`.
 - [x] Server-side filters/sort. Ruta on-demand; nunca se filtra en el browser (ADR-024).
 - [x] Paginación Admin Products. En el servidor, con búsqueda por título, marca y SKU.
-- [x] Paginación Admin Orders. En el servidor, con búsqueda por número, nombre, correo y teléfono, y filtro por estado.
+- [x] Paginación Admin Orders. En el servidor, con búsqueda por número, nombre, correo, teléfono y ciudad, pestañas que cruzan estado y pago, filtros de pago y fecha, y orden (ADR-146).
 - [x] Paginación Admin Customers. En el servidor, con búsqueda por nombre, correo y teléfono.
 - [x] Paginación Promotions/Discounts. En el servidor desde el 2026-08-29, con `count: 'exact'` y `range()`: el listado del Admin pide una página y dibuja su paginador.
 - [ ] Paginación Audit/Sync logs. La de auditoría va con el Registro de actividad de la Fase 3 de v3.

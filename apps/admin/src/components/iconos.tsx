@@ -12,6 +12,8 @@ import {
   Mail01Icon as Mail,
   ArrowTurnBackwardIcon as ArrowTurnBackward,
   CameraOff01Icon as CameraOff,
+  CancelCircleIcon as CancelCircle,
+  Download04Icon as Download,
   CheckmarkCircle02Icon as CheckmarkCircle,
   DiscountTag01Icon as DiscountTag,
   GiftIcon as Gift,
@@ -20,6 +22,7 @@ import {
   Layers01Icon as Layers,
   Layout01Icon as Layout,
   Menu01Icon as Menu,
+  MinusSignIcon as MinusSign,
   Money03Icon as Money,
   NoteEditIcon as NoteEdit,
   Search01Icon as Search,
@@ -38,6 +41,7 @@ import {
   Comment01Icon as Comment,
   CheckIcon as Check,
   ChevronDownIcon as ChevronDown,
+  ChevronLeftIcon as ChevronLeft,
   ChevronRightIcon as ChevronRight,
   ChevronUpIcon as ChevronUp,
   GalleryVerticalEndIcon as GalleryVerticalEnd,
@@ -97,6 +101,7 @@ export const CameraIcon = icono(Camera);
 export const ChartNoAxesColumnIcon = icono(ChartNoAxesColumn);
 export const CheckIcon = icono(Check);
 export const ChevronDownIcon = icono(ChevronDown);
+export const ChevronLeftIcon = icono(ChevronLeft);
 export const ChevronRightIcon = icono(ChevronRight);
 export const ChevronUpIcon = icono(ChevronUp);
 /** Abrir un selector. Se llamaba `ChevronsUpDown`; acá el nombre es otro. */
@@ -160,3 +165,7 @@ export const MailIcon = icono(Mail);
 export const TrendUpIcon = icono(ArrowUpRight);
 /** Bajó contra el período anterior. */
 export const TrendDownIcon = icono(ArrowDownRight);
+/** Cancelar algo que no se puede deshacer: un pedido. */
+export const CancelCircleIcon = icono(CancelCircle);
+export const DownloadIcon = icono(Download);
+export const MinusIcon = icono(MinusSign);

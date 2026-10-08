@@ -6,6 +6,7 @@ import {
   repositorioAdminCatalogo,
   repositorioAdminClientes,
   repositorioAdminPedidos,
+  repositorioDashboard,
 } from '@pick/adapter-supabase';
 import { ETIQUETA_ESTADO_PEDIDO, formatMoney } from '@pick/commerce-core';
 import type { Permission } from '@pick/commerce-types';
@@ -19,6 +20,7 @@ import {
   InvoiceIcon,
   LayersIcon,
   LayoutIcon,
+  MoneyIcon,
   PackageIcon,
   PlusIcon,
   ResenaIcon,
@@ -164,10 +166,16 @@ function Paleta({ alElegir }: { alElegir: () => void }) {
   const buscado = useQuieto(texto.trim(), 200);
   const hayBusqueda = buscado.length >= 2;
 
-  const ir = (to: string) => () => {
+  const ir = (to: string, search?: Record<string, string>) => () => {
     alElegir();
-    void navegar({ to });
+    void navegar({ to, ...(search ? { search } : {}) });
   };
+
+  // Las mismas tareas que el sidebar, con la misma clave: no pide nada de más.
+  const tareas = useQuery({
+    queryKey: ['tareas', tienda.id],
+    queryFn: () => repositorioDashboard(db).tareas(tienda.id),
+  });
 
   const pedidos = useQuery({
     queryKey: ['comandos', 'pedidos', tienda.id, hayBusqueda ? buscado : ''],
@@ -197,14 +205,40 @@ function Paleta({ alElegir }: { alElegir: () => void }) {
     const coincide = (label: string) => !q || normalizar(label).includes(q);
     const permitido = (permiso?: Permission) => !permiso || puede(permiso);
 
-    const acciones: Comando[] = ACCIONES.filter(
-      (a) => permitido(a.permiso) && coincide(a.label),
-    ).map((a) => ({
-      id: `accion:${a.to}:${a.label}`,
-      icono: a.icono,
-      label: a.label,
-      ir: ir(a.to),
-    }));
+    // Las dos colas de pedidos van primero cuando tienen algo: son lo del día.
+    const colas: Comando[] = [
+      {
+        id: 'accion:cobrar',
+        icono: MoneyIcon,
+        label: 'Ver pedidos por cobrar',
+        cuenta: tareas.data?.porCobrar.n ?? 0,
+        tab: 'cobrar',
+      },
+      {
+        id: 'accion:preparar',
+        icono: PackageIcon,
+        label: 'Ver pedidos para preparar',
+        cuenta: tareas.data?.paraPreparar.n ?? 0,
+        tab: 'preparar',
+      },
+    ]
+      .filter((c) => c.cuenta > 0 && coincide(c.label))
+      .map((c) => ({
+        id: c.id,
+        icono: c.icono,
+        label: c.label,
+        sub: `· ${c.cuenta}`,
+        ir: ir('/pedidos', { tab: c.tab }),
+      }));
+    const acciones: Comando[] = [
+      ...colas,
+      ...ACCIONES.filter((a) => permitido(a.permiso) && coincide(a.label)).map((a) => ({
+        id: `accion:${a.to}:${a.label}`,
+        icono: a.icono,
+        label: a.label,
+        ir: ir(a.to),
+      })),
+    ];
     const secciones: Comando[] = SECCIONES.filter(
       (s) => permitido(s.permiso) && coincide(s.label),
     ).map((s) => ({ id: `seccion:${s.to}`, icono: s.icono, label: s.label, ir: ir(s.to) }));

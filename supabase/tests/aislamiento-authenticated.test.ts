@@ -64,6 +64,8 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   ['public.admin_save_product', `admin_save_product('${TIENDA}', '{"title":"x"}'::jsonb)`],
   ['public.import_products', `import_products('${TIENDA}', '[]'::jsonb)`],
   ['public.admin_orders', `admin_orders('${TIENDA}', null, null, 1, 20)`],
+  // Las pestañas de Pedidos: invoker sobre `orders`, como la lista (v3 Fase 2).
+  ['public.admin_order_counts', `admin_order_counts('${TIENDA}')`],
   ['public.admin_customers', `admin_customers('${TIENDA}', null, null, 1, 20)`],
   // Cohortes y RFM: `security invoker` sobre `orders` y `customers`, como la
   // lista de clientes (ADR-134).
@@ -192,6 +194,8 @@ const PUBLICAS = [
   // generada `products.search_doc` con el rol de quien escribe el producto.
   'app.normalizar_busqueda',
   'app.paso_del_embudo',
+  // Pura: dice si un estado y un pago caen en una pestaña. No lee tablas.
+  'app.pedido_en_bandeja',
   'app.promo_discount',
   /*
    * Devuelve ids de productos publicados y un número de parecido, que es

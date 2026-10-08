@@ -1,5 +1,6 @@
 import type {
   AvisoDelPedido,
+  ConteoDeBandejas,
   PaginaPedidos,
   PedidoConTimeline,
   RepositorioAdminPedidos,
@@ -24,6 +25,12 @@ export function repositorioAdminPedidos(db: PickSupabaseClient): RepositorioAdmi
         p_status: consulta.status ?? undefined,
         p_page: consulta.page ?? 1,
         p_per_page: consulta.perPage ?? 20,
+        // 'todos' no filtra: se manda sólo lo que acota.
+        ...(consulta.bandeja && consulta.bandeja !== 'todos' ? { p_bucket: consulta.bandeja } : {}),
+        ...(consulta.pago ? { p_payment: consulta.pago } : {}),
+        ...(consulta.desde ? { p_from: consulta.desde } : {}),
+        ...(consulta.hasta ? { p_to: consulta.hasta } : {}),
+        ...(consulta.antiguosPrimero ? { p_oldest_first: true } : {}),
       });
 
       if (error) throw new Error(`No se pudieron consultar los pedidos: ${error.message}`);
@@ -88,6 +95,12 @@ export function repositorioAdminPedidos(db: PickSupabaseClient): RepositorioAdmi
 
       if (error) throw new Error(`No se pudo cambiar el estado: ${error.message}`);
       return data as unknown as Order;
+    },
+
+    async conteos(storeId): Promise<ConteoDeBandejas> {
+      const { data, error } = await db.rpc('admin_order_counts', { p_store_id: storeId });
+      if (error) throw new Error(`No se pudieron contar los pedidos: ${error.message}`);
+      return data as unknown as ConteoDeBandejas;
     },
 
     async cambiarPago(storeId, id, pago, nota): Promise<Order> {

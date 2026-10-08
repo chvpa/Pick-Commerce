@@ -25,6 +25,8 @@ export interface Tarea {
   readonly accion: string;
   readonly to: string;
   readonly params?: Readonly<Record<string, string>>;
+  /** La pestaña de la lista a la que lleva: `/pedidos?tab=cobrar`. */
+  readonly search?: { readonly tab: 'cobrar' | 'preparar' };
 }
 
 function plural(n: number, uno: string, varios: string): string {
@@ -92,6 +94,7 @@ export function listaDeTareas(
       ...(detalle ? { detalle } : {}),
       accion: 'Revisar pagos',
       to: '/pedidos',
+      search: { tab: 'cobrar' },
     });
   }
 
@@ -109,6 +112,7 @@ export function listaDeTareas(
       ...(detalle ? { detalle } : {}),
       accion: 'Preparar',
       to: '/pedidos',
+      search: { tab: 'preparar' },
     });
   }
 

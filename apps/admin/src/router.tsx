@@ -7,6 +7,7 @@ import {
   Outlet,
   redirect,
 } from '@tanstack/react-router';
+import { BANDEJAS_DE_PEDIDOS, type BandejaDePedidos } from '@pick/commerce-core';
 import type { Permission } from '@pick/commerce-types';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -319,9 +320,18 @@ const editarRoute = createRoute({
   },
 });
 
+/*
+ * La pestaña va en la URL —`?tab=cobrar`— para que el Inicio y la paleta
+ * puedan llevar directo a «Por cobrar», y para que se pueda recargar. Un valor
+ * que no es una pestaña se descarta en vez de romper la pantalla.
+ */
 const pedidosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/pedidos',
+  validateSearch: (busqueda: Record<string, unknown>): { tab?: BandejaDePedidos } =>
+    BANDEJAS_DE_PEDIDOS.includes(busqueda.tab as BandejaDePedidos)
+      ? { tab: busqueda.tab as BandejaDePedidos }
+      : {},
   component: ListaPedidos,
 });
 

@@ -14,13 +14,23 @@ import { cn } from '@/lib/utils';
  */
 /** El color de cada tono, también para lo que no es una pill —un desplegable de estado—. */
 export const COLOR_DE_TONO = {
-  amber: 'bg-[#fdf4e3] text-[#9a5b0b] [--punto:#e8930c]',
-  blue: 'bg-[#edf1fe] text-[#2b47bd] [--punto:#3b5bdb]',
-  green: 'bg-[#e8f6ee] text-[#13774a] [--punto:#22a565]',
-  red: 'bg-[#fdeceb] text-[#bf3324] [--punto:#e5484d]',
-  gray: 'bg-[#f1f2f5] text-ink-3 [--punto:#a3aab8]',
-  violet: 'bg-[#f2eefe] text-[#5f37cf] [--punto:#7c5cf0]',
+  amber: 'bg-[#fdf4e3] text-[#9a5b0b]',
+  blue: 'bg-[#edf1fe] text-[#2b47bd]',
+  green: 'bg-[#e8f6ee] text-[#13774a]',
+  red: 'bg-[#fdeceb] text-[#bf3324]',
+  gray: 'bg-[#f1f2f5] text-ink-3',
+  violet: 'bg-[#f2eefe] text-[#5f37cf]',
 } as const;
+
+/** El punto de cada tono: el de la pill y el de las opciones de un menú de estado. */
+export const PUNTO_DE_TONO: Readonly<Record<keyof typeof COLOR_DE_TONO, string>> = {
+  amber: '#e8930c',
+  blue: '#3b5bdb',
+  green: '#22a565',
+  red: '#e5484d',
+  gray: '#a3aab8',
+  violet: '#7c5cf0',
+};
 
 const badgeVariants = cva(
   'group/badge inline-flex h-[22px] w-fit shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full border border-transparent px-2 text-[12.5px] font-medium whitespace-nowrap transition-colors focus-visible:ring-3 focus-visible:ring-focus-tint [&>svg]:pointer-events-none [&>svg]:size-3!',
@@ -54,7 +64,7 @@ function Badge({
 }: useRender.ComponentProps<'span'> & VariantProps<typeof badgeVariants>) {
   // El punto va sólo en los tonos: en las variantes de shadcn no hay color de
   // estado que repetir.
-  const conPunto = variant != null && variant in COLOR_DE_TONO;
+  const punto = variant != null && variant in PUNTO_DE_TONO ? PUNTO_DE_TONO[variant as Tono] : null;
   return useRender({
     defaultTagName: 'span',
     props: mergeProps<'span'>(
@@ -62,8 +72,12 @@ function Badge({
         className: cn(badgeVariants({ variant }), className),
         children: (
           <>
-            {conPunto && (
-              <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-(--punto)" />
+            {punto && (
+              <span
+                aria-hidden="true"
+                className="size-1.5 shrink-0 rounded-full"
+                style={{ background: punto }}
+              />
             )}
             {children}
           </>

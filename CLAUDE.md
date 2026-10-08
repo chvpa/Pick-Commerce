@@ -502,7 +502,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..145 y tres decisiones pendientes:
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..146 y tres decisiones pendientes:
    P-001 (primer gateway real), P-005 (CLI/provisioner) y P-006 (cómo se le
    cobra la IA a un comercio). P-002, P-003 y P-004 están resueltas.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.
