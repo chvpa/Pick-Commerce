@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |     9% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    10% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1826,7 +1826,7 @@ notificaciones, la ayuda y el uso de IA alrededor del avatar— llega con su fas
 
 ## Fase 2 — Las pantallas del Admin, sobre lo que ya existe
 
-**Avance: 25%**
+**Avance: 33%**
 
 Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
@@ -1844,8 +1844,10 @@ Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
       barra de pasos, las líneas con foto, el cliente con WhatsApp por `wa.me` y
       correo, notas en el historial plegado, el anterior y el siguiente de la
       lista, e imprimir (ADR-147). La franja de auditoría llega con la Fase 3.
-- [ ] Productos: pestañas con conteo, con «sin foto» y «stock quieto» como bandas
-      de la misma lista.
+- [x] Productos: pestañas con conteo, con «sin foto» y «stock quieto» como bandas
+      de la misma lista que llevan a sus pantallas de trabajo, filtros por
+      categoría, marca y stock, y cuántos se ven en la tienda con la regla del
+      storefront (ADR-148). Las dos pantallas salieron del sidebar.
 - [ ] Editar producto: el layout nuevo, SKU por producto, código interno y de
       barras por variante —las columnas existen—, variantes en un popup y la vista
       de Google.
@@ -2377,6 +2379,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-08 | **v3 Fase 2: el Inicio** (ADR-145). Saludo, «Cómo vamos» con ventas, pedidos, ticket y conversión contra el período anterior —hoy contra ayer a la misma hora—, «Para hacer» ordenado por urgencia, últimos pedidos y lo más vendido. Una tienda sin pedidos ve sus pasos para empezar, leídos de sus datos. Dos funciones nuevas: `admin_store_tasks`, que también cuenta para el sidebar, y `admin_dashboard_series`, con las cubetas vacías y los tramos del ticket alrededor del propio ticket. De paso: los enlaces con forma de botón se veían como texto, y en mobile cambiar de tienda dejaba el menú abierto                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | v3 Fase 2 |           0% |             8% |
 | 2026-10-08 | **v3 Fase 2: Pedidos** (ADR-146). Pestañas que cruzan estado y pago, con una sola definición de cada una en `app.pedido_en_bandeja` —la usan la lista, el conteo y el «Para hacer» del Inicio, que no pueden contar distinto—. Filtros de pago y fecha, búsqueda por ciudad, elegir varios y marcarlos pagados o pasarlos a preparación pasando por las mismas funciones que el cambio de a uno, y exportar. La firma nueva de `admin_orders` no rompe al Admin desplegado. De paso: «Preparar» en lote ya no lleva atrás lo que salió, y en el teléfono la fila muestra el estado y la barra del lote entra                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v3 Fase 2 |           8% |            17% |
 | 2026-10-08 | **v3 Fase 2: el detalle de pedido** (ADR-147). Una sola próxima acción según el estado y el pago, que promete un correo sólo en los pasos que lo mandan; la barra de pasos, las líneas con la foto del catálogo de hoy, el cliente con WhatsApp por `wa.me` y correo, el historial plegado con notas —una fila de `order_events` por RLS, sin función nueva—, el anterior y el siguiente de la página de la lista, e imprimir. El teléfono se normaliza con la regla del checkout, que pasó al core junto con las etiquetas de los medios de pago                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | v3 Fase 2 |          17% |            25% |
+| 2026-10-08 | **v3 Fase 2: Productos** (ADR-148). Pestañas con su conteo —todos, publicados, borradores, sin foto, stock quieto, archivados— definidas una vez en `app.producto_en_pestana` sobre señales contadas por join; «sin foto» y «stock quieto» pasan a ser bandas que llevan a sus pantallas, que salen del sidebar. Filtros por categoría con sus hijas, marca y stock, «se ven en la tienda» con la regla de `catalog_search` y un test que compara las dos cuentas, y el corte de página antes de armar las filas. La barra de lote de Pedidos pasa a ser compartida                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | v3 Fase 2 |          25% |            33% |
 
 ---
 

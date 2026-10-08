@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Papa from 'papaparse';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
@@ -29,9 +29,10 @@ import {
   DownloadIcon,
   MoneyIcon,
   PackageIcon,
-  XIcon,
 } from '@/components/iconos';
 import {
+  BarraDeSeleccion,
+  BotonDeLote,
   CampoDeBusqueda,
   Esqueleto,
   EstadoDeError,
@@ -434,46 +435,26 @@ function Lista({
         )}
       </Tarjeta>
 
-      {/*
-        La barra de lo elegido flota abajo, como en el handoff: está a la vista
-        mientras se recorre la lista, y desaparece apenas no hay nada elegido.
-      */}
-      {elegidosVisibles.length > 0 && (
-        <div
-          role="toolbar"
-          aria-label="Acciones sobre los pedidos elegidos"
-          className="shadow-modal fixed inset-x-4 bottom-4 z-30 flex items-center gap-1 rounded-xl bg-[#0e1525] p-1.5 text-white sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2"
-        >
-          <span className="px-2 text-[13.5px] font-medium whitespace-nowrap tabular-nums sm:px-3">
-            {elegidosVisibles.length} {elegidosVisibles.length === 1 ? 'elegido' : 'elegidos'}
-          </span>
-          <BotonDeLote
-            icono={MoneyIcon}
-            disabled={enLote.isPending || !elegidosVisibles.some(sinCobrar)}
-            onClick={() => enLote.mutate('pagados')}
-          >
-            {/* En un teléfono no entran las dos frases enteras. */}
-            <span className="sm:hidden">Pagados</span>
-            <span className="hidden sm:inline">Marcar pagados</span>
-          </BotonDeLote>
-          <BotonDeLote
-            icono={PackageIcon}
-            disabled={enLote.isPending || !elegidosVisibles.some(porPreparar)}
-            onClick={() => enLote.mutate('preparar')}
-          >
-            <span className="sm:hidden">Preparar</span>
-            <span className="hidden sm:inline">Pasar a En preparación</span>
-          </BotonDeLote>
-          <button
-            type="button"
-            aria-label="Dejar de elegir"
-            onClick={() => setElegidos(new Set())}
-            className="ml-auto flex size-8 shrink-0 cursor-pointer sm:ml-0 items-center justify-center rounded-lg text-[#c9cedb] outline-none hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40"
-          >
-            <XIcon className="size-4" />
-          </button>
-        </div>
-      )}
+      <BarraDeSeleccion
+        cuenta={elegidosVisibles.length}
+        etiqueta="Acciones sobre los pedidos elegidos"
+        onSoltar={() => setElegidos(new Set())}
+      >
+        <BotonDeLote
+          icono={MoneyIcon}
+          etiqueta="Marcar pagados"
+          corta="Pagados"
+          disabled={enLote.isPending || !elegidosVisibles.some(sinCobrar)}
+          onClick={() => enLote.mutate('pagados')}
+        />
+        <BotonDeLote
+          icono={PackageIcon}
+          etiqueta="Pasar a En preparación"
+          corta="Preparar"
+          disabled={enLote.isPending || !elegidosVisibles.some(porPreparar)}
+          onClick={() => enLote.mutate('preparar')}
+        />
+      </BarraDeSeleccion>
 
       <DialogoDeConfirmacion
         abierto={porCancelar !== null}
@@ -488,30 +469,6 @@ function Lista({
         }}
       />
     </>
-  );
-}
-
-function BotonDeLote({
-  icono: Icono,
-  children,
-  disabled,
-  onClick,
-}: {
-  icono: typeof MoneyIcon;
-  children: ReactNode;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-white/10 px-3 text-[13.5px] font-medium whitespace-nowrap outline-none hover:bg-white/[0.18] focus-visible:ring-2 focus-visible:ring-white/40 disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      <Icono className="size-[15px]" />
-      {children}
-    </button>
   );
 }
 

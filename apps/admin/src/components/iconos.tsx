@@ -73,6 +73,8 @@ import {
   PrinterIcon as Printer,
   QuoteDownIcon as QuoteDown,
   WhatsappIcon as Whatsapp,
+  Archive02Icon as Archive02,
+  ViewIcon as View,
 } from '@hugeicons/core-free-icons';
 
 /**
@@ -183,3 +185,6 @@ export const MoreHorizontalIcon = icono(MoreHorizontal);
 export const PrinterIcon = icono(Printer);
 export const QuoteIcon = icono(QuoteDown);
 export const WhatsappIcon = icono(Whatsapp);
+/** Archivar: sale de la tienda y se conserva. No es borrar. */
+export const ArchiveIcon = icono(Archive02);
+export const EyeIcon = icono(View);

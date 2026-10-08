@@ -4,6 +4,7 @@ import type {
   FotoParaLimpiar,
   PaginaDePropuestas,
   PaginaProductos,
+  ResumenDelCatalogo,
   PaginaDeDescripciones,
   PaginaSinDescripcion,
   PaginaSinFoto,
@@ -95,10 +96,21 @@ export function repositorioAdminCatalogo(db: PickSupabaseClient): RepositorioAdm
         ...(consulta.status ? { p_status: consulta.status } : {}),
         p_page: consulta.page ?? 1,
         p_per_page: consulta.perPage ?? 20,
+        // «Todos» es no filtrar: no se manda, como en los pedidos.
+        ...(consulta.pestana && consulta.pestana !== 'todos' ? { p_tab: consulta.pestana } : {}),
+        ...(consulta.categoria ? { p_category: consulta.categoria } : {}),
+        ...(consulta.marca ? { p_brand: consulta.marca } : {}),
+        ...(consulta.stock ? { p_stock: consulta.stock } : {}),
       });
 
       if (error) throw new Error(`No se pudieron listar los productos: ${error.message}`);
       return data as unknown as PaginaProductos;
+    },
+
+    async resumen(storeId): Promise<ResumenDelCatalogo> {
+      const { data, error } = await db.rpc('admin_product_counts', { p_store_id: storeId });
+      if (error) throw new Error(`No se pudieron contar los productos: ${error.message}`);
+      return data as unknown as ResumenDelCatalogo;
     },
 
     async sinFoto(storeId, page, perPage = 20): Promise<PaginaSinFoto> {

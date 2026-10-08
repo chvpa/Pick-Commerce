@@ -66,6 +66,10 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   ['public.admin_orders', `admin_orders('${TIENDA}', null, null, 1, 20)`],
   // Las pestañas de Pedidos: invoker sobre `orders`, como la lista (v3 Fase 2).
   ['public.admin_order_counts', `admin_order_counts('${TIENDA}')`],
+  // Las pestañas de Productos: invoker sobre `products`, `product_media`,
+  // `inventory_levels` y `orders`, como la lista (v3 Fase 2).
+  ['public.admin_product_counts', `admin_product_counts('${TIENDA}')`],
+  ['app.senales_de_productos', `app.senales_de_productos('${TIENDA}')`],
   ['public.admin_customers', `admin_customers('${TIENDA}', null, null, 1, 20)`],
   // Cohortes y RFM: `security invoker` sobre `orders` y `customers`, como la
   // lista de clientes (ADR-134).
@@ -196,6 +200,8 @@ const PUBLICAS = [
   'app.paso_del_embudo',
   // Pura: dice si un estado y un pago caen en una pestaña. No lee tablas.
   'app.pedido_en_bandeja',
+  // Pura: dice si un producto, con sus señales, cae en una pestaña.
+  'app.producto_en_pestana',
   'app.promo_discount',
   /*
    * Devuelve ids de productos publicados y un número de parecido, que es

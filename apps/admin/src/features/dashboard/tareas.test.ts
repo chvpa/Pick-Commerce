@@ -57,10 +57,13 @@ test('un solo aviso lleva a su pedido; varios, a la lista', () => {
   assert.equal(varios.titulo, '3 correos a clientes no se pudieron enviar');
 });
 
-test('pagar y preparar llevan a su pestaña de Pedidos', () => {
+test('pagar, preparar y fotografiar llevan a su pestaña', () => {
   const tareas = listaDeTareas(TODO, opciones);
   assert.deepEqual(tareas[1]!.search, { tab: 'cobrar' });
   assert.deepEqual(tareas[2]!.search, { tab: 'preparar' });
+  const foto = tareas.find((t) => t.clave === 'foto')!;
+  assert.equal(foto.to, '/productos');
+  assert.deepEqual(foto.search, { tab: 'sinfoto' });
 });
 
 test('el singular y el plural se dicen bien', () => {

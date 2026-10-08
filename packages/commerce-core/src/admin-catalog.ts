@@ -23,14 +23,62 @@ export interface ResumenProducto {
   readonly precioDesde?: number;
   readonly currency?: string;
   readonly imagen?: string;
+  /** La hoja y su padre: «Prendas › Camperas». Ausente sin categoría. */
+  readonly categoria?: string;
+  /** Desde la última venta, o desde el alta si nunca se vendió (ADR-135). */
+  readonly diasSinVender?: number;
 }
+
+/**
+ * Las pestañas de la lista de Productos (v3 Fase 2). Qué cae en cada una lo
+ * define `app.producto_en_pestana` en la base; «sin foto» y «quieto» no son un
+ * estado, así que un producto puede estar en dos.
+ */
+export const PESTANAS_DE_PRODUCTOS = [
+  'todos',
+  'publicados',
+  'borradores',
+  'sinfoto',
+  'quieto',
+  'archivados',
+] as const;
+
+export type PestanaDeProductos = (typeof PESTANAS_DE_PRODUCTOS)[number];
+
+export const ETIQUETA_PESTANA_PRODUCTOS: Readonly<Record<PestanaDeProductos, string>> = {
+  todos: 'Todos',
+  publicados: 'Publicados',
+  borradores: 'Borradores',
+  sinfoto: 'Sin foto',
+  quieto: 'Stock quieto',
+  archivados: 'Archivados',
+};
+
+/** Hasta cuántas unidades son «quedan pocos». La base filtra con el mismo número. */
+export const STOCK_BAJO = 5;
+
+export type FiltroDeStock = 'sin' | 'pocos' | 'con';
 
 export interface ConsultaProductos {
   /** Busca en título, handle, marca y SKU. Todos los términos deben aparecer. */
   readonly query?: string;
   readonly status?: ProductStatus;
+  readonly pestana?: PestanaDeProductos;
+  /** Incluye las categorías de abajo: los productos cuelgan de la hoja. */
+  readonly categoria?: string;
+  readonly marca?: string;
+  readonly stock?: FiltroDeStock;
   readonly page?: number;
   readonly perPage?: number;
+}
+
+/** Lo que la pantalla necesita además de la página. */
+export interface ResumenDelCatalogo extends Readonly<Record<PestanaDeProductos, number>> {
+  /** Con la regla del storefront: `catalog_search` es su dueño. */
+  readonly seVen: number;
+  /** Si la tienda oculta lo que no tiene foto (`settings.catalog.hideWithoutImage`). */
+  readonly ocultaSinFoto: boolean;
+  readonly marcas: readonly string[];
 }
 
 export interface PaginaProductos {
@@ -312,6 +360,8 @@ export interface ConsultaAntiguedad {
 
 export interface RepositorioAdminCatalogo {
   listar(storeId: string, consulta: ConsultaProductos): Promise<PaginaProductos>;
+  /** Cuántos hay en cada pestaña, cuántos se ven y las marcas para filtrar. */
+  resumen(storeId: string): Promise<ResumenDelCatalogo>;
   porId(storeId: string, id: string): Promise<ProductoCargado | null>;
   /** Devuelve el id: en un alta es el único lugar donde aparece. */
   guardar(storeId: string, producto: ProductoEditable): Promise<string>;

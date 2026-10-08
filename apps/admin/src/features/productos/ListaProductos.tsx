@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, useSearch } from '@tanstack/react-router';
 import {
   createColumnHelper,
   flexRender,
@@ -8,35 +8,55 @@ import {
   useReactTable,
   type RowSelectionState,
 } from '@tanstack/react-table';
-import { repositorioAdminCatalogo, subirImagenDeProducto } from '@pick/adapter-supabase';
+import {
+  repositorioAdminCatalogo,
+  repositorioContenido,
+  subirImagenDeProducto,
+} from '@pick/adapter-supabase';
 import {
   ETIQUETA_ESTADO,
+  ETIQUETA_PESTANA_PRODUCTOS,
+  PESTANAS_DE_PRODUCTOS,
+  STOCK_BAJO,
   formatMoney,
+  type CategoriaAdmin,
   type EstadoAlternable,
+  type FiltroDeStock,
+  type PestanaDeProductos,
   type ResumenProducto,
 } from '@pick/commerce-core';
 import type { ProductStatus } from '@pick/commerce-types';
-import { SparklesIcon } from '@/components/iconos';
-import { Badge } from '@/components/ui/badge';
-import { TONO_DE_PRODUCTO } from '@/components/estados';
+import { DialogoDeConfirmacion } from '@/components/acciones';
 import {
-  BarraDeFiltros,
+  CameraIcon,
+  CameraOffIcon,
+  CheckCircleIcon,
+  DiscountIcon,
+  HourglassIcon,
+  LayoutDashboardIcon,
+  NoteEditIcon,
+  SparklesIcon,
+  PlusIcon,
+  UploadIcon,
+  EyeIcon,
+  ArchiveIcon,
+} from '@/components/iconos';
+import {
+  BarraDeSeleccion,
+  BotonDeLote,
+  CampoDeBusqueda,
   Esqueleto,
   EstadoDeError,
   EstadoVacio,
+  FiltroAgregable,
   PaginaAdmin,
   Paginacion,
-  Selector,
+  Pestanas,
   Tarjeta,
 } from '@/components/pagina';
-import { DialogoDeConfirmacion } from '@/components/acciones';
-import { limpiarFondo } from '@/lib/ia';
-import { TOPE_POR_TANDA, limpiarFondosEnLote } from './limpieza';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -47,51 +67,80 @@ import {
 } from '@/components/ui/table';
 import { usePuede } from '@/features/auth/usePuede';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
+import { limpiarFondo } from '@/lib/ia';
 import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { SelectItem } from '@/components/ui/select';
+import { TOPE_POR_TANDA, limpiarFondosEnLote } from './limpieza';
 
 const POR_PAGINA = 20;
 
-const ESTADOS: readonly ProductStatus[] = ['draft', 'active', 'inactive', 'archived'];
-
 const columna = createColumnHelper<ResumenProducto>();
 
+const ICONO_DE_PESTANA: Readonly<
+  Record<PestanaDeProductos, (props: { className?: string }) => ReactNode>
+> = {
+  todos: LayoutDashboardIcon,
+  publicados: EyeIcon,
+  borradores: NoteEditIcon,
+  sinfoto: CameraOffIcon,
+  quieto: HourglassIcon,
+  archivados: ArchiveIcon,
+};
+
+/** El estado, dicho con su color al lado del interruptor, como el handoff. */
+const COLOR_DE_ESTADO: Readonly<Record<ProductStatus, string>> = {
+  active: '#13774a',
+  draft: '#535b6e',
+  inactive: '#9a5b0b',
+  archived: '#8a91a2',
+};
+
+const STOCKS: readonly { readonly valor: FiltroDeStock; readonly etiqueta: string }[] = [
+  { valor: 'sin', etiqueta: 'Sin stock' },
+  { valor: 'pocos', etiqueta: 'Quedan pocos' },
+  { valor: 'con', etiqueta: 'Con stock' },
+];
+
+/** «Prendas › Camperas», para el filtro: la hoja sola no se distingue entre ramas. */
+function rutasDeCategorias(categorias: readonly CategoriaAdmin[]) {
+  const porId = new Map(categorias.map((c) => [c.id, c]));
+  const ruta = (c: CategoriaAdmin): string => {
+    const padre = c.parentId ? porId.get(c.parentId) : undefined;
+    return padre ? `${ruta(padre)} › ${c.name}` : c.name;
+  };
+  return categorias
+    .map((c) => ({ valor: c.id, etiqueta: ruta(c) }))
+    .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta));
+}
+
 /**
- * El catálogo.
+ * El catálogo, como lo dibuja el handoff (ADR-143, ADR-148).
  *
- * Usa TanStack Table sólo para modelar filas y selección: la búsqueda, el filtro
- * y la paginación siguen siendo del servidor (`manualPagination`,
- * `manualFiltering`), como manda ADR-024. Traer el catálogo al browser para que
- * la tabla lo ordene sería exactamente lo que esa decisión prohíbe.
+ * Las pestañas cruzan el estado con lo que la tienda necesita mirar: lo que no
+ * tiene foto y lo que no se vende. Antes eran pantallas aparte; ahora son la
+ * misma lista con una banda que dice qué hacer, y las pantallas de trabajo —sacar
+ * las fotos desde el depósito, la antigüedad por tramo— quedan a un clic.
  *
- * ADR-060 dejó escrito que la tabla entraba cuando apareciera la selección
- * múltiple. Apareció acá, y no se migró la de pedidos: no la necesita.
- *
- * `useReactTable` devuelve funciones que un compilador no puede memoizar sin
- * arriesgar interfaz vieja. Hoy no importa: **el compilador de React no está
- * activo** en el Admin, y la regla de lint que lo avisaba está apagada con ese
- * motivo en `eslint.config.js`. Con veinte filas por página no se nota; si
- * alguna vez se notara, la salida es virtualizar.
+ * Usa TanStack Table sólo para modelar filas y selección: la búsqueda, los
+ * filtros y la paginación son del servidor, como manda ADR-024. ADR-060 dejó
+ * escrito que la tabla entraba cuando apareciera la selección múltiple, y es
+ * ésta.
  */
 export function ListaProductos() {
   const tienda = useTiendaActiva();
   const cliente = useQueryClient();
   const puede = usePuede();
   const escribe = puede('catalog.write');
+  const { tab } = useSearch({ from: '/productos' });
+  const pestana: PestanaDeProductos = tab ?? 'todos';
 
   const [texto, setTexto] = useState('');
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<ProductStatus | ''>('');
+  const [categoria, setCategoria] = useState<string | null>(null);
+  const [marca, setMarca] = useState<string | null>(null);
+  const [stock, setStock] = useState<FiltroDeStock | null>(null);
   const [page, setPage] = useState(1);
   const [seleccion, setSeleccion] = useState<RowSelectionState>({});
-  /*
-   * Qué se está por confirmar.
-   *
-   * Los tres avisos de esta pantalla usaban el `confirm()` del navegador: modal
-   * bloqueante, sin estilo, sin foco gestionado, y que algunos browsers permiten
-   * silenciar —en ese caso la acción salía sin preguntar nada—.
-   */
   const [porArchivar, setPorArchivar] = useState<ResumenProducto | null>(null);
   const [lotePorConfirmar, setLotePorConfirmar] = useState<'active' | 'archived' | null>(null);
   /*
@@ -102,6 +151,55 @@ export function ListaProductos() {
    */
   const [limpiezaPorConfirmar, setLimpiezaPorConfirmar] = useState<readonly string[] | null>(null);
   const [progreso, setProgreso] = useState<{ hechas: number; total: number } | null>(null);
+
+  // La búsqueda va al servidor: sin esperar, cada tecla sería una consulta.
+  useEffect(() => {
+    const id = setTimeout(() => setQuery(texto.trim()), 300);
+    return () => clearTimeout(id);
+  }, [texto]);
+
+  /*
+   * Otra pestaña, otra búsqueda u otro filtro: la página y lo elegido eran de la
+   * lista anterior, y actuar sobre lo que nadie ve es la forma de archivar veinte
+   * productos sin querer. Se reinician durante el render, como en Pedidos.
+   */
+  const clave = JSON.stringify([pestana, query, categoria, marca, stock]);
+  const [claveVista, setClaveVista] = useState(clave);
+  if (clave !== claveVista) {
+    setClaveVista(clave);
+    setPage(1);
+    setSeleccion({});
+  }
+
+  const resumen = useQuery({
+    queryKey: ['productos', tienda.id, 'resumen'],
+    queryFn: () => repositorioAdminCatalogo(db).resumen(tienda.id),
+  });
+
+  const categorias = useQuery({
+    queryKey: ['categorias', tienda.id],
+    queryFn: () => repositorioContenido(db).categorias(tienda.id),
+  });
+  const opcionesDeCategoria = useMemo(
+    () => rutasDeCategorias(categorias.data ?? []),
+    [categorias.data],
+  );
+
+  const consulta = useQuery({
+    queryKey: ['productos', tienda.id, pestana, query, categoria, marca, stock, page],
+    queryFn: () =>
+      repositorioAdminCatalogo(db).listar(tienda.id, {
+        query,
+        pestana,
+        ...(categoria ? { categoria } : {}),
+        ...(marca ? { marca } : {}),
+        ...(stock ? { stock } : {}),
+        page,
+        perPage: POR_PAGINA,
+      }),
+    // Sin esto la tabla parpadea a vacío en cada página y en cada búsqueda.
+    placeholderData: keepPreviousData,
+  });
 
   /**
    * La limpieza de fondos, en tanda (ADR-130).
@@ -135,35 +233,7 @@ export function ListaProductos() {
     },
   });
 
-  // La búsqueda va al servidor: sin esperar, cada tecla sería una consulta.
-  useEffect(() => {
-    const id = setTimeout(() => {
-      setQuery(texto);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(id);
-  }, [texto]);
-
-  const consulta = useQuery({
-    queryKey: ['productos', tienda.id, query, status, page],
-    queryFn: () =>
-      repositorioAdminCatalogo(db).listar(tienda.id, {
-        query,
-        ...(status ? { status } : {}),
-        page,
-        perPage: POR_PAGINA,
-      }),
-    // Sin esto la tabla parpadea a vacío en cada página y en cada búsqueda.
-    placeholderData: keepPreviousData,
-  });
-
-  // Al cambiar de página, de búsqueda o de filtro se limpia la selección: las
-  // filas marcadas ya no están a la vista, y actuar sobre lo que nadie ve es la
-  // forma de archivar veinte productos sin querer.
-  useEffect(() => {
-    setSeleccion({});
-  }, [query, status, page]);
-
+  // El resumen comparte el prefijo: publicar o archivar también mueve los conteos.
   const invalidar = () => cliente.invalidateQueries({ queryKey: ['productos', tienda.id] });
 
   // Una fila y el lote usan la misma operación: publicar o archivar, en los dos
@@ -206,6 +276,7 @@ export function ListaProductos() {
             aria-label={`Seleccionar ${row.original.title}`}
             checked={row.getIsSelected()}
             onCheckedChange={(v) => row.toggleSelected(v === true)}
+            className="relative z-10"
           />
         ),
       }),
@@ -214,64 +285,94 @@ export function ListaProductos() {
         cell: ({ row }) => {
           const p = row.original;
           return (
-            <div className="flex items-center gap-3">
-              {/*
-                La miniatura va dentro del recuadro gris, no en su lugar: los
-                medios del catálogo guardan rutas del storefront —`/products/x.jpg`—
-                que desde el dominio del Admin no resuelven, y el icono de imagen
-                rota deja la tabla con pinta de estar mal. Si no carga, queda el
-                recuadro. Resolver esas rutas contra el dominio de la tienda es
-                otra cosa y está anotada.
-              */}
-              <div className="bg-muted size-8 shrink-0 overflow-hidden rounded">
-                {p.imagen && (
+            <span className="flex min-w-0 items-center gap-3">
+              {p.imagen ? (
+                /*
+                 * Si no carga, queda el recuadro: los medios viejos guardaban
+                 * rutas del storefront —`/products/x.jpg`— que desde el dominio
+                 * del Admin no resuelven, y el ícono de imagen rota deja la tabla
+                 * con pinta de estar mal.
+                 */
+                <span className="size-10 shrink-0 overflow-hidden rounded-[9px] bg-[repeating-linear-gradient(135deg,#f3f4f7_0_5px,#eaecf1_5px_10px)]">
                   <img
                     src={p.imagen}
                     alt=""
-                    width={32}
-                    height={32}
-                    className="size-8 object-cover"
+                    width={40}
+                    height={40}
+                    className="size-10 object-cover"
                     onError={(e) => {
                       e.currentTarget.hidden = true;
                     }}
                   />
-                )}
-              </div>
-              <div className="flex flex-col">
+                </span>
+              ) : (
+                <span
+                  title="Sin foto"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-[9px] border-[1.5px] border-dashed border-[#d3d7df] text-[#a3aab8]"
+                >
+                  <CameraOffIcon className="size-[17px]" />
+                  <span className="sr-only">Sin foto</span>
+                </span>
+              )}
+              <span className="flex min-w-0 flex-col">
+                {/*
+                  Toda la fila lleva al producto: el título se estira sobre ella, y
+                  el checkbox y el interruptor quedan encima. Un `<tr>` con
+                  `onClick` no se alcanza con el teclado.
+                */}
                 <Link
                   to="/productos/$id"
                   params={{ id: p.id }}
-                  className="font-medium hover:underline"
+                  className="truncate font-medium outline-none after:absolute after:inset-0 focus-visible:after:ring-3 focus-visible:after:ring-[#e4e9fc] focus-visible:after:ring-inset"
                 >
                   {p.title}
                 </Link>
-                <span className="text-muted-foreground text-xs">
+                <span className="text-ink-3 hidden truncate text-[12.5px] sm:block">
                   {p.brand ? `${p.brand} · ` : ''}
-                  {p.handle}
+                  {p.variantes} {p.variantes === 1 ? 'variante' : 'variantes'}
                 </span>
-              </div>
-            </div>
+                {/*
+                  En el teléfono las otras columnas no entran: lo que dicen va acá,
+                  en una línea. El interruptor no: publicar y archivar se hacen en
+                  lote o desde el producto.
+                */}
+                <span className="flex flex-wrap items-center gap-x-1.5 text-[12.5px] sm:hidden">
+                  <span style={{ color: COLOR_DE_ESTADO[p.status] }}>
+                    {ETIQUETA_ESTADO[p.status]}
+                  </span>
+                  <span className="text-ink-faint">·</span>
+                  <span style={{ color: inventario(p).tinta }}>{inventario(p).texto}</span>
+                  {p.precioDesde !== undefined && (
+                    <>
+                      <span className="text-ink-faint">·</span>
+                      <span className="text-ink-2 tabular-nums">
+                        {formatMoney(
+                          { amount: p.precioDesde, currency: (p.currency ?? 'PYG') as 'PYG' },
+                          tienda.locale,
+                        )}
+                      </span>
+                    </>
+                  )}
+                </span>
+              </span>
+            </span>
           );
         },
       }),
       columna.accessor('status', {
-        meta: { ancho: 'w-36' },
+        meta: { ancho: 'w-40', escritorio: true },
         header: 'En la tienda',
         cell: ({ row, getValue }) => {
           const estado = getValue();
           const publicado = estado === 'active';
           return (
-            <span className="flex items-center gap-2.5">
+            <span className="relative z-10 inline-flex items-center gap-2.5">
               {/*
-                Un interruptor y no un botón de archivar: archivar era un camino
-                de ida —la fila dejaba de ofrecer el botón y no había forma de
-                volver desde el listado—.
-
                 Encender siempre publica, venga de donde venga, que es lo que
                 significa «habilitarlo de nuevo». Apagar archiva, con
                 confirmación porque saca el producto de la tienda. Los otros dos
-                estados no caben en un interruptor, así que se leen en la
-                etiqueta de al lado y se eligen desde el formulario.
+                estados no caben en un interruptor, así que se leen al lado y se
+                eligen desde el formulario.
               */}
               <Switch
                 checked={publicado}
@@ -282,38 +383,35 @@ export function ListaProductos() {
                     cambiarEstado.mutate({ id: row.original.id, status: 'active' });
                     return;
                   }
-                  // Se abre el diálogo en vez de archivar. El interruptor no se
-                  // mueve hasta que la mutación vuelve, así que cancelar lo deja
-                  // donde estaba sin tener que revertirlo a mano.
+                  // El interruptor no se mueve hasta que la mutación vuelve, así
+                  // que cancelar el diálogo lo deja donde estaba.
                   setPorArchivar(row.original);
                 }}
               />
-              <Badge variant={TONO_DE_PRODUCTO[estado]}>{ETIQUETA_ESTADO[estado]}</Badge>
+              <span className="text-[13px] font-medium" style={{ color: COLOR_DE_ESTADO[estado] }}>
+                {ETIQUETA_ESTADO[estado]}
+              </span>
             </span>
           );
         },
       }),
-      columna.accessor('variantes', {
-        meta: { ancho: 'w-24' },
-        header: () => <span className="block text-right">Variantes</span>,
-        cell: ({ getValue }) => <span className="block text-right tabular-nums">{getValue()}</span>,
-      }),
       columna.accessor('stock', {
-        meta: { ancho: 'w-20' },
-        header: () => <span className="block text-right">Stock</span>,
+        meta: { ancho: 'w-44', escritorio: true },
+        header: 'Inventario',
+        cell: ({ row }) => <Inventario producto={row.original} quieto={pestana === 'quieto'} />,
+      }),
+      columna.accessor('categoria', {
+        meta: { ancho: 'w-44', escritorio: true },
+        header: 'Categoría',
         cell: ({ getValue }) => (
-          <span
-            className={cn('block text-right tabular-nums', getValue() <= 0 && 'text-destructive')}
-          >
-            {getValue()}
-          </span>
+          <span className="text-ink-2 block truncate text-[13.5px]">{getValue() ?? '—'}</span>
         ),
       }),
       columna.accessor('precioDesde', {
-        meta: { ancho: 'w-32' },
-        header: () => <span className="block text-right">Desde</span>,
+        meta: { ancho: 'w-32', escritorio: true },
+        header: () => <span className="block text-right">Precio desde</span>,
         cell: ({ row, getValue }) => (
-          <span className="block text-right tabular-nums">
+          <span className="block text-right font-medium whitespace-nowrap tabular-nums">
             {getValue() === undefined
               ? '—'
               : formatMoney(
@@ -324,7 +422,7 @@ export function ListaProductos() {
         ),
       }),
     ],
-    [cambiarEstado, escribe, tienda.locale],
+    [cambiarEstado, escribe, pestana, tienda.locale],
   );
 
   const tabla = useReactTable({
@@ -343,22 +441,27 @@ export function ListaProductos() {
     manualFiltering: true,
     // La columna de selección sólo existe para quien puede escribir: a un viewer
     // no se le ofrece marcar filas que no va a poder tocar.
-    initialState: { columnVisibility: { seleccion: escribe, acciones: escribe } },
+    initialState: { columnVisibility: { seleccion: escribe } },
   });
 
   const marcados = tabla.getSelectedRowModel().rows.map((r) => r.original);
   const columnasVisibles = tabla.getVisibleFlatColumns().length;
+  const filtrando = Boolean(query || categoria || marca || stock);
+  const numero = (n: number) => n.toLocaleString(tienda.locale);
 
   return (
     <PaginaAdmin
       titulo="Productos"
-      descripcion="Lo que la tienda vende. El interruptor publica y archiva sin abrir el producto."
+      descripcion={
+        resumen.data
+          ? `${numero(resumen.data.todos)} ${resumen.data.todos === 1 ? 'producto' : 'productos'} · ${numero(resumen.data.seVen)} se ven en la tienda`
+          : 'Lo que la tienda vende.'
+      }
       acciones={
         /*
-          Un enlace con pinta de botón, no un `Button` que renderiza un enlace:
-          envolverlo en `Button` le pone `role="button"` y un lector de pantalla
-          lo anuncia como botón cuando en realidad navega. Las clases dan el
-          aspecto; la semántica la da el <a>.
+          Enlaces con pinta de botón, no un `Button` que renderiza un enlace:
+          envolverlo le pone `role="button"` y un lector de pantalla lo anuncia
+          como botón cuando en realidad navega.
         */
         escribe && (
           <>
@@ -366,161 +469,155 @@ export function ListaProductos() {
               to="/productos/importar"
               className={buttonVariants({ variant: 'outline', size: 'lg' })}
             >
-              Importar / exportar
+              <UploadIcon aria-hidden="true" />
+              Importar
             </Link>
             {/*
-              El alta con la cámara va al lado del alta a mano y no la reemplaza:
-              un producto sin foto —o uno que se copia de otro— se sigue cargando
-              por el formulario completo. Se muestra sólo a quien puede gastar la
-              clave del comercio, que es lo que esa pantalla necesita (ADR-131).
+              El alta con la cámara se muestra a quien puede gastar la clave del
+              comercio, que es lo que esa pantalla necesita (ADR-131).
             */}
             {puede('settings.write') && (
               <Link
                 to="/productos/camara"
-                className={buttonVariants({ variant: 'outline', size: 'lg' })}
+                className={cn(
+                  buttonVariants({ variant: 'outline', size: 'lg' }),
+                  'border-[#e3dbfb] text-[#5f37cf] hover:bg-[#faf8ff] hover:text-[#5f37cf]',
+                )}
               >
-                <SparklesIcon aria-hidden="true" />
+                <CameraIcon aria-hidden="true" />
                 Cargar con la cámara
               </Link>
             )}
             <Link to="/productos/nuevo" className={buttonVariants({ size: 'lg' })}>
+              <PlusIcon aria-hidden="true" />
               Nuevo producto
             </Link>
           </>
         )
       }
     >
+      <Pestanas
+        etiqueta="Productos por estado"
+        to="/productos"
+        activa={pestana}
+        pestanas={PESTANAS_DE_PRODUCTOS.map((p) => ({
+          valor: p,
+          etiqueta: ETIQUETA_PESTANA_PRODUCTOS[p],
+          icono: ICONO_DE_PESTANA[p],
+          ...(resumen.data ? { cuenta: resumen.data[p] } : {}),
+        }))}
+      />
+
+      {pestana === 'sinfoto' && (
+        <Banda
+          tono="violeta"
+          icono={<SparklesIcon className="size-[17px]" />}
+          titulo={
+            resumen.data?.ocultaSinFoto === false
+              ? 'Estos productos se muestran sin foto'
+              : 'Estos productos no se ven en la tienda'
+          }
+          texto={
+            resumen.data?.ocultaSinFoto === false
+              ? 'Una foto vende más. Sacales una desde el teléfono, parado en el depósito.'
+              : 'La tienda oculta los productos sin foto. Sacales una desde el teléfono y vuelven solos a la vitrina.'
+          }
+          accion={
+            escribe && (
+              <Link
+                to="/productos/sin-foto"
+                className={cn(
+                  buttonVariants(),
+                  'border-[#5f37cf] bg-[#5f37cf] text-white hover:bg-[#5230b8]',
+                )}
+              >
+                <CameraIcon aria-hidden="true" />
+                Fotografiar
+              </Link>
+            )
+          }
+        />
+      )}
+
+      {pestana === 'quieto' && (
+        <Banda
+          tono="ambar"
+          icono={<HourglassIcon className="size-[17px]" />}
+          titulo="Plata inmovilizada en stock que no rota"
+          texto="Tienen stock y no se vendieron en los últimos 90 días. Una promoción puede moverlos."
+          accion={
+            <>
+              <Link to="/productos/stock-quieto" className={buttonVariants({ variant: 'outline' })}>
+                Ver por antigüedad
+              </Link>
+              {puede('promotion.write') && (
+                <Link to="/promociones/nueva" className={buttonVariants({ variant: 'outline' })}>
+                  <DiscountIcon aria-hidden="true" />
+                  Crear promoción
+                </Link>
+              )}
+            </>
+          }
+        />
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <CampoDeBusqueda
+          valor={texto}
+          onCambio={setTexto}
+          placeholder="Título, marca o SKU"
+          etiqueta="Buscar productos"
+        />
+        {opcionesDeCategoria.length > 0 && (
+          <FiltroAgregable
+            etiqueta="Categoría"
+            valor={categoria}
+            opciones={opcionesDeCategoria}
+            onCambiar={setCategoria}
+          />
+        )}
+        {(resumen.data?.marcas.length ?? 0) > 0 && (
+          <FiltroAgregable
+            etiqueta="Marca"
+            valor={marca}
+            opciones={(resumen.data?.marcas ?? []).map((m) => ({ valor: m, etiqueta: m }))}
+            onCambiar={setMarca}
+          />
+        )}
+        <FiltroAgregable etiqueta="Stock" valor={stock} opciones={STOCKS} onCambiar={setStock} />
+      </div>
+
       {(cambiarEstado.isError || enLote.isError) && (
         <p className="text-destructive text-sm" role="alert">
           {((cambiarEstado.error ?? enLote.error) as Error).message}
         </p>
       )}
 
+      {(progreso ?? limpieza.data ?? limpieza.error) && (
+        <p className="text-sm" aria-live="polite">
+          {progreso
+            ? `Limpiando fondos: ${progreso.hechas} de ${progreso.total}. Cada foto puede tardar hasta dos minutos.`
+            : limpieza.error
+              ? `No se pudo limpiar: ${(limpieza.error as Error).message}`
+              : `Listo: ${limpieza.data?.hechas ?? 0} ${(limpieza.data?.hechas ?? 0) === 1 ? 'propuesta' : 'propuestas'} para revisar${
+                  /*
+                   * Con el motivo, no sólo el nombre. La falla más común es que
+                   * la tienda no tenga credencial de OpenAI, y sin el motivo el
+                   * aviso dejaba a alguien buscando el problema en la foto.
+                   */
+                  limpieza.data?.errores.length
+                    ? `. Falló ${limpieza.data.errores.length}: ${limpieza.data.errores[0]!.title} — ${limpieza.data.errores[0]!.motivo}`
+                    : ''
+                }.`}
+          {!progreso && (limpieza.data?.hechas ?? 0) > 0 && (
+            <Link to="/productos/fotos" className="text-link ml-2 font-medium hover:underline">
+              Revisar
+            </Link>
+          )}
+        </p>
+      )}
+
       <Tarjeta sinRelleno>
-        <BarraDeFiltros>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="buscar" className="text-muted-foreground text-xs">
-              Buscar
-            </Label>
-            <Input
-              id="buscar"
-              value={texto}
-              onChange={(e) => setTexto(e.currentTarget.value)}
-              placeholder="Título, marca o SKU"
-              className="h-8 w-64"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="estado" className="text-muted-foreground text-xs">
-              Estado
-            </Label>
-            {/*
-              `<select>` nativo: teclado, lectores de pantalla y el selector del
-              sistema en mobile ya vienen resueltos, y no cuesta JavaScript.
-            */}
-            <Selector
-              id="estado"
-              value={status}
-              onValueChange={(valor) => {
-                setStatus(valor as ProductStatus | '');
-                setPage(1);
-              }}
-            >
-              <SelectItem value="">Todos</SelectItem>
-              {ESTADOS.map((e) => (
-                <SelectItem key={e} value={e}>
-                  {ETIQUETA_ESTADO[e]}
-                </SelectItem>
-              ))}
-            </Selector>
-          </div>
-        </BarraDeFiltros>
-
-        {/*
-          La barra de lote va pegada a la tabla y adentro de la tarjeta: es lo
-          que actúa sobre las filas marcadas, y suelta arriba se leía como un
-          bloque más de la página.
-        */}
-        {marcados.length > 0 && (
-          <div
-            className="border-border bg-muted/40 flex flex-wrap items-center gap-3 border-b px-4 py-2.5"
-            role="group"
-            aria-label="Acciones sobre lo seleccionado"
-          >
-            <p className="text-sm" aria-live="polite">
-              {marcados.length} {marcados.length === 1 ? 'seleccionado' : 'seleccionados'}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={enLote.isPending}
-                onClick={() => setLotePorConfirmar('archived')}
-              >
-                Archivar
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={enLote.isPending}
-                onClick={() => setLotePorConfirmar('active')}
-              >
-                Publicar
-              </Button>
-              {/*
-                Limpiar el fondo gasta la clave de OpenAI del comercio, así que
-                lo ve quien puede configurarla —owner y admin—, igual que el
-                enriquecimiento. Fotografiar, que es lo que recupera el producto,
-                no necesita esto.
-              */}
-              {puede('settings.write') && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={limpieza.isPending}
-                  onClick={() => setLimpiezaPorConfirmar(marcados.map((p) => p.id))}
-                >
-                  Limpiar fondo con IA
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={enLote.isPending}
-                onClick={() => setSeleccion({})}
-              >
-                Limpiar selección
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {(progreso ?? limpieza.data ?? limpieza.error) && (
-          <div className="border-border border-b px-4 py-2.5 text-sm" aria-live="polite">
-            {progreso
-              ? `Limpiando fondos: ${progreso.hechas} de ${progreso.total}. Cada foto puede tardar hasta dos minutos.`
-              : limpieza.error
-                ? `No se pudo limpiar: ${(limpieza.error as Error).message}`
-                : `Listo: ${limpieza.data?.hechas ?? 0} ${(limpieza.data?.hechas ?? 0) === 1 ? 'propuesta' : 'propuestas'} para revisar${
-                    /*
-                     * Con el motivo, no sólo el nombre. La falla más común es
-                     * que la tienda no tenga credencial de OpenAI, y sin el
-                     * motivo el aviso decía «1 que falló: Remera» y dejaba a
-                     * alguien buscando el problema en la foto.
-                     */
-                    limpieza.data?.errores.length
-                      ? `. Falló ${limpieza.data.errores.length}: ${limpieza.data.errores[0]!.title} — ${limpieza.data.errores[0]!.motivo}`
-                      : ''
-                  }.`}
-            {!progreso && (limpieza.data?.hechas ?? 0) > 0 && (
-              <Link to="/productos/fotos" className="ml-2 underline">
-                Revisar
-              </Link>
-            )}
-          </div>
-        )}
-
         {consulta.isError ? (
           <EstadoDeError
             titulo="No se pudieron cargar los productos"
@@ -529,23 +626,17 @@ export function ListaProductos() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="sm:min-w-[800px]">
               <TableHeader>
                 {tabla.getHeaderGroups().map((grupo) => (
                   <TableRow key={grupo.id}>
                     {grupo.headers.map((h) => (
                       /*
-                        El ancho lo declara la columna, no el contenido. Sin
-                        esto el navegador reparte por lo que hay adentro y las
-                        columnas de números terminan anchas y con el valor
+                        El ancho lo declara la columna, no el contenido: sin esto
+                        las columnas de números terminan anchas y con el valor
                         flotando en el medio.
                       */
-                      <TableHead
-                        key={h.id}
-                        className={
-                          (h.column.columnDef.meta as { ancho?: string } | undefined)?.ancho
-                        }
-                      >
+                      <TableHead key={h.id} className={claseDeColumna(h.column.columnDef.meta)}>
                         {h.isPlaceholder
                           ? null
                           : flexRender(h.column.columnDef.header, h.getContext())}
@@ -554,10 +645,9 @@ export function ListaProductos() {
                   </TableRow>
                 ))}
               </TableHeader>
-              <TableBody>
+              <TableBody aria-busy={consulta.isFetching}>
                 {consulta.isPending ? (
-                  // Skeleton y no un spinner: conserva el alto de la tabla, así la
-                  // página no salta cuando llegan los datos.
+                  // Skeleton y no un spinner: conserva el alto de la tabla.
                   <TableRow>
                     <TableCell colSpan={columnasVisibles} className="p-0">
                       <Esqueleto />
@@ -566,22 +656,7 @@ export function ListaProductos() {
                 ) : filas.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={columnasVisibles} className="p-0">
-                      <EstadoVacio
-                        titulo={
-                          query || status ? 'Ningún producto coincide' : 'Todavía no hay productos'
-                        }
-                        accion={
-                          !query && !status && escribe ? (
-                            <Link to="/productos/nuevo" className={buttonVariants({ size: 'lg' })}>
-                              Nuevo producto
-                            </Link>
-                          ) : undefined
-                        }
-                      >
-                        {query || status
-                          ? 'Probá con otras palabras o sacá el filtro de estado.'
-                          : 'Cargá el primero a mano, o traé el catálogo entero desde un CSV.'}
-                      </EstadoVacio>
+                      <Vacio pestana={pestana} filtrando={filtrando} escribe={escribe} />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -589,9 +664,16 @@ export function ListaProductos() {
                     <TableRow
                       key={fila.id}
                       data-state={fila.getIsSelected() ? 'selected' : undefined}
+                      className="relative h-16"
                     >
                       {fila.getVisibleCells().map((celda) => (
-                        <TableCell key={celda.id}>
+                        <TableCell
+                          key={celda.id}
+                          className={cn(
+                            'max-w-0 first:max-w-none',
+                            claseDeColumna(celda.column.columnDef.meta),
+                          )}
+                        >
                           {flexRender(celda.column.columnDef.cell, celda.getContext())}
                         </TableCell>
                       ))}
@@ -609,10 +691,44 @@ export function ListaProductos() {
             datos={datos}
             sustantivo="productos"
             cargando={consulta.isFetching}
-            onPagina={setPage}
+            onPagina={(p) => {
+              setPage(p);
+              setSeleccion({});
+            }}
           />
         )}
       </Tarjeta>
+
+      <BarraDeSeleccion
+        cuenta={marcados.length}
+        etiqueta="Acciones sobre los productos elegidos"
+        onSoltar={() => setSeleccion({})}
+      >
+        <BotonDeLote
+          icono={CheckCircleIcon}
+          etiqueta="Publicar"
+          disabled={enLote.isPending}
+          onClick={() => setLotePorConfirmar('active')}
+        />
+        <BotonDeLote
+          icono={ArchiveIcon}
+          etiqueta="Archivar"
+          disabled={enLote.isPending}
+          onClick={() => setLotePorConfirmar('archived')}
+        />
+        {/*
+          Limpiar el fondo gasta la clave de OpenAI del comercio, así que lo ve
+          quien puede configurarla —owner y admin—, igual que el enriquecimiento.
+        */}
+        {puede('settings.write') && (
+          <BotonDeLote
+            icono={SparklesIcon}
+            etiqueta="Limpiar fondo con IA"
+            disabled={limpieza.isPending}
+            onClick={() => setLimpiezaPorConfirmar(marcados.map((p) => p.id))}
+          />
+        )}
+      </BarraDeSeleccion>
 
       <DialogoDeConfirmacion
         abierto={porArchivar !== null}
@@ -658,9 +774,7 @@ export function ListaProductos() {
           lotePorConfirmar === 'archived'
             ? 'Dejan de verse en la tienda. Se pueden volver a publicar.'
             : /* Publicar es la misma semántica que el interruptor de cada fila:
-                 publicar es publicar, venga el producto de donde venga. Que en
-                 lote y de a uno signifiquen cosas distintas es peor que el
-                 riesgo de publicar de más, que se deshace con el mismo control. */
+                 publicar es publicar, venga el producto de donde venga. */
               'Pasan a verse en la tienda, incluidos los que estaban en borrador o archivados.'
         }
         confirmar={lotePorConfirmar === 'archived' ? 'Archivar' : 'Publicar'}
@@ -675,4 +789,119 @@ export function ListaProductos() {
       />
     </PaginaAdmin>
   );
+}
+
+/** Las columnas de datos se esconden en el teléfono; su contenido va bajo el título. */
+function claseDeColumna(meta: unknown): string {
+  const m = meta as { ancho?: string; escritorio?: boolean } | undefined;
+  return cn(m?.ancho, m?.escritorio && 'hidden sm:table-cell');
+}
+
+/** «Sin stock», «3 · quedan pocos» o «24 en 6 variantes», con su color. */
+function inventario(p: ResumenProducto): { texto: string; tinta: string; punto: string } {
+  if (p.stock <= 0) return { texto: 'Sin stock', tinta: '#bf3324', punto: '#e5484d' };
+  if (p.stock <= STOCK_BAJO)
+    return { texto: `${p.stock} · quedan pocos`, tinta: '#9a5b0b', punto: '#e8930c' };
+  return {
+    texto: `${p.stock} en ${p.variantes} ${p.variantes === 1 ? 'variante' : 'variantes'}`,
+    tinta: '#353d50',
+    punto: '#22a565',
+  };
+}
+
+function Inventario({ producto: p, quieto }: { producto: ResumenProducto; quieto: boolean }) {
+  const { texto, tinta, punto } = inventario(p);
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span className="flex items-center gap-1.5 text-[13.5px]" style={{ color: tinta }}>
+        <span aria-hidden="true" className="size-1.5 rounded-full" style={{ background: punto }} />
+        {texto}
+      </span>
+      {/* En «Stock quieto», cuánto hace: es lo que ordena la pestaña. */}
+      {quieto && p.diasSinVender !== undefined && (
+        <span className="text-ink-3 text-[12.5px]">{p.diasSinVender} días sin vender</span>
+      )}
+    </span>
+  );
+}
+
+function Banda({
+  tono,
+  icono,
+  titulo,
+  texto,
+  accion,
+}: {
+  tono: 'violeta' | 'ambar';
+  icono: ReactNode;
+  titulo: string;
+  texto: string;
+  accion?: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-3.5 rounded-xl border px-4 py-3.5',
+        tono === 'violeta' ? 'border-[#e9e4fb] bg-[#fcfbff]' : 'border-[#f3e6c4] bg-[#fffcf4]',
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'flex size-[34px] shrink-0 items-center justify-center rounded-[9px]',
+          tono === 'violeta' ? 'bg-[#f0ebfe] text-[#5f37cf]' : 'bg-[#fdf4e3] text-[#9a5b0b]',
+        )}
+      >
+        {icono}
+      </span>
+      <div className="min-w-[240px] flex-1">
+        <p className="font-semibold">{titulo}</p>
+        <p className="text-ink-2 mt-0.5 text-[13.5px]">{texto}</p>
+      </div>
+      {accion && <div className="flex flex-wrap gap-2">{accion}</div>}
+    </div>
+  );
+}
+
+function Vacio({
+  pestana,
+  filtrando,
+  escribe,
+}: {
+  pestana: PestanaDeProductos;
+  filtrando: boolean;
+  escribe: boolean;
+}) {
+  if (filtrando) {
+    return (
+      <EstadoVacio titulo="Ningún producto coincide">
+        Probá con otras palabras o sacá un filtro.
+      </EstadoVacio>
+    );
+  }
+  if (pestana === 'todos') {
+    return (
+      <EstadoVacio
+        titulo="Todavía no hay productos"
+        accion={
+          escribe ? (
+            <Link to="/productos/nuevo" className={buttonVariants({ size: 'lg' })}>
+              Nuevo producto
+            </Link>
+          ) : undefined
+        }
+      >
+        Cargá el primero a mano, o traé el catálogo entero desde un CSV.
+      </EstadoVacio>
+    );
+  }
+  const TEXTOS: Record<Exclude<PestanaDeProductos, 'todos'>, [string, string]> = {
+    publicados: ['Nada publicado todavía', 'Lo que se publica se ve en la tienda.'],
+    borradores: ['Sin borradores', 'Un producto en borrador se termina antes de publicarlo.'],
+    sinfoto: ['Todo lo publicado tiene foto', 'No queda nada oculto por falta de foto.'],
+    quieto: ['Nada quieto', 'Todo lo que tiene stock se vendió en los últimos 90 días.'],
+    archivados: ['Nada archivado', 'Lo que se archiva sale de la tienda y queda acá.'],
+  };
+  const [titulo, texto] = TEXTOS[pestana];
+  return <EstadoVacio titulo={titulo}>{texto}</EstadoVacio>;
 }

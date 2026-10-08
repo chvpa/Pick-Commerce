@@ -2612,6 +2612,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_product_counts: { Args: { p_store_id: string }; Returns: Json }
       admin_product_performance: {
         Args: {
           p_from: string
@@ -2634,11 +2635,15 @@ export type Database = {
       }
       admin_products: {
         Args: {
+          p_brand?: string
+          p_category?: string
           p_page?: number
           p_per_page?: number
           p_query?: string
           p_status?: string
+          p_stock?: string
           p_store_id: string
+          p_tab?: string
         }
         Returns: Json
       }

@@ -7,7 +7,12 @@ import {
   Outlet,
   redirect,
 } from '@tanstack/react-router';
-import { BANDEJAS_DE_PEDIDOS, type BandejaDePedidos } from '@pick/commerce-core';
+import {
+  BANDEJAS_DE_PEDIDOS,
+  PESTANAS_DE_PRODUCTOS,
+  type BandejaDePedidos,
+  type PestanaDeProductos,
+} from '@pick/commerce-core';
 import type { Permission } from '@pick/commerce-types';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -250,9 +255,14 @@ const indexRoute = createRoute({
   component: Inicio,
 });
 
+// La pestaña en la URL, como en Pedidos: el Inicio lleva a «Sin foto».
 const productosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/productos',
+  validateSearch: (busqueda: Record<string, unknown>): { tab?: PestanaDeProductos } =>
+    PESTANAS_DE_PRODUCTOS.includes(busqueda.tab as PestanaDeProductos)
+      ? { tab: busqueda.tab as PestanaDeProductos }
+      : {},
   component: ListaProductos,
 });
 

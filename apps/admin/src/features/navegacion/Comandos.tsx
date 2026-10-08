@@ -107,12 +107,18 @@ const SECCIONES: readonly {
 
 const ACCIONES: readonly {
   to: string;
+  search?: Record<string, string>;
   label: string;
   icono: ComponentType<{ className?: string }>;
   permiso?: Permission;
 }[] = [
   { to: '/productos/nuevo', label: 'Nuevo producto', icono: PlusIcon, permiso: 'catalog.write' },
-  { to: '/productos/sin-foto', label: 'Ver productos sin foto', icono: CameraOffIcon },
+  {
+    to: '/productos',
+    search: { tab: 'sinfoto' },
+    label: 'Ver productos sin foto',
+    icono: CameraOffIcon,
+  },
   {
     to: '/productos/camara',
     label: 'Cargar con la cámara',
@@ -236,7 +242,7 @@ function Paleta({ alElegir }: { alElegir: () => void }) {
         id: `accion:${a.to}:${a.label}`,
         icono: a.icono,
         label: a.label,
-        ir: ir(a.to),
+        ir: ir(a.to, a.search),
       })),
     ];
     const secciones: Comando[] = SECCIONES.filter(

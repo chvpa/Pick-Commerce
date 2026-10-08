@@ -314,6 +314,7 @@ export function Pestanas<T extends string>({
     readonly etiqueta: string;
     readonly cuenta?: number;
     readonly urgente?: 'amber' | 'blue';
+    readonly icono?: (props: { className?: string }) => ReactNode;
   }[];
   activa: T;
   /** La ruta de la lista; la pestaña va en `?tab=`. */
@@ -343,6 +344,7 @@ export function Pestanas<T extends string>({
                 : 'text-ink-3 hover:text-foreground border-transparent',
             )}
           >
+            {p.icono && <p.icono className="size-[15px]" />}
             {p.etiqueta}
             {p.cuenta !== undefined && (
               <span
@@ -567,5 +569,83 @@ export function BarraDeAcciones({ children }: { children: ReactNode }) {
     >
       {children}
     </div>
+  );
+}
+
+/**
+ * La barra de lo elegido: flota abajo, como en el handoff, a la vista mientras
+ * se recorre la lista, y desaparece apenas no hay nada elegido.
+ *
+ * En el teléfono ocupa el ancho y los botones dicen su forma corta, o sólo el
+ * ícono: las frases enteras no entran. El nombre accesible es siempre la entera.
+ */
+export function BarraDeSeleccion({
+  cuenta,
+  etiqueta,
+  onSoltar,
+  children,
+}: {
+  cuenta: number;
+  /** «Acciones sobre los pedidos elegidos». */
+  etiqueta: string;
+  onSoltar: () => void;
+  children: ReactNode;
+}) {
+  if (cuenta === 0) return null;
+  return (
+    <div
+      role="toolbar"
+      aria-label={etiqueta}
+      className="shadow-modal fixed inset-x-4 bottom-4 z-30 flex items-center gap-1 rounded-xl bg-[#0e1525] p-1.5 text-white sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2"
+    >
+      <span className="px-2 text-[13.5px] font-medium whitespace-nowrap tabular-nums sm:px-3">
+        {cuenta} {cuenta === 1 ? 'elegido' : 'elegidos'}
+      </span>
+      {children}
+      <button
+        type="button"
+        aria-label="Dejar de elegir"
+        onClick={onSoltar}
+        className="ml-auto flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#c9cedb] outline-none hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40 sm:ml-0"
+      >
+        <XIcon className="size-4" />
+      </button>
+    </div>
+  );
+}
+
+export function BotonDeLote({
+  icono: Icono,
+  etiqueta,
+  corta,
+  disabled,
+  onClick,
+}: {
+  icono: (props: { className?: string }) => ReactNode;
+  etiqueta: string;
+  /** Lo que dice en el teléfono. Sin esto, ahí va sólo el ícono. */
+  corta?: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={etiqueta}
+      title={etiqueta}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-white/10 px-3 text-[13.5px] font-medium whitespace-nowrap outline-none hover:bg-white/[0.18] focus-visible:ring-2 focus-visible:ring-white/40 disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      <Icono className="size-[15px]" />
+      {corta && (
+        <span aria-hidden="true" className="sm:hidden">
+          {corta}
+        </span>
+      )}
+      <span aria-hidden="true" className="hidden sm:inline">
+        {etiqueta}
+      </span>
+    </button>
   );
 }

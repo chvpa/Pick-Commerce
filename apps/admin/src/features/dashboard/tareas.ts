@@ -26,7 +26,7 @@ export interface Tarea {
   readonly to: string;
   readonly params?: Readonly<Record<string, string>>;
   /** La pestaña de la lista a la que lleva: `/pedidos?tab=cobrar`. */
-  readonly search?: { readonly tab: 'cobrar' | 'preparar' };
+  readonly search?: { readonly tab: 'cobrar' | 'preparar' | 'sinfoto' };
 }
 
 function plural(n: number, uno: string, varios: string): string {
@@ -133,7 +133,8 @@ export function listaDeTareas(
         ? 'La tienda oculta lo que no tiene foto'
         : 'Se le puede sacar una desde el teléfono',
       accion: 'Fotografiar',
-      to: '/productos/sin-foto',
+      to: '/productos',
+      search: { tab: 'sinfoto' },
     });
   }
 

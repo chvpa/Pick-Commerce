@@ -7383,3 +7383,59 @@ factura» no se muestra: la facturación está fuera del core.
 nota y pasa al siguiente sin volver a la lista; corre sobre la mochila y no
 sobre la zapatilla, porque con cinco pedidos por proyecto agotaba el stock que
 el checkout necesita en mobile.
+
+## ADR-148 — «Sin foto» y «stock quieto» son pestañas del catálogo
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+El catálogo del Admin filtraba por estado, y «Sin foto» y «Stock quieto» eran
+pantallas aparte en el sidebar. El handoff (ADR-143) las vuelve pestañas de la
+misma lista —todos, publicados, borradores, sin foto, stock quieto, archivados—,
+con su conteo, una banda que dice qué hacer y filtros por categoría, marca y
+stock.
+
+**Dos pestañas no son un estado**
+«Sin foto» y «quieto» dependen de las fotos, del stock y de las ventas, y un
+producto puede estar en las dos. Esas señales se cuentan una vez por producto en
+`app.senales_de_productos`, cada agregado en su CTE y por join, y qué cae en
+cada pestaña lo dice `app.producto_en_pestana`, pura: la lista y el conteo
+usan la misma. «Sin foto» es lo publicado sin ninguna foto, la misma cola que la
+tarea del Inicio (ADR-145). «Quieto» es lo que tiene stock y lleva más de 90
+días sin venderse —los dos tramos de arriba de la antigüedad (ADR-135)—, por
+producto en vez de por variante, y lo archivado no cuenta: se sacó a propósito.
+
+**«Se ven en la tienda» es la regla del storefront**
+El subtítulo dice cuántos productos se ven. Esa regla es de `catalog_search`
+—publicado, con stock salvo que la tienda muestre lo agotado, y con foto si oculta
+lo que no tiene—, y el conteo la repite en vez de llamarlo: un test compara las
+dos cuentas, con las dos configuraciones al revés.
+
+**Las pantallas de trabajo se quedan**
+La de «Sin foto» es para usar desde el teléfono, parado en el depósito, con un
+botón de cámara por producto; la de «Stock quieto» muestra la plata por tramo de
+antigüedad y por variante. Una pestaña no reemplaza eso: su banda lleva a cada
+una, y salen del sidebar, que queda en Productos y Reseñas como el handoff. La
+tarea del Inicio y la paleta de comandos llevan a la pestaña.
+
+**La firma nueva no rompe a la vieja**
+`admin_products` suma pestaña, categoría —con las de abajo—, marca y stock, con
+default, como `admin_orders` en ADR-146. La página se corta antes de armar las
+filas, que antes se armaban para todo lo que pasaba el filtro. Contra los 3.753
+productos de la tienda más grande, la pestaña «quieto» responde en 223 ms por la
+red. El conteo, el «se ven» y las marcas del filtro son una consulta,
+`admin_product_counts`.
+
+**Lo que quedó igual a propósito**
+La tabla sigue siendo TanStack Table, que entró para esta selección (ADR-060), y
+el lote —publicar, archivar, limpiar el fondo— pasa a la barra flotante de
+Pedidos, ahora compartida. En el teléfono la fila muestra estado, inventario y
+precio debajo del título, y el interruptor no: se publica en lote o desde el
+producto. «Quedan pocos» es hasta 5 unidades, en la base y en la pantalla.
+
+**Consecuencias**
+`supabase/tests/productos-por-pestana.test.ts` prueba cada pestaña, el conteo
+contra la lista, el «se ven» contra el catálogo, el orden, la categoría con sus
+hijas, los filtros, el corte de página y el aislamiento. El e2e `productos.spec.ts`
+filtra por stock en el servidor y recorre las dos bandas hasta sus pantallas.

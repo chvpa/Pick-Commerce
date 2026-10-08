@@ -5,13 +5,11 @@ import type { TiendaResumen } from '@pick/commerce-core';
 import type { Permission } from '@pick/commerce-types';
 import {
   AnalyticsIcon,
-  CameraOffIcon,
   CheckIcon,
   ChevronsUpDownIcon,
   DiscountIcon,
   GiftIcon,
   HomeIcon,
-  HourglassIcon,
   InvoiceIcon,
   LayersIcon,
   LayoutIcon,
@@ -99,8 +97,6 @@ const GRUPOS: readonly Grupo[] = [
     entradas: [
       { to: '/productos', label: 'Productos', icono: PackageIcon },
       { to: '/productos/resenas', label: 'Reseñas', icono: ResenaIcon, contador: 'resenas' },
-      { to: '/productos/sin-foto', label: 'Sin foto', icono: CameraOffIcon },
-      { to: '/productos/stock-quieto', label: 'Stock quieto', icono: HourglassIcon },
       /*
        * Leerlas y aprobarlas es trabajo de catálogo; pedirle a la IA que las
        * escriba gasta la clave, y eso lo decide la pantalla.
