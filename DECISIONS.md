@@ -7503,3 +7503,48 @@ la ficha quedan pendientes. «Crear fotos en Studio» es de la Fase 10.
 `admin-catalogo.test.ts` prueba los códigos en su nivel, que omitirlos no los
 borra, el SKU único y el bloqueo del ERP. El e2e edita una variante en el
 diálogo y la ve en la fila, usa «Para todas» y descarta.
+
+## ADR-150 — Clientes por segmento, y la recurrencia en la cabecera
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+Clientes era una tabla con búsqueda, y la recurrencia —cohortes y segmentos RFM
+(ADR-134)— una pantalla aparte en el sidebar. El handoff (ADR-143) junta las dos:
+tres números arriba —cuántos compraron y cuántos nuevos por mes, cuántos
+volvieron, cuánto gasta cada grupo—, los clientes en pestañas por segmento, y una
+ficha con sus pedidos, su contacto y sus puntos.
+
+**Los números salen de lo que ya existía**
+Los nuevos de cada mes son el tamaño de cada cohorte. Quiénes volvieron y cuánto
+gasta cada grupo salen de los siete segmentos, que ya traían cuántos clientes y
+cuánto facturaron: las reglas RFM parten limpio en la línea de una compra —los
+mejores, fieles, volvieron una vez y en riesgo piden dos o más; nuevos,
+enfriándose y dormidos son de una—, y `SEGMENTOS_QUE_VOLVIERON` lo dice en el
+core. Un test de la base falla si una regla cambia de lado: si no, la tasa
+mentiría sin que nada se rompiera.
+
+La primera tarjeta dice «clientes que compraron» y no «clientes»: la pestaña
+«Todos» incluye fichas sin compras —un pedido cancelado, una cuenta sin
+estrenar— y los dos números no podían llevar el mismo nombre.
+
+**Las pestañas son los siete segmentos**
+No las cuatro del dibujo: los segmentos ya existían, filtran en el servidor y
+dicen cosas que las cuatro no —«en riesgo» no es lo mismo que «dormido»—. En una
+pestaña de segmento se lee su regla en lugar de los filtros. «Recurrencia» sale
+del sidebar y queda a un clic desde la tarjeta, con la tabla de cohortes que la
+cabecera no muestra.
+
+**Los puntos de un cliente**
+El saldo es la suma del libro **después** de pasar el vencimiento, que hasta acá
+sólo corría cuando el comprador miraba los suyos. `admin_customer_points` es
+su gemela del lado del comercio: `definer` porque escribe el vencimiento —nadie
+del equipo escribe en el libro—, con el corte por organización y por tienda
+escrito adentro. La ficha dice además cuánto le falta para el próximo premio
+activo.
+
+**Consecuencias**
+La ficha del cliente lleva a sus pedidos con la página como contexto, así que
+desde un pedido se pasa al anterior y al siguiente de ese cliente (ADR-147). El
+e2e recorre la cabecera, un segmento en la URL y la ficha.

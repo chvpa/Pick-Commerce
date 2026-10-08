@@ -75,6 +75,12 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   // lista de clientes (ADR-134).
   ['public.admin_customer_cohorts', `admin_customer_cohorts('${TIENDA}', 'UTC', 12)`],
   ['public.admin_customer_segments', `admin_customer_segments('${TIENDA}', null, 1, 20)`],
+  // El saldo de un cliente: `definer` —escribe el vencimiento— con el corte por
+  // organización adentro. A un forastero le dice «apagado» (v3 Fase 2).
+  [
+    'public.admin_customer_points',
+    `admin_customer_points('${TIENDA}', (select id from customers limit 1))`,
+  ],
   // La antigüedad del stock: invoker, la acota RLS sobre el catálogo, el stock y
   // los pedidos (ADR-135).
   ['public.admin_inventory_aging', `admin_inventory_aging('${TIENDA}', null, 1, 20)`],

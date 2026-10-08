@@ -10,8 +10,10 @@ import {
 import {
   BANDEJAS_DE_PEDIDOS,
   PESTANAS_DE_PRODUCTOS,
+  SEGMENTOS_RFM,
   type BandejaDePedidos,
   type PestanaDeProductos,
+  type SegmentoRfm,
 } from '@pick/commerce-core';
 import type { Permission } from '@pick/commerce-types';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -507,6 +509,9 @@ const analyticsRoute = createRoute({
 const clientesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/clientes',
+  // El segmento en la URL, como las pestañas de Pedidos y Productos.
+  validateSearch: (busqueda: Record<string, unknown>): { tab?: SegmentoRfm } =>
+    SEGMENTOS_RFM.includes(busqueda.tab as SegmentoRfm) ? { tab: busqueda.tab as SegmentoRfm } : {},
   component: ListaClientes,
 });
 

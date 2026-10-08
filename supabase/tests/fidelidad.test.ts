@@ -301,6 +301,39 @@ test('el panel no le dice nada a quien no es del comercio', async () => {
   assert.equal(j.emitidos, undefined);
 });
 
+test('el comercio ve el saldo de un cliente con lo vencido descontado; otro, nada', async () => {
+  await limpiar();
+  const [{ id }] = await comoServicio<{ id: string }>(
+    db,
+    `select customer_id as id from orders where store_id = '${TIENDA}' limit 1`,
+  );
+  // 30 ganados hace más de un año y 20 recientes: en el libro hay 50, valen 20.
+  await comoServicio(
+    db,
+    `insert into loyalty_ledger (tenant_id, store_id, customer_id, points, source, created_at) values
+       ('${ORG}', '${TIENDA}', '${id}', 30, 'ajuste', now() - interval '800 days'),
+       ('${ORG}', '${TIENDA}', '${id}', 20, 'ajuste', now() - interval '10 days')`,
+  );
+
+  const leer = async (usuario: string, tienda = TIENDA) =>
+    (
+      await como<{ j: { habilitado: boolean; saldo: number } }>(
+        db,
+        usuario,
+        `select admin_customer_points('${tienda}'::uuid, '${id}'::uuid) as j`,
+      )
+    )[0]!.j;
+
+  assert.deepEqual(await leer(DUENO), { habilitado: true, saldo: 20 });
+  // Sumar el libro a secas habría dicho 50. Que el vencimiento quede escrito lo
+  // prueba el test de `app.vencer_puntos`: acá `como` deshace todo al terminar.
+
+  // Quien no es del equipo no se entera de nada, y un cliente pedido por otra
+  // tienda —aunque sea de la misma organización— tampoco.
+  assert.deepEqual(await leer(ANA), { habilitado: false, saldo: 0 });
+  assert.deepEqual(await leer(DUENO, APAGADA), { habilitado: false, saldo: 0 });
+});
+
 /*
  * El canje (ADR-141).
  *

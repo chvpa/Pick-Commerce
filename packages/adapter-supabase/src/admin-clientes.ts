@@ -4,6 +4,7 @@ import type {
   PaginaClientes,
   PaginaSegmentos,
   RepositorioAdminClientes,
+  PuntosDelCliente,
 } from '@pick/commerce-core';
 import type { PickSupabaseClient } from './client.ts';
 
@@ -42,6 +43,15 @@ export function repositorioAdminClientes(db: PickSupabaseClient): RepositorioAdm
 
       if (error) throw new Error(`No se pudo consultar el cliente: ${error.message}`);
       return (data as unknown as PaginaClientes).items[0] ?? null;
+    },
+
+    async puntos(storeId, customerId): Promise<PuntosDelCliente> {
+      const { data, error } = await db.rpc('admin_customer_points', {
+        p_store_id: storeId,
+        p_customer_id: customerId,
+      });
+      if (error) throw new Error(`No se pudo leer el saldo de puntos: ${error.message}`);
+      return data as unknown as PuntosDelCliente;
     },
 
     async cohortes(storeId, zonaHoraria, meses = 12): Promise<Cohortes> {

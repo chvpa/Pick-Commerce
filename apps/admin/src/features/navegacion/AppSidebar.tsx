@@ -15,7 +15,6 @@ import {
   LayoutIcon,
   NoteEditIcon,
   PackageIcon,
-  RepeatIcon,
   ResenaIcon,
   SettingsIcon,
   TagIcon,
@@ -60,10 +59,10 @@ import { cn } from '@/lib/utils';
  * ofrecerle a alguien una sección que no puede abrir.
  *
  * **Lo que el handoff no tiene y sigue acá**, hasta que su pantalla lo absorba:
- * «Sin foto» y «Stock quieto» pasan a ser pestañas de Productos, y
- * «Recurrencia» de Clientes, en la Fase 2 de v3; «Descripciones» va al
- * Asistente de la Fase 10. Mientras tanto se quedan en su grupo: sacarlas antes
- * dejaba esas pantallas sin camino de llegada.
+ * «Descripciones» va al Asistente de la Fase 10. Sacarla antes la dejaría sin
+ * camino de llegada. «Sin foto» y «Stock quieto» ya son pestañas de Productos
+ * (ADR-148), y «Recurrencia» es la cabecera y las pestañas de Clientes (ADR-150):
+ * sus pantallas siguen, a un clic desde ahí.
  */
 
 interface Entrada {
@@ -113,7 +112,6 @@ const GRUPOS: readonly Grupo[] = [
     label: 'Clientes',
     entradas: [
       { to: '/clientes', label: 'Clientes', icono: UserGroupIcon },
-      { to: '/clientes/recurrencia', label: 'Recurrencia', icono: RepeatIcon },
       { to: '/clientes/fidelidad', label: 'Fidelidad', icono: GiftIcon },
     ],
   },

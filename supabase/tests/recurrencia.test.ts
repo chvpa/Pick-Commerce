@@ -1,6 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
+import { SEGMENTOS_QUE_VOLVIERON } from '@pick/commerce-core';
 import { baseDePrueba, como, intentar } from './harness.ts';
 
 /**
@@ -273,6 +274,24 @@ test('cada cliente cae en su segmento, y los siete salen aunque estén vacíos',
   };
   for (const c of r.items) assert.equal(c.segment, esperado[c.id], c.id);
   assert.equal(r.total, 7, 'el cliente con sólo un cancelado entró al RFM');
+});
+
+/*
+ * La cabecera de Clientes cuenta «volvieron a comprar» con los segmentos, sin otra
+ * consulta (v3 Fase 2). Eso sólo vale si cada segmento cae entero de un lado de
+ * la línea de una compra: si una regla cambiara de lado, la tasa mentiría sin
+ * que nada fallara.
+ */
+test('los segmentos que «volvieron» son exactamente los de dos compras o más', async () => {
+  const r = await segmentos({ perPage: 50 });
+  assert.equal(r.items.length, 7);
+  for (const c of r.items) {
+    assert.equal(
+      SEGMENTOS_QUE_VOLVIERON.includes(c.segment),
+      c.orderCount >= 2,
+      `${c.segment} con ${c.orderCount} compras`,
+    );
+  }
 });
 
 test('el monto y la frecuencia no cuentan lo cancelado', async () => {

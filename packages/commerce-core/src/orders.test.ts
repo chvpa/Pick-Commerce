@@ -6,6 +6,8 @@ import {
   ETIQUETA_ESTADO_PEDIDO,
   describirEvento,
   esTerminal,
+  nuevosPorMes,
+  resumenDeRecurrencia,
   puedeTransicionar,
 } from './orders.ts';
 
@@ -149,5 +151,58 @@ test('una nota se lee tal cual la escribieron', () => {
   assert.equal(
     describirEvento(evento('note', { note: 'Llamó, retira el sábado' })),
     'Llamó, retira el sábado',
+  );
+});
+
+const segmento = (segment: string, customers: number, amount: number) => ({
+  segment: segment as never,
+  customers,
+  revenue: { amount, currency: 'PYG' },
+});
+
+test('la recurrencia separa a los que volvieron de los que compraron una vez', () => {
+  const r = resumenDeRecurrencia([
+    segmento('champions', 1, 4_000_000),
+    segmento('loyal', 1, 2_000_000),
+    segmento('promising', 2, 2_000_000),
+    segmento('new', 3, 900_000),
+    segmento('cooling', 0, 0),
+    segmento('at_risk', 1, 1_000_000),
+    segmento('dormant', 2, 600_000),
+  ]);
+  assert.equal(r.clientes, 10);
+  assert.equal(r.volvieron, 5);
+  assert.equal(r.tasa, 0.5);
+  assert.equal(r.gastoDeLosQueVolvieron, 1_800_000);
+  assert.equal(r.gastoDeUnaVez, 300_000);
+  assert.equal(r.gastoPromedio, 1_050_000);
+});
+
+test('sin clientes, la recurrencia es cero y no NaN', () => {
+  const r = resumenDeRecurrencia([]);
+  assert.equal(r.tasa, 0);
+  assert.equal(r.gastoPromedio, 0);
+});
+
+test('los nuevos por mes rellenan con cero y cruzan el año', () => {
+  const cohortes = [
+    { month: '2026-10', customers: 4, active: [4] },
+    { month: '2026-07', customers: 2, active: [2] },
+    { month: '2025-12', customers: 9, active: [9] },
+  ];
+  assert.deepEqual(
+    nuevosPorMes(cohortes, '2026-10', 6).map((m) => [m.mes, m.nuevos]),
+    [
+      ['2026-05', 0],
+      ['2026-06', 0],
+      ['2026-07', 2],
+      ['2026-08', 0],
+      ['2026-09', 0],
+      ['2026-10', 4],
+    ],
+  );
+  assert.deepEqual(
+    nuevosPorMes(cohortes, '2026-02', 3).map((m) => m.mes),
+    ['2025-12', '2026-01', '2026-02'],
   );
 });

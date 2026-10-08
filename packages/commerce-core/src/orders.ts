@@ -312,6 +312,14 @@ export interface RepositorioAdminClientes {
   /** Por mes de primera compra, en la zona horaria de quien mira (ADR-134). */
   cohortes(storeId: string, zonaHoraria: string, meses?: number): Promise<Cohortes>;
   segmentos(storeId: string, consulta: ConsultaSegmentos): Promise<PaginaSegmentos>;
+  /** El saldo de puntos de un cliente, con lo vencido descontado (ADR-141). */
+  puntos(storeId: string, customerId: string): Promise<PuntosDelCliente>;
+}
+
+export interface PuntosDelCliente {
+  /** Apagado si la tienda no tiene programa, o si el cliente no es de esta tienda. */
+  readonly habilitado: boolean;
+  readonly saldo: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -390,6 +398,78 @@ export const SEGMENTO_RFM: Readonly<
     descripcion: 'Una compra, hace mucho.',
   },
 };
+
+/**
+ * Los segmentos de quienes compraron más de una vez.
+ *
+ * Sale de las reglas de `admin_customer_segments`: «los mejores», «fieles», «en
+ * riesgo» y «volvieron una vez» piden dos compras o más; «nuevos», «enfriándose» y
+ * «dormidos» son de una sola. El día que una regla cambie de lado, el test de
+ * recurrencia de la base lo dice.
+ */
+export const SEGMENTOS_QUE_VOLVIERON: readonly SegmentoRfm[] = [
+  'champions',
+  'loyal',
+  'promising',
+  'at_risk',
+];
+
+export interface ResumenDeRecurrencia {
+  /** Los que compraron al menos una vez. */
+  readonly clientes: number;
+  readonly volvieron: number;
+  /** De 0 a 1. Cero sin clientes, no NaN. */
+  readonly tasa: number;
+  readonly gastoPromedio: number;
+  readonly gastoDeUnaVez: number;
+  readonly gastoDeLosQueVolvieron: number;
+}
+
+/** Las tres cuentas de la cabecera de Clientes, de los siete segmentos. */
+export function resumenDeRecurrencia(
+  segmentos: readonly ResumenDeSegmento[],
+): ResumenDeRecurrencia {
+  const sumar = (filtro: (s: ResumenDeSegmento) => boolean) =>
+    segmentos
+      .filter(filtro)
+      .reduce(
+        (t, s) => ({ clientes: t.clientes + s.customers, monto: t.monto + s.revenue.amount }),
+        { clientes: 0, monto: 0 },
+      );
+  const todos = sumar(() => true);
+  const volvieron = sumar((s) => SEGMENTOS_QUE_VOLVIERON.includes(s.segment));
+  const unaVez = sumar((s) => !SEGMENTOS_QUE_VOLVIERON.includes(s.segment));
+  const promedio = (g: { clientes: number; monto: number }) =>
+    g.clientes > 0 ? Math.round(g.monto / g.clientes) : 0;
+  return {
+    clientes: todos.clientes,
+    volvieron: volvieron.clientes,
+    tasa: todos.clientes > 0 ? volvieron.clientes / todos.clientes : 0,
+    gastoPromedio: promedio(todos),
+    gastoDeUnaVez: promedio(unaVez),
+    gastoDeLosQueVolvieron: promedio(volvieron),
+  };
+}
+
+/**
+ * Cuántos clientes nuevos hubo en cada uno de los últimos `meses`, hasta el mes
+ * `hasta` (`YYYY-MM`) incluido. Un cliente nuevo es una cohorte: el mes de su
+ * primera compra. Los meses sin ninguno van con cero —un gráfico que los salta
+ * dibuja una tendencia que no existe—.
+ */
+export function nuevosPorMes(
+  cohortes: readonly Cohorte[],
+  hasta: string,
+  meses = 6,
+): { readonly mes: string; readonly nuevos: number }[] {
+  const porMes = new Map(cohortes.map((c) => [c.month, c.customers]));
+  const [anio, mes] = hasta.split('-').map(Number) as [number, number];
+  return Array.from({ length: meses }, (_, i) => {
+    const fecha = new Date(Date.UTC(anio, mes - 1 - (meses - 1 - i), 1));
+    const clave = `${fecha.getUTCFullYear()}-${String(fecha.getUTCMonth() + 1).padStart(2, '0')}`;
+    return { mes: clave, nuevos: porMes.get(clave) ?? 0 };
+  });
+}
 
 export interface ClienteRfm {
   readonly id: string;

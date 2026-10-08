@@ -2542,6 +2542,10 @@ export type Database = {
         Args: { p_months?: number; p_store_id: string; p_tz?: string }
         Returns: Json
       }
+      admin_customer_points: {
+        Args: { p_customer_id: string; p_store_id: string }
+        Returns: Json
+      }
       admin_customer_segments: {
         Args: {
           p_page?: number

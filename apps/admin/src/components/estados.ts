@@ -1,3 +1,4 @@
+import type { SegmentoRfm } from '@pick/commerce-core';
 import type { OrderStatus, PaymentStatus, ProductStatus } from '@pick/commerce-types';
 import type { Tono } from '@/components/ui/badge';
 
@@ -33,4 +34,15 @@ export const TONO_DE_PRODUCTO: Readonly<Record<ProductStatus, Tono>> = {
   draft: 'gray',
   inactive: 'amber',
   archived: 'gray',
+};
+
+/** Los segmentos RFM (ADR-134): verde lo que va bien, rojo lo que se está yendo. */
+export const TONO_DE_SEGMENTO: Readonly<Record<SegmentoRfm, Tono>> = {
+  champions: 'green',
+  loyal: 'green',
+  promising: 'blue',
+  new: 'blue',
+  cooling: 'amber',
+  at_risk: 'red',
+  dormant: 'gray',
 };
