@@ -7638,3 +7638,50 @@ de WhatsApp (ADR-147)— cuesta ahora sólo en el checkout.
 **Consecuencias**
 El smoke del Admin llega a Colecciones y Categorías por su pestaña. El core prueba
 el corte de las columnas, y las dos portadas lo dibujan igual.
+
+## ADR-153 — Analytics con un rango propio, y el carrito abandonado que todavía no se puede recuperar
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+Analytics ofrecía tres períodos fijos en un desplegable. El handoff (ADR-143) los
+pone como botones y suma un rango propio con atajos; las cifras en tarjetas, con
+la conversión en un anillo; el embudo con cuánto se pierde en cada paso; los
+checkouts abandonados con un botón «Recuperar»; y las búsquedas sin resultado
+marcadas en rojo.
+
+**El rango es de días enteros, en la hora de quien mira**
+`rangoPropio` toma dos fechas `YYYY-MM-DD` y va de la medianoche local del
+primer día a la del día siguiente al último: «hasta el 30» cuenta el 30 entero.
+Es la misma convención que «Hoy», que también arranca a la medianoche local; los
+siete y treinta días siguen siendo ventanas móviles hasta este momento.
+
+**Se valida antes de pedir**
+`problemaDelRango` rechaza un rango al revés, uno que termina después de hoy y
+uno de más de 366 días, y lo dice en palabras; mientras tanto «Aplicar» no se
+puede tocar, así que un rango imposible no llega a la base. El tope es porque más
+que un año es un informe —y una consulta sobre todos los eventos de la tienda—,
+no una mirada. Las fechas se eligen con el selector del sistema, el del teléfono
+incluido: no hace falta una librería de calendario. La caché de cada consulta usa
+el período o las dos fechas, así que volver a un rango ya mirado no pide nada.
+
+**«Recuperar» no se ofrece todavía**
+Para escribirle a quien abandonó hace falta su correo o su teléfono, y hoy el
+checkout los guarda recién al confirmar: un checkout abandonado no tiene a quién
+escribirle. Llega con el checkout por pasos de la Fase 6, que guarda el contacto
+en la sesión del checkout. Hasta entonces la tarjeta cuenta los abandonos y dice
+cuándo llega recuperarlos, en vez de mostrar un botón que no puede funcionar.
+
+**Lo que apareció mirando el teléfono**
+`TituloDeTarjeta` no dejaba pasar a la línea de abajo lo que lleva a la derecha:
+en Ventas por producto, el selector y «Exportar CSV» empujaban el título a tres
+renglones y el botón quedaba cortado. Se arregló en el componente compartido
+—dieciséis tarjetas lo usan—: si la acción no entra, baja debajo del título.
+
+**Consecuencias**
+El core prueba que el último día cuenta entero y cada motivo de rechazo. El e2e
+aplica un rango al revés —«Aplicar» deshabilitado, con el motivo— y después uno
+válido, que pasa a ser lo que dice el botón. El de la tubería de eventos sigue
+pasando con la pantalla nueva: las métricas, el embudo y el término sin
+resultados.

@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { repositorioAnalytics } from '@pick/adapter-supabase';
-import type { NegocioParaResumir, Periodo, ResumenDelPeriodo } from '@pick/commerce-core';
+import type { NegocioParaResumir, ResumenDelPeriodo } from '@pick/commerce-core';
 import { SparklesIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
 import { Tarjeta, TituloDeTarjeta } from '@/components/pagina';
@@ -33,11 +33,12 @@ const CUANTOS = 5;
  */
 export function ResumenConIA({
   rango,
-  periodo,
+  clave,
   ventas,
 }: {
   rango: { from: string; to: string };
-  periodo: Periodo;
+  /** Con qué se cachea: el período, o las dos fechas de un rango propio. */
+  clave: string;
   ventas: ResumenDelPeriodo;
 }) {
   const tienda = useTiendaActiva();
@@ -48,7 +49,7 @@ export function ResumenConIA({
    * con la misma clave: si ya se abrió, esto no pide nada.
    */
   const navegacion = useQuery({
-    queryKey: ['analytics', tienda.id, periodo],
+    queryKey: ['analytics', tienda.id, clave],
     queryFn: () => repositorioAnalytics(db).resumen(tienda.id, rango.from, rango.to),
   });
 

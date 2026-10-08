@@ -2,12 +2,7 @@ import { useState } from 'react';
 import Papa from 'papaparse';
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import { repositorioDashboard } from '@pick/adapter-supabase';
-import {
-  ETIQUETA_MODO,
-  formatMoney,
-  type ModoDeRendimiento,
-  type Periodo,
-} from '@pick/commerce-core';
+import { ETIQUETA_MODO, formatMoney, type ModoDeRendimiento } from '@pick/commerce-core';
 import {
   Esqueleto,
   EstadoDeError,
@@ -48,17 +43,18 @@ const POR_PAGINA = 10;
  */
 export function VentasPorProducto({
   rango,
-  periodo,
+  clave,
 }: {
   rango: { from: string; to: string };
-  periodo: Periodo;
+  /** Con qué se cachea: el período, o las dos fechas de un rango propio. */
+  clave: string;
 }) {
   const tienda = useTiendaActiva();
   const [modo, setModo] = useState<ModoDeRendimiento>('vendidos');
   const [page, setPage] = useState(1);
 
   const consulta = useQuery({
-    queryKey: ['rendimiento', tienda.id, periodo, modo, page],
+    queryKey: ['rendimiento', tienda.id, clave, modo, page],
     queryFn: () =>
       repositorioDashboard(db).rendimiento(tienda.id, rango.from, rango.to, modo, page, POR_PAGINA),
     placeholderData: keepPreviousData,

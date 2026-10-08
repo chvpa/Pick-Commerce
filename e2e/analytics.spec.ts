@@ -103,6 +103,30 @@ test('la navegación de la tienda llega al panel del Admin', async ({ page }) =>
   expect(problemas, problemas.join('\n')).toEqual([]);
 });
 
+test('un rango propio se valida antes de pedir nada', async ({ page }) => {
+  await entrar(page);
+  await page.goto(`${ADMIN}/analytics`);
+  await page.getByRole('button', { name: 'Elegir fechas' }).click();
+
+  const dialogo = page.getByRole('dialog', { name: 'Elegir fechas' });
+  const aplicar = dialogo.getByRole('button', { name: 'Aplicar' });
+
+  // Al revés no se aplica, y dice por qué.
+  await dialogo.getByLabel('Desde').fill('2026-09-30');
+  await dialogo.getByLabel('Hasta').fill('2026-09-01');
+  await expect(dialogo.getByText('La fecha de inicio es posterior a la de fin.')).toBeVisible();
+  await expect(aplicar).toBeDisabled();
+
+  await dialogo.getByRole('button', { name: 'Este mes' }).click();
+  await expect(aplicar).toBeEnabled();
+  await aplicar.click();
+  await expect(dialogo).toBeHidden();
+
+  // El botón pasa a decir el rango, y los períodos fijos dejan de estar marcados.
+  await expect(page.getByRole('button', { name: /–/, pressed: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '30 días', pressed: true })).toHaveCount(0);
+});
+
 test('todas las páginas del sitio abren sesión, incluidas las de contenido', async ({ page }) => {
   /*
    * Hasta la Fase 12 esto afirmaba lo contrario: Políticas y Preguntas

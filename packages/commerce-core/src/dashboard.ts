@@ -41,6 +41,42 @@ export function rangoDePeriodo(periodo: Periodo, ahora: Date): { from: string; t
   return { from: desde.toISOString(), to: ahora.toISOString() };
 }
 
+/**
+ * Un rango propio, de un día a otro, los dos incluidos: `YYYY-MM-DD` en la hora
+ * de quien mira. El extremo de arriba es la medianoche del día siguiente, así
+ * que «hasta el 30» cuenta el 30 entero.
+ */
+export function rangoPropio(desde: string, hasta: string): { from: string; to: string } {
+  const [a1, m1, d1] = desde.split('-').map(Number) as [number, number, number];
+  const [a2, m2, d2] = hasta.split('-').map(Number) as [number, number, number];
+  return {
+    from: new Date(a1, m1 - 1, d1).toISOString(),
+    to: new Date(a2, m2 - 1, d2 + 1).toISOString(),
+  };
+}
+
+/** El tope de un rango propio: más que esto es un informe, no una mirada. */
+export const DIAS_MAXIMOS_DEL_RANGO = 366;
+
+/**
+ * Qué está mal en un rango, en palabras, o `null` si sirve. `hoy` también es
+ * `YYYY-MM-DD`: comparar cadenas de esa forma es comparar fechas.
+ */
+export function problemaDelRango(desde: string, hasta: string, hoy: string): string | null {
+  const fecha = /^\d{4}-\d{2}-\d{2}$/;
+  if (!fecha.test(desde) || !fecha.test(hasta)) return 'Elegí las dos fechas.';
+  if (desde > hasta) return 'La fecha de inicio es posterior a la de fin.';
+  if (hasta > hoy) return 'El rango no puede terminar después de hoy.';
+  if (diasDelRango(desde, hasta) > DIAS_MAXIMOS_DEL_RANGO) return 'Elegí un año como mucho.';
+  return null;
+}
+
+/** Cuántos días abarca un rango propio, los dos extremos incluidos. */
+export function diasDelRango(desde: string, hasta: string): number {
+  const { from, to } = rangoPropio(desde, hasta);
+  return Math.round((new Date(to).getTime() - new Date(from).getTime()) / UN_DIA_MS);
+}
+
 /** Un día en milisegundos, para correr `hoy` a ayer. */
 const UN_DIA_MS = 24 * 60 * 60 * 1000;
 

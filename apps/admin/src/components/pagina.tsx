@@ -90,7 +90,7 @@ export function TituloDeTarjeta({
   accion?: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-5 pt-[18px] pb-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-[18px] pb-3">
       <h2 className="text-[15px] font-semibold">{children}</h2>
       {accion}
     </div>

@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    14% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    15% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1826,7 +1826,7 @@ notificaciones, la ayuda y el uso de IA alrededor del avatar— llega con su fas
 
 ## Fase 2 — Las pantallas del Admin, sobre lo que ya existe
 
-**Avance: 67%**
+**Avance: 75%**
 
 Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
@@ -1865,8 +1865,10 @@ Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
       pantalla, cada bloque con su forma, la vista previa de teléfono, las
       columnas en el teléfono y borrar con confirmación (ADR-152). «Pasar solo»
       va con la Fase 9.
-- [ ] Analytics: un rango de fechas propio y las búsquedas sin resultado a la
-      vista.
+- [x] Analytics: un rango de fechas propio con atajos y validado antes de
+      pedir, las cifras en tarjetas, el embudo con lo que se pierde en cada paso y
+      las búsquedas sin resultado en rojo (ADR-153). «Recuperar» los checkouts
+      abandonados va con la Fase 6: hoy no hay contacto a quien escribirle.
 - [ ] Importar y Cargar con la cámara.
 - [ ] Configuración en cinco grupos, Mi cuenta —perfil, contraseña, sesiones
       abiertas, avisos— y Equipo.
@@ -2396,6 +2398,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-08 | **v3 Fase 2: Clientes** (ADR-150). La cabecera cuenta los nuevos por mes, cuántos volvieron y cuánto gasta cada grupo con las cohortes y los segmentos que ya existían —un test de la base falla si una regla RFM cambia de lado de la línea de una compra—; los siete segmentos son pestañas en la URL. La ficha del cliente muestra sus pedidos, su contacto y su saldo de puntos con `admin_customer_points`, que pasa el vencimiento antes de contar como `mis_puntos`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | v3 Fase 2 |          42% |            50% |
 | 2026-10-08 | **v3 Fase 2: Reseñas y Fidelidad** (ADR-151). Reseñas abre con la nota de lo publicado —promedio y distribución por estrella, sin contar lo pendiente ni lo rechazado— y separa los estados en pestañas con su conteo, desde la misma función que lista. Fidelidad reparte lo entregado en canjeado, vencido y sin canjear, y no traduce los puntos a plata aunque el handoff lo haga: no hay una razón entre los dos                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | v3 Fase 2 |          50% |            58% |
 | 2026-10-08 | **v3 Fase 2: Secciones** (ADR-152). Secciones, Colecciones y Categorías como pestañas de una pantalla, la vista previa de teléfono y las columnas en el teléfono, que las dos tiendas respetan. Y lo que apareció midiendo: la validación del formulario de checkout viajaba en el chunk del carrito, en todas las páginas, porque compartía módulo con `totalDelCarrito`; separada, el catálogo volvió a su presupuesto sin tocarlo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | v3 Fase 2 |          58% |            67% |
+| 2026-10-08 | **v3 Fase 2: Analytics** (ADR-153). Un rango de fechas propio, de días enteros en la hora local y validado antes de pedir; las cifras en tarjetas con la conversión en un anillo, el embudo con lo que se pierde en cada paso y las búsquedas sin resultado en rojo. «Recuperar» los abandonos espera a la Fase 6, que es la que guarda el contacto. Y en el teléfono, la acción de una tarjeta ya no corta su botón: baja debajo del título                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v3 Fase 2 |          67% |            75% |
 
 ---
 

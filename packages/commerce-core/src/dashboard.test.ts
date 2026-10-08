@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { periodoAnterior, rangoDePeriodo, variacion } from './dashboard.ts';
+import {
+  diasDelRango,
+  periodoAnterior,
+  problemaDelRango,
+  rangoDePeriodo,
+  rangoPropio,
+  variacion,
+} from './dashboard.ts';
 
 /**
  * Los rangos de los períodos y la comparación con el anterior: lo único con
@@ -74,4 +81,29 @@ test('no muta la fecha que recibe', () => {
   const ahora = new Date(AHORA);
   rangoDePeriodo('30d', ahora);
   assert.equal(ahora.getTime(), AHORA.getTime(), 'le movió el reloj a quien la llamó');
+});
+
+test('un rango propio incluye el último día entero', () => {
+  const { from, to } = rangoPropio('2026-09-01', '2026-09-30');
+  assert.equal(new Date(from).getDate(), 1);
+  // La medianoche del 1 de octubre: el 30 cuenta entero.
+  assert.equal(new Date(to).getMonth(), 9);
+  assert.equal(new Date(to).getDate(), 1);
+  assert.equal(diasDelRango('2026-09-01', '2026-09-30'), 30);
+  assert.equal(diasDelRango('2026-10-08', '2026-10-08'), 1);
+});
+
+test('un rango se rechaza con su motivo', () => {
+  const hoy = '2026-10-08';
+  assert.equal(problemaDelRango('2026-09-01', '2026-09-30', hoy), null);
+  assert.equal(problemaDelRango('', '2026-09-30', hoy), 'Elegí las dos fechas.');
+  assert.equal(
+    problemaDelRango('2026-09-30', '2026-09-01', hoy),
+    'La fecha de inicio es posterior a la de fin.',
+  );
+  assert.equal(
+    problemaDelRango('2026-10-01', '2026-10-09', hoy),
+    'El rango no puede terminar después de hoy.',
+  );
+  assert.equal(problemaDelRango('2024-01-01', '2026-10-08', hoy), 'Elegí un año como mucho.');
 });
