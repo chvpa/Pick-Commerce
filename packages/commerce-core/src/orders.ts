@@ -122,6 +122,8 @@ export function describirEvento(evento: OrderEvent): string {
     return data.note ? `${conReferencia} — ${data.note}` : conReferencia;
   }
 
+  if (evento.type === 'note' && data.note) return data.note;
+
   if (evento.type === 'email_sent') {
     const evt = data.event ? (ETIQUETA_EVENTO_CORREO[data.event] ?? data.event) : 'aviso';
     return data.to ? `Correo enviado (${evt}) a ${data.to}` : `Correo enviado: ${evt}`;
@@ -221,10 +223,23 @@ export interface AvisoDelPedido {
 /** Cuántos intentos hace la cola antes de abandonar. Lo fija `claim_notifications`. */
 export const INTENTOS_DE_AVISO = 5;
 
+/** Lo que el catálogo dice hoy de la variante de una línea: su foto y su página. */
+export interface ProductoDeLaLinea {
+  readonly handle: string;
+  readonly imagen?: string;
+}
+
 export interface PedidoConTimeline {
   readonly order: Order;
   readonly events: readonly OrderEvent[];
   readonly avisos: readonly AvisoDelPedido[];
+  /** La ficha del cliente. Ausente en un pedido sin cliente asociado. */
+  readonly customerId?: string;
+  /**
+   * Por id de variante. La línea guarda su copia del título y del precio; esto
+   * es sólo para dibujarla, y falta si la variante ya no existe.
+   */
+  readonly productos: Readonly<Record<string, ProductoDeLaLinea>>;
 }
 
 /** Igual que el resto de los repositorios: `storeId` primero, siempre. */
@@ -242,6 +257,8 @@ export interface RepositorioAdminPedidos {
   cambiarPago(storeId: string, id: string, pago: PaymentStatus, nota?: string): Promise<Order>;
   /** Cuántos pedidos hay en cada pestaña. */
   conteos(storeId: string): Promise<ConteoDeBandejas>;
+  /** Una nota en la timeline, sin cambiar nada del pedido. */
+  agregarNota(storeId: string, id: string, nota: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

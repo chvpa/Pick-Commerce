@@ -2,7 +2,8 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import { ADMIN, entrar, vigilar } from './_admin.ts';
 
 /**
- * Pedidos por bandeja y en lote (ADR-146).
+ * Pedidos por bandeja y en lote (ADR-146), y el detalle con su próxima acción
+ * (ADR-147).
  *
  * Qué cae en cada pestaña lo prueba `supabase/tests/pedidos-por-bandeja.test.ts`.
  * Esto prueba lo que ese test no ve: que la pestaña está en la URL, que elegir
@@ -14,7 +15,13 @@ import { ADMIN, entrar, vigilar } from './_admin.ts';
  * tienda de la demo tiene otros pedidos y no se puede contar con cuántos.
  */
 
-const HANDLE = 'zapatilla-urbana';
+/*
+ * La mochila y no la zapatilla, como `pago-simulado.spec.ts`: el checkout y
+ * Treeshop compran la zapatilla —doce unidades—, desktop y mobile comparten base
+ * dentro de una corrida, y estos tests crean cinco pedidos por proyecto. Con la
+ * zapatilla, el mobile del checkout fallaba por falta de stock.
+ */
+const HANDLE = 'mochila-tecnica';
 
 async function crearPedidos(
   page: Page,
@@ -132,6 +139,62 @@ test('el estado y el pago se cambian desde la fila', async ({ page, request, isM
   await expect(page.getByText('Ningún pedido coincide')).toBeVisible();
   await page.getByRole('link', { name: /^En camino/ }).click();
   await expect(estado).toContainText('Enviado');
+
+  expect(problemas).toEqual([]);
+});
+
+test('el detalle lleva el pedido de a un paso, guarda notas y pasa al siguiente', async ({
+  page,
+  request,
+}) => {
+  const sello = String(Date.now());
+  // Dos, para que haya un siguiente: la lista los muestra del más nuevo al más viejo.
+  const [primero, segundo] = await crearPedidos(page, request, sello, 2);
+
+  const problemas = vigilar(page);
+  await entrar(page);
+  await abrirBandeja(page, 'cobrar', sello);
+  await expect(page.getByRole('checkbox', { name: /^Elegir el pedido #/ })).toHaveCount(2, {
+    timeout: 15_000,
+  });
+  await page
+    .getByRole('link', { name: `Lote ${sello}` })
+    .first()
+    .click();
+
+  await expect(page.getByRole('heading', { name: `#${segundo}` })).toBeVisible();
+  await expect(page.getByText('Esperando la transferencia')).toBeVisible();
+  // WhatsApp al número internacional, con el saludo armado.
+  await expect(
+    page.getByRole('link', { name: 'Escribirle a Lote ' + sello + ' por WhatsApp' }),
+  ).toHaveAttribute('href', /^https:\/\/wa\.me\/595981123456\?text=Hola%20Lote/);
+
+  // Cobrar, y después un paso por vez.
+  await page.getByRole('button', { name: 'Marcar como pagado' }).click();
+  await expect(page.getByText(`#${segundo} quedó pagado`)).toBeVisible();
+  await expect(page.getByText('Este paso no le escribe al cliente.')).toBeVisible();
+  await page.getByRole('button', { name: 'Confirmar pedido' }).click();
+  await expect(page.getByText(`#${segundo} pasó a Confirmado`)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Empezar a preparar' })).toBeVisible();
+  await expect(page.getByText('Confirmado · paso 2 de 6')).toBeVisible();
+
+  // Una nota suelta, sin cambiar nada del pedido.
+  await page.getByRole('button', { name: /^Ver historial/ }).click();
+  const nota = page.getByRole('textbox', { name: 'Agregar una nota al pedido' });
+  await nota.fill('Retira el sábado por la tarde');
+  await nota.press('Enter');
+  await expect(page.getByText('Nota agregada')).toBeVisible();
+  await expect(
+    page.getByRole('listitem').filter({ hasText: 'Retira el sábado por la tarde' }),
+  ).toBeVisible();
+  await expect(nota).toHaveValue('');
+
+  // El siguiente de la página que se estaba mirando, sin volver a la lista.
+  await expect(page.getByRole('button', { name: 'Pedido anterior' })).toBeDisabled();
+  await page.getByRole('link', { name: 'Pedido siguiente' }).click();
+  await expect(page.getByRole('heading', { name: `#${primero}` })).toBeVisible();
+  // El historial abierto era del anterior: este arranca plegado.
+  await expect(page.getByRole('button', { name: /^Ver historial/ })).toBeVisible();
 
   expect(problemas).toEqual([]);
 });

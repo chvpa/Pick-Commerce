@@ -352,6 +352,9 @@ function Lista({
     },
   });
 
+  // Con el pedido viajan los de su página, para ir al anterior y al siguiente
+  // desde el detalle sin volver a la lista.
+  const idsDeLaPagina = pedidos.map((p) => p.id);
   const todos = pedidos.length > 0 && pedidos.every((p) => elegidos.has(p.id));
   const algunos = !todos && pedidos.some((p) => elegidos.has(p.id));
   const elegir = (id: string, si: boolean) =>
@@ -403,6 +406,7 @@ function Lista({
                 <Fila
                   key={p.id}
                   pedido={p}
+                  pagina={idsDeLaPagina}
                   tienda={tienda}
                   escribe={escribe}
                   elegido={elegidos.has(p.id)}
@@ -521,6 +525,7 @@ function BotonDeLote({
  */
 function Fila({
   pedido: p,
+  pagina,
   tienda,
   escribe,
   elegido,
@@ -531,6 +536,7 @@ function Fila({
   onCancelar,
 }: {
   pedido: PedidoDeLista;
+  pagina: string[];
   tienda: TiendaResumen;
   escribe: boolean;
   elegido: boolean;
@@ -567,6 +573,7 @@ function Fila({
           <Link
             to="/pedidos/$id"
             params={{ id: p.id }}
+            state={{ pedidos: pagina }}
             className="truncate font-medium outline-none after:absolute after:inset-0 after:rounded-sm focus-visible:after:ring-3 focus-visible:after:ring-[#e4e9fc]"
           >
             {p.customerName}

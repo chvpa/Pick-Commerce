@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   configuracionDePagos,
+  enlaceDeWhatsApp,
+  telefonoLocal,
   totalDelCarrito,
   validarCarrito,
   validarDatosDeCheckout,
@@ -238,4 +240,24 @@ test('la configuración de la tienda manda', () => {
 test('un default que no está habilitado se cae al primero habilitado', () => {
   const r = configuracionDePagos({ payments: { enabled: ['bank_transfer'], default: 'bancard' } });
   assert.equal(r.default, 'bank_transfer', 'ofreció un método que no está habilitado');
+});
+
+// --- Teléfono y WhatsApp ------------------------------------------------------
+
+test('el teléfono se lleva a su forma local, venga como venga escrito', () => {
+  assert.equal(telefonoLocal('0981 123 456'), '0981123456');
+  assert.equal(telefonoLocal('+595 981 123-456'), '0981123456');
+  assert.equal(telefonoLocal('(021) 600 700'), '021600700');
+  assert.equal(telefonoLocal('981123456'), null);
+  assert.equal(telefonoLocal('1234'), null);
+});
+
+test('WhatsApp va al número internacional, con el mensaje codificado', () => {
+  assert.equal(enlaceDeWhatsApp('0981 123 456'), 'https://wa.me/595981123456');
+  assert.equal(
+    enlaceDeWhatsApp('+595981123456', 'Hola, ¿todo bien con el #1048?'),
+    'https://wa.me/595981123456?text=Hola%2C%20%C2%BFtodo%20bien%20con%20el%20%231048%3F',
+  );
+  // Un teléfono que no sirve no da un enlace que abre una conversación vacía.
+  assert.equal(enlaceDeWhatsApp('sin teléfono'), null);
 });

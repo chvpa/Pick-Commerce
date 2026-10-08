@@ -151,6 +151,41 @@ export function totalDelCarrito(lineas: readonly { subtotal: Money }[]): Money {
 // Datos del checkout
 // ---------------------------------------------------------------------------
 
+/**
+ * Un teléfono como lo escribe la gente, llevado a su forma local: `0981123456`.
+ *
+ * Paraguay: 10 dígitos con el 0 inicial. Se aceptan espacios, guiones y
+ * paréntesis, y el prefijo +595, porque así es como la gente escribe su número.
+ * `null` si no tiene esa forma.
+ */
+export function telefonoLocal(telefono: string): string | null {
+  const local = telefono.replace(/[\s()-]/g, '').replace(/^\+?595/, '0');
+  return /^0\d{8,9}$/.test(local) ? local : null;
+}
+
+/**
+ * El enlace que abre una conversación de WhatsApp con el cliente.
+ *
+ * El mensaje lo manda la persona desde su teléfono, no la tienda: no hay API de
+ * por medio (ADR-143). `wa.me` pide el número internacional sin `+` ni ceros,
+ * así que el 0 local pasa a 595. `null` si el teléfono no sirve.
+ */
+export function enlaceDeWhatsApp(telefono: string, mensaje?: string): string | null {
+  const local = telefonoLocal(telefono);
+  if (!local) return null;
+  const numero = `595${local.slice(1)}`;
+  return mensaje
+    ? `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`
+    : `https://wa.me/${numero}`;
+}
+
+/** Cómo se nombra cada forma de pago. Las que no están, por su clave. */
+export const ETIQUETA_METODO_DE_PAGO: Readonly<Record<string, string>> = {
+  bank_transfer: 'Transferencia bancaria',
+  bancard: 'Tarjeta (Bancard)',
+  simulated_card: 'Tarjeta (pago de prueba)',
+};
+
 export interface DatosDeCheckout {
   readonly customer: OrderCustomer;
   readonly address: OrderAddress;
@@ -193,17 +228,14 @@ export function validarDatosDeCheckout(entrada: unknown): {
   // no se entera igual —lo que confirma una dirección es un mensaje que llega—.
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errores.email = 'Revisá el correo.';
 
-  // Paraguay: 10 dígitos con el 0 inicial. Se aceptan espacios y guiones, y el
-  // prefijo +595, porque así es como la gente escribe su número.
-  const soloDigitos = phone.replace(/[\s()-]/g, '').replace(/^\+?595/, '0');
-  if (!/^0\d{8,9}$/.test(soloDigitos))
-    errores.phone = 'Revisá el teléfono, por ejemplo 0981 123 456.';
+  const telefono = telefonoLocal(phone);
+  if (!telefono) errores.phone = 'Revisá el teléfono, por ejemplo 0981 123 456.';
 
   if (street.length < 4) errores.street = 'Escribí la dirección de entrega.';
   if (city.length < 2) errores.city = 'Escribí la ciudad.';
   if (!paymentMethod) errores.paymentMethod = 'Elegí una forma de pago.';
 
-  if (Object.keys(errores).length > 0) return { errores };
+  if (Object.keys(errores).length > 0 || !telefono) return { errores };
 
   const taxId = texto(cliente.taxId);
   const taxName = texto(cliente.taxName);
@@ -221,7 +253,7 @@ export function validarDatosDeCheckout(entrada: unknown): {
       customer: {
         name,
         email,
-        phone: soloDigitos,
+        phone: telefono,
         ...(taxId ? { taxId } : {}),
         ...(taxName ? { taxName } : {}),
       },

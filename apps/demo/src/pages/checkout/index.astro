@@ -3,7 +3,7 @@ import { anotar } from '../../lib/analytics.ts';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import { CheckoutForm } from '@pick/commerce-ui/checkout/CheckoutForm';
 import Base from '../../layouts/Base.astro';
-import { formatMoney } from '@pick/commerce-core';
+import { ETIQUETA_METODO_DE_PAGO, formatMoney } from '@pick/commerce-core';
 import { envio, pagos, tiendaActual, tiendaEsDemo } from '../../lib/db.ts';
 import { emailDelComprador, misDirecciones, type DireccionDeEnvio } from '../../lib/cuenta.ts';
 import { paginaDeCuenta } from '../../lib/sesion.ts';
@@ -13,12 +13,6 @@ import { paginaDeCuenta } from '../../lib/sesion.ts';
  * comercio puede cambiarlas sin que nadie reconstruya el sitio.
  */
 export const prerender = false;
-
-const ETIQUETAS: Record<string, string> = {
-  bank_transfer: 'Transferencia bancaria',
-  bancard: 'Tarjeta (Bancard)',
-  simulated_card: 'Tarjeta (pago de prueba)',
-};
 
 const [formasDePago, esDemo, configuracionEnvio, tienda] = await Promise.all([
   pagos(),
@@ -35,7 +29,10 @@ const zonas = (configuracionEnvio.zones ?? []).map((z) => ({
   name: z.name,
   label: `${z.name} · ${formatMoney({ amount: z.amount, currency: tienda.currency as 'PYG' }, tienda.locale)}`,
 }));
-const metodos = formasDePago.enabled.map((id) => ({ id, label: ETIQUETAS[id] ?? id }));
+const metodos = formasDePago.enabled.map((id) => ({
+  id,
+  label: ETIQUETA_METODO_DE_PAGO[id] ?? id,
+}));
 
 /*
  * Quien entró a su cuenta compra con el correo de su cuenta, y no puede

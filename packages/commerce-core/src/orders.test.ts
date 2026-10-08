@@ -144,3 +144,10 @@ test('sin token no hay enlace, en vez de uno que lleve a una página vacía', as
   const { enlaceDelPedido } = await import('./orders.ts');
   assert.equal(enlaceDelPedido('https://sontres.shop', { number: 41 }), null);
 });
+
+test('una nota se lee tal cual la escribieron', () => {
+  assert.equal(
+    describirEvento(evento('note', { note: 'Llamó, retira el sábado' })),
+    'Llamó, retira el sábado',
+  );
+});

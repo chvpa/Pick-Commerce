@@ -9,6 +9,18 @@
  * shadcn traen clases `dark:`. Sin esta variante, Tailwind v4 las activa con el
  * modo oscuro del sistema operativo y el Admin quedaría a medio teñir.
  */
+/*
+ * Imprimir un pedido imprime el pedido: sin el menú ni la barra de arriba. El
+ * sidebar es un primitivo de shadcn y su envoltorio no recibe clases, así que
+ * va por su `data-slot`.
+ */
+@media print {
+  [data-slot='sidebar'],
+  [data-slot='barra-superior'] {
+    display: none !important;
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

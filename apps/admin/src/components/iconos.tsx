@@ -66,6 +66,13 @@ import {
   UsersIcon as Users,
   UsersRoundIcon as UsersRound,
   XIcon as X,
+  BankIcon as Bank,
+  CheckmarkBadge01Icon as CheckmarkBadge,
+  DeliveryTruck01Icon as DeliveryTruck,
+  MoreHorizontalIcon as MoreHorizontal,
+  PrinterIcon as Printer,
+  QuoteDownIcon as QuoteDown,
+  WhatsappIcon as Whatsapp,
 } from '@hugeicons/core-free-icons';
 
 /**
@@ -169,3 +176,10 @@ export const TrendDownIcon = icono(ArrowDownRight);
 export const CancelCircleIcon = icono(CancelCircle);
 export const DownloadIcon = icono(Download);
 export const MinusIcon = icono(MinusSign);
+export const BankIcon = icono(Bank);
+export const ClienteFielIcon = icono(CheckmarkBadge);
+export const DeliveryTruckIcon = icono(DeliveryTruck);
+export const MoreHorizontalIcon = icono(MoreHorizontal);
+export const PrinterIcon = icono(Printer);
+export const QuoteIcon = icono(QuoteDown);
+export const WhatsappIcon = icono(Whatsapp);

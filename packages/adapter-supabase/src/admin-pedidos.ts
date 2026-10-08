@@ -3,6 +3,7 @@ import type {
   ConteoDeBandejas,
   PaginaPedidos,
   PedidoConTimeline,
+  ProductoDeLaLinea,
   RepositorioAdminPedidos,
 } from '@pick/commerce-core';
 import type { Order, OrderEvent } from '@pick/commerce-types';
@@ -65,11 +66,35 @@ export function repositorioAdminPedidos(db: PickSupabaseClient): RepositorioAdmi
 
       const { data: dueño } = await db
         .from('orders')
-        .select('id')
+        .select('id, customer_id')
         .eq('id', id)
         .eq('store_id', storeId)
         .maybeSingle();
       if (!dueño) return null;
+
+      /*
+       * La foto y la página de cada línea, del catálogo de hoy: la línea guarda
+       * su copia del título y del precio, pero no una foto. Si falla o la
+       * variante ya no está, la línea se dibuja sin foto, que no es motivo para
+       * no poder abrir el pedido.
+       */
+      const variantes = order.items.flatMap((i) => (i.variantId ? [i.variantId] : []));
+      const { data: delCatalogo } =
+        variantes.length > 0
+          ? await db
+              .from('product_variants')
+              .select('id, products(handle, product_media(url, position))')
+              .in('id', variantes)
+          : { data: [] };
+      const productos: Record<string, ProductoDeLaLinea> = {};
+      for (const v of delCatalogo ?? []) {
+        if (!v.products) continue;
+        const [primera] = [...v.products.product_media].sort((a, b) => a.position - b.position);
+        productos[v.id] = {
+          handle: v.products.handle,
+          ...(primera ? { imagen: primera.url } : {}),
+        };
+      }
 
       return {
         order,
@@ -82,7 +107,32 @@ export function repositorioAdminPedidos(db: PickSupabaseClient): RepositorioAdmi
         // Un fallo acá no puede tapar el pedido: que no se sepa si el correo
         // salió es peor que nada, pero mucho menos que no poder abrir la venta.
         avisos: (avisos.error ? [] : (avisos.data ?? [])) as unknown as AvisoDelPedido[],
+        ...(dueño.customer_id ? { customerId: dueño.customer_id } : {}),
+        productos,
       };
+    },
+
+    async agregarNota(storeId, id, nota): Promise<void> {
+      /*
+       * Directo a la tabla y no por una función: la timeline se lee y se agrega
+       * por RLS —escribir pide `order.write`— y nunca se edita ni se borra. El
+       * tenant sale del pedido, acotado a la tienda.
+       */
+      const { data: pedido, error: noEsta } = await db
+        .from('orders')
+        .select('tenant_id')
+        .eq('id', id)
+        .eq('store_id', storeId)
+        .single();
+      if (noEsta) throw new Error('El pedido no existe en esta tienda');
+
+      const { error } = await db.from('order_events').insert({
+        tenant_id: pedido.tenant_id,
+        order_id: id,
+        type: 'note',
+        data: { note: nota },
+      });
+      if (error) throw new Error(`No se pudo guardar la nota: ${error.message}`);
     },
 
     async cambiarEstado(storeId, id, estado, nota): Promise<Order> {

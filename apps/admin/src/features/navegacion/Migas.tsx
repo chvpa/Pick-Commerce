@@ -132,7 +132,7 @@ export function Migas() {
   if (!arriba?.to) return null;
 
   return (
-    <nav aria-label="Migas de pan" className="mb-5">
+    <nav aria-label="Migas de pan" className="mb-5 print:hidden">
       <Link
         to={arriba.to}
         className="text-ink-3 hover:text-foreground focus-visible:ring-focus-tint inline-flex items-center gap-1.5 rounded-md text-sm font-medium outline-none focus-visible:ring-3"

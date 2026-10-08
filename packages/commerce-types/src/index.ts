@@ -221,6 +221,17 @@ export interface Order {
   /** Suma de los precios de lista, antes de descuento y sin envío. */
   readonly subtotal: Money;
   readonly discount: Money;
+  /**
+   * De qué promociones salió el descuento, con lo que descontó cada una en
+   * unidades de la moneda. Ausente cuando no hubo ninguna.
+   */
+  readonly appliedPromotions?: readonly {
+    readonly promotionId: string;
+    readonly title: string;
+    /** El cupón, si la promoción lo pedía. */
+    readonly code?: string;
+    readonly amount: number;
+  }[];
   /** Lo cobrado por despachar. Cero cuando la tienda no cobra envío. */
   readonly shipping: Money;
   readonly total: Money;
@@ -239,7 +250,10 @@ export interface Order {
   readonly createdAt: string;
 }
 
-/** Una entrada de la timeline. `type` es `'created'` o `'status_changed'`. */
+/**
+ * Una entrada de la timeline: `created`, `status_changed`, `payment_changed`,
+ * `email_sent` o `note`, la nota que alguien de la tienda agrega a mano.
+ */
 export interface OrderEvent {
   readonly id: string;
   readonly type: string;

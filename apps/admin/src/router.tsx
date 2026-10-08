@@ -340,7 +340,9 @@ const pedidoRoute = createRoute({
   path: '/pedidos/$id',
   component: function Pedido() {
     const { id } = pedidoRoute.useParams();
-    return <DetallePedido id={id} />;
+    // Remontar al pasar al pedido siguiente: una nota a medio escribir o un
+    // diálogo abierto eran del pedido anterior.
+    return <DetallePedido key={id} id={id} />;
   },
 });
 
@@ -584,5 +586,19 @@ export const router = createRouter({ routeTree: arbol });
 declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router;
+  }
+}
+
+/*
+ * Lo que viaja en el estado del historial. `pedidos`: la página de la lista desde
+ * la que se abrió un pedido, para ir al anterior y al siguiente sin volver.
+ *
+ * Se aumenta por `@tanstack/react-router`, que reexporta la interfaz, y no por
+ * `@tanstack/history`, donde vive: con pnpm ese paquete no es dependencia del
+ * Admin y TypeScript no lo encuentra (TS2664).
+ */
+declare module '@tanstack/react-router' {
+  interface HistoryState {
+    pedidos?: string[];
   }
 }

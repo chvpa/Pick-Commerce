@@ -7317,3 +7317,69 @@ el conteo dice lo mismo que la lista, los filtros, el corte de página y que otr
 comercio no ve ni cuenta lo ajeno. El e2e `pedidos.spec.ts` marca dos pedidos en
 lote, los ve pasar de «Por cobrar» a «Para preparar» y cambia el estado desde la
 fila.
+
+## ADR-147 — El detalle de un pedido dice lo próximo que hay que hacer
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+El detalle ofrecía todos los estados como botones, el cobro aparte y una nota
+compartida por las dos acciones. El del handoff (ADR-143) muestra **una sola
+acción** según el estado y el pago, la barra de pasos, las líneas con su foto,
+el cliente con WhatsApp y correo, y el historial plegado con un campo para
+anotar.
+
+**La próxima acción**
+Mientras falta cobrar, lo próximo es cobrar: no se prepara lo que no se pagó.
+Cobrado, avanza un paso —confirmar, preparar, listo, enviado, entregado— y
+promete un correo **sólo** en los pasos que lo mandan, que los decide
+`app.queue_order_notification`: enviado y entregado. Confirmar, preparar y
+«listo» dicen que no le escriben al cliente, y un pedido de demostración dice
+que no le escribe a nadie (ADR-108). Prometer un correo que no sale es peor que
+no decir nada. Vive aparte, en `proxima.ts`, con su test, como las tareas del
+Inicio.
+
+La acción sólo avanza. Volver atrás —el «enviado» marcado por error— o saltar un
+paso queda en «Más acciones», de a uno, como en la lista: la base deja moverlo
+libre a propósito (ADR-066), y en el teléfono la lista no tiene el menú de
+estado.
+
+**La nota no pide una función nueva**
+La timeline se lee y se agrega por RLS desde la Fase 5 —escribir pide
+`order.write`— y nunca se edita ni se borra. Una nota es una fila `note` en
+`order_events`, sin tocar el pedido.
+
+**Las fotos salen del catálogo de hoy**
+La línea guarda su copia del título y del precio, no una foto. La foto y el
+enlace a la página del producto se piden aparte, por variante; si la variante ya
+no existe, la línea se dibuja sin foto, que es para lo que la referencia es
+blanda.
+
+**WhatsApp es un enlace**
+`wa.me` con el número internacional y un saludo escrito: el mensaje lo manda
+la persona desde su teléfono, como dice ADR-143. El teléfono se normaliza con la
+misma regla que valida el checkout —Paraguay, el 0 o el +595—, que pasó al core
+como `telefonoLocal` para que haya una sola. Por lo mismo se mudaron las
+etiquetas de los medios de pago, que las dos páginas de checkout copiaban.
+
+**El anterior y el siguiente**
+Las flechas recorren la página de la lista desde la que se abrió el pedido —su
+pestaña, su filtro, su orden—, que viaja en el estado del historial y no en la
+URL: serían veinte ids. Abierto por un enlace directo, no hay flechas. La
+pantalla se remonta al cambiar de pedido: una nota a medio escribir era del
+anterior.
+
+**Imprimir**
+Imprime el pedido, sin el sidebar, la barra de arriba ni los botones.
+
+**Lo que no entra**
+La franja «Creado por… modificado por…» y su historial de cambios son la
+auditoría de la Fase 3. La guía de AEX espera su API (Fase 11). Y «Descargar
+factura» no se muestra: la facturación está fuera del core.
+
+**Consecuencias**
+`pedidos.spec.ts` cobra un pedido desde el detalle, lo avanza, le agrega una
+nota y pasa al siguiente sin volver a la lista; corre sobre la mochila y no
+sobre la zapatilla, porque con cinco pedidos por proyecto agotaba el stock que
+el checkout necesita en mobile.

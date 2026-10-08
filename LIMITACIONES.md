@@ -76,6 +76,15 @@ ciudades— con su tarifa y una general para las que no estén (ADR-107, ADR-114
 El comprador elige la zona en el checkout y el servidor cobra. No hay tarifas
 por peso, transportistas ni retiro en sucursal: pickup está en v2.
 
+### WhatsApp es un enlace, y los teléfonos son de Paraguay
+
+Desde un pedido, «Escribir por WhatsApp» abre una conversación con el cliente y
+el saludo escrito: el mensaje lo manda la persona desde su teléfono. No hay API
+de WhatsApp Business, así que el sistema no le escribe a nadie por ahí, y no se
+sabe si el mensaje salió (ADR-147). El checkout acepta sólo números de Paraguay
+—el 0 o el +595—, y el enlace da por hecho ese prefijo. Lo desbloquea un campo
+de teléfono con país, cuando venda una tienda de afuera.
+
 ### El enlace de un pedido es un secreto al portador
 
 Quien compra sin cuenta vuelve a su pedido con un enlace que lleva un token propio,
