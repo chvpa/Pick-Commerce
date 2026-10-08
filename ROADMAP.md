@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    13% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    14% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1826,7 +1826,7 @@ notificaciones, la ayuda y el uso de IA alrededor del avatar— llega con su fas
 
 ## Fase 2 — Las pantallas del Admin, sobre lo que ya existe
 
-**Avance: 58%**
+**Avance: 67%**
 
 Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
@@ -1861,8 +1861,10 @@ Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
       los estados en pestañas y los puntos que paga una reseña; el programa con lo
       entregado repartido en canjeado, vencido y sin canjear, los clientes con
       puntos, las reglas y los premios en un diálogo (ADR-151).
-- [ ] Secciones: portada, estilo, columnas en el teléfono, vista previa y borrar
-      con confirmación.
+- [x] Secciones: Secciones, Colecciones y Categorías como pestañas de una
+      pantalla, cada bloque con su forma, la vista previa de teléfono, las
+      columnas en el teléfono y borrar con confirmación (ADR-152). «Pasar solo»
+      va con la Fase 9.
 - [ ] Analytics: un rango de fechas propio y las búsquedas sin resultado a la
       vista.
 - [ ] Importar y Cargar con la cámara.
@@ -1991,6 +1993,9 @@ Reemplaza el BYOK; su ADR corrige CLAUDE.md y PROJECT.md.
       tienda y límite por visitante.
 - [ ] El carrito con lo que se aplicó y lo que falta para el envío gratis; la PDP
       con los swatches del modelo, «quedan pocos» y la entrega estimada.
+- [ ] La portada armada una vez en `commerce-astro`, con «pasar solo» como ajuste
+      de cada carrusel: hoy el banner de Treeshop pasa solo fijo en su código y el
+      de la demo no tiene controles (ADR-152).
 
 ---
 
@@ -2390,6 +2395,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-08 | **v3 Fase 2: la ficha del producto** (ADR-149). Dos columnas con el título del producto arriba y el interruptor de publicado; el SKU del modelo, el código interno y el de barras de cada variante —`admin_save_product` escribía sólo el de barras, y ahora los otros dos si vienen y si no son del ERP—; «Precio y stock» con una sola variante, tabla con «Para todas» y diálogo con varias; fotos en grilla y la vista de Google. De paso: siete pantallas compartían la clave de las categorías con dos funciones distintas, y la caché le daba a cada una la que hubiera cargado primero                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | v3 Fase 2 |          33% |            42% |
 | 2026-10-08 | **v3 Fase 2: Clientes** (ADR-150). La cabecera cuenta los nuevos por mes, cuántos volvieron y cuánto gasta cada grupo con las cohortes y los segmentos que ya existían —un test de la base falla si una regla RFM cambia de lado de la línea de una compra—; los siete segmentos son pestañas en la URL. La ficha del cliente muestra sus pedidos, su contacto y su saldo de puntos con `admin_customer_points`, que pasa el vencimiento antes de contar como `mis_puntos`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | v3 Fase 2 |          42% |            50% |
 | 2026-10-08 | **v3 Fase 2: Reseñas y Fidelidad** (ADR-151). Reseñas abre con la nota de lo publicado —promedio y distribución por estrella, sin contar lo pendiente ni lo rechazado— y separa los estados en pestañas con su conteo, desde la misma función que lista. Fidelidad reparte lo entregado en canjeado, vencido y sin canjear, y no traduce los puntos a plata aunque el handoff lo haga: no hay una razón entre los dos                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | v3 Fase 2 |          50% |            58% |
+| 2026-10-08 | **v3 Fase 2: Secciones** (ADR-152). Secciones, Colecciones y Categorías como pestañas de una pantalla, la vista previa de teléfono y las columnas en el teléfono, que las dos tiendas respetan. Y lo que apareció midiendo: la validación del formulario de checkout viajaba en el chunk del carrito, en todas las páginas, porque compartía módulo con `totalDelCarrito`; separada, el catálogo volvió a su presupuesto sin tocarlo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | v3 Fase 2 |          58% |            67% |
 
 ---
 

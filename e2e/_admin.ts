@@ -84,10 +84,10 @@ export async function abrirSidebar(page: Page): Promise<void> {
 }
 
 /**
- * Entra a una de las pantallas de contenido por el sidebar.
- *
- * Desde ADR-143 son enlaces del grupo «Tienda» y no un disclosure. Se acota al
- * sidebar porque «Colecciones» también nombra el «← volver» y los encabezados.
+ * Entra a una de las pantallas de contenido: Secciones por el sidebar, y
+ * Colecciones o Categorías por su pestaña, que es como se llega desde ADR-152.
+ * Se acota al sidebar y a la barra de pestañas porque «Colecciones» también
+ * nombra el «← volver» de sus formularios.
  */
 export async function irAContenido(
   page: Page,
@@ -96,7 +96,13 @@ export async function irAContenido(
   await abrirSidebar(page);
   await page
     .locator('[data-sidebar="sidebar"]')
-    .getByRole('link', { name: sub, exact: true })
+    .getByRole('link', { name: 'Secciones', exact: true })
+    .click();
+  if (sub === 'Secciones') return;
+  // Colecciones y Categorías son pestañas de Secciones (ADR-152).
+  await page
+    .getByRole('navigation', { name: 'Contenido de la tienda' })
+    .getByRole('link', { name: new RegExp(`^${sub}`) })
     .click();
 }
 

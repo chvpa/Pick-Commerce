@@ -1,6 +1,7 @@
 import {
   categoriasDe,
   columnasDe,
+  columnasEnElTelefonoDe,
   productosDe,
   type Banner,
   type CatalogQuery,
@@ -173,7 +174,12 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
             const layout = f.layout as LayoutDeSeccion;
 
             if (f.type === 'hero') {
-              return { kind: 'hero', id: f.id, layout, piezas: porSeccion.get(f.id) ?? [] };
+              return {
+                kind: 'hero',
+                id: f.id,
+                layout,
+                piezas: porSeccion.get(f.id) ?? [],
+              };
             }
 
             if (f.type === 'tiles') {
@@ -184,6 +190,7 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
                 ...(f.subtitle ? { subtitle: f.subtitle } : {}),
                 layout,
                 columns: columnasDe(settings),
+                columnasEnElTelefono: columnasEnElTelefonoDe(settings),
                 piezas: porSeccion.get(f.id) ?? [],
               };
             }

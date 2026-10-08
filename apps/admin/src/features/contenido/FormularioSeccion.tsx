@@ -9,6 +9,7 @@ import {
   TOPE_DE_COLECCIONES,
   categoriasDe,
   columnasDe,
+  columnasEnElTelefonoDe,
   moverEn,
   productosDe,
   type Banner,
@@ -149,6 +150,9 @@ function Campos({
   const [columns, setColumns] = useState(
     String(inicial ? columnasDe(inicial.settings) : COLUMNAS_POR_DEFECTO),
   );
+  const [enElTelefono, setEnElTelefono] = useState(
+    String(inicial ? columnasEnElTelefonoDe(inicial.settings) : 1),
+  );
   const [limit, setLimit] = useState(
     String(inicial ? productosDe(inicial.settings) : PRODUCTOS_POR_SECCION),
   );
@@ -182,7 +186,10 @@ function Campos({
           layout,
           settings:
             type === 'tiles'
-              ? { columns: Number(columns) || COLUMNAS_POR_DEFECTO }
+              ? {
+                  columns: Number(columns) || COLUMNAS_POR_DEFECTO,
+                  mobileColumns: Number(enElTelefono) === 2 ? 2 : 1,
+                }
               : type === 'categories'
                 ? { categoryIds }
                 : type === 'products'
@@ -348,19 +355,45 @@ function Campos({
                 </Campo>
 
                 {type === 'tiles' && layout === 'static' && (
-                  <Campo id="columns" label="Columnas" ayuda="En teléfono siempre va una por fila.">
-                    <Selector
-                      id="columns"
-                      value={columns}
-                      onValueChange={(valor) => setColumns(valor)}
+                  <>
+                    <Campo id="columns" label="Columnas" ayuda="En una pantalla grande.">
+                      <Selector
+                        id="columns"
+                        value={columns}
+                        onValueChange={(valor) => setColumns(valor)}
+                      >
+                        {[1, 2, 3, 4].map((n) => (
+                          <SelectItem key={n} value={String(n)}>
+                            {n}
+                          </SelectItem>
+                        ))}
+                      </Selector>
+                    </Campo>
+                    {/*
+                      Dos en el teléfono sirve para mosaicos chicos —marcas,
+                      categorías con foto—; con piezas grandes, una sola se lee
+                      mejor. Nunca más que en la pantalla grande: lo corta el core.
+                    */}
+                    <Campo
+                      id="mobileColumns"
+                      label="Columnas en el teléfono"
+                      ayuda={
+                        Number(columns) < 2
+                          ? 'Con una columna en la pantalla grande, en el teléfono también va una.'
+                          : 'Dos para piezas chicas, una para las grandes.'
+                      }
                     >
-                      {[1, 2, 3, 4].map((n) => (
-                        <SelectItem key={n} value={String(n)}>
-                          {n}
-                        </SelectItem>
-                      ))}
-                    </Selector>
-                  </Campo>
+                      <Selector
+                        id="mobileColumns"
+                        value={Number(columns) < 2 ? '1' : enElTelefono}
+                        disabled={Number(columns) < 2}
+                        onValueChange={(valor) => setEnElTelefono(valor)}
+                      >
+                        <SelectItem value="1">1</SelectItem>
+                        <SelectItem value="2">2</SelectItem>
+                      </Selector>
+                    </Campo>
+                  </>
                 )}
               </div>
             )}

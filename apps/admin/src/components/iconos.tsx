@@ -53,7 +53,6 @@ import {
   LogOutIcon as LogOut,
   PackageIcon as Package,
   PanelLeftIcon as PanelLeft,
-  PencilIcon as Pencil,
   PercentIcon as Percent,
   ReceiptTextIcon as ReceiptText,
   RepeatIcon as Repeat,
@@ -126,7 +125,8 @@ export const LibraryBigIcon = icono(LibraryBig);
 export const LogOutIcon = icono(LogOut);
 export const PackageIcon = icono(Package);
 export const PanelLeftIcon = icono(PanelLeft);
-export const PencilIcon = icono(Pencil);
+/** Editar algo en su lugar. El lápiz del handoff (`pencil-edit-02`). */
+export const PencilIcon = icono(PencilEdit02);
 export const PercentIcon = icono(Percent);
 export const ReceiptTextIcon = icono(ReceiptText);
 export const RepeatIcon = icono(Repeat);
@@ -189,5 +189,3 @@ export const WhatsappIcon = icono(Whatsapp);
 /** Archivar: sale de la tienda y se conserva. No es borrar. */
 export const ArchiveIcon = icono(Archive02);
 export const EyeIcon = icono(View);
-/** Editar algo en su lugar: una variante. */
-export const EditarIcon = icono(PencilEdit02);

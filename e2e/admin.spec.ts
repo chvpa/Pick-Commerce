@@ -120,12 +120,18 @@ test.describe('Admin', () => {
       await abrirSidebar(page);
     }
 
-    // Las tres de la tienda, cada una a la suya.
+    // Las tres de la tienda: una pantalla, «Secciones», y cada una en su pestaña
+    // (ADR-152).
     for (const sub of ['Secciones', 'Colecciones', 'Categorías'] as const) {
       await irAContenido(page, sub);
-      await expect(page.getByRole('heading', { name: sub, level: 1 })).toBeVisible({
+      await expect(page.getByRole('heading', { name: 'Secciones', level: 1 })).toBeVisible({
         timeout: 15_000,
       });
+      await expect(
+        page
+          .getByRole('navigation', { name: 'Contenido de la tienda' })
+          .getByRole('link', { name: new RegExp(`^${sub}`) }),
+      ).toHaveAttribute('aria-current', 'page');
     }
 
     expect(problemas, problemas.join('\n')).toEqual([]);
@@ -161,13 +167,16 @@ test.describe('Admin', () => {
     await expect(page).toHaveURL(/\/contenido\/categorias$/);
 
     await page.goto(`${ADMIN}/contenido/categorias`);
-    await expect(page.getByRole('heading', { name: 'Categorías', level: 1 })).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(
+      page
+        .getByRole('navigation', { name: 'Contenido de la tienda' })
+        .getByRole('link', { name: /^Categorías/ }),
+    ).toHaveAttribute('aria-current', 'page', { timeout: 15_000 });
 
+    // Categorías es una pestaña de Secciones, y el sidebar marca Secciones.
     await abrirSidebar(page);
     await expect(
-      page.locator('[data-sidebar="sidebar"]').getByRole('link', { name: 'Categorías' }),
+      page.locator('[data-sidebar="sidebar"]').getByRole('link', { name: 'Secciones' }),
     ).toHaveAttribute('data-active', '');
 
     expect(problemas, problemas.join('\n')).toEqual([]);

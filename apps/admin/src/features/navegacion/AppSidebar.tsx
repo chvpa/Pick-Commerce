@@ -11,13 +11,11 @@ import {
   GiftIcon,
   HomeIcon,
   InvoiceIcon,
-  LayersIcon,
   LayoutIcon,
   NoteEditIcon,
   PackageIcon,
   ResenaIcon,
   SettingsIcon,
-  TagIcon,
   UserGroupIcon,
 } from '@/components/iconos';
 import {
@@ -72,6 +70,8 @@ interface Entrada {
   readonly permiso?: Permission;
   /** Un contador a la derecha. Ver `useContadores`. */
   readonly contador?: 'pedidos' | 'resenas';
+  /** Otras rutas en las que también está activa: sus pestañas (ADR-152). */
+  readonly tambien?: readonly string[];
 }
 
 interface Grupo {
@@ -118,9 +118,13 @@ const GRUPOS: readonly Grupo[] = [
   {
     label: 'Tienda',
     entradas: [
-      { to: '/contenido/secciones', label: 'Secciones', icono: LayoutIcon },
-      { to: '/contenido/colecciones', label: 'Colecciones', icono: LayersIcon },
-      { to: '/contenido/categorias', label: 'Categorías', icono: TagIcon },
+      // Colecciones y Categorías son pestañas de Secciones (ADR-152).
+      {
+        to: '/contenido/secciones',
+        label: 'Secciones',
+        icono: LayoutIcon,
+        tambien: ['/contenido/colecciones', '/contenido/categorias'],
+      },
       {
         to: '/configuracion',
         label: 'Configuración',
@@ -143,6 +147,8 @@ const TODAS = GRUPOS.flatMap((g) => g.entradas);
  * «/productos/resenas» la activa es Reseñas, no también Productos.
  */
 function marcada(ruta: string, to: string): boolean {
+  const entrada = TODAS.find((e) => e.to === to);
+  if (entrada?.tambien?.some((otra) => estaActiva(ruta, otra))) return true;
   return (
     estaActiva(ruta, to) && !TODAS.some((o) => o.to.startsWith(`${to}/`) && estaActiva(ruta, o.to))
   );

@@ -2,13 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   configuracionDePagos,
-  enlaceDeWhatsApp,
-  telefonoLocal,
   totalDelCarrito,
   validarCarrito,
-  validarDatosDeCheckout,
   type VarianteParaCarrito,
 } from './checkout.ts';
+import { enlaceDeWhatsApp, telefonoLocal, validarDatosDeCheckout } from './datos-de-checkout.ts';
 
 const PYG = (amount: number) => ({ amount, currency: 'PYG' });
 

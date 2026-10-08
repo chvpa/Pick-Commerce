@@ -7589,3 +7589,52 @@ diálogo, con los mismos campos.
 `resenas.test.ts` prueba que la nota no cuenta lo pendiente ni lo rechazado y que
 los puntos se prometen sólo con el programa encendido. El e2e recorre las
 pestañas de reseñas; el de fidelidad, el de siempre, sigue pasando.
+
+## ADR-152 — Secciones, Colecciones y Categorías en una pantalla, y la validación del checkout fuera del carrito
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+El handoff (ADR-143) junta las tres pantallas de la tienda bajo «Secciones», con
+una pestaña cada una, y el sidebar se queda con Secciones y Configuración. La
+lista de la portada muestra cada bloque con su forma y una vista previa de
+teléfono; cada sección elige su estilo, y una grilla, cuántas columnas lleva en
+el teléfono.
+
+**Tres rutas, una pantalla**
+Las pestañas son enlaces a las tres rutas que ya existían, no un `?tab=`: los
+marcadores, las migas y los formularios de cada una siguen iguales, y el sidebar
+marca «Secciones» en las tres. Cada pestaña dice cuántos hay, con una consulta de
+una fila.
+
+**Columnas en el teléfono**
+Una grilla de avisos iba siempre de a una en el teléfono. Ahora la sección elige
+una o dos (`settings.mobileColumns`) y la tienda la respeta. Nunca más que en la
+pantalla grande —el core lo corta—, y sin decir nada queda en una, como se veía.
+
+**«Pasar solo» espera a la tienda unificada**
+El handoff deja elegir si un carrusel avanza solo. Hoy el banner principal de
+Treeshop pasa solo, fijo en su código, y el de la demo no tiene controles: no
+carga JavaScript en la portada, que tiene su presupuesto medido. Un ajuste con un
+valor por defecto no puede describir a las dos, y el plan no lo pedía para esta
+fase. Va con la Fase 9, cuando la portada se arme una vez en `commerce-astro`.
+
+**La vista previa es un esquema, no una captura**
+Dibuja lo que se decide en la pantalla —el orden, lo publicado y la forma de cada
+bloque— sin pedir nada más. La tienda real está a un clic.
+
+**Lo que apareció midiendo: la validación del checkout viajaba con el carrito**
+El e2e de peso marcó el catálogo 25 bytes arriba de su presupuesto. La causa era
+una vecindad: `totalDelCarrito` —que usa el carrito, en todas las páginas— y
+`validarDatosDeCheckout` —que sólo usa el formulario— vivían en el mismo módulo
+del core, y el bundler los ponía en el mismo chunk. Cada página descargaba la
+validación del formulario de checkout. Los datos del comprador pasaron a
+`datos-de-checkout.ts`: la validación viaja sólo con el formulario, el carrito
+pesa menos en todas las páginas, y el presupuesto no se tocó. Lo que había
+disparado la medición —el teléfono pasado a una función compartida con el enlace
+de WhatsApp (ADR-147)— cuesta ahora sólo en el checkout.
+
+**Consecuencias**
+El smoke del Admin llega a Colecciones y Categorías por su pestaña. El core prueba
+el corte de las columnas, y las dos portadas lo dibujan igual.

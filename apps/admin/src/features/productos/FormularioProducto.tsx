@@ -28,7 +28,7 @@ import {
   ChevronUpIcon,
   ExternalLinkIcon,
   MinusIcon,
-  EditarIcon,
+  PencilIcon,
   PlusIcon,
   Trash2Icon,
 } from '@/components/iconos';
@@ -1154,7 +1154,7 @@ function TablaDeVariantes({
                   onClick={() => onEditar(i)}
                   className="text-ink-3 hover:text-foreground flex size-8 cursor-pointer items-center justify-center rounded-lg outline-none hover:bg-[#f3f4f7] focus-visible:ring-3 focus-visible:ring-[#e4e9fc]"
                 >
-                  <EditarIcon className="size-[15px]" />
+                  <PencilIcon className="size-[15px]" />
                 </button>
                 {filas.length > 1 && (
                   <button

@@ -315,6 +315,8 @@ export function Pestanas<T extends string>({
     readonly cuenta?: number;
     readonly urgente?: 'amber' | 'blue';
     readonly icono?: (props: { className?: string }) => ReactNode;
+    /** Una ruta propia. Sin esto, la pestaña es `?tab=` de `to`. */
+    readonly to?: string;
   }[];
   activa: T;
   /** La ruta de la lista; la pestaña va en `?tab=`. */
@@ -333,8 +335,8 @@ export function Pestanas<T extends string>({
         return (
           <Link
             key={p.valor}
-            to={to}
-            search={{ tab: p.valor }}
+            to={p.to ?? to}
+            {...(p.to ? {} : { search: { tab: p.valor } })}
             aria-current={es ? 'page' : undefined}
             className={cn(
               '-mb-px flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap outline-none',

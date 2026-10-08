@@ -22,6 +22,7 @@ import { usePuede } from '@/features/auth/usePuede';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { SelectorDeImagen } from './SelectorDeImagen';
+import { PestanasDeContenido } from './PestanasDeContenido';
 
 const CATEGORIA_VACIA = {
   name: '',
@@ -128,8 +129,8 @@ export function Categorias() {
 
   return (
     <PaginaAdmin
-      titulo="Categorías"
-      descripcion="Cómo se agrupa el catálogo. Qué categorías muestra la portada y en qué orden se decide en la sección de Categorías."
+      titulo="Secciones"
+      descripcion="Las categorías agrupan el catálogo. Cuáles muestra la portada y en qué orden se decide en la sección de categorías."
       acciones={
         puede('catalog.write') && (
           <Button size="lg" onClick={() => abrir()}>
@@ -138,6 +139,8 @@ export function Categorias() {
         )
       }
     >
+      <PestanasDeContenido activa="categorias" />
+
       <PanelDeEdicion
         abierto={editando !== null}
         onCerrar={() => setEditando(null)}

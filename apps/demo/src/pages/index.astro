@@ -181,7 +181,14 @@ const seo = await contextoSeo();
                 ))}
               </div>
             ) : (
-              <div class:list={['grid gap-6', GRILLA[seccion.columns]]}>
+              <div
+                class:list={[
+                  'grid gap-6',
+                  // En el teléfono, una o dos columnas: lo decide la sección.
+                  seccion.columnasEnElTelefono === 2 && 'grid-cols-2 gap-3 sm:gap-6',
+                  GRILLA[seccion.columns],
+                ]}
+              >
                 {seccion.piezas.map((pieza, i) => (
                   <Banner
                     image={pieza.image}

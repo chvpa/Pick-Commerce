@@ -288,6 +288,8 @@ export type SeccionResuelta =
       readonly subtitle?: string;
       readonly layout: LayoutDeSeccion;
       readonly columns: number;
+      /** En el teléfono: una o dos, nunca más que en la computadora. */
+      readonly columnasEnElTelefono: 1 | 2;
       readonly piezas: readonly Banner[];
     }
   | {
@@ -349,6 +351,20 @@ export function columnasDe(
   // Fuera de rango o ausente cae al defecto: el dato viene de un jsonb, y un
   // `columns: 97` dibujaría mosaicos de dos píxeles sin avisar.
   return Number.isInteger(n) && n >= 1 && n <= 4 ? n : COLUMNAS_POR_DEFECTO;
+}
+
+/**
+ * Columnas de una grilla en el teléfono: una o dos (`settings.mobileColumns`).
+ *
+ * Lo que no sea dos es una, que es como se veían. Y nunca más que las de la
+ * computadora: dos en el teléfono y una en la pantalla grande no es un diseño.
+ */
+export function columnasEnElTelefonoDe(
+  settings: Readonly<Record<string, string | number | boolean | readonly string[]>>,
+): 1 | 2 {
+  const crudo = settings.mobileColumns;
+  const dos = crudo === 2 || crudo === '2';
+  return dos && columnasDe(settings) >= 2 ? 2 : 1;
 }
 
 /**

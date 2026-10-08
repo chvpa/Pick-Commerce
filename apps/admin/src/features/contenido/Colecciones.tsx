@@ -18,6 +18,7 @@ import { usePuede } from '@/features/auth/usePuede';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
 import { ETIQUETA_ORDEN } from './etiquetas';
+import { PestanasDeContenido } from './PestanasDeContenido';
 
 /** Las listas de productos que después arman los carruseles de la portada. */
 export function Colecciones() {
@@ -59,8 +60,8 @@ export function Colecciones() {
 
   return (
     <PaginaAdmin
-      titulo="Colecciones"
-      descripcion="Listas de productos. Para mostrar una en la portada, creá una sección de carrusel."
+      titulo="Secciones"
+      descripcion="Las colecciones son listas de productos. Para mostrar una en la portada, creá una sección de carrusel."
       acciones={
         puede('catalog.write') && (
           <Link to="/contenido/colecciones/nueva" className={buttonVariants({ size: 'lg' })}>
@@ -69,6 +70,8 @@ export function Colecciones() {
         )
       }
     >
+      <PestanasDeContenido activa="colecciones" />
+
       {(publicar.error ?? borrar.error) && (
         <p className="text-destructive text-sm" role="alert">
           {((publicar.error ?? borrar.error) as Error).message}

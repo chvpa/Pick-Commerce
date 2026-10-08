@@ -4,6 +4,7 @@ import {
   categoriasDe,
   categoriasDeLaSeccion,
   columnasDe,
+  columnasEnElTelefonoDe,
   moverEn,
   productosDe,
   tipoDe,
@@ -88,4 +89,13 @@ test('los ids que no son texto se descartan al leerlos', () => {
     'a',
     'b',
   ]);
+});
+
+test('en el teléfono, una o dos columnas, y nunca más que en la computadora', () => {
+  assert.equal(columnasEnElTelefonoDe({}), 1);
+  assert.equal(columnasEnElTelefonoDe({ columns: 3, mobileColumns: 2 }), 2);
+  assert.equal(columnasEnElTelefonoDe({ columns: 3, mobileColumns: '2' }), 2);
+  assert.equal(columnasEnElTelefonoDe({ columns: 3, mobileColumns: 7 }), 1);
+  // Dos en el teléfono con una en la pantalla grande no es un diseño.
+  assert.equal(columnasEnElTelefonoDe({ columns: 1, mobileColumns: 2 }), 1);
 });
