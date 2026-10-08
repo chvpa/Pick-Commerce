@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+<style>
+body{margin:0;font-family:'Montserrat',ui-sans-serif,system-ui,sans-serif;color:#23262f;background:#fff;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#d42a30;text-decoration:none}
+a:hover{color:#b8232a;text-decoration:underline}
+iconify-icon{display:inline-block;flex-shrink:0}
+input::placeholder{color:#9a9ea8}
+</style>
+</helmet>
+<div data-screen-label="Login comprador" style="min-height:100vh;display:flex;flex-direction:column;font-size:14px;line-height:20px">
+  <header style="height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid #e8e9ed">
+    <a href="#" style="display:flex;align-items:center"><img src="apps/treeshop/src/assets/logotipo.svg" alt="Treeshop" style="height:26px;width:auto;display:block"></a>
+    <a href="Tienda%20Treeshop.dc.html" style="display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:500;color:#23262f">Volver a la tienda<iconify-icon icon="hugeicons:arrow-right-02" style="font-size:15px"></iconify-icon></a>
+  </header>
+
+  <div style="flex:1;display:flex;flex-wrap:wrap">
+    <div style="flex:1 1 440px;min-width:0;display:flex;align-items:center;justify-content:center;padding:48px 24px">
+      <div style="width:100%;max-width:400px;display:flex;flex-direction:column;gap:24px">
+
+        <sc-if value="{{ pasoInicio }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:24px">
+            <div>
+              <h1 style="margin:0;font-size:28px;line-height:34px;font-weight:700;letter-spacing:-0.01em">Entrá a tu cuenta</h1>
+              <p style="margin:8px 0 0;font-size:15px;line-height:23px;color:#6b7080">Para ver tus pedidos, guardar tus direcciones y sumar puntos en cada compra.</p>
+            </div>
+            <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}"><p role="alert" style="margin:0;padding:10px 14px;border-radius:10px;background:#fdecec;color:#c22b30;font-size:13.5px">{{ error }}</p></sc-if>
+            <button onClick="{{ conGoogle }}" style="display:flex;align-items:center;justify-content:center;gap:10px;height:48px;border-radius:999px;border:1px solid #d5d7de;background:#fff;color:#23262f;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer" style-hover="border-color:#9a9ea8;background:#fafafb">
+              <iconify-icon icon="logos:google-icon" style="font-size:19px"></iconify-icon>{{ googleLabel }}
+            </button>
+            <div style="display:flex;align-items:center;gap:12px;color:#9a9ea8;font-size:13px"><span style="flex:1;height:1px;background:#e8e9ed"></span>o con tu correo<span style="flex:1;height:1px;background:#e8e9ed"></span></div>
+            <form onSubmit="{{ pedirCodigo }}" style="display:flex;flex-direction:column;gap:12px">
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:13.5px;font-weight:600">Tu correo</span>
+                <input type="email" autoComplete="email" value="{{ email }}" onChange="{{ onEmail }}" placeholder="nombre@correo.com" style="height:48px;padding:0 16px;border:1px solid #d5d7de;border-radius:12px;font-family:inherit;font-size:15px;outline:0;color:#23262f" style-focus="border-color:#e43136;box-shadow:0 0 0 3px #fbe0e1">
+              </label>
+              <button type="submit" style="height:48px;border-radius:999px;border:0;background:#e43136;color:#fff;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ emailOp }}" style-hover="background:#c9262c">{{ codigoLabel }}</button>
+              <p style="margin:0;font-size:13px;color:#6b7080;text-align:center">Te mandamos un código para entrar. No hace falta contraseña.</p>
+            </form>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ pasoCodigo }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:22px">
+            <div style="width:48px;height:48px;border-radius:14px;background:#fdecec;color:#e43136;display:flex;align-items:center;justify-content:center"><iconify-icon icon="hugeicons:mail-01" style="font-size:24px"></iconify-icon></div>
+            <div>
+              <h1 style="margin:0;font-size:26px;line-height:32px;font-weight:700;letter-spacing:-0.01em">Revisá tu correo</h1>
+              <p role="status" style="margin:8px 0 0;font-size:15px;line-height:23px;color:#6b7080">Si <strong style="color:#23262f;font-weight:600">{{ email }}</strong> tiene cuenta, le llegó un código. Vence en 10 minutos.</p>
+            </div>
+            <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}"><p role="alert" style="margin:0;padding:10px 14px;border-radius:10px;background:#fdecec;color:#c22b30;font-size:13.5px">{{ error }}</p></sc-if>
+            <form onSubmit="{{ entrar }}" style="display:flex;flex-direction:column;gap:14px">
+              <span style="font-size:13.5px;font-weight:600">El código</span>
+              <div style="position:relative">
+                <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
+                  <sc-for list="{{ cajas }}" as="c" hint-placeholder-count="6">
+                    <span style="height:56px;border-radius:12px;border:1.5px solid {{ c.border }};background:{{ c.bg }};display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;box-shadow:{{ c.ring }}">{{ c.d }}</span>
+                  </sc-for>
+                </div>
+                <input ref="{{ codigoRef }}" value="{{ codigo }}" onChange="{{ onCodigo }}" onFocus="{{ onFoco }}" onBlur="{{ onBlur }}" autoComplete="one-time-code" inputMode="numeric" maxLength="6" aria-label="El código" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;cursor:text">
+              </div>
+              <button type="submit" style="height:48px;border-radius:999px;border:0;background:#e43136;color:#fff;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ entrarOp }}" style-hover="background:#c9262c">{{ entrarLabel }}</button>
+            </form>
+            <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:13.5px">
+              <button onClick="{{ otroCorreo }}" style="border:0;background:transparent;padding:0;font-family:inherit;font-size:13.5px;font-weight:500;color:#23262f;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><iconify-icon icon="hugeicons:arrow-left-02" style="font-size:15px"></iconify-icon>Usar otro correo</button>
+              <button onClick="{{ reenviar }}" style="border:0;background:transparent;padding:0;font-family:inherit;font-size:13.5px;font-weight:500;cursor:{{ reenvCursor }};color:{{ reenvColor }}">{{ reenvLabel }}</button>
+            </div>
+            <p style="margin:0;font-size:12.5px;color:#9a9ea8">¿No llega? Revisá el correo no deseado. Lo manda Treeshop desde hola@sontres.shop.</p>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ pasoGoogle }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:24px 0">
+            <iconify-icon icon="logos:google-icon" style="font-size:34px"></iconify-icon>
+            <p style="margin:6px 0 0;font-size:17px;font-weight:600">Conectando con Google…</p>
+            <p style="margin:0;font-size:14px;color:#6b7080">Se abre una ventana de Google para que elijas tu cuenta.</p>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ pasoListo }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:22px">
+            <div style="width:48px;height:48px;border-radius:14px;background:#e7f6ee;color:#17804f;display:flex;align-items:center;justify-content:center"><iconify-icon icon="hugeicons:checkmark-circle-02" style="font-size:24px"></iconify-icon></div>
+            <div>
+              <h1 style="margin:0;font-size:26px;line-height:32px;font-weight:700;letter-spacing:-0.01em">Hola, María José</h1>
+              <p style="margin:8px 0 0;font-size:15px;line-height:23px;color:#6b7080">{{ listoSub }}</p>
+            </div>
+            <div style="display:flex;gap:12px;padding:14px 16px;border-radius:14px;background:#f7f7f9">
+              <iconify-icon icon="hugeicons:favourite" style="font-size:20px;color:#e43136"></iconify-icon>
+              <span style="font-size:14px;line-height:21px">Sumamos a tu cuenta los <strong style="font-weight:600">3 favoritos</strong> que guardaste sin entrar.</span>
+            </div>
+            <div style="display:flex;flex-direction:column;border:1px solid #e8e9ed;border-radius:16px;overflow:hidden">
+              <sc-for list="{{ accesos }}" as="a" hint-placeholder-count="4">
+                <a href="{{ a.href }}" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-top:1px solid #f0f1f4;color:#23262f;text-decoration:none" style-hover="background:#fafafb">
+                  <iconify-icon icon="{{ a.icon }}" style="font-size:20px;color:#6b7080"></iconify-icon>
+                  <span style="flex:1;display:flex;flex-direction:column"><span style="font-weight:600">{{ a.t }}</span><span style="font-size:13px;color:#6b7080">{{ a.s }}</span></span>
+                  <iconify-icon icon="hugeicons:arrow-right-01" style="font-size:16px;color:#9a9ea8"></iconify-icon>
+                </a>
+              </sc-for>
+            </div>
+            <button onClick="{{ reiniciar }}" style="align-self:center;border:0;background:transparent;font-family:inherit;font-size:13px;color:#9a9ea8;cursor:pointer">Volver a empezar la demo</button>
+          </div>
+        </sc-if>
+
+        <p style="margin:0;font-size:12px;line-height:18px;color:#9a9ea8;text-align:center">Al entrar aceptás las <a href="#">políticas</a> de la tienda.</p>
+      </div>
+    </div>
+
+    <sc-if value="{{ conFoto }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1 1 440px;min-width:0;margin:16px;border-radius:24px;background:repeating-linear-gradient(135deg,#f4f4f6 0 8px,#ececf0 8px 16px);display:flex;align-items:flex-end;padding:28px;min-height:420px">
+        <span style="font-family:ui-monospace,monospace;font-size:12px;color:#6b7080;background:#fff;padding:4px 10px;border-radius:6px">foto de campaña de la tienda · se carga desde el Admin</span>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;foto&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { paso: 'inicio', email: '', codigo: '', foco: false, error: null, enviando: false, espera: 0 };
+  codigoRef = React.createRef();
+  componentWillUnmount() { clearInterval(this.t); clearTimeout(this.to); }
+  arrancarEspera() {
+    clearInterval(this.t);
+    this.setState({ espera: 30 });
+    this.t = setInterval(() => this.setState((s) => { if (s.espera <= 1) clearInterval(this.t); return { espera: Math.max(s.espera - 1, 0) }; }), 1000);
+  }
+  renderVals() {
+    const S = this.state;
+    const valido = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(S.email);
+    const cod = S.codigo.replace(/\D/g, '').slice(0, 6);
+    return {
+      pasoInicio: S.paso === 'inicio', pasoCodigo: S.paso === 'codigo', pasoGoogle: S.paso === 'google', pasoListo: S.paso === 'listo',
+      conFoto: (this.props.foto ?? true),
+      hasError: !!S.error, error: S.error || '',
+      email: S.email, onEmail: (e) => this.setState({ email: e.target.value, error: null }), emailOp: valido ? '1' : '0.55',
+      codigoLabel: S.enviando ? 'Mandando…' : 'Mandarme el código',
+      googleLabel: 'Continuar con Google',
+      pedirCodigo: (e) => {
+        e.preventDefault();
+        if (!valido) { this.setState({ error: 'Revisá el correo.' }); return; }
+        this.setState({ enviando: true, error: null });
+        this.to = setTimeout(() => { this.setState({ enviando: false, paso: 'codigo', codigo: '' }); this.arrancarEspera(); requestAnimationFrame(() => this.codigoRef.current && this.codigoRef.current.focus()); }, 700);
+      },
+      conGoogle: () => { this.setState({ paso: 'google', error: null }); this.to = setTimeout(() => this.setState({ paso: 'listo', via: 'google' }), 1400); },
+      codigo: cod, codigoRef: this.codigoRef,
+      onCodigo: (e) => this.setState({ codigo: e.target.value.replace(/\D/g, '').slice(0, 6), error: null }),
+      onFoco: () => this.setState({ foco: true }), onBlur: () => this.setState({ foco: false }),
+      cajas: Array.from({ length: 6 }, (_, i) => { const act = S.foco && i === Math.min(cod.length, 5); const err = !!S.error; return { d: cod[i] || '', border: err ? '#e43136' : act ? '#e43136' : cod[i] ? '#9a9ea8' : '#d5d7de', bg: '#fff', ring: act ? '0 0 0 3px #fbe0e1' : 'none' }; }),
+      entrarOp: cod.length === 6 ? '1' : '0.55', entrarLabel: S.enviando ? 'Entrando…' : 'Entrar',
+      entrar: (e) => {
+        e.preventDefault();
+        if (cod.length < 6) return;
+        this.setState({ enviando: true });
+        this.to = setTimeout(() => { if (cod === '000000') this.setState({ enviando: false, error: 'Ese código no entró. Probá de nuevo.', codigo: '' }); else this.setState({ enviando: false, paso: 'listo', via: 'correo' }); }, 700);
+      },
+      otroCorreo: () => this.setState({ paso: 'inicio', error: null, codigo: '' }),
+      reenvLabel: S.espera > 0 ? `Reenviar en ${S.espera} s` : 'Reenviar el código', reenvColor: S.espera > 0 ? '#9a9ea8' : '#d42a30', reenvCursor: S.espera > 0 ? 'default' : 'pointer',
+      reenviar: () => { if (this.state.espera > 0) return; this.arrancarEspera(); this.setState({ error: null }); },
+      listoSub: S.via === 'google' ? 'Entraste con tu cuenta de Google.' : 'Entraste con tu correo.',
+      accesos: [{ icon: 'hugeicons:package', t: 'Mis pedidos', s: '6 pedidos · el último llega mañana', href: 'Mi%20cuenta.dc.html#pedidos' }, { icon: 'hugeicons:store-location-01', t: 'Direcciones', s: 'Av. Mariscal López 3.420, Asunción', href: 'Mi%20cuenta.dc.html#direcciones' }, { icon: 'hugeicons:gift', t: 'Mis puntos', s: '650 puntos · te faltan 150 para un premio', href: 'Mi%20cuenta.dc.html#puntos' }, { icon: 'hugeicons:favourite', t: 'Favoritos', s: '5 productos guardados', href: 'Mi%20cuenta.dc.html#favoritos' }],
+      reiniciar: () => this.setState({ paso: 'inicio', email: '', codigo: '', error: null }),
+    };
+  }
+}
+</script>
+</body>
+</html>

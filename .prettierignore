@@ -3,3 +3,4 @@ dist
 .wrangler
 pnpm-lock.yaml
 *.generated.ts
+design_handoff_pick_commerce

@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+<style>
+iconify-icon{display:inline-block;flex-shrink:0;vertical-align:middle}
+body{margin:0;font-family:'Geist',system-ui,sans-serif;color:#0e1525;background:#fff;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#3b5bdb;text-decoration:none}
+a:hover{color:#2b47bd;text-decoration:underline}
+input,select,button{font-family:inherit}
+input::placeholder{color:#8a91a2}
+</style>
+</helmet>
+<div data-screen-label="Mi cuenta" style="display:flex;min-height:100vh;width:100%;font-size:14px;line-height:20px;color:#0e1525">
+
+  <sc-if value="{{ ancho }}" hint-placeholder-val="{{ true }}">
+    <aside style="width:248px;flex-shrink:0;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;background:#f7f8fa;border-right:1px solid #eceef2">
+      <div style="padding:14px 12px 8px;display:flex;flex-direction:column;gap:10px">
+        <a href="Tienda%20Treeshop.dc.html" style="display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:8px;color:#535b6e;font-size:13px;font-weight:500;text-decoration:none" style-hover="background:#eef0f4;color:#0e1525"><iconify-icon icon="hugeicons:arrow-left-02" style="font-size:16px"></iconify-icon>Volver a Treeshop</a>
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 10px">
+          <span style="width:34px;height:34px;flex-shrink:0;border-radius:50%;background:#e4e9fc;color:#2b47bd;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600">{{ perfil.ini }}</span>
+          <div style="min-width:0;display:flex;flex-direction:column;line-height:1.25"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ perfil.nombre }}</span><span style="font-size:12px;color:#6f7789;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ perfil.correo }}</span></div>
+        </div>
+      </div>
+      <nav style="flex:1;min-height:0;overflow-y:auto;padding:6px 12px 12px;display:flex;flex-direction:column;gap:2px">
+        <sc-for list="{{ navItems }}" as="it" hint-placeholder-count="7">
+          <div onClick="{{ it.onClick }}" style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;background:{{ it.bg }};box-shadow:{{ it.shadow }};color:{{ it.color }};font-weight:{{ it.fw }}" style-hover="background:{{ it.hoverBg }}">
+            <iconify-icon icon="{{ it.icon }}" style="font-size:18px;color:{{ it.iconColor }}"></iconify-icon>
+            <span style="flex:1">{{ it.label }}</span>
+            <sc-if value="{{ it.hayN }}" hint-placeholder-val="{{ false }}"><span style="min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#e4e9fc;color:#2b47bd;font-size:11.5px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ it.n }}</span></sc-if>
+          </div>
+        </sc-for>
+      </nav>
+      <div style="padding:12px;border-top:1px solid #eceef2;display:flex;flex-direction:column;gap:8px">
+        <p style="margin:0;padding:0 10px;font-size:12px;line-height:17px;color:#6f7789">Tu cuenta sirve en todas las tiendas que usan Pick. Acá ves lo de todas juntas.</p>
+        <button onClick="{{ salir }}" style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:#353d50;font-size:14px;cursor:pointer;text-align:left" style-hover="background:#eef0f4"><iconify-icon icon="hugeicons:logout-03" style="font-size:18px;color:#6f7789"></iconify-icon>Cerrar sesión</button>
+      </div>
+    </aside>
+  </sc-if>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <sc-if value="{{ angosto }}" hint-placeholder-val="{{ false }}">
+      <div style="position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid #eceef2">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;height:56px;padding:0 16px">
+          <a href="Tienda%20Treeshop.dc.html" style="display:inline-flex;align-items:center;gap:6px;color:#535b6e;font-size:13px;font-weight:500;text-decoration:none"><iconify-icon icon="hugeicons:arrow-left-02" style="font-size:16px"></iconify-icon>Treeshop</a>
+          <span style="width:32px;height:32px;border-radius:50%;background:#e4e9fc;color:#2b47bd;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">{{ perfil.ini }}</span>
+        </div>
+        <div style="display:flex;gap:4px;padding:0 12px 10px;overflow-x:auto;scrollbar-width:none">
+          <sc-for list="{{ navItems }}" as="it" hint-placeholder-count="7"><button onClick="{{ it.onClick }}" style="height:32px;padding:0 12px;flex-shrink:0;border-radius:999px;border:1px solid {{ it.pillBd }};background:{{ it.pillBg }};color:{{ it.pillFg }};font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">{{ it.label }}</button></sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="width:100%;max-width:980px;margin:0 auto;padding:32px clamp(16px, 4vw, 40px) 72px;display:flex;flex-direction:column;gap:24px">
+
+      <sc-if value="{{ esInicio }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <h1 style="margin:0;font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.02em">Hola, {{ perfil.primer }}</h1>
+            <p style="margin:0;font-size:14px;color:#6f7789">Tus pedidos, direcciones y puntos de todas las tiendas Pick.</p>
+          </div>
+          <sc-if value="{{ hayActivo }}" hint-placeholder-val="{{ true }}">
+            <div style="border:1px solid #e9ebf0;border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:20px">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">
+                <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:4px">
+                  <span style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#6f7789"><span style="width:18px;height:18px;border-radius:5px;background:{{ activo.color }};color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{ activo.ini }}</span><span>{{ activo.tienda }} · Pedido #{{ activo.id }}</span></span>
+                  <span style="font-size:18px;line-height:24px;font-weight:600;letter-spacing:-0.01em">{{ activo.llega }}</span>
+                  <span style="font-size:13.5px;color:#535b6e">{{ activo.resumen }}</span>
+                </div>
+                <button onClick="{{ activo.ver }}" style="height:36px;padding:0 14px;border:0;border-radius:9px;background:#0e1525;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:#252d3f">Ver el pedido</button>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px">
+                <sc-for list="{{ activo.pasos }}" as="p" hint-placeholder-count="5"><div style="display:flex;flex-direction:column;gap:8px"><span style="height:4px;border-radius:999px;background:{{ p.bar }}"></span><span style="font-size:12px;line-height:16px;color:{{ p.fg }};font-weight:{{ p.fw }}">{{ p.label }}</span></div></sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <div style="border:1px solid #e9ebf0;border-radius:14px;overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px"><span style="font-size:15px;font-weight:600">Pedidos recientes</span><a href="#pedidos" style="font-size:13.5px;font-weight:500">Ver todos</a></div>
+            <sc-for list="{{ recientes }}" as="o" hint-placeholder-count="3">
+              <div onClick="{{ o.ver }}" style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-top:1px solid #f0f1f4;cursor:pointer" style-hover="background:#fafbfc">
+                <div style="display:flex;flex-shrink:0"><sc-for list="{{ o.thumbs }}" as="t" hint-placeholder-count="2"><span style="width:40px;height:40px;border-radius:9px;border:2px solid #fff;margin-left:{{ t.ml }};background:{{ t.bg }}"></span></sc-for></div>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.resumen }}</span><span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#6f7789;white-space:nowrap;overflow:hidden"><span style="width:16px;height:16px;flex-shrink:0;border-radius:4px;background:{{ o.color }};color:#fff;font-size:9.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{ o.ini }}</span><span style="overflow:hidden;text-overflow:ellipsis">{{ o.tienda }} · {{ o.fecha }}</span></span></div>
+                <span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;background:{{ o.pill.bg }};color:{{ o.pill.fg }};font-size:12px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:50%;background:{{ o.pill.dot }}"></span>{{ o.pill.label }}</span>
+                <span style="min-width:96px;text-align:right;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap">{{ o.total }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div onClick="{{ irPuntos }}" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:18px 20px;border:1px solid #e9ebf0;border-radius:14px;cursor:pointer" style-hover="background:#fafbfc">
+            <span style="width:36px;height:36px;flex-shrink:0;border-radius:10px;background:#fef6e6;color:#a35a00;display:flex;align-items:center;justify-content:center"><iconify-icon icon="hugeicons:gift" style="font-size:19px"></iconify-icon></span>
+            <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600">{{ ptsTop.titulo }}</span><span style="font-size:13px;color:#6f7789">{{ ptsTop.falta }}</span></div>
+            <iconify-icon icon="hugeicons:arrow-right-01" style="font-size:18px;color:#a3aab8"></iconify-icon>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esPedidos }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <h1 style="margin:0;font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.02em">Pedidos</h1>
+          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+            <div style="display:flex;gap:2px;padding:3px;border-radius:10px;background:#f1f2f5">
+              <sc-for list="{{ fPeds }}" as="f" hint-placeholder-count="3"><button onClick="{{ f.onClick }}" style="height:30px;padding:0 12px;border:0;border-radius:8px;background:{{ f.bg }};box-shadow:{{ f.sh }};color:{{ f.fg }};font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">{{ f.label }}</button></sc-for>
+            </div>
+            <select value="{{ fTienda }}" onChange="{{ onFTienda }}" style="height:36px;padding:0 32px 0 12px;border:1px solid #e1e4ea;border-radius:9px;background:#fff;color:#0e1525;font-size:13.5px;cursor:pointer"><option value="todas">Todas las tiendas</option><option value="ts">Treeshop</option><option value="bd">Bambú Deco</option></select>
+          </div>
+          <div style="border:1px solid #e9ebf0;border-radius:14px;overflow:hidden">
+            <sc-for list="{{ pedidos }}" as="o" hint-placeholder-count="5">
+              <div onClick="{{ o.ver }}" style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-top:{{ o.bt }};cursor:pointer" style-hover="background:#fafbfc">
+                <div style="display:flex;flex-shrink:0"><sc-for list="{{ o.thumbs }}" as="t" hint-placeholder-count="2"><span style="width:40px;height:40px;border-radius:9px;border:2px solid #fff;margin-left:{{ t.ml }};background:{{ t.bg }}"></span></sc-for></div>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.resumen }}</span><span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#6f7789;white-space:nowrap;overflow:hidden"><span style="width:16px;height:16px;flex-shrink:0;border-radius:4px;background:{{ o.color }};color:#fff;font-size:9.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{ o.ini }}</span><span style="overflow:hidden;text-overflow:ellipsis">{{ o.tienda }} · #{{ o.id }} · {{ o.fecha }}</span></span></div>
+                <span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;background:{{ o.pill.bg }};color:{{ o.pill.fg }};font-size:12px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:50%;background:{{ o.pill.dot }}"></span>{{ o.pill.label }}</span>
+                <span style="min-width:96px;text-align:right;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap">{{ o.total }}</span>
+                <iconify-icon icon="hugeicons:arrow-right-01" style="font-size:17px;color:#a3aab8"></iconify-icon>
+              </div>
+            </sc-for>
+            <sc-if value="{{ sinPedidos }}" hint-placeholder-val="{{ false }}"><div style="padding:36px 20px;text-align:center;font-size:13.5px;color:#6f7789">No hay pedidos con este filtro.</div></sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esPedido }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <a href="#pedidos" style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:#535b6e;text-decoration:none"><iconify-icon icon="hugeicons:arrow-left-02" style="font-size:15px"></iconify-icon>Pedidos</a>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px"><h1 style="margin:0;font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">Pedido #{{ ped.id }}</h1><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;background:{{ ped.pill.bg }};color:{{ ped.pill.fg }};font-size:12.5px;font-weight:500"><span style="width:6px;height:6px;border-radius:50%;background:{{ ped.pill.dot }}"></span>{{ ped.pill.label }}</span></div>
+            <span style="display:flex;align-items:center;gap:8px;font-size:14px;color:#6f7789"><span style="width:18px;height:18px;border-radius:5px;background:{{ ped.color }};color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{ ped.ini }}</span><span>{{ ped.tienda }} · {{ ped.fecha }} · {{ ped.nItems }}</span></span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:18px 20px;border-radius:14px;background:#f7f8fa">
+            <span style="width:36px;height:36px;flex-shrink:0;border-radius:10px;background:#fff;color:{{ ped.acc.fg }};display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px #e6e8ee"><iconify-icon icon="{{ ped.acc.icon }}" style="font-size:19px"></iconify-icon></span>
+            <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">{{ ped.acc.t }}</span><span style="font-size:13.5px;line-height:19px;color:#535b6e;text-wrap:pretty">{{ ped.acc.d }}</span></div>
+            <sc-if value="{{ ped.acc.hayBtn }}" hint-placeholder-val="{{ true }}"><button onClick="{{ ped.acc.on }}" style="height:36px;padding:0 14px;border:0;border-radius:9px;background:#0e1525;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:#252d3f">{{ ped.acc.btn }}</button></sc-if>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+            <div style="flex:2 1 420px;min-width:0;border:1px solid #e9ebf0;border-radius:14px;overflow:hidden">
+              <div style="padding:14px 20px;font-size:15px;font-weight:600">Productos</div>
+              <sc-for list="{{ ped.items }}" as="it" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:14px;padding:12px 20px;border-top:1px solid #f0f1f4">
+                  <span style="width:48px;height:48px;flex-shrink:0;border-radius:10px;background:{{ it.bg }}"></span>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">{{ it.t }}</span><span style="font-size:12.5px;color:#6f7789">{{ it.v }} · {{ it.q }}</span></div>
+                  <span style="font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap">{{ it.precio }}</span>
+                </div>
+              </sc-for>
+              <div style="display:flex;flex-direction:column;gap:8px;padding:16px 20px;border-top:1px solid #f0f1f4;background:#fafbfc;font-variant-numeric:tabular-nums">
+                <sc-for list="{{ ped.totales }}" as="r" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;gap:12px;font-size:13.5px;color:{{ r.fg }}"><span>{{ r.k }}</span><span>{{ r.v }}</span></div></sc-for>
+                <div style="display:flex;justify-content:space-between;gap:12px;padding-top:8px;border-top:1px solid #eceef2;font-size:15px;font-weight:600"><span>Total</span><span>{{ ped.total }}</span></div>
+              </div>
+            </div>
+            <div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:12px">
+              <sc-for list="{{ ped.info }}" as="b" hint-placeholder-count="3">
+                <div style="border:1px solid #e9ebf0;border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:6px">
+                  <span style="font-size:12.5px;font-weight:500;color:#6f7789">{{ b.t }}</span>
+                  <span style="font-weight:500">{{ b.l1 }}</span>
+                  <span style="font-size:13px;line-height:18px;color:#535b6e">{{ b.l2 }}</span>
+                  <sc-if value="{{ b.hayLink }}" hint-placeholder-val="{{ false }}"><button onClick="{{ b.on }}" style="align-self:flex-start;margin-top:2px;padding:0;border:0;background:transparent;color:#3b5bdb;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><iconify-icon icon="{{ b.icon }}" style="font-size:15px"></iconify-icon>{{ b.link }}</button></sc-if>
+                </div>
+              </sc-for>
+              <button onClick="{{ ped.ayuda }}" style="align-self:flex-start;padding:4px 0;border:0;background:transparent;color:#535b6e;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px" style-hover="color:#0e1525"><iconify-icon icon="hugeicons:whatsapp" style="font-size:16px"></iconify-icon>¿Algo salió mal? Escribile a {{ ped.tienda }}</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esDirs }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px"><h1 style="margin:0;font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.02em">Direcciones</h1><button onClick="{{ nuevaDir }}" style="display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border:0;border-radius:9px;background:#0e1525;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#252d3f"><iconify-icon icon="hugeicons:add-01" style="font-size:16px"></iconify-icon>Agregar dirección</button></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+            <sc-for list="{{ dirs }}" as="d" hint-placeholder-count="2">
+              <div style="border:1px solid #e9ebf0;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;gap:8px"><iconify-icon icon="{{ d.icon }}" style="font-size:18px;color:#6f7789"></iconify-icon><span style="flex:1;font-weight:600">{{ d.nombre }}</span><sc-if value="{{ d.principal }}" hint-placeholder-val="{{ false }}"><span style="height:22px;padding:0 8px;border-radius:999px;background:#e4e9fc;color:#2b47bd;font-size:12px;font-weight:500;display:inline-flex;align-items:center">Principal</span></sc-if></div>
+                <div style="display:flex;flex-direction:column;gap:2px;font-size:13.5px;line-height:19px;color:#353d50"><span>{{ d.linea }}</span><span>{{ d.ciudad }}</span><span style="color:#6f7789">{{ d.ref }}</span><span style="color:#6f7789">{{ d.tel }}</span></div>
+                <div style="display:flex;flex-wrap:wrap;gap:16px;padding-top:12px;border-top:1px solid #f0f1f4">
+                  <button onClick="{{ d.editar }}" style="padding:0;border:0;background:transparent;color:#3b5bdb;font-size:13px;font-weight:500;cursor:pointer">Editar</button>
+                  <sc-if value="{{ d.noPrincipal }}" hint-placeholder-val="{{ true }}"><button onClick="{{ d.hacerPrincipal }}" style="padding:0;border:0;background:transparent;color:#3b5bdb;font-size:13px;font-weight:500;cursor:pointer">Usar como principal</button></sc-if>
+                  <button onClick="{{ d.borrar }}" style="margin-left:auto;padding:0;border:0;background:transparent;color:#6f7789;font-size:13px;font-weight:500;cursor:pointer" style-hover="color:#b42318">Eliminar</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <p style="margin:0;font-size:12.5px;color:#6f7789">Las direcciones sirven en todas las tiendas Pick. Al pagar elegís a cuál te llega.</p>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esPuntos }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div style="display:flex;flex-direction:column;gap:4px"><h1 style="margin:0;font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.02em">Puntos</h1><p style="margin:0;font-size:14px;color:#6f7789">Cada tienda tiene sus propios puntos. Sumás 1 punto cada Gs. 10.000.</p></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+            <sc-for list="{{ puntos }}" as="p" hint-placeholder-count="2">
+              <div style="border:1px solid #e9ebf0;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px">
+                <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:#535b6e"><span style="width:20px;height:20px;border-radius:5px;background:{{ p.color }};color:#fff;font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{ p.ini }}</span><span>{{ p.tienda }}</span></span>
+                <span style="font-size:28px;line-height:32px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">{{ p.pts }}<span style="margin-left:6px;font-size:14px;font-weight:400;color:#6f7789;letter-spacing:0">puntos</span></span>
+                <div style="display:flex;flex-direction:column;gap:6px"><span style="height:6px;border-radius:999px;background:#eef0f4;overflow:hidden"><span style="display:block;height:100%;width:{{ p.pct }};border-radius:999px;background:{{ p.barra }}"></span></span><span style="font-size:13px;color:#535b6e">{{ p.falta }}</span></div>
+                <sc-if value="{{ p.puede }}" hint-placeholder-val="{{ false }}"><button onClick="{{ p.canjear }}" style="height:36px;border:0;border-radius:9px;background:#0e1525;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer" style-hover="background:#252d3f">{{ p.btn }}</button></sc-if>
+                <sc-if value="{{ p.hayVale }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:#e9f7ef;color:#13774a;font-size:13px;font-weight:500"><iconify-icon icon="hugeicons:ticket-01" style="font-size:16px"></iconify-icon>{{ p.vale }}</span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div style="border:1px solid #e9ebf0;border-radius:14px;overflow:hidden">
+            <div style="padding:14px 20px;font-size:15px;font-weight:600">Movimientos</div>
+            <sc-for list="{{ movs }}" as="m" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:14px;padding:12px 20px;border-top:1px solid #f0f1f4">
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">{{ m.t }}</span><span style="font-size:12.5px;color:#6f7789">{{ m.tienda }} · {{ m.fecha }}</span></div>
+                <span style="font-weight:600;font-variant-numeric:tabular-nums;color:{{ m.fg }}">{{ m.pts }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esFavs }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <h1 style="margin:0;font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.02em">Favoritos</h1>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px">
+            <sc-for list="{{ favs }}" as="f" hint-placeholder-count="4">
+              <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
+                <div onClick="{{ f.ver }}" style="position:relative;aspect-ratio:1 / 1;border-radius:12px;background:{{ f.bg }};cursor:pointer">
+                  <button onClick="{{ f.quitar }}" title="Quitar de favoritos" style="position:absolute;top:8px;right:8px;width:32px;height:32px;border:0;border-radius:50%;background:#fff;color:#0e1525;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(16,24,40,0.14)"><iconify-icon icon="hugeicons:favourite" style="font-size:16px;color:#c0362c"></iconify-icon></button>
+                </div>
+                <div onClick="{{ f.ver }}" style="display:flex;flex-direction:column;gap:2px;cursor:pointer">
+                  <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6f7789"><span style="width:14px;height:14px;border-radius:4px;background:{{ f.color }};color:#fff;font-size:8.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{ f.ini }}</span><span>{{ f.tienda }} · {{ f.marca }}</span></span>
+                  <span style="font-weight:500;line-height:19px">{{ f.t }}</span>
+                  <span style="display:flex;align-items:baseline;gap:6px;margin-top:2px;font-variant-numeric:tabular-nums"><span style="font-weight:600">{{ f.precio }}</span><sc-if value="{{ f.hayAntes }}" hint-placeholder-val="{{ false }}"><span style="font-size:12.5px;color:#8a91a2;text-decoration:line-through">{{ f.antes }}</span></sc-if></span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ sinFavs }}" hint-placeholder-val="{{ false }}"><div style="padding:36px 20px;border:1px dashed #e1e4ea;border-radius:14px;text-align:center;font-size:13.5px;color:#6f7789">Todavía no guardaste favoritos. Tocá el corazón en cualquier producto para guardarlo.</div></sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esPrefs }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div style="display:flex;flex-direction:column;gap:4px"><h1 style="margin:0;font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.02em">Preferencias</h1><p style="margin:0;max-width:620px;font-size:14px;line-height:21px;color:#6f7789;text-wrap:pretty">Lo que Pick aprendió de tus compras y de lo que mirás. Las tiendas lo usan para mostrarte primero lo que te puede gustar. Si algo no es así, quitalo.</p></div>
+          <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;border:1px solid #e9ebf0;border-radius:14px">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">Usar mis preferencias</span><span style="font-size:12.5px;line-height:17px;color:#6f7789">Cada tienda ve lo que te interesa, pero no lo que compraste en otras tiendas.</span></div>
+            <span onClick="{{ prefSw.on }}" style="position:relative;width:38px;height:22px;flex-shrink:0;border-radius:999px;cursor:pointer;background:{{ prefSw.bg }};transition:background .15s"><span style="position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,0.2);transition:transform .15s;transform:translateX({{ prefSw.x }})"></span></span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:20px;opacity:{{ prefOp }};transition:opacity .15s">
+            <sc-for list="{{ prefGrupos }}" as="g" hint-placeholder-count="4">
+              <div style="border:1px solid #e9ebf0;border-radius:14px;overflow:hidden">
+                <div style="padding:14px 20px;font-size:15px;font-weight:600">{{ g.t }}</div>
+                <sc-for list="{{ g.items }}" as="i" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:14px;padding:12px 20px;border-top:1px solid #f0f1f4">
+                    <iconify-icon icon="{{ i.icon }}" style="font-size:18px;color:#6f7789"></iconify-icon>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">{{ i.t }}</span><span style="font-size:12.5px;color:#6f7789">{{ i.d }}</span></div>
+                    <button onClick="{{ i.quitar }}" style="padding:0;border:0;background:transparent;color:#6f7789;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="color:#b42318">Quitar</button>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+            <sc-if value="{{ sinPrefs }}" hint-placeholder-val="{{ false }}"><div style="padding:36px 20px;border:1px dashed #e1e4ea;border-radius:14px;text-align:center;font-size:13.5px;color:#6f7789">No tenemos preferencias guardadas. Se van armando con tus próximas compras.</div></sc-if>
+          </div>
+          <sc-if value="{{ hayPrefs }}" hint-placeholder-val="{{ true }}"><button onClick="{{ borrarPrefs }}" style="align-self:flex-start;padding:0;border:0;background:transparent;color:#b42318;font-size:13.5px;font-weight:500;cursor:pointer">Borrar todas mis preferencias</button></sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ esPerfil }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <h1 style="margin:0;font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.02em">Perfil y seguridad</h1>
+          <div style="border:1px solid #e9ebf0;border-radius:14px;overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px"><span style="font-size:15px;font-weight:600">Tus datos</span><sc-if value="{{ noEditando }}" hint-placeholder-val="{{ true }}"><button onClick="{{ editarPerfil }}" style="height:32px;padding:0 12px;border:1px solid #e1e4ea;border-radius:9px;background:#fff;color:#0e1525;font-size:13px;font-weight:500;cursor:pointer" style-hover="background:#f7f8fa">Editar</button></sc-if></div>
+            <sc-if value="{{ noEditando }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <sc-for list="{{ datos }}" as="r" hint-placeholder-count="4">
+                  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;padding:12px 20px;border-top:1px solid #f0f1f4">
+                    <span style="width:180px;font-size:13.5px;color:#6f7789">{{ r.k }}</span>
+                    <span style="flex:1;min-width:180px;display:flex;align-items:center;gap:8px"><span>{{ r.v }}</span><sc-if value="{{ r.ok }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border-radius:999px;background:#e9f7ef;color:#13774a;font-size:11.5px;font-weight:500"><iconify-icon icon="hugeicons:tick-02" style="font-size:12px"></iconify-icon>Verificado</span></sc-if></span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ editando }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:14px;padding:16px 20px 20px;border-top:1px solid #f0f1f4">
+                <sc-for list="{{ campos }}" as="c" hint-placeholder-count="3">
+                  <label style="display:flex;flex-direction:column;gap:6px;max-width:420px"><span style="font-size:13px;font-weight:500;color:#353d50">{{ c.k }}</span><input value="{{ c.v }}" onChange="{{ c.on }}" placeholder="{{ c.ph }}" style="height:38px;padding:0 12px;border:1px solid #e1e4ea;border-radius:9px;font-size:14px;color:#0e1525;outline:0" style-focus="border-color:#3b5bdb;box-shadow:0 0 0 3px #e4e9fc"></label>
+                </sc-for>
+                <div style="display:flex;gap:8px"><button onClick="{{ guardarPerfil }}" style="height:36px;padding:0 14px;border:0;border-radius:9px;background:#0e1525;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer">Guardar</button><button onClick="{{ cancelarPerfil }}" style="height:36px;padding:0 14px;border:1px solid #e1e4ea;border-radius:9px;background:#fff;color:#0e1525;font-size:13.5px;font-weight:500;cursor:pointer">Cancelar</button></div>
+              </div>
+            </sc-if>
+          </div>
+          <div style="border:1px solid #e9ebf0;border-radius:14px;overflow:hidden">
+            <div style="padding:14px 20px;font-size:15px;font-weight:600">Cómo entrás</div>
+            <sc-for list="{{ accesos }}" as="a" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:14px;padding:12px 20px;border-top:1px solid #f0f1f4">
+                <iconify-icon icon="{{ a.icon }}" style="font-size:20px;color:#535b6e"></iconify-icon>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">{{ a.t }}</span><span style="font-size:12.5px;color:#6f7789">{{ a.d }}</span></div>
+                <sc-if value="{{ a.hayBtn }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.on }}" style="height:32px;padding:0 12px;border:1px solid #e1e4ea;border-radius:9px;background:#fff;color:#0e1525;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">{{ a.btn }}</button></sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div style="border:1px solid #e9ebf0;border-radius:14px;overflow:hidden">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px"><span style="font-size:15px;font-weight:600">Sesiones abiertas</span><sc-if value="{{ hayOtras }}" hint-placeholder-val="{{ true }}"><button onClick="{{ cerrarOtras }}" style="padding:0;border:0;background:transparent;color:#3b5bdb;font-size:13px;font-weight:500;cursor:pointer">Cerrar las demás</button></sc-if></div>
+            <sc-for list="{{ sesiones }}" as="s" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:14px;padding:12px 20px;border-top:1px solid #f0f1f4">
+                <iconify-icon icon="{{ s.icon }}" style="font-size:20px;color:#535b6e"></iconify-icon>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:8px;font-weight:500"><span>{{ s.d }}</span><sc-if value="{{ s.actual }}" hint-placeholder-val="{{ false }}"><span style="height:20px;padding:0 7px;border-radius:999px;background:#e9f7ef;color:#13774a;font-size:11.5px;font-weight:500;display:inline-flex;align-items:center">Esta</span></sc-if></span><span style="font-size:12.5px;color:#6f7789">{{ s.l }} · {{ s.t }}</span></div>
+                <sc-if value="{{ s.otra }}" hint-placeholder-val="{{ true }}"><button onClick="{{ s.cerrar }}" style="padding:0;border:0;background:transparent;color:#6f7789;font-size:13px;font-weight:500;cursor:pointer" style-hover="color:#b42318">Cerrar</button></sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div style="border:1px solid #e9ebf0;border-radius:14px;overflow:hidden">
+            <div style="padding:14px 20px;font-size:15px;font-weight:600">Avisos</div>
+            <sc-for list="{{ avisos }}" as="a" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:16px;padding:12px 20px;border-top:1px solid #f0f1f4">
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">{{ a.t }}</span><span style="font-size:12.5px;color:#6f7789">{{ a.d }}</span></div>
+                <span onClick="{{ a.on }}" style="position:relative;width:38px;height:22px;flex-shrink:0;border-radius:999px;cursor:pointer;background:{{ a.bg }};transition:background .15s"><span style="position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,0.2);transition:transform .15s;transform:translateX({{ a.x }})"></span></span>
+              </div>
+            </sc-for>
+          </div>
+          <button onClick="{{ eliminarCuenta }}" style="align-self:flex-start;padding:0;border:0;background:transparent;color:#b42318;font-size:13.5px;font-weight:500;cursor:pointer">Eliminar mi cuenta</button>
+        </div>
+      </sc-if>
+    </div>
+  </main>
+
+  <sc-if value="{{ hayCambio }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ cerrarCambio }}" style="position:fixed;inset:0;z-index:80;background:rgba(14,21,37,0.32);display:flex;align-items:center;justify-content:center;padding:20px">
+      <div onClick="{{ stop }}" style="width:100%;max-width:480px;max-height:calc(100vh - 40px);overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(16,24,40,0.24);padding:24px;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:18px;font-weight:600">Pedir un cambio</span><span style="font-size:13.5px;color:#6f7789">AEX lo retira en tu casa sin costo y te lleva el nuevo.</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:500;color:#353d50">¿Qué querés cambiar?</span>
+          <sc-for list="{{ cambio.items }}" as="it" hint-placeholder-count="2"><div onClick="{{ it.on }}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid {{ it.bd }};border-radius:10px;cursor:pointer;background:{{ it.bg }}"><span style="width:36px;height:36px;flex-shrink:0;border-radius:8px;background:{{ it.img }}"></span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-weight:500">{{ it.t }}</span><span style="font-size:12.5px;color:#6f7789">{{ it.v }}</span></span><span style="width:18px;height:18px;flex-shrink:0;border-radius:50%;border:{{ it.radio }}"></span></div></sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:500;color:#353d50">¿Por qué?</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ cambio.motivos }}" as="m" hint-placeholder-count="4"><button onClick="{{ m.on }}" style="height:32px;padding:0 12px;border-radius:999px;border:1px solid {{ m.bd }};background:{{ m.bg }};color:{{ m.fg }};font-size:13px;font-weight:500;cursor:pointer">{{ m.label }}</button></sc-for></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px"><button onClick="{{ cerrarCambio }}" style="height:36px;padding:0 14px;border:1px solid #e1e4ea;border-radius:9px;background:#fff;color:#0e1525;font-size:13.5px;font-weight:500;cursor:pointer">Cancelar</button><button onClick="{{ enviarCambio }}" style="height:36px;padding:0 14px;border:0;border-radius:9px;background:#0e1525;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;opacity:{{ cambio.op }}">Pedir el cambio</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hayDirForm }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ cerrarDir }}" style="position:fixed;inset:0;z-index:80;background:rgba(14,21,37,0.32);display:flex;align-items:center;justify-content:center;padding:20px">
+      <div onClick="{{ stop }}" style="width:100%;max-width:480px;max-height:calc(100vh - 40px);overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(16,24,40,0.24);padding:24px;display:flex;flex-direction:column;gap:16px">
+        <span style="font-size:18px;font-weight:600">{{ dirForm.titulo }}</span>
+        <sc-for list="{{ dirForm.campos }}" as="c" hint-placeholder-count="4">
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:500;color:#353d50">{{ c.k }}</span><input value="{{ c.v }}" onChange="{{ c.on }}" placeholder="{{ c.ph }}" style="height:38px;padding:0 12px;border:1px solid #e1e4ea;border-radius:9px;font-size:14px;color:#0e1525;outline:0" style-focus="border-color:#3b5bdb;box-shadow:0 0 0 3px #e4e9fc"></label>
+        </sc-for>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:500;color:#353d50">Ciudad</span><select value="{{ dirForm.ciudad }}" onChange="{{ dirForm.onCiudad }}" style="height:38px;padding:0 12px;border:1px solid #e1e4ea;border-radius:9px;background:#fff;font-size:14px;color:#0e1525"><sc-for list="{{ ciudades }}" as="c" hint-placeholder-count="5"><option value="{{ c }}">{{ c }}</option></sc-for></select></label>
+        <sc-if value="{{ dirForm.hayError }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#b42318">Falta la calle y el número.</span></sc-if>
+        <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:4px"><button onClick="{{ cerrarDir }}" style="height:36px;padding:0 14px;border:1px solid #e1e4ea;border-radius:9px;background:#fff;color:#0e1525;font-size:13.5px;font-weight:500;cursor:pointer">Cancelar</button><button onClick="{{ guardarDir }}" style="height:36px;padding:0 14px;border:0;border-radius:9px;background:#0e1525;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer">Guardar</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hayConf }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ cerrarConf }}" style="position:fixed;inset:0;z-index:85;background:rgba(14,21,37,0.32);display:flex;align-items:center;justify-content:center;padding:20px">
+      <div onClick="{{ stop }}" style="width:100%;max-width:420px;background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(16,24,40,0.24);padding:24px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:17px;font-weight:600">{{ conf.t }}</span><span style="font-size:13.5px;line-height:20px;color:#535b6e;text-wrap:pretty">{{ conf.d }}</span></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px"><button onClick="{{ cerrarConf }}" style="height:36px;padding:0 14px;border:1px solid #e1e4ea;border-radius:9px;background:#fff;color:#0e1525;font-size:13.5px;font-weight:500;cursor:pointer">Cancelar</button><button onClick="{{ conf.ok }}" style="height:36px;padding:0 14px;border:0;border-radius:9px;background:#b42318;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer">{{ conf.btn }}</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hayToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:90;max-width:calc(100vw - 32px);display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:10px;background:#0e1525;color:#fff;font-size:13.5px;box-shadow:0 12px 32px rgba(16,24,40,0.24)"><iconify-icon icon="hugeicons:checkmark-circle-02" style="font-size:16px;color:#7ee2b0"></iconify-icon>{{ toast }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  D() {
+    return {
+      TI: { ts: { nombre: 'Treeshop', ini: 'T', color: '#d42a30' }, bd: { nombre: 'Bambú Deco', ini: 'B', color: '#2f7d5b' } },
+      ORD: [
+        { id: '1048', tienda: 'ts', fecha: '6 oct 2026', estado: 'transit', llega: 'Llega mañana, jueves 8 de octubre', guia: 'AEX-481258', dir: 0, envio: 0, desc: 0, pago: 'Visa terminada en 4821', cuotas: '3 cuotas sin interés', items: [['Campera Watertight II', 'Azul marino · M', 1, 1290000, '#e2e6ef'], ['Medias trekking merino', 'Gris · M', 2, 129000, '#ebebec']] },
+        { id: '0312', tienda: 'bd', fecha: '28 sep 2026', estado: 'entregado', entregado: '30 sep', cambioHasta: '30 oct', dir: 0, envio: 25000, desc: 0, pago: 'Visa terminada en 4821', cuotas: 'En 1 pago', items: [['Juego de 4 tazas de cerámica', 'Arena', 1, 189000, '#efe7da']] },
+        { id: '1021', tienda: 'ts', fecha: '14 sep 2026', estado: 'entregado', entregado: '16 sep', cambioHasta: '16 oct', dir: 1, envio: 0, desc: 115000, descLbl: 'Trail running −10 %', pago: 'Mastercard terminada en 1937', cuotas: '6 cuotas', items: [['Zapatilla Speedcross 6', 'Negro · 42', 1, 1150000, '#e8e8eb'], ['Medias trekking merino', 'Gris · L · regalo', 1, 0, '#ebebec']] },
+        { id: '0987', tienda: 'ts', fecha: '2 ago 2026', estado: 'entregado', entregado: '4 ago', dir: 0, envio: 30000, desc: 0, pago: 'Visa terminada en 4821', cuotas: 'En 1 pago', items: [['Buzo polar Steens Mountain', 'Gris · L', 1, 489000, '#ebebec']] },
+        { id: '0954', tienda: 'ts', fecha: '19 jul 2026', estado: 'cancelado', reintegro: '22 jul', dir: 0, envio: 0, desc: 0, pago: 'Visa terminada en 4821', cuotas: 'En 1 pago', items: [['Mochila Hike 25L', 'Azul marino', 1, 612000, '#e2e6ef']] },
+        { id: '0288', tienda: 'bd', fecha: '3 jul 2026', estado: 'entregado', entregado: '5 jul', dir: 0, envio: 25000, desc: 0, pago: 'Visa terminada en 4821', cuotas: 'En 1 pago', items: [['Manta de algodón tejida', 'Crudo', 1, 349000, '#f3f2ef']] },
+      ],
+      CIUDADES: ['Asunción', 'Lambaré', 'San Lorenzo', 'Luque', 'Fernando de la Mora', 'Mariano Roque Alonso', 'Ciudad del Este', 'Encarnación'],
+    };
+  }
+  state = {
+    vw: typeof window !== 'undefined' ? window.innerWidth : 1200, sec: 'inicio', ped: null, fPed: 'todos', fTienda: 'todas',
+    perfil: { nombre: 'María José Ortiz', correo: 'mjortiz@gmail.com', tel: '0981 456 789', doc: 'CI 4.512.873' }, edit: null,
+    dirs: [
+      { nombre: 'Casa', linea: 'Av. Mariscal López 3.420', ciudad: 'Asunción', ref: 'Edificio Torre Sol, piso 8', tel: '0981 456 789', principal: true },
+      { nombre: 'Oficina', linea: 'Aviadores del Chaco 2.050', ciudad: 'Asunción', ref: 'Recepción, planta baja', tel: '0981 456 789', principal: false },
+    ],
+    favs: [
+      { t: 'Campera Powder Lite', marca: 'Columbia', tienda: 'ts', p: 1090000, c: '#f5e2df', link: 'Tienda%20Treeshop.dc.html#p/9' },
+      { t: 'Zapatilla Moab 3', marca: 'Merrell', tienda: 'ts', p: 990000, antes: 1190000, c: '#ebebec', link: 'Tienda%20Treeshop.dc.html#p/8' },
+      { t: 'Remera técnica Capilene', marca: 'Patagonia', tienda: 'ts', p: 349000, c: '#f3f2ef', link: 'Tienda%20Treeshop.dc.html#p/3' },
+      { t: 'Gorra trucker logo', marca: 'The North Face', tienda: 'ts', p: 189000, c: '#e7e9dd', link: 'Tienda%20Treeshop.dc.html#p/7' },
+      { t: 'Lámpara de mesa de ratán', marca: 'Bambú Deco', tienda: 'bd', p: 420000, c: '#efe7da', link: null },
+    ],
+    sesiones: [
+      { d: 'Chrome en Windows', l: 'Asunción', t: 'Ahora', icon: 'hugeicons:computer', actual: true },
+      { d: 'Safari en iPhone', l: 'Asunción', t: 'Ayer, 21:14', icon: 'hugeicons:smart-phone-01' },
+      { d: 'Chrome en Android', l: 'San Lorenzo', t: '2 oct', icon: 'hugeicons:smart-phone-01' },
+    ],
+    prefOn: true, prefs: [
+      ['int', 'hugeicons:mountain', 'Ropa y calzado outdoor', 'De 4 pedidos en Treeshop'],
+      ['int', 'hugeicons:sofa-01', 'Deco y cosas para la casa', 'De 2 pedidos en Bambú Deco'],
+      ['int', 'hugeicons:running-shoes', 'Trail running', 'De lo que miraste y compraste en Treeshop'],
+      ['med', 'hugeicons:ruler', 'Talle M en camperas', 'Pedido #1048 en Treeshop'],
+      ['med', 'hugeicons:ruler', 'Calzado número 42', 'Pedido #1021 en Treeshop'],
+      ['mar', 'hugeicons:tag-01', 'Columbia', '2 compras en Treeshop'],
+      ['mar', 'hugeicons:tag-01', 'Salomon', '1 compra en Treeshop'],
+      ['hab', 'hugeicons:money-03', 'Gastás entre Gs. 190.000 y Gs. 1.550.000 por compra', 'De tus 5 pedidos entregados'],
+      ['hab', 'hugeicons:credit-card', 'Pagás en cuotas las compras de más de Gs. 1.000.000', 'De 2 pedidos'],
+    ],
+    google: true, av: { wa: true, mail: true, promo: false }, canje: {}, cambios: {},
+    cambio: null, dirForm: null, conf: null, toast: '',
+  };
+  componentDidMount() {
+    this._r = () => this.setState({ vw: window.innerWidth }); window.addEventListener('resize', this._r);
+    this._h = () => this.readHash(); window.addEventListener('hashchange', this._h); this.readHash();
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this._r); window.removeEventListener('hashchange', this._h); clearTimeout(this._t); }
+  readHash() {
+    const h = decodeURIComponent((location.hash || '').slice(1));
+    if (h.startsWith('pedido/')) this.setState({ sec: 'pedidos', ped: h.slice(7) });
+    else this.setState({ sec: ['pedidos', 'direcciones', 'puntos', 'favoritos', 'preferencias', 'perfil'].includes(h) ? h : 'inicio', ped: null });
+    window.scrollTo(0, 0);
+  }
+  go(h) { if (location.hash.slice(1) !== h) location.hash = h; else this.readHash(); }
+  flash(t) { clearTimeout(this._t); this.setState({ toast: t }); this._t = setTimeout(() => this.setState({ toast: '' }), 2800); }
+  gs(n) { return 'Gs. ' + String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  bg(c) { return `repeating-linear-gradient(135deg,${c} 0 8px,rgba(255,255,255,0.55) 8px 16px)`; }
+
+  renderVals() {
+    const S = this.state; const { TI, ORD, CIUDADES } = this.D();
+    const narrow = S.vw < 860;
+    const PILL = { transit: ['En camino', '#2b47bd', '#e4e9fc', '#3b5bdb'], entregado: ['Entregado', '#13774a', '#e9f7ef', '#22a06b'], cancelado: ['Cancelado', '#535b6e', '#f1f2f5', '#a3aab8'] };
+    const ord = (o, i) => {
+      const t = TI[o.tienda]; const sub = o.items.reduce((a, it) => a + it[2] * it[3], 0); const total = sub - o.desc + o.envio; const pl = PILL[o.estado];
+      return { ...o, tiendaN: t.nombre, ini: t.ini, color: t.color, sub, totalN: total, total: this.gs(total), pill: { label: pl[0], fg: pl[1], bg: pl[2], dot: pl[3] },
+        resumen: o.items[0][0] + (o.items.length > 1 ? ` y ${o.items.length - 1} más` : ''), thumbs: o.items.slice(0, 3).map((it, j) => ({ bg: this.bg(it[4]), ml: j ? '-12px' : '0' })), bt: i ? '1px solid #f0f1f4' : '0', ver: () => this.go('pedido/' + o.id) };
+    };
+    const ORDS = ORD.map(ord);
+    const row = (o, i) => ({ ...o, tienda: o.tiendaN, bt: i ? '1px solid #f0f1f4' : '0' });
+
+    const enCurso = ORDS.filter((o) => o.estado === 'transit');
+    const SECS = [['inicio', 'Inicio', 'hugeicons:home-01'], ['pedidos', 'Pedidos', 'hugeicons:package'], ['direcciones', 'Direcciones', 'hugeicons:location-01'], ['puntos', 'Puntos', 'hugeicons:gift'], ['favoritos', 'Favoritos', 'hugeicons:favourite'], ['preferencias', 'Preferencias', 'hugeicons:preference-horizontal'], ['perfil', 'Perfil y seguridad', 'hugeicons:user-shield-01']];
+    const navItems = SECS.map(([k, label, icon]) => { const a = S.sec === k; const n = k === 'pedidos' ? enCurso.length : 0;
+      return { label, icon, hayN: n > 0, n, onClick: () => this.go(k === 'inicio' ? '' : k), bg: a ? '#fff' : 'transparent', shadow: a ? '0 1px 2px rgba(16,24,40,0.06), 0 0 0 1px #e6e8ee' : 'none', color: a ? '#0e1525' : '#353d50', fw: a ? 500 : 400, iconColor: a ? '#0e1525' : '#6f7789', hoverBg: a ? '#fff' : '#eef0f4',
+        pillBd: a ? '#0e1525' : '#e1e4ea', pillBg: a ? '#0e1525' : '#fff', pillFg: a ? '#fff' : '#353d50' }; });
+
+    const P0 = S.perfil; const ini = P0.nombre.split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+    const perfil = { ...P0, ini, primer: P0.nombre.split(' ')[0] };
+
+    const a0 = enCurso[0];
+    const activo = a0 ? { id: a0.id, tienda: a0.tiendaN, ini: a0.ini, color: a0.color, llega: a0.llega, resumen: a0.resumen + ' · ' + a0.total, ver: a0.ver,
+      pasos: ['Recibido', 'Pagado', 'Preparado', 'En camino', 'Entregado'].map((label, j) => ({ label, bar: j <= 3 ? '#3b5bdb' : '#e6e8ee', fg: j === 3 ? '#0e1525' : j < 3 ? '#535b6e' : '#a3aab8', fw: j === 3 ? 600 : 400 })) } : { pasos: [] };
+
+    const PTS = [{ k: 'ts', pts: 650, meta: 800, premio: 'un vale de Gs. 50.000', vale: 'Gs. 50.000' }, { k: 'bd', pts: 520, meta: 500, premio: 'un vale de Gs. 30.000', vale: 'Gs. 30.000' }];
+    const puntos = PTS.map((p) => { const t = TI[p.k]; const used = !!S.canje[p.k]; const pts = used ? p.pts - p.meta : p.pts; const puede = pts >= p.meta;
+      return { tienda: t.nombre, ini: t.ini, color: t.color, pts: String(pts).replace(/\B(?=(\d{3})+(?!\d))/g, '.'), pct: Math.min(100, Math.round(pts / p.meta * 100)) + '%', barra: puede ? '#22a06b' : '#3b5bdb',
+        falta: puede ? `Ya podés canjear ${p.premio}.` : `Te faltan ${p.meta - pts} para ${p.premio}.`, puede, btn: 'Canjear ' + p.premio.replace('un ', ''), hayVale: used, vale: `Vale de ${p.vale} listo. Se aplica solo en tu próxima compra en ${t.nombre}.`,
+        canjear: () => { this.setState((s) => ({ canje: { ...s.canje, [p.k]: true } })); this.flash(`Listo, tu vale de ${p.vale} ya está en ${t.nombre}`); } }; });
+    const ptsTs = puntos[0];
+    const ptsTop = { titulo: `${ptsTs.pts} puntos en Treeshop`, falta: ptsTs.falta };
+    const movs = [...Object.keys(S.canje).map((k) => [`Canje: vale de ${PTS.find((p) => p.k === k).vale}`, k, 'Hoy', -PTS.find((p) => p.k === k).meta]),
+      ['Pedido #1048', 'ts', '6 oct', 154], ['Pedido #0312', 'bd', '28 sep', 21], ['Pedido #1021', 'ts', '14 sep', 103], ['Canje: vale de Gs. 30.000', 'ts', '20 ago', -300], ['Pedido #0987', 'ts', '2 ago', 51]]
+      .map(([t, k, fecha, n]) => ({ t, tienda: TI[k].nombre, fecha, pts: (n > 0 ? '+' : '−') + Math.abs(n), fg: n > 0 ? '#13774a' : '#535b6e' }));
+
+    const fp = S.fPed;
+    const pedidos = ORDS.filter((o) => (fp === 'todos' || (fp === 'curso' ? o.estado === 'transit' : o.estado === 'entregado')) && (S.fTienda === 'todas' || o.tienda === S.fTienda)).map(row);
+    const fPeds = [['curso', 'En curso'], ['entregados', 'Entregados'], ['todos', 'Todos']].map(([k, label]) => { const a = fp === k; return { label, onClick: () => this.setState({ fPed: k }), bg: a ? '#fff' : 'transparent', sh: a ? '0 1px 2px rgba(16,24,40,0.08)' : 'none', fg: a ? '#0e1525' : '#535b6e' }; });
+
+    let ped = { pill: {}, acc: {}, items: [], totales: [], info: [] };
+    const po = S.ped ? ORDS.find((o) => o.id === S.ped) : null;
+    if (po) {
+      const dir = S.dirs[po.dir] || S.dirs[0] || { nombre: '', linea: '', ciudad: '' };
+      let acc;
+      if (po.estado === 'transit') acc = { icon: 'hugeicons:delivery-truck-01', fg: '#3b5bdb', t: po.llega, d: `Lo lleva AEX. Número de guía ${po.guia}.`, btn: 'Seguir el envío', on: () => this.flash('Abrimos el seguimiento de AEX en otra pestaña') };
+      else if (po.estado === 'cancelado') acc = { icon: 'hugeicons:cancel-circle', fg: '#535b6e', t: 'Cancelaste este pedido', d: `Te devolvimos ${po.total} a la ${po.pago} el ${po.reintegro}.` };
+      else if (S.cambios[po.id]) acc = { icon: 'hugeicons:checkmark-circle-02', fg: '#13774a', t: 'Pediste un cambio', d: 'Te escribimos por WhatsApp para coordinar el retiro. AEX lo retira sin costo.' };
+      else if (po.cambioHasta) acc = { icon: 'hugeicons:exchange-01', fg: '#3b5bdb', t: `Entregado el ${po.entregado}`, d: `¿No te quedó bien? Tenés hasta el ${po.cambioHasta} para pedir un cambio. El primero es gratis.`, btn: 'Pedir un cambio', on: () => this.setState({ cambio: { oid: po.id, item: 0, motivo: null } }) };
+      else acc = { icon: 'hugeicons:checkmark-circle-02', fg: '#13774a', t: `Entregado el ${po.entregado}`, d: 'Ya pasaron los 30 días para cambios.', btn: 'Volver a comprar', on: () => this.flash(`Agregamos los productos a tu carrito de ${po.tiendaN}`) };
+      const tot = [['Subtotal', this.gs(po.sub), '#535b6e']];
+      if (po.desc) tot.push([po.descLbl || 'Descuento', '−' + this.gs(po.desc), '#13774a']);
+      tot.push(['Envío', po.envio ? this.gs(po.envio) : 'Gratis', '#535b6e']);
+      const cancel = po.estado === 'cancelado';
+      ped = { ...row(po, 0), nItems: po.items.length === 1 ? '1 producto' : po.items.length + ' productos', acc: { ...acc, hayBtn: !!acc.btn, btn: acc.btn || '', on: acc.on || (() => {}) },
+        items: po.items.map(([t, v, q, p, c]) => ({ t, v, q: q > 1 ? q + ' unidades' : '1 unidad', precio: p ? this.gs(p * q) : 'Regalo', bg: this.bg(c) })),
+        totales: tot.map(([k, v, fg]) => ({ k, v, fg })),
+        info: [
+          { t: 'Entrega', l1: dir.nombre + ' · ' + dir.linea, l2: dir.ciudad + (po.tienda === 'ts' ? ' · Envío con AEX' : ' · Envío de la tienda'), hayLink: false },
+          { t: 'Pago', l1: po.pago, l2: po.cuotas, hayLink: false },
+          { t: 'Factura', l1: P0.doc, l2: P0.nombre, hayLink: !cancel, link: 'Descargar factura', icon: 'hugeicons:download-04', on: () => this.flash('Descargando la factura en PDF') },
+        ],
+        ayuda: () => this.flash(`Abrimos WhatsApp con ${po.tiendaN}`) };
+    }
+
+    const cb = S.cambio; const cbo = cb ? ORD.find((o) => o.id === cb.oid) : null;
+    const cambio = cbo ? {
+      items: cbo.items.map(([t, v, q, p, c], i) => { const a = cb.item === i; return { t, v, img: this.bg(c), bd: a ? '#3b5bdb' : '#e1e4ea', bg: a ? '#f5f7ff' : '#fff', radio: a ? '5px solid #3b5bdb' : '1.5px solid #c7ccd6', on: () => this.setState((s) => ({ cambio: { ...s.cambio, item: i } })) }; }),
+      motivos: ['Me queda chico', 'Me queda grande', 'No es lo que esperaba', 'Llegó con una falla'].map((label) => { const a = cb.motivo === label; return { label, bd: a ? '#0e1525' : '#e1e4ea', bg: a ? '#0e1525' : '#fff', fg: a ? '#fff' : '#353d50', on: () => this.setState((s) => ({ cambio: { ...s.cambio, motivo: label } })) }; }),
+      op: cb.motivo ? '1' : '0.45' } : { items: [], motivos: [], op: '0.45' };
+
+    const ICON_DIR = { Casa: 'hugeicons:home-01', Oficina: 'hugeicons:building-03' };
+    const dirs = S.dirs.map((d, i) => ({ ...d, icon: ICON_DIR[d.nombre] || 'hugeicons:location-01', noPrincipal: !d.principal,
+      editar: () => this.setState({ dirForm: { idx: i, ...d, err: false } }),
+      hacerPrincipal: () => { this.setState((s) => ({ dirs: s.dirs.map((x, j) => ({ ...x, principal: j === i })) })); this.flash(`${d.nombre} es tu dirección principal`); },
+      borrar: () => this.setState({ conf: { t: `¿Eliminar «${d.nombre}»?`, d: `${d.linea}, ${d.ciudad}. No afecta a los pedidos que ya hiciste.`, btn: 'Eliminar', ok: () => { this.setState((s) => { const rest = s.dirs.filter((_, j) => j !== i); if (d.principal && rest[0]) rest[0] = { ...rest[0], principal: true }; return { dirs: rest, conf: null }; }); this.flash('Dirección eliminada'); } } }) }));
+    const DF = S.dirForm;
+    const setDF = (k) => (e) => { const v = e.target.value; this.setState((s) => ({ dirForm: { ...s.dirForm, [k]: v, err: false } })); };
+    const dirForm = DF ? { titulo: DF.idx == null ? 'Agregar dirección' : 'Editar dirección', ciudad: DF.ciudad, onCiudad: setDF('ciudad'), hayError: !!DF.err,
+      campos: [['nombre', 'Nombre', 'Casa, Oficina, Casa de mis papás'], ['linea', 'Calle y número', 'Av. Mariscal López 3.420'], ['ref', 'Referencia', 'Piso, depto, color del portón'], ['tel', 'Teléfono para el repartidor', '0981 123 456']].map(([k, label, ph]) => ({ k: label, v: DF[k] || '', ph, on: setDF(k) })) } : { campos: [] };
+
+    const favs = S.favs.map((f, i) => { const t = TI[f.tienda]; return { ...f, tienda: t.nombre, ini: t.ini, color: t.color, bg: this.bg(f.c), precio: this.gs(f.p), hayAntes: !!f.antes, antes: f.antes ? this.gs(f.antes) : '',
+      ver: () => { if (f.link) location.href = f.link; else this.flash(`${t.nombre} se abre en otra pestaña`); },
+      quitar: (e) => { if (e) e.stopPropagation(); this.setState((s) => ({ favs: s.favs.filter((_, j) => j !== i) })); this.flash('Quitado de favoritos'); } }; });
+
+    const GRP = [['int', 'Lo que te interesa'], ['med', 'Talles y medidas'], ['mar', 'Marcas'], ['hab', 'Cómo comprás']];
+    const prefGrupos = GRP.map(([k, t]) => ({ t, items: S.prefs.map((p, i) => ({ p, i })).filter(({ p }) => p[0] === k).map(({ p, i }) => ({ icon: p[1], t: p[2], d: p[3], quitar: () => { this.setState((s) => ({ prefs: s.prefs.filter((_, j) => j !== i) })); this.flash('Listo, dejamos de usarlo'); } })) })).filter((g) => g.items.length);
+    const E = S.edit;
+    const setE = (k) => (e) => { const v = e.target.value; this.setState((s) => ({ edit: { ...s.edit, [k]: v } })); };
+    const sesiones = S.sesiones.map((s, i) => ({ ...s, actual: !!s.actual, otra: !s.actual, cerrar: () => { this.setState((st) => ({ sesiones: st.sesiones.filter((_, j) => j !== i) })); this.flash(`Cerramos la sesión de ${s.d}`); } }));
+    const AV = [['wa', 'Avisos del pedido por WhatsApp', 'Cuando sale, cuando llega y si hay un problema'], ['mail', 'Avisos del pedido por correo', 'Confirmación de compra y factura'], ['promo', 'Ofertas de las tiendas', 'Sólo de las tiendas donde ya compraste']];
+
+    return {
+      ancho: !narrow, angosto: narrow, navItems, perfil, salir: () => this.setState({ conf: { t: '¿Cerrar sesión?', d: 'Vas a tener que entrar de nuevo con tu correo o con Google.', btn: 'Cerrar sesión', ok: () => { location.href = 'Login%20comprador.dc.html'; } } }),
+      esInicio: S.sec === 'inicio', esPedidos: S.sec === 'pedidos' && !po, esPedido: !!po, esDirs: S.sec === 'direcciones', esPuntos: S.sec === 'puntos', esFavs: S.sec === 'favoritos', esPrefs: S.sec === 'preferencias', esPerfil: S.sec === 'perfil',
+      hayActivo: !!a0, activo, recientes: ORDS.slice(0, 3).map(row), irPuntos: () => this.go('puntos'), ptsTop,
+      pedidos, sinPedidos: pedidos.length === 0, fPeds, fTienda: S.fTienda, onFTienda: (e) => this.setState({ fTienda: e.target.value }),
+      ped,
+      dirs, nuevaDir: () => this.setState({ dirForm: { idx: null, nombre: '', linea: '', ciudad: 'Asunción', ref: '', tel: P0.tel, err: false } }),
+      hayDirForm: !!DF, dirForm, ciudades: CIUDADES, cerrarDir: () => this.setState({ dirForm: null }),
+      guardarDir: () => { const f = this.state.dirForm; if (!f.linea.trim()) { this.setState({ dirForm: { ...f, err: true } }); return; } const d = { nombre: f.nombre.trim() || 'Dirección', linea: f.linea.trim(), ciudad: f.ciudad, ref: f.ref, tel: f.tel };
+        this.setState((s) => { const L = [...s.dirs]; if (f.idx == null) L.push({ ...d, principal: L.length === 0 }); else L[f.idx] = { ...L[f.idx], ...d }; return { dirs: L, dirForm: null }; }); this.flash(f.idx == null ? 'Dirección agregada' : 'Dirección guardada'); },
+      puntos, movs, favs, sinFavs: favs.length === 0,
+      prefGrupos, sinPrefs: !S.prefs.length, hayPrefs: !!S.prefs.length, prefOp: S.prefOn ? '1' : '0.5',
+      borrarPrefs: () => this.setState({ conf: { t: '¿Borrar todas tus preferencias?', d: 'Las tiendas te van a mostrar todo sin ordenar por lo que te gusta. Se vuelven a armar con tus próximas compras.', btn: 'Borrar todo', ok: () => { this.setState({ prefs: [], conf: null }); this.flash('Borramos tus preferencias'); } } }),
+      prefSw: { bg: S.prefOn ? '#3b5bdb' : '#d8dce4', x: S.prefOn ? '16px' : '0px', on: () => this.setState((s) => ({ prefOn: !s.prefOn })) },
+      noEditando: !E, editando: !!E, editarPerfil: () => this.setState({ edit: { nombre: P0.nombre, tel: P0.tel, doc: P0.doc } }), cancelarPerfil: () => this.setState({ edit: null }),
+      guardarPerfil: () => { this.setState((s) => ({ perfil: { ...s.perfil, ...s.edit, nombre: (s.edit.nombre || '').trim() || s.perfil.nombre }, edit: null })); this.flash('Datos guardados'); },
+      datos: [['Nombre', P0.nombre], ['Correo', P0.correo, true], ['Teléfono', P0.tel], ['Documento para la factura', P0.doc]].map(([k, v, ok]) => ({ k, v, ok: !!ok })),
+      campos: E ? [['nombre', 'Nombre y apellido', ''], ['tel', 'Teléfono', '0981 123 456'], ['doc', 'Documento para la factura', 'CI o RUC']].map(([k, label, ph]) => ({ k: label, v: E[k], ph, on: setE(k) })) : [],
+      accesos: [
+        { icon: 'hugeicons:mail-01', t: 'Código por correo', d: `Te mandamos un código a ${P0.correo}`, hayBtn: false },
+        { icon: 'logos:google-icon', t: 'Google', d: S.google ? 'Conectada' : 'Sin conectar', hayBtn: true, btn: S.google ? 'Desconectar' : 'Conectar', on: () => { this.setState({ google: !S.google }); this.flash(S.google ? 'Google desconectada' : 'Google conectada'); } },
+      ],
+      sesiones, hayOtras: sesiones.some((s) => s.otra), cerrarOtras: () => { this.setState((s) => ({ sesiones: s.sesiones.filter((x) => x.actual) })); this.flash('Cerramos las demás sesiones'); },
+      avisos: AV.map(([k, t, d]) => { const on = S.av[k]; return { t, d, bg: on ? '#3b5bdb' : '#d8dce4', x: on ? '16px' : '0px', on: () => this.setState((s) => ({ av: { ...s.av, [k]: !on } })) }; }),
+      eliminarCuenta: () => this.setState({ conf: { t: '¿Eliminar tu cuenta?', d: 'Se borran tus direcciones, favoritos y puntos en todas las tiendas Pick. Los pedidos quedan registrados en cada tienda por ley.', btn: 'Eliminar mi cuenta', ok: () => { this.setState({ conf: null }); this.flash('Te mandamos un correo para confirmar'); } } }),
+      hayCambio: !!cbo, cambio, cerrarCambio: () => this.setState({ cambio: null }),
+      enviarCambio: () => { const c = this.state.cambio; if (!c || !c.motivo) return; this.setState((s) => ({ cambios: { ...s.cambios, [c.oid]: true }, cambio: null })); this.flash('Listo, pediste el cambio'); },
+      hayConf: !!S.conf, conf: S.conf || { t: '', d: '', btn: '', ok: () => {} }, cerrarConf: () => this.setState({ conf: null }),
+      stop: (e) => e.stopPropagation(),
+      hayToast: !!S.toast, toast: S.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>

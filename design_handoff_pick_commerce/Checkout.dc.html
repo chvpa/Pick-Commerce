@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+<style>
+iconify-icon{display:inline-block;flex-shrink:0;vertical-align:middle}
+body{margin:0;font-family:'Geist',system-ui,sans-serif;color:#0e1525;background:#fff;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#3b5bdb;text-decoration:none}
+a:hover{color:#2b47bd;text-decoration:underline}
+input,select,button{font-family:inherit}
+input::placeholder{color:#8a91a2}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+<div data-screen-label="Checkout" style="min-height:100vh;display:flex;flex-direction:column;font-size:14px;line-height:20px;color:#0e1525">
+  <header style="border-bottom:1px solid #eceef2;background:#fff">
+    <div style="max-width:1120px;margin:0 auto;height:68px;padding:0 clamp(16px, 4vw, 48px);display:flex;align-items:center;justify-content:space-between;gap:16px">
+      <a href="{{ tienda.url }}" style="display:flex;align-items:center;text-decoration:none">
+        <sc-if value="{{ tienda.esTs }}" hint-placeholder-val="{{ false }}"><img src="apps/treeshop/src/assets/logotipo.svg" alt="Treeshop" style="height:26px;width:auto;display:block"></sc-if>
+        <sc-if value="{{ tienda.sinLogo }}" hint-placeholder-val="{{ false }}"><span style="font-size:21px;font-weight:700;letter-spacing:-0.03em;color:{{ tienda.color }}">{{ tienda.nombre }}</span></sc-if>
+      </a>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#6f7789"><iconify-icon icon="hugeicons:lock-key" style="font-size:15px"></iconify-icon>Pago seguro</span>
+    </div>
+  </header>
+
+  <sc-if value="{{ enCurso }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;display:flex;flex-direction:{{ flexDir }}">
+      <div style="flex:1 1 0;min-width:0;display:flex;justify-content:{{ izqJust }};padding:28px clamp(16px, 4vw, 48px) 64px">
+        <div style="width:100%;max-width:540px;display:flex;flex-direction:column">
+          <a href="{{ tienda.url }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;font-size:13px;font-weight:500;color:#535b6e;text-decoration:none"><iconify-icon icon="hugeicons:arrow-left-02" style="font-size:15px"></iconify-icon>Volver al carrito</a>
+
+          <div style="display:flex;flex-direction:column;gap:16px;padding:20px 0;border-top:1px solid #eceef2">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:24px;height:24px;flex-shrink:0;border-radius:50%;background:{{ s1.numBg }};color:{{ s1.numFg }};font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center"><sc-if value="{{ s1.hecho }}" hint-placeholder-val="{{ false }}"><iconify-icon icon="hugeicons:tick-02" style="font-size:14px"></iconify-icon></sc-if><sc-if value="{{ s1.noHecho }}" hint-placeholder-val="{{ true }}"><span>1</span></sc-if></span>
+              <span style="flex:1;font-size:17px;font-weight:600;color:{{ s1.fg }}">Tus datos</span>
+              <sc-if value="{{ s1.hecho }}" hint-placeholder-val="{{ false }}"><button onClick="{{ s1.cambiar }}" style="padding:0;border:0;background:transparent;color:#3b5bdb;font-size:13.5px;font-weight:500;cursor:pointer">Cambiar</button></sc-if>
+            </div>
+            <sc-if value="{{ s1.hecho }}" hint-placeholder-val="{{ false }}"><p style="margin:0 0 0 36px;font-size:13.5px;line-height:19px;color:#535b6e">{{ s1.resumen }}</p></sc-if>
+            <sc-if value="{{ s1.activo }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:16px">
+                <sc-if value="{{ invitado }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:#f7f8fa">
+                    <span style="flex:1;min-width:200px;font-size:13.5px;line-height:19px;color:#353d50">¿Tenés cuenta Pick? Entrá y completamos todo por vos.</span>
+                    <button onClick="{{ entrar }}" style="height:34px;padding:0 14px;border:1px solid #d8dce4;border-radius:9px;background:#fff;color:#0e1525;font-size:13.5px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="border-color:#a3aab8">{{ entrarLbl }}</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ conSesion }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:#f7f8fa">
+                    <span style="width:34px;height:34px;flex-shrink:0;border-radius:50%;background:#e4e9fc;color:#2b47bd;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600">MJ</span>
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3"><span style="font-weight:500">Entraste con tu cuenta Pick</span><span style="font-size:12.5px;color:#6f7789">Completamos tus datos y tus direcciones.</span></span>
+                    <button onClick="{{ salir }}" style="padding:0;border:0;background:transparent;color:#535b6e;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">No soy yo</button>
+                  </div>
+                </sc-if>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px 12px">
+                  <sc-for list="{{ campos }}" as="f" hint-placeholder-count="4">
+                    <label style="grid-column:{{ f.col }};display:flex;flex-direction:column;gap:6px">
+                      <span style="font-size:13px;font-weight:500;color:#353d50">{{ f.label }}</span>
+                      <input type="{{ f.type }}" autoComplete="{{ f.ac }}" inputMode="{{ f.im }}" value="{{ f.v }}" onChange="{{ f.on }}" placeholder="{{ f.ph }}" style="height:44px;padding:0 14px;border:1px solid {{ f.bd }};border-radius:10px;background:#fff;font-size:15px;color:#0e1525;outline:0" style-focus="border-color:#3b5bdb;box-shadow:0 0 0 3px #e4e9fc">
+                      <sc-if value="{{ f.hayErr }}" hint-placeholder-val="{{ false }}"><span style="font-size:12.5px;color:#b42318">{{ f.err }}</span></sc-if>
+                    </label>
+                  </sc-for>
+                </div>
+                <div onClick="{{ toggleWa }}" style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none">
+                  <span style="width:18px;height:18px;flex-shrink:0;border-radius:5px;border:1.5px solid {{ waBd }};background:{{ waBg }};color:#fff;display:flex;align-items:center;justify-content:center"><sc-if value="{{ wa }}" hint-placeholder-val="{{ true }}"><iconify-icon icon="hugeicons:tick-02" style="font-size:13px"></iconify-icon></sc-if></span>
+                  <span style="font-size:13.5px;color:#353d50">Avisarme por WhatsApp cuando salga y cuando llegue</span>
+                </div>
+                <button onClick="{{ seguir1 }}" style="height:48px;border:0;border-radius:10px;background:#0e1525;color:#fff;font-size:15px;font-weight:500;cursor:pointer" style-hover="background:#252d3f">Continuar a la entrega</button>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px;padding:20px 0;border-top:1px solid #eceef2">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:24px;height:24px;flex-shrink:0;border-radius:50%;background:{{ s2.numBg }};color:{{ s2.numFg }};font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center"><sc-if value="{{ s2.hecho }}" hint-placeholder-val="{{ false }}"><iconify-icon icon="hugeicons:tick-02" style="font-size:14px"></iconify-icon></sc-if><sc-if value="{{ s2.noHecho }}" hint-placeholder-val="{{ true }}"><span>2</span></sc-if></span>
+              <span style="flex:1;font-size:17px;font-weight:600;color:{{ s2.fg }}">Entrega</span>
+              <sc-if value="{{ s2.hecho }}" hint-placeholder-val="{{ false }}"><button onClick="{{ s2.cambiar }}" style="padding:0;border:0;background:transparent;color:#3b5bdb;font-size:13.5px;font-weight:500;cursor:pointer">Cambiar</button></sc-if>
+            </div>
+            <sc-if value="{{ s2.hecho }}" hint-placeholder-val="{{ false }}"><p style="margin:0 0 0 36px;font-size:13.5px;line-height:19px;color:#535b6e">{{ s2.resumen }}</p></sc-if>
+            <sc-if value="{{ s2.activo }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:18px">
+                <sc-if value="{{ hayRetiro }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:8px">
+                    <sc-for list="{{ modos }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.on }}" style="display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;border:1px solid {{ m.bd }};border-radius:12px;background:{{ m.bg }};color:#0e1525;font-size:14px;font-weight:500;cursor:pointer;text-align:left"><iconify-icon icon="{{ m.icon }}" style="font-size:20px;color:{{ m.ic }}"></iconify-icon><span>{{ m.label }}</span></button></sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ esEnvio }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-direction:column;gap:18px">
+                    <sc-if value="{{ hayDirOps }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;flex-direction:column;gap:8px">
+                        <span style="font-size:13px;font-weight:500;color:#353d50">¿A dónde lo llevamos?</span>
+                        <sc-for list="{{ dirOps }}" as="o" hint-placeholder-count="3"><div onClick="{{ o.on }}" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid {{ o.bd }};border-radius:12px;background:{{ o.bg }};cursor:pointer"><span style="width:18px;height:18px;flex-shrink:0;border-radius:50%;border:{{ o.dot }};background:#fff"></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">{{ o.t }}</span><span style="font-size:12.5px;color:#6f7789">{{ o.d }}</span></span></div></sc-for>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ usaForm }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px 12px">
+                        <label style="grid-column:1 / -1;display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:500;color:#353d50">Calle y número</span><input autoComplete="street-address" value="{{ dir.linea }}" onChange="{{ dir.onLinea }}" placeholder="Av. Mariscal López 3.420" style="height:44px;padding:0 14px;border:1px solid {{ dir.bd }};border-radius:10px;background:#fff;font-size:15px;color:#0e1525;outline:0" style-focus="border-color:#3b5bdb;box-shadow:0 0 0 3px #e4e9fc"><sc-if value="{{ dir.hayErr }}" hint-placeholder-val="{{ false }}"><span style="font-size:12.5px;color:#b42318">Falta la calle y el número.</span></sc-if></label>
+                        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:500;color:#353d50">Ciudad</span><select value="{{ dir.ciudad }}" onChange="{{ dir.onCiudad }}" style="height:44px;padding:0 12px;border:1px solid #d8dce4;border-radius:10px;background:#fff;font-size:15px;color:#0e1525"><sc-for list="{{ ciudades }}" as="c" hint-placeholder-count="5"><option value="{{ c }}">{{ c }}</option></sc-for></select></label>
+                        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:500;color:#353d50">Referencia <span style="font-weight:400;color:#8a91a2">(opcional)</span></span><input value="{{ dir.ref }}" onChange="{{ dir.onRef }}" placeholder="Piso, depto, color del portón" style="height:44px;padding:0 14px;border:1px solid #d8dce4;border-radius:10px;background:#fff;font-size:15px;color:#0e1525;outline:0" style-focus="border-color:#3b5bdb;box-shadow:0 0 0 3px #e4e9fc"></label>
+                      </div>
+                    </sc-if>
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                      <span style="font-size:13px;font-weight:500;color:#353d50">Envío</span>
+                      <sc-for list="{{ envOps }}" as="o" hint-placeholder-count="2"><div onClick="{{ o.on }}" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid {{ o.bd }};border-radius:12px;background:{{ o.bg }};cursor:pointer"><span style="width:18px;height:18px;flex-shrink:0;border-radius:50%;border:{{ o.dot }};background:#fff"></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">{{ o.t }}</span><span style="font-size:12.5px;color:#6f7789">{{ o.d }}</span></span><span style="font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums">{{ o.r }}</span></div></sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ esRetiro }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1px solid #0e1525;border-radius:12px;background:#f7f8fa">
+                    <iconify-icon icon="hugeicons:store-01" style="font-size:20px;color:#0e1525;margin-top:1px"></iconify-icon>
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">{{ retiro.t }}</span><span style="font-size:13px;color:#535b6e">{{ retiro.d }}</span><span style="font-size:13px;color:#13774a;font-weight:500">{{ retiro.h }}</span></span>
+                    <span style="font-weight:500">Gratis</span>
+                  </div>
+                </sc-if>
+                <button onClick="{{ seguir2 }}" style="height:48px;border:0;border-radius:10px;background:#0e1525;color:#fff;font-size:15px;font-weight:500;cursor:pointer" style-hover="background:#252d3f">Continuar al pago</button>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px;padding:20px 0;border-top:1px solid #eceef2">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:24px;height:24px;flex-shrink:0;border-radius:50%;background:{{ s3.numBg }};color:{{ s3.numFg }};font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center">3</span>
+              <span style="flex:1;font-size:17px;font-weight:600;color:{{ s3.fg }}">Pago</span>
+            </div>
+            <sc-if value="{{ s3.activo }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:16px">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <sc-for list="{{ pagOps }}" as="o" hint-placeholder-count="4"><div onClick="{{ o.on }}" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid {{ o.bd }};border-radius:12px;background:{{ o.bg }};cursor:pointer"><span style="width:18px;height:18px;flex-shrink:0;border-radius:50%;border:{{ o.dot }};background:#fff"></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">{{ o.t }}</span><span style="font-size:12.5px;color:#6f7789">{{ o.d }}</span></span><iconify-icon icon="{{ o.icon }}" style="font-size:20px;color:#6f7789"></iconify-icon></div></sc-for>
+                </div>
+                <p style="display:flex;gap:10px;margin:0;padding:14px 16px;border-radius:12px;background:#f7f8fa;font-size:13.5px;line-height:20px;color:#353d50;text-wrap:pretty"><iconify-icon icon="hugeicons:lock-key" style="font-size:16px;color:#6f7789;margin-top:2px"></iconify-icon><span>{{ pagoNota }}</span></p>
+                <sc-if value="{{ hayPayErr }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:#fef3f2;color:#b42318;font-size:13.5px;line-height:19px"><iconify-icon icon="hugeicons:alert-circle" style="font-size:17px;margin-top:1px"></iconify-icon><span>{{ payErr }}</span></div></sc-if>
+                <button onClick="{{ pagar }}" style="display:flex;align-items:center;justify-content:center;gap:10px;height:52px;border:0;border-radius:10px;background:{{ btnBg }};color:#fff;font-size:16px;font-weight:600;cursor:pointer;opacity:{{ btnOp }}" style-hover="background:{{ btnHover }}"><sc-if value="{{ procesando }}" hint-placeholder-val="{{ false }}">{{ spinEl }}</sc-if><sc-if value="{{ noProcesando }}" hint-placeholder-val="{{ true }}"><iconify-icon icon="hugeicons:lock-key" style="font-size:18px"></iconify-icon></sc-if><span>{{ pagarLbl }}</span></button>
+                <p style="margin:0;font-size:12px;line-height:17px;color:#8a91a2;text-align:center">Al pagar aceptás las políticas de cambio y privacidad de {{ tienda.nombre }}.</p>
+              </div>
+            </sc-if>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px 16px;padding-top:20px;border-top:1px solid #eceef2;font-size:12.5px"><a href="#" style="color:#6f7789">Políticas de cambio</a><a href="#" style="color:#6f7789">Privacidad</a><a href="#" style="color:#6f7789">Términos</a></div>
+        </div>
+      </div>
+
+      <div style="flex:1 1 0;min-width:0;background:#f7f8fa;border-left:{{ derBorde }};border-bottom:{{ derBordeB }};padding:{{ derPad }}">
+        <div style="width:100%;max-width:420px;position:{{ derPos }};top:28px;display:flex;flex-direction:column;gap:18px">
+          <sc-if value="{{ angosto }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toggleRes }}" style="display:flex;align-items:center;gap:8px;padding:0;border:0;background:transparent;color:#0e1525;font-size:14px;font-weight:500;cursor:pointer;text-align:left"><iconify-icon icon="hugeicons:shopping-bag-02" style="font-size:18px"></iconify-icon><span style="flex:1">{{ resLbl }}</span><iconify-icon icon="hugeicons:arrow-down-01" style="font-size:16px;transform:{{ resRot }}"></iconify-icon><span style="font-size:16px;font-weight:600;font-variant-numeric:tabular-nums">{{ total }}</span></button></sc-if>
+          <sc-if value="{{ verRes }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:18px">
+              <div style="display:flex;flex-direction:column;gap:14px">
+                <sc-for list="{{ lineas }}" as="l" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:14px">
+                    <span style="position:relative;width:60px;height:60px;flex-shrink:0;border-radius:10px;border:1px solid #e6e8ee;background:{{ l.bg }}"><span style="position:absolute;top:-8px;right:-8px;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#535b6e;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ l.q }}</span></span>
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500;line-height:19px">{{ l.t }}</span><span style="font-size:12.5px;color:#6f7789">{{ l.v }}</span></span>
+                    <span style="font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums;color:{{ l.fg }}">{{ l.precio }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;padding-top:18px;border-top:1px solid #e6e8ee">
+                <sc-if value="{{ sinCode }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;gap:8px"><input value="{{ code }}" onChange="{{ onCode }}" onKeyDown="{{ onCodeKey }}" placeholder="Código de descuento" style="flex:1;min-width:0;height:44px;padding:0 14px;border:1px solid #d8dce4;border-radius:10px;background:#fff;font-size:14.5px;color:#0e1525;outline:0;text-transform:uppercase" style-focus="border-color:#3b5bdb;box-shadow:0 0 0 3px #e4e9fc"><button onClick="{{ aplicarCode }}" style="height:44px;padding:0 16px;border:1px solid #d8dce4;border-radius:10px;background:#fff;color:#0e1525;font-size:14px;font-weight:500;cursor:pointer" style-hover="border-color:#a3aab8">Aplicar</button></div>
+                  <sc-if value="{{ hayCodeMsg }}" hint-placeholder-val="{{ false }}"><span style="font-size:12.5px;color:#b42318">{{ codeMsg }}</span></sc-if>
+                </sc-if>
+                <sc-if value="{{ conCode }}" hint-placeholder-val="{{ false }}"><span style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 6px 0 10px;border-radius:8px;background:#e6e8ee;font-size:13px;font-weight:500"><iconify-icon icon="hugeicons:discount-tag-01" style="font-size:15px"></iconify-icon><span>VOLVE10</span><button onClick="{{ quitarCode }}" title="Quitar" style="width:22px;height:22px;border:0;border-radius:6px;background:transparent;color:#535b6e;display:flex;align-items:center;justify-content:center;cursor:pointer"><iconify-icon icon="hugeicons:cancel-01" style="font-size:13px"></iconify-icon></button></span></sc-if>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;font-variant-numeric:tabular-nums">
+                <sc-for list="{{ filas }}" as="r" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;gap:12px;font-size:13.5px;color:{{ r.fg }}"><span>{{ r.k }}</span><span>{{ r.v }}</span></div></sc-for>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding-top:10px"><span style="font-size:17px;font-weight:600">Total</span><span style="font-size:20px;font-weight:600;letter-spacing:-0.01em">{{ total }}</span></div>
+                <span style="font-size:12px;color:#8a91a2">Incluye {{ iva }} de IVA</span>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ listo }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Checkout · Confirmación" style="flex:1;padding:48px clamp(16px, 4vw, 48px) 72px">
+      <div style="max-width:620px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <span style="width:48px;height:48px;border-radius:50%;background:{{ conf.icBg }};color:{{ conf.icFg }};display:flex;align-items:center;justify-content:center"><iconify-icon icon="{{ conf.icon }}" style="font-size:26px"></iconify-icon></span>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:13px;color:#6f7789;font-variant-numeric:tabular-nums">Pedido #1049 · {{ tienda.nombre }}</span>
+            <h1 style="margin:0;font-size:28px;line-height:34px;font-weight:600;letter-spacing:-0.02em;text-wrap:balance">{{ conf.titulo }}</h1>
+            <p style="margin:0;font-size:14.5px;line-height:22px;color:#535b6e;text-wrap:pretty">{{ conf.sub }}</p>
+          </div>
+        </div>
+        <sc-if value="{{ conf.pendiente }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:14px;padding:20px;border:1px solid #e9ebf0;border-radius:14px">
+            <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:16px;font-weight:600">{{ conf.pend.t }}</span><span style="font-size:13.5px;line-height:20px;color:#535b6e;text-wrap:pretty">{{ conf.pend.d }}</span></div>
+            <sc-if value="{{ conf.pend.hayQr }}" hint-placeholder-val="{{ false }}"><div style="width:180px;height:180px;border-radius:12px;border:1px solid #e6e8ee;background:repeating-linear-gradient(135deg,#f1f2f5 0 8px,#fff 8px 16px);display:flex;align-items:flex-end;padding:10px"><span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:#6f7789;background:#fff;padding:2px 6px;border-radius:5px">QR de Pagopar</span></div></sc-if>
+            <sc-if value="{{ conf.pend.hayCodigo }}" hint-placeholder-val="{{ false }}"><span style="align-self:flex-start;padding:10px 16px;border-radius:10px;background:#f7f8fa;font-family:'Geist Mono',ui-monospace,monospace;font-size:24px;font-weight:500;letter-spacing:0.08em">{{ conf.pend.codigo }}</span></sc-if>
+            <sc-if value="{{ conf.pend.hayRows }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;border-radius:10px;background:#f7f8fa;overflow:hidden"><sc-for list="{{ conf.pend.rows }}" as="r" hint-placeholder-count="5"><div style="display:flex;justify-content:space-between;gap:16px;padding:10px 14px;border-top:{{ r.bt }};font-size:13.5px"><span style="color:#6f7789">{{ r.k }}</span><span style="font-weight:500;font-variant-numeric:tabular-nums;text-align:right">{{ r.v }}</span></div></sc-for></div>
+            </sc-if>
+          </div>
+        </sc-if>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:12px">
+          <sc-for list="{{ conf.info }}" as="b" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:4px;padding:16px;border:1px solid #e9ebf0;border-radius:14px"><span style="font-size:12.5px;font-weight:500;color:#6f7789">{{ b.t }}</span><span style="font-weight:500;line-height:19px">{{ b.l1 }}</span><span style="font-size:13px;line-height:18px;color:#535b6e">{{ b.l2 }}</span></div></sc-for>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:12px;padding:16px 20px;border-radius:14px;background:#f7f8fa;font-variant-numeric:tabular-nums"><span style="font-weight:500">{{ conf.totalLbl }}</span><span style="font-size:16px;font-weight:600">{{ total }}</span></div>
+        <sc-if value="{{ conf.invitado }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:18px 20px;border:1px solid #e9ebf0;border-radius:14px">
+            <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600">Guardá tus datos para la próxima</span><span style="font-size:13px;line-height:18px;color:#6f7789">Con tu cuenta Pick seguís este pedido y comprás más rápido en cualquier tienda Pick.</span></div>
+            <button onClick="{{ crearCuenta }}" style="height:38px;padding:0 16px;border:0;border-radius:9px;background:#0e1525;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:#252d3f">Crear mi cuenta</button>
+          </div>
+        </sc-if>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">
+          <a href="{{ tienda.url }}" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:10px;background:{{ btnBg }};color:#fff;font-size:14.5px;font-weight:600;text-decoration:none">Seguir comprando</a>
+          <sc-if value="{{ conf.conCuenta }}" hint-placeholder-val="{{ false }}"><a href="Mi%20cuenta.dc.html#pedidos" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border:1px solid #d8dce4;border-radius:10px;background:#fff;color:#0e1525;font-size:14.5px;font-weight:500;text-decoration:none">Ver mis pedidos</a></sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hayProv }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:85;background:rgba(14,21,37,0.45);display:flex;align-items:center;justify-content:center;padding:20px">
+      <div style="width:100%;max-width:440px;max-height:calc(100vh - 40px);overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(16,24,40,0.28)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #eceef2"><span style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600"><iconify-icon icon="hugeicons:lock-key" style="font-size:16px;color:#13774a"></iconify-icon><span>Pantalla segura de {{ tienda.procesa }}</span></span><button onClick="{{ provCerrar }}" title="Cancelar" style="width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:#6f7789;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:#f4f5f8"><iconify-icon icon="hugeicons:cancel-01" style="font-size:16px"></iconify-icon></button></div>
+        <div style="padding:18px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;justify-content:space-between;gap:12px;font-size:13.5px"><span style="color:#6f7789">{{ tienda.nombre }}</span><span style="font-weight:600;font-variant-numeric:tabular-nums">{{ total }}</span></div>
+          <div style="height:260px;border-radius:12px;border:1px dashed #d8dce4;background:repeating-linear-gradient(135deg,#f7f8fa 0 8px,#fff 8px 16px);display:flex;align-items:center;justify-content:center;padding:20px;text-align:center"><span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;line-height:18px;color:#6f7789;background:#fff;padding:6px 10px;border-radius:6px">iframe de {{ tienda.procesa }}<br>tarjeta, vencimiento, código y cuotas</span></div>
+          <div style="display:flex;gap:8px"><button onClick="{{ provNo }}" style="height:40px;padding:0 14px;white-space:nowrap;border:1px solid #d8dce4;border-radius:10px;background:#fff;color:#0e1525;font-size:13.5px;font-weight:500;cursor:pointer">Simular rechazo</button><button onClick="{{ provOk }}" style="flex:1;height:40px;border:0;border-radius:10px;background:#0e1525;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer">Simular pago aprobado</button></div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hayToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:90;max-width:calc(100vw - 32px);display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:10px;background:#0e1525;color:#fff;font-size:13.5px;box-shadow:0 12px 32px rgba(16,24,40,0.24)"><iconify-icon icon="hugeicons:checkmark-circle-02" style="font-size:16px;color:#7ee2b0"></iconify-icon><span>{{ toast }}</span></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tienda&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Treeshop&quot;,&quot;Bambú Deco&quot;],&quot;default&quot;:&quot;Treeshop&quot;,&quot;tsType&quot;:&quot;'Treeshop' | 'Bambú Deco'&quot;},&quot;botonMarca&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = (() => {
+    let pl = null; try { pl = JSON.parse(localStorage.getItem('pick-checkout') || 'null'); } catch (e) {}
+    return { vw: typeof window !== 'undefined' ? window.innerWidth : 1200, pl, paso: 0, sesion: false, entrando: false,
+      c: { correo: '', nombre: '', tel: '', doc: '', razon: '' }, wa: true, errs: {},
+      modo: 'envio', dirSel: 0, dir: { linea: '', ciudad: 'Asunción', ref: '' }, envio: null,
+      pago: 'tarjeta', prov: false, payErr: '', procesando: false,
+      code: '', codeOk: !!(pl && pl.code), codeMsg: '', verRes: false, done: false, cuentaCreada: false, toast: '' };
+  })();
+  componentDidMount() { this._r = () => this.setState({ vw: window.innerWidth }); window.addEventListener('resize', this._r); }
+  componentWillUnmount() { window.removeEventListener('resize', this._r); clearTimeout(this._t); clearTimeout(this._p); clearTimeout(this._ft); }
+  gs(n) { return 'Gs. ' + String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  bg(c) { return `repeating-linear-gradient(135deg,${c} 0 8px,rgba(255,255,255,0.55) 8px 16px)`; }
+  terminar() { this.setState({ procesando: true, payErr: '' }); clearTimeout(this._p); this._p = setTimeout(() => { this.setState({ procesando: false, done: true }); try { localStorage.removeItem('pick-checkout'); } catch (e) {} window.scrollTo(0, 0); }, 1200); }
+  flash(t) { clearTimeout(this._ft); this.setState({ toast: t }); this._ft = setTimeout(() => this.setState({ toast: '' }), 2600); }
+  D() {
+    return {
+      ts: { nombre: 'Treeshop', logo: 'apps/treeshop/src/assets/logotipo.svg', color: '#d42a30', hover: '#b8232a', url: 'Tienda%20Treeshop.dc.html', gratisDesde: 500000,
+        envios: [['aex', 'AEX', 'Llega mañana, jueves 8 de octubre', 30000], ['exp', 'AEX Express', 'Llega hoy antes de las 20:00', 45000]],
+        retiro: { t: 'Casa central', d: 'Av. España 1.248, Asunción', h: 'Listo hoy desde las 16:00' },
+        pagos: ['tarjeta', 'transfer'], procesa: 'Bancard',
+        banco: [['Banco', 'Itaú Paraguay'], ['Cuenta corriente', '700 123 456'], ['Titular', 'Treeshop S.A.'], ['RUC', '80012345-6']],
+        carrito: { lines: [['Campera Watertight II', 'Azul marino · M', 1, 1290000, '#e2e6ef'], ['Medias trekking merino', 'Gris · M', 3, 129000, '#ebebec']], regalos: [], desc: [['Medias 3x2', 129000]] } },
+      bd: { nombre: 'Bambú Deco', logo: '', color: '#2f7d5b', hover: '#256649', url: '#', gratisDesde: 0,
+        envios: [['propio', 'Envío de la tienda', 'Llega en 2 a 3 días hábiles', 25000]], retiro: null,
+        pagos: ['tarjeta'], procesa: 'Pagopar', banco: [],
+        carrito: { lines: [['Lámpara de mesa de ratán', 'Natural', 1, 420000, '#efe7da'], ['Juego de 4 tazas de cerámica', 'Arena', 1, 189000, '#f3f2ef']], regalos: [], desc: [] } },
+      cuenta: { nombre: 'María José Ortiz', correo: 'mjortiz@gmail.com', tel: '0981 456 789', doc: '4512873', dirs: [['Casa', 'Av. Mariscal López 3.420', 'Asunción'], ['Oficina', 'Aviadores del Chaco 2.050', 'Asunción']] },
+      CIUDADES: ['Asunción', 'Lambaré', 'San Lorenzo', 'Luque', 'Fernando de la Mora', 'Mariano Roque Alonso', 'Capiatá', 'Ciudad del Este', 'Encarnación'],
+      PAG: { tarjeta: ['Tarjeta de crédito o débito', 'Visa, Mastercard, Cabal o Bancard Check, en cuotas', 'hugeicons:credit-card'], transfer: ['Transferencia bancaria', 'Se confirma cuando llega, hasta 1 día hábil', 'hugeicons:bank'] },
+    };
+  }
+
+  renderVals() {
+    const S = this.state; const P = this.props; const D = this.D();
+    const tk = (P.tienda ?? 'Treeshop') === 'Bambú Deco' ? 'bd' : 'ts'; const T = D[tk];
+    const cart = tk === 'ts' && S.pl && S.pl.lines && S.pl.lines.length ? { regalos: [], desc: [], ...S.pl } : T.carrito;
+    const narrow = S.vw < 900;
+    const marca = P.botonMarca ?? true; const btnBg = marca ? T.color : '#0e1525'; const btnHover = marca ? T.hover : '#252d3f';
+    const sub = cart.lines.reduce((a, l) => a + l[2] * l[3], 0);
+    const promo = cart.desc.reduce((a, d) => a + d[1], 0);
+    const codeOk = S.codeOk && tk === 'ts'; const codeD = codeOk ? Math.round((sub - promo) * 0.1) : 0;
+    const neto = sub - promo - codeD;
+    const C = S.c; const E = S.errs; const acc = D.cuenta;
+    const ciudadSel = S.sesion && S.dirSel !== 'nueva' ? (acc.dirs[S.dirSel] || acc.dirs[0])[2] : S.dir.ciudad;
+    const envs = T.envios.map(([k, t, d, p]) => ({ k, t, d, p: k === 'aex' && T.gratisDesde && neto >= T.gratisDesde ? 0 : p })).filter((e) => e.k !== 'exp' || ciudadSel === 'Asunción');
+    const env = envs.find((e) => e.k === S.envio) || envs[0];
+    const retiro = S.modo === 'retiro' && !!T.retiro;
+    const costoEnvio = retiro ? 0 : env.p;
+    const envioConocido = S.paso >= 1 || S.done;
+    const total = neto + (envioConocido ? costoEnvio : 0);
+
+    const radio = (a) => ({ bd: a ? '#0e1525' : '#e1e4ea', bg: a ? '#f7f8fa' : '#fff', dot: a ? '5px solid #0e1525' : '1.5px solid #c7ccd6' });
+    const step = (i) => { const activo = S.paso === i, hecho = S.paso > i; return { activo, hecho, noHecho: !hecho, numBg: activo || hecho ? '#0e1525' : '#eef0f4', numFg: activo || hecho ? '#fff' : '#8a91a2', fg: !activo && !hecho ? '#8a91a2' : '#0e1525', cambiar: () => this.setState({ paso: i, payErr: '' }) }; };
+
+    const esRuc = (d) => /-\s*\d\s*$/.test(d || '');
+    const setC = (k) => (e) => { const v = e.target.value; this.setState((s) => ({ c: { ...s.c, [k]: v }, errs: { ...s.errs, [k]: null } })); };
+    const fld = (k, label, ph, col, x) => ({ label, ph, col, v: C[k], on: setC(k), hayErr: !!E[k], err: E[k] || '', bd: E[k] ? '#d92d20' : '#d8dce4', type: 'text', ac: 'off', im: 'text', ...(x || {}) });
+    const campos = [fld('correo', 'Correo', 'nombre@correo.com', '1 / -1', { type: 'email', ac: 'email', im: 'email' }), fld('nombre', 'Nombre y apellido', '', '1 / -1', { ac: 'name' }), fld('tel', 'Celular', '0981 123 456', 'auto', { type: 'tel', ac: 'tel', im: 'tel' }), fld('doc', 'CI o RUC para la factura', '4512873 o 80012345-6', 'auto')];
+    if (esRuc(C.doc)) campos.push(fld('razon', 'Razón social', 'Como figura en el RUC', '1 / -1'));
+    const valC = () => { const c = this.state.c; const e = {};
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.correo.trim())) e.correo = 'Revisá el correo.';
+      if (!c.nombre.trim()) e.nombre = 'Falta tu nombre.';
+      if (c.tel.replace(/\D/g, '').length < 9) e.tel = 'Revisá el número.';
+      if (!c.doc.trim()) e.doc = 'Lo necesitamos para la factura.'; else if (esRuc(c.doc) && !c.razon.trim()) e.razon = 'Falta la razón social.';
+      return e; };
+    const docTxt = esRuc(C.doc) ? `RUC ${C.doc.trim()}` : `CI ${C.doc.trim()}`;
+
+    const usaForm = S.modo === 'envio' && (!S.sesion || S.dirSel === 'nueva');
+    const setDir = (k) => (e) => { const v = e.target.value; this.setState((s) => ({ dir: { ...s.dir, [k]: v }, errs: { ...s.errs, linea: null } })); };
+    const dirOps = S.sesion ? [...acc.dirs.map(([n, l, ci], i) => ({ t: n, d: `${l}, ${ci}`, on: () => this.setState({ dirSel: i, errs: {} }), ...radio(S.dirSel === i) })), { t: 'Otra dirección', d: 'Cargar una nueva', on: () => this.setState({ dirSel: 'nueva' }), ...radio(S.dirSel === 'nueva') }] : [];
+    const dirTxt = S.sesion && S.dirSel !== 'nueva' ? (() => { const d = acc.dirs[S.dirSel] || acc.dirs[0]; return `${d[1]}, ${d[2]}`; })() : `${S.dir.linea.trim()}, ${S.dir.ciudad}`;
+    const entregaTxt = retiro ? `Retiro en ${T.retiro.t}, ${T.retiro.d}` : `${env.t} a ${dirTxt}`;
+    const entregaCuando = retiro ? T.retiro.h : env.d;
+
+    const PAG = D.PAG;
+    const NOTAS = { tarjeta: `Al pagar se abre la pantalla segura de ${T.procesa} para cargar la tarjeta y elegir las cuotas. No guardamos tu tarjeta.`, transfer: `Al confirmar te mostramos los datos de la cuenta de ${T.nombre}. El pedido se prepara cuando llega la transferencia.` };
+
+    const lineas = [...cart.lines.map(([t, v, q, p, c]) => ({ t, v, q, precio: this.gs(p * q), bg: this.bg(c), fg: '#0e1525' })), ...(cart.regalos || []).map(([t, v, c]) => ({ t, v, q: 1, precio: 'Regalo', bg: this.bg(c), fg: '#13774a' }))];
+    const filas = [['Subtotal', this.gs(sub), '#353d50'], ...cart.desc.map(([k, v]) => [k, '−' + this.gs(v), '#13774a'])];
+    if (codeD) filas.push(['Código VOLVE10', '−' + this.gs(codeD), '#13774a']);
+    filas.push(['Envío', envioConocido ? (costoEnvio ? this.gs(costoEnvio) : 'Gratis') : 'Se calcula en la entrega', '#353d50']);
+    const aplicar = () => { const ok = this.state.code.trim().toUpperCase() === 'VOLVE10' && tk === 'ts'; this.setState({ codeOk: ok, codeMsg: ok ? '' : this.state.code.trim() ? 'Ese código no existe o ya venció.' : '' }); };
+
+    const primer = (C.nombre.trim().split(' ')[0]) || '';
+    const pend = { t: 'Hacé la transferencia', d: 'El pedido se prepara cuando llega. Poné el número de pedido en el concepto.', hayQr: false, hayCodigo: false, codigo: '', hayRows: true, rows: [...T.banco, ['Monto', this.gs(total)], ['Concepto', 'Pedido 1049']].map(([k, v], i) => ({ k, v, bt: i ? '1px solid #eceef2' : '0' })) };
+    const pendiente = S.pago !== 'tarjeta';
+    const conf = { pendiente, pend, icon: pendiente ? 'hugeicons:clock-01' : 'hugeicons:checkmark-circle-02', icBg: pendiente ? '#fef6e6' : '#e9f7ef', icFg: pendiente ? '#a35a00' : '#13774a',
+      titulo: pendiente ? `Falta pagar, ${primer}. Te guardamos el pedido.` : `Listo, ${primer}. Tu pedido está confirmado.`,
+      sub: `Te mandamos el detalle a ${C.correo.trim()}` + (S.wa ? ' y te avisamos por WhatsApp cuando salga.' : '.'),
+      info: [{ t: retiro ? 'Retiro' : 'Entrega', l1: entregaCuando, l2: entregaTxt }, { t: 'Pago', l1: pendiente ? PAG[S.pago][0] : 'Visa terminada en 4242', l2: pendiente ? 'Pendiente' : `Aprobado por ${T.procesa}` }, { t: 'Factura', l1: docTxt, l2: esRuc(C.doc) ? C.razon : C.nombre }],
+      totalLbl: pendiente ? 'Total a pagar' : 'Total pagado', invitado: !S.sesion && !S.cuentaCreada, conCuenta: S.sesion || S.cuentaCreada };
+
+    const spinEl = React.createElement('iconify-icon', { icon: 'hugeicons:loading-03', style: { fontSize: '18px', animation: 'spin 1s linear infinite' } });
+
+    return {
+      tienda: { nombre: T.nombre, esTs: tk === 'ts', sinLogo: tk !== 'ts', color: T.color, url: T.url, procesa: T.procesa },
+      enCurso: !S.done, listo: S.done, flexDir: narrow ? 'column-reverse' : 'row', izqJust: narrow ? 'center' : 'flex-end',
+      derBorde: narrow ? '0' : '1px solid #eceef2', derBordeB: narrow ? '1px solid #eceef2' : '0', derPad: narrow ? '16px clamp(16px, 4vw, 48px)' : '28px clamp(16px, 4vw, 48px)', derPos: narrow ? 'static' : 'sticky',
+      angosto: narrow, verRes: !narrow || S.verRes, toggleRes: () => this.setState((s) => ({ verRes: !s.verRes })), resLbl: S.verRes ? 'Ocultar el resumen' : 'Ver el resumen', resRot: S.verRes ? 'rotate(180deg)' : 'none',
+      s1: { ...step(0), resumen: `${C.nombre.trim()} · ${C.correo.trim()} · ${C.tel.trim()} · ${docTxt}` },
+      s2: { ...step(1), resumen: `${entregaTxt} · ${entregaCuando}` },
+      s3: step(2),
+      invitado: !S.sesion, conSesion: S.sesion, entrarLbl: S.entrando ? 'Entrando…' : 'Entrar',
+      entrar: () => { if (this.state.entrando) return; this.setState({ entrando: true }); this._t = setTimeout(() => this.setState({ entrando: false, sesion: true, dirSel: 0, errs: {}, c: { correo: acc.correo, nombre: acc.nombre, tel: acc.tel, doc: acc.doc, razon: '' } }), 800); },
+      salir: () => this.setState({ sesion: false, c: { correo: '', nombre: '', tel: '', doc: '', razon: '' }, errs: {} }),
+      campos, wa: S.wa, waBd: S.wa ? '#0e1525' : '#c7ccd6', waBg: S.wa ? '#0e1525' : '#fff', toggleWa: () => this.setState((s) => ({ wa: !s.wa })),
+      seguir1: () => { const e = valC(); if (Object.keys(e).length) { this.setState({ errs: e }); return; } this.setState({ errs: {}, paso: 1 }); },
+      hayRetiro: !!T.retiro, esEnvio: !retiro, esRetiro: retiro, retiro: T.retiro || { t: '', d: '', h: '' },
+      modos: T.retiro ? [['envio', 'Envío a domicilio', 'hugeicons:delivery-truck-01'], ['retiro', 'Retiro en la tienda', 'hugeicons:store-01']].map(([k, label, icon]) => { const a = S.modo === k; return { label, icon, bd: a ? '#0e1525' : '#e1e4ea', bg: a ? '#f7f8fa' : '#fff', ic: a ? '#0e1525' : '#6f7789', on: () => this.setState({ modo: k }) }; }) : [],
+      hayDirOps: S.sesion && S.modo === 'envio', dirOps, usaForm, ciudades: D.CIUDADES,
+      dir: { linea: S.dir.linea, ciudad: S.dir.ciudad, ref: S.dir.ref, onLinea: setDir('linea'), onCiudad: setDir('ciudad'), onRef: setDir('ref'), hayErr: !!E.linea, bd: E.linea ? '#d92d20' : '#d8dce4' },
+      envOps: envs.map((e) => ({ t: e.t, d: e.d, r: e.p ? this.gs(e.p) : 'Gratis', on: () => this.setState({ envio: e.k }), ...radio(e.k === env.k) })),
+      seguir2: () => { if (usaForm && !this.state.dir.linea.trim()) { this.setState({ errs: { linea: true } }); return; } this.setState({ errs: {}, paso: 2 }); },
+      pagOps: T.pagos.map((k) => ({ t: PAG[k][0], d: PAG[k][1], icon: PAG[k][2], on: () => this.setState({ pago: k, payErr: '', errs: {} }), ...radio(S.pago === k) })),
+      pagoNota: NOTAS[S.pago] || '',
+      hayPayErr: !!S.payErr, payErr: S.payErr, procesando: S.procesando, spinEl, btnBg, btnHover, btnOp: S.procesando ? '0.8' : '1',
+      noProcesando: !S.procesando, pagarLbl: S.procesando ? 'Procesando…' : S.pago === 'tarjeta' ? 'Pago seguro y confiable' : 'Confirmar el pedido',
+      pagar: () => { if (this.state.procesando) return; if (this.state.pago === 'tarjeta') { this.setState({ prov: true, payErr: '' }); return; } this.terminar(); },
+      hayProv: !!S.prov, provCerrar: () => this.setState({ prov: false }),
+      provNo: () => this.setState({ prov: false, payErr: 'Tu banco rechazó la tarjeta. Probá con otra o elegí otro medio de pago.' }),
+      provOk: () => { this.setState({ prov: false }); this.terminar(); },
+      lineas, filas: filas.map(([k, v, fg]) => ({ k, v, fg })), total: this.gs(total), iva: this.gs(Math.round(total / 11)),
+      sinCode: !codeOk, conCode: codeOk, code: S.code, onCode: (e) => this.setState({ code: e.target.value, codeMsg: '' }), onCodeKey: (e) => { if (e.key === 'Enter') aplicar(); }, aplicarCode: aplicar, hayCodeMsg: !!S.codeMsg, codeMsg: S.codeMsg, quitarCode: () => this.setState({ codeOk: false, code: '' }),
+      conf, crearCuenta: () => { this.setState({ cuentaCreada: true }); this.flash('Listo, creamos tu cuenta Pick'); },
+      hayToast: !!S.toast, toast: S.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>

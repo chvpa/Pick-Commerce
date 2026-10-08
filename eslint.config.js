@@ -13,6 +13,9 @@ export default tseslint.config(
       '**/.wrangler/**',
       '**/node_modules/**',
       '**/*.d.ts',
+      // Referencia de diseño exportada por la herramienta del diseñador: no es
+      // código del producto y no se mantiene acá. Se recrea, no se importa.
+      'design_handoff_pick_commerce/**',
     ],
   },
   js.configs.recommended,
