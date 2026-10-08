@@ -96,6 +96,11 @@ export interface VarianteEditable {
   readonly sku: string;
   readonly title: string;
   readonly barcode?: string;
+  /**
+   * El código del ERP del comercio. Ausente al guardar es «no tocar»: el import
+   * de CSV no lo conoce. Vacío lo borra.
+   */
+  readonly internalCode?: string;
   /** En unidades mínimas, como `Money`. */
   readonly price: number;
   readonly currency: string;
@@ -131,6 +136,11 @@ export interface ProductoEditable {
   readonly id?: string;
   readonly handle: string;
   readonly title: string;
+  /**
+   * El código del modelo: lo comparten todas las variantes, y es único en la
+   * tienda. Como `internalCode`, ausente al guardar es «no tocar».
+   */
+  readonly sku?: string;
   readonly description?: string;
   readonly brand?: string;
   readonly categoryId?: string;

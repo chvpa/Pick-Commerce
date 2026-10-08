@@ -1,12 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
-import { repositorioContenido } from '@pick/adapter-supabase';
 import { Selector } from '@/components/pagina';
 import { Label } from '@/components/ui/label';
 import { BotonDeIcono, ControlDeOrden } from '@/components/acciones';
 import { XIcon } from '@/components/iconos';
-import { useTiendaActiva } from '@/features/tienda/TiendaContext';
-import { db } from '@/lib/supabase';
 import { SelectItem } from '@/components/ui/select';
+import { useCategorias } from '@/features/tienda/useCategorias';
 
 /**
  * Qué categorías muestra la sección, y en qué orden.
@@ -30,12 +27,7 @@ export function SelectorDeCategorias({
   seleccion: readonly string[];
   onChange: (ids: readonly string[]) => void;
 }) {
-  const tienda = useTiendaActiva();
-
-  const todas = useQuery({
-    queryKey: ['categorias', tienda.id],
-    queryFn: () => repositorioContenido(db).categorias(tienda.id),
-  });
+  const todas = useCategorias();
 
   const catalogo = todas.data ?? [];
   const nombreDe = new Map(catalogo.map((c) => [c.id, c.name]));

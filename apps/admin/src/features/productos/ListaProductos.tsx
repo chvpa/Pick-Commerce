@@ -8,18 +8,13 @@ import {
   useReactTable,
   type RowSelectionState,
 } from '@tanstack/react-table';
-import {
-  repositorioAdminCatalogo,
-  repositorioContenido,
-  subirImagenDeProducto,
-} from '@pick/adapter-supabase';
+import { repositorioAdminCatalogo, subirImagenDeProducto } from '@pick/adapter-supabase';
 import {
   ETIQUETA_ESTADO,
   ETIQUETA_PESTANA_PRODUCTOS,
   PESTANAS_DE_PRODUCTOS,
   STOCK_BAJO,
   formatMoney,
-  type CategoriaAdmin,
   type EstadoAlternable,
   type FiltroDeStock,
   type PestanaDeProductos,
@@ -71,6 +66,7 @@ import { limpiarFondo } from '@/lib/ia';
 import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { TOPE_POR_TANDA, limpiarFondosEnLote } from './limpieza';
+import { rutasDeCategorias, useCategorias } from '@/features/tienda/useCategorias';
 
 const POR_PAGINA = 20;
 
@@ -100,18 +96,6 @@ const STOCKS: readonly { readonly valor: FiltroDeStock; readonly etiqueta: strin
   { valor: 'pocos', etiqueta: 'Quedan pocos' },
   { valor: 'con', etiqueta: 'Con stock' },
 ];
-
-/** «Prendas › Camperas», para el filtro: la hoja sola no se distingue entre ramas. */
-function rutasDeCategorias(categorias: readonly CategoriaAdmin[]) {
-  const porId = new Map(categorias.map((c) => [c.id, c]));
-  const ruta = (c: CategoriaAdmin): string => {
-    const padre = c.parentId ? porId.get(c.parentId) : undefined;
-    return padre ? `${ruta(padre)} › ${c.name}` : c.name;
-  };
-  return categorias
-    .map((c) => ({ valor: c.id, etiqueta: ruta(c) }))
-    .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta));
-}
 
 /**
  * El catálogo, como lo dibuja el handoff (ADR-143, ADR-148).
@@ -176,10 +160,7 @@ export function ListaProductos() {
     queryFn: () => repositorioAdminCatalogo(db).resumen(tienda.id),
   });
 
-  const categorias = useQuery({
-    queryKey: ['categorias', tienda.id],
-    queryFn: () => repositorioContenido(db).categorias(tienda.id),
-  });
+  const categorias = useCategorias();
   const opcionesDeCategoria = useMemo(
     () => rutasDeCategorias(categorias.data ?? []),
     [categorias.data],

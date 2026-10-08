@@ -259,6 +259,112 @@ test('un campo que posee el ERP no se pisa al guardar', async () => {
   assert.equal(r.rows[0]!.brand, 'Otra marca');
 });
 
+/** Los tres códigos de un producto, leídos de la base. */
+async function codigos(id: string) {
+  const r = await db.query<{
+    sku: string | null;
+    internal_code: string | null;
+    barcode: string | null;
+  }>(
+    `select p.sku, v.internal_code, v.barcode from products p
+     join product_variants v on v.product_id = p.id where p.id = $1`,
+    [id],
+  );
+  return r.rows[0]!;
+}
+
+async function idDeVariante(producto: string): Promise<string> {
+  const r = await db.query<{ id: string }>(
+    `select id from product_variants where product_id = $1`,
+    [producto],
+  );
+  return r.rows[0]!.id;
+}
+
+test('los códigos se guardan cada uno en su nivel, y omitirlos no los borra', async () => {
+  const variante = {
+    sku: 'MOD-1-M',
+    title: 'M',
+    price: 1000,
+    currency: 'PYG',
+    attributes: {},
+  };
+  const id = await guardar(
+    producto('codigos', {
+      sku: 'MOD-1',
+      variants: [{ ...variante, internalCode: 'ERP-77', barcode: '7790000000017' }],
+    }),
+  );
+  assert.deepEqual(await codigos(id), {
+    sku: 'MOD-1',
+    internal_code: 'ERP-77',
+    barcode: '7790000000017',
+  });
+
+  // Un guardado que no conoce los códigos —el import de CSV— no los toca.
+  const vid = await idDeVariante(id);
+  const base = { id, handle: 'codigos', title: 'Producto codigos', status: 'draft' };
+  await guardar({ ...base, variants: [{ ...variante, id: vid, barcode: '7790000000017' }] });
+  assert.deepEqual(await codigos(id), {
+    sku: 'MOD-1',
+    internal_code: 'ERP-77',
+    barcode: '7790000000017',
+  });
+
+  // Presentes y vacíos, sí: el formulario los borró.
+  await guardar({ ...base, sku: '', variants: [{ ...variante, id: vid, internalCode: '' }] });
+  assert.deepEqual(await codigos(id), { sku: null, internal_code: null, barcode: null });
+});
+
+test('el SKU del modelo es único en la tienda', async () => {
+  await guardar(producto('modelo-a', { sku: 'MOD-UNICO' }));
+  await assert.rejects(guardar(producto('modelo-b', { sku: 'MOD-UNICO' })), /products_sku_idx/);
+});
+
+test('los códigos que posee el ERP no se pisan', async () => {
+  const id = await guardar(
+    producto('codigos-erp', {
+      sku: 'ERP-MOD',
+      variants: [
+        {
+          sku: 'SKU-CE',
+          title: 'Única',
+          price: 1000,
+          currency: 'PYG',
+          attributes: {},
+          internalCode: 'ERP-1',
+        },
+      ],
+    }),
+  );
+  await db.query(
+    `update products set field_sources = '{"sku":"ERP","internal_code":"ERP"}'::jsonb where id = $1`,
+    [id],
+  );
+
+  await guardar({
+    id,
+    handle: 'codigos-erp',
+    title: 'Producto codigos-erp',
+    status: 'draft',
+    sku: 'A MANO',
+    variants: [
+      {
+        id: await idDeVariante(id),
+        sku: 'SKU-CE',
+        title: 'Única',
+        price: 1000,
+        currency: 'PYG',
+        attributes: {},
+        internalCode: 'A MANO',
+      },
+    ],
+  });
+  const r = await codigos(id);
+  assert.equal(r.sku, 'ERP-MOD');
+  assert.equal(r.internal_code, 'ERP-1');
+});
+
 test('el listado incluye borradores y encuentra por SKU', async () => {
   // El storefront nunca ve un borrador; el Admin tiene que verlo o no habría
   // forma de terminar de cargarlo.

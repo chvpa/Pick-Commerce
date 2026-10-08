@@ -3,11 +3,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import {
-  repositorioAdminCatalogo,
-  repositorioCatalogo,
-  repositorioPromociones,
-} from '@pick/adapter-supabase';
+import { repositorioAdminCatalogo, repositorioPromociones } from '@pick/adapter-supabase';
 import { formatMoney, percentageOf, subtractMoney } from '@pick/commerce-core';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +29,7 @@ import {
   type PromocionValidada,
 } from './esquema';
 import { SelectItem } from '@/components/ui/select';
+import { useCategorias } from '@/features/tienda/useCategorias';
 
 /**
  * Alta y edición de una promoción.
@@ -54,10 +51,7 @@ export function FormularioPromocion({ id }: { id?: string }) {
     enabled: Boolean(id),
   });
 
-  const categorias = useQuery({
-    queryKey: ['categorias', tienda.id],
-    queryFn: () => repositorioCatalogo(db).categorias(tienda.id),
-  });
+  const categorias = useCategorias();
 
   // Tres parámetros como en el formulario de producto: la entrada son strings
   // —lo que el operador escribe— y la salida ya son números, que es lo que el

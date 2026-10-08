@@ -42,6 +42,7 @@ export const varianteSchema = z.object({
   sku: z.string().trim().min(1, 'El SKU es obligatorio'),
   title: z.string().trim().min(1, 'La variante necesita un nombre'),
   barcode: z.string().trim().optional(),
+  internalCode: z.string().trim().optional(),
   precio: z
     .string()
     .trim()
@@ -62,6 +63,8 @@ export const varianteSchema = z.object({
 export const productoSchema = z.object({
   id: z.string().optional(),
   title: z.string().trim().min(1, 'El título es obligatorio'),
+  // El código del modelo: opcional, y único en la tienda (lo controla la base).
+  sku: z.string().trim().optional(),
   handle: z
     .string()
     .trim()
@@ -110,6 +113,12 @@ export function productoParaGuardar(
     ...(valores.id ? { id: valores.id } : {}),
     handle: valores.handle,
     title: valores.title,
+    /*
+     * Siempre, aunque esté vacío: la base escribe el código sólo si la clave
+     * viene, y vacío es «lo borraron». El import de CSV no pasa por acá y por
+     * eso no los toca.
+     */
+    sku: valores.sku ?? '',
     ...(valores.description ? { description: valores.description } : {}),
     ...(valores.brand ? { brand: valores.brand } : {}),
     ...(valores.categoryId ? { categoryId: valores.categoryId } : {}),
@@ -119,6 +128,7 @@ export function productoParaGuardar(
       sku: v.sku,
       title: v.title,
       ...(v.barcode ? { barcode: v.barcode } : {}),
+      internalCode: v.internalCode ?? '',
       // El operador escribe en unidades mayores; el catálogo guarda mínimas.
       price: money(v.precio, moneda).amount,
       currency: moneda,

@@ -25,8 +25,8 @@ import type { PickSupabaseClient } from './client.ts';
  * escribir, así que un viewer recibe un error de la base, no de la interfaz.
  * Ver ADR-052.
  */
-const SELECT_COMPLETO = `id, handle, title, description, brand, category_id, status, field_sources,
-   product_variants(id, sku, title, barcode, price, currency, compare_at_price, cost,
+const SELECT_COMPLETO = `id, handle, title, sku, description, brand, category_id, status, field_sources,
+   product_variants(id, sku, title, barcode, internal_code, price, currency, compare_at_price, cost,
                     attributes, position, inventory_levels(location_id, available)),
    product_media(url, alt, width, height, position)`;
 
@@ -35,6 +35,7 @@ function aProductoEditable(data: {
   id: string;
   handle: string;
   title: string;
+  sku: string | null;
   description: string | null;
   brand: string | null;
   category_id: string | null;
@@ -44,6 +45,7 @@ function aProductoEditable(data: {
     sku: string;
     title: string;
     barcode: string | null;
+    internal_code: string | null;
     price: number;
     currency: string;
     compare_at_price: number | null;
@@ -61,6 +63,7 @@ function aProductoEditable(data: {
     id: data.id,
     handle: data.handle,
     title: data.title,
+    ...(data.sku ? { sku: data.sku } : {}),
     ...(data.description ? { description: data.description } : {}),
     ...(data.brand ? { brand: data.brand } : {}),
     ...(data.category_id ? { categoryId: data.category_id } : {}),
@@ -70,6 +73,7 @@ function aProductoEditable(data: {
       sku: v.sku,
       title: v.title,
       ...(v.barcode ? { barcode: v.barcode } : {}),
+      ...(v.internal_code ? { internalCode: v.internal_code } : {}),
       price: v.price,
       currency: v.currency,
       ...(v.compare_at_price === null ? {} : { compareAtPrice: v.compare_at_price }),
@@ -401,7 +405,15 @@ export function repositorioAdminCatalogo(db: PickSupabaseClient): RepositorioAdm
         p_producto: producto as unknown as Json,
       });
 
-      if (error) throw new Error(`No se pudo guardar el producto: ${error.message}`);
+      if (error) {
+        // El único índice único que una persona puede chocar desde la ficha:
+        // dos productos con el mismo código de modelo son el mismo, cargado dos
+        // veces. El mensaje de Postgres nombra el índice, no el problema.
+        if (error.code === '23505' && error.message.includes('products_sku_idx')) {
+          throw new Error(`Ya hay otro producto con el SKU «${producto.sku ?? ''}» en esta tienda`);
+        }
+        throw new Error(`No se pudo guardar el producto: ${error.message}`);
+      }
       return data as unknown as string;
     },
 

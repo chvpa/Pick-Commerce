@@ -7439,3 +7439,67 @@ producto. «Quedan pocos» es hasta 5 unidades, en la base y en la pantalla.
 contra la lista, el «se ven» contra el catálogo, el orden, la categoría con sus
 hijas, los filtros, el corte de página y el aislamiento. El e2e `productos.spec.ts`
 filtra por stock en el servidor y recorre las dos bandas hasta sus pantallas.
+
+## ADR-149 — La ficha del producto: tres códigos, variantes en tabla y en diálogo
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+La ficha era una columna de tarjetas: datos, variantes con todos sus campos uno
+debajo del otro, e imágenes con su URL, ancho y alto a la vista. El handoff
+(ADR-143) la ordena en dos columnas —lo que el producto es, a la izquierda; cómo
+se organiza, a la derecha—, con el título del producto como encabezado, un
+interruptor de publicado, las fotos en grilla, «Precio y stock» cuando hay una
+sola variante, una tabla cuando hay varias, la vista de Google y una barra de
+«Cambios sin guardar».
+
+**Los tres códigos, cada uno en su nivel**
+El SKU del producto es `products.sku`, el código del modelo, que lo comparten
+todas las variantes y es único en la tienda. Cada variante muestra los suyos: su
+SKU, que es obligatorio y es su identidad en el carrito y en la búsqueda; el
+código interno, que es el del sistema de gestión; y el de barras. Es el modelo
+que dejó la migración de los códigos del ERP. El handoff llama «código interno» a
+lo que acá es el SKU de la variante, y no se lo copió: tres códigos con dos
+nombres harían que el del ERP no tuviera dónde ir.
+
+Las columnas existían; `admin_save_product` no escribía el SKU del producto ni
+el código interno. Ahora sí, **sólo si el payload los trae** —el import de CSV
+no los conoce, y omitirlos no es borrarlos— y nunca si el campo es del ERP. Un
+SKU repetido dice cuál, en vez del nombre del índice.
+
+**Una variante o varias**
+Con una sola, precio, costo, stock y códigos son campos de la ficha, el nombre no
+se pide —es «Única»— y se ve el margen. Con varias, la tabla edita lo de todos los
+días —precio, costo y stock con − y +—, «Para todas» copia un precio o un costo a
+todas las filas, y el resto va en el diálogo de cada una. Los campos que aparecen
+en la fila y en el diálogo son controlados: dos inputs con `register` sobre el
+mismo campo no se enteran uno del otro.
+
+**Lo que se mantuvo**
+Guardar sigue volviendo a la lista. Las sugerencias de la IA siguen en su
+tarjeta (ADR-104). El estado sigue eligiéndose entre los cuatro en
+«Organización»; el interruptor del encabezado es un atajo entre publicado y
+oculto, y se guarda con el resto.
+
+**La vista de Google dice lo que el storefront publica**
+El título con el nombre de la tienda y la descripción, o la frase que se usa
+cuando no hay. La URL se edita ahí, y está abierta en un producto nuevo, que es
+cuando se decide.
+
+**De paso, una clave con dos dueños**
+Siete pantallas pedían las categorías con la misma clave de React Query y dos
+funciones distintas: una traía el padre y la otra no. La caché guarda una sola
+respuesta por clave, así que cada pantalla recibía la de la que hubiera cargado
+primero. Ahora es un hook, `useCategorias`, con una función.
+
+**Lo que no entra**
+La franja de auditoría es de la Fase 3; el modelo y las características, de la
+Fase 4, que es donde tiene sentido el generador de variantes por eje del
+handoff. Duplicar, la variante «activa» —no hay columna— y las colecciones en
+la ficha quedan pendientes. «Crear fotos en Studio» es de la Fase 10.
+
+**Consecuencias**
+`admin-catalogo.test.ts` prueba los códigos en su nivel, que omitirlos no los
+borra, el SKU único y el bloqueo del ERP. El e2e edita una variante en el
+diálogo y la ve en la fila, usa «Para todas» y descarta.

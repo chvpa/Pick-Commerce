@@ -42,7 +42,8 @@ test.describe('Descripciones', () => {
 
     // Y mientras nadie apruebe, el producto sigue sin descripción.
     await page.goto(`${ADMIN}/productos/${PROPUESTA_E2E.productoId}`);
-    await expect(page.getByRole('heading', { name: 'Editar producto' })).toBeVisible({
+    // El título de la ficha es el del producto, como en el handoff.
+    await expect(page.getByRole('heading', { name: PROPUESTA_E2E.title })).toBeVisible({
       timeout: 15_000,
     });
     await expect(page.getByLabel('Descripción')).toHaveValue('');
@@ -65,7 +66,8 @@ test.describe('Descripciones', () => {
     await expect(tarjeta).toHaveCount(0, { timeout: 15_000 });
 
     await page.goto(`${ADMIN}/productos/${PROPUESTA_E2E.productoId}`);
-    await expect(page.getByRole('heading', { name: 'Editar producto' })).toBeVisible({
+    // El título de la ficha es el del producto, como en el handoff.
+    await expect(page.getByRole('heading', { name: PROPUESTA_E2E.title })).toBeVisible({
       timeout: 15_000,
     });
     await expect(page.getByLabel('Descripción')).toHaveValue(DESCRIPCION_E2E.texto);

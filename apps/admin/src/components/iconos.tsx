@@ -75,6 +75,7 @@ import {
   WhatsappIcon as Whatsapp,
   Archive02Icon as Archive02,
   ViewIcon as View,
+  PencilEdit02Icon as PencilEdit02,
 } from '@hugeicons/core-free-icons';
 
 /**
@@ -188,3 +189,5 @@ export const WhatsappIcon = icono(Whatsapp);
 /** Archivar: sale de la tienda y se conserva. No es borrar. */
 export const ArchiveIcon = icono(Archive02);
 export const EyeIcon = icono(View);
+/** Editar algo en su lugar: una variante. */
+export const EditarIcon = icono(PencilEdit02);

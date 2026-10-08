@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Papa from 'papaparse';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { repositorioAdminCatalogo, repositorioCatalogo } from '@pick/adapter-supabase';
+import { repositorioAdminCatalogo } from '@pick/adapter-supabase';
 import type { ResultadoImport } from '@pick/commerce-core';
 import { Button } from '@/components/ui/button';
 import { PaginaAdmin, Selector, Tarjeta, TituloDeTarjeta } from '@/components/pagina';
@@ -26,6 +26,7 @@ import {
   type Fila,
   type Preparado,
 } from './csv';
+import { useCategorias } from '@/features/tienda/useCategorias';
 
 /**
  * Cuántos productos por llamada.
@@ -57,10 +58,7 @@ export function ImportarProductos() {
   const [sucursal, setSucursal] = useState<string | undefined>(undefined);
   const elegida = sucursal ?? unica ?? sucursales[0]?.id;
 
-  const categorias = useQuery({
-    queryKey: ['categorias', tienda.id],
-    queryFn: () => repositorioCatalogo(db).categorias(tienda.id),
-  });
+  const categorias = useCategorias();
 
   // Para decir qué se crea y qué se actualiza hace falta saber qué existe. El
   // listado ya pagina, así que se piden los handles de a páginas grandes.

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { repositorioAdminCatalogo, repositorioCatalogo } from '@pick/adapter-supabase';
+import { repositorioAdminCatalogo } from '@pick/adapter-supabase';
 import type { PropuestaDeDescripcion } from '@pick/commerce-core';
 import { SparklesIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { enriquecerProducto } from '@/lib/ia';
 import { db } from '@/lib/supabase';
 import { TOPE_POR_TANDA, enLote } from './lote';
+import { useCategorias } from '@/features/tienda/useCategorias';
 
 const POR_PAGINA = 10;
 
@@ -61,10 +62,7 @@ export function Descripciones() {
     placeholderData: keepPreviousData,
   });
 
-  const categorias = useQuery({
-    queryKey: ['categorias', tienda.id],
-    queryFn: () => repositorioCatalogo(db).categorias(tienda.id),
-  });
+  const categorias = useCategorias();
 
   const refrescar = async () => {
     setMarcadas([]);

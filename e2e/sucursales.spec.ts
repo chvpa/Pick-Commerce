@@ -75,7 +75,6 @@ test.describe('Sucursales', () => {
     await expect(page.getByLabel('Título')).toBeVisible({ timeout: 30_000 });
     await page.getByLabel('Título').fill(titulo);
     await page.getByLabel('URL').fill(handle);
-    await page.locator('input[name="variantes.0.title"]').fill('Única');
     await page.locator('input[name="variantes.0.sku"]').fill(handle.toUpperCase());
     await page.locator('input[name="variantes.0.precio"]').fill('50000');
 

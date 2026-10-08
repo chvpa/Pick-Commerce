@@ -48,7 +48,7 @@ test('sin credencial de IA, el alta con la cámara igual carga el producto', asy
 
   /*
    * El título dice dónde está. Sin su ruta propia, `/productos/camara` cae en la
-   * de `/productos/$id` y la pantalla dice «Editar producto»: lo encontró esta
+   * de `/productos/$id` y la pantalla decía «Editar producto»: lo encontró esta
    * misma prueba, mirando la página cuando falló por otra cosa.
    */
   await expect(page.getByRole('heading', { name: 'Cargar con la cámara', level: 1 })).toBeVisible();
@@ -106,8 +106,7 @@ test('sin credencial de IA, el alta con la cámara igual carga el producto', asy
   await expect(fila.locator('img').first()).toBeVisible();
 
   await fila.getByRole('link').first().click();
-  await expect(page.getByRole('heading', { name: 'Editar producto' })).toBeVisible({
-    timeout: 15_000,
-  });
-  await expect(page.getByRole('textbox', { name: 'SKU' })).toHaveCount(2);
+  // La ficha se titula con el producto, y con dos variantes las muestra en tabla.
+  await expect(page.getByRole('heading', { name: NOMBRE })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: /^Editar la variante/ })).toHaveCount(2);
 });

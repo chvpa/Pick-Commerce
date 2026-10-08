@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    10% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    11% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1826,7 +1826,7 @@ notificaciones, la ayuda y el uso de IA alrededor del avatar— llega con su fas
 
 ## Fase 2 — Las pantallas del Admin, sobre lo que ya existe
 
-**Avance: 33%**
+**Avance: 42%**
 
 Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
@@ -1848,9 +1848,11 @@ Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
       de la misma lista que llevan a sus pantallas de trabajo, filtros por
       categoría, marca y stock, y cuántos se ven en la tienda con la regla del
       storefront (ADR-148). Las dos pantallas salieron del sidebar.
-- [ ] Editar producto: el layout nuevo, SKU por producto, código interno y de
-      barras por variante —las columnas existen—, variantes en un popup y la vista
-      de Google.
+- [x] Editar producto: el layout nuevo en dos columnas, el SKU del modelo y el
+      código interno y de barras de cada variante, «Precio y stock» con una sola
+      variante y tabla con «Para todas» y diálogo con varias, fotos en grilla, la
+      vista de Google y la barra de cambios sin guardar (ADR-149). Quedan Duplicar,
+      la variante activa y las colecciones en la ficha.
 - [ ] Clientes y Cliente: los nuevos por mes, los segmentos RFM como pestañas y la
       ficha con sus puntos.
 - [ ] Reseñas y Fidelidad.
@@ -2380,6 +2382,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-08 | **v3 Fase 2: Pedidos** (ADR-146). Pestañas que cruzan estado y pago, con una sola definición de cada una en `app.pedido_en_bandeja` —la usan la lista, el conteo y el «Para hacer» del Inicio, que no pueden contar distinto—. Filtros de pago y fecha, búsqueda por ciudad, elegir varios y marcarlos pagados o pasarlos a preparación pasando por las mismas funciones que el cambio de a uno, y exportar. La firma nueva de `admin_orders` no rompe al Admin desplegado. De paso: «Preparar» en lote ya no lleva atrás lo que salió, y en el teléfono la fila muestra el estado y la barra del lote entra                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v3 Fase 2 |           8% |            17% |
 | 2026-10-08 | **v3 Fase 2: el detalle de pedido** (ADR-147). Una sola próxima acción según el estado y el pago, que promete un correo sólo en los pasos que lo mandan; la barra de pasos, las líneas con la foto del catálogo de hoy, el cliente con WhatsApp por `wa.me` y correo, el historial plegado con notas —una fila de `order_events` por RLS, sin función nueva—, el anterior y el siguiente de la página de la lista, e imprimir. El teléfono se normaliza con la regla del checkout, que pasó al core junto con las etiquetas de los medios de pago                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | v3 Fase 2 |          17% |            25% |
 | 2026-10-08 | **v3 Fase 2: Productos** (ADR-148). Pestañas con su conteo —todos, publicados, borradores, sin foto, stock quieto, archivados— definidas una vez en `app.producto_en_pestana` sobre señales contadas por join; «sin foto» y «stock quieto» pasan a ser bandas que llevan a sus pantallas, que salen del sidebar. Filtros por categoría con sus hijas, marca y stock, «se ven en la tienda» con la regla de `catalog_search` y un test que compara las dos cuentas, y el corte de página antes de armar las filas. La barra de lote de Pedidos pasa a ser compartida                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | v3 Fase 2 |          25% |            33% |
+| 2026-10-08 | **v3 Fase 2: la ficha del producto** (ADR-149). Dos columnas con el título del producto arriba y el interruptor de publicado; el SKU del modelo, el código interno y el de barras de cada variante —`admin_save_product` escribía sólo el de barras, y ahora los otros dos si vienen y si no son del ERP—; «Precio y stock» con una sola variante, tabla con «Para todas» y diálogo con varias; fotos en grilla y la vista de Google. De paso: siete pantallas compartían la clave de las categorías con dos funciones distintas, y la caché le daba a cada una la que hubiera cargado primero                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | v3 Fase 2 |          33% |            42% |
 
 ---
 

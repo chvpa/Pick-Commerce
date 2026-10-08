@@ -1,11 +1,7 @@
 import { useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import {
-  repositorioAdminCatalogo,
-  repositorioCatalogo,
-  subirImagenDeProducto,
-} from '@pick/adapter-supabase';
+import { repositorioAdminCatalogo, subirImagenDeProducto } from '@pick/adapter-supabase';
 import { skuSugerido, slugify } from '@pick/commerce-core';
 import { CameraIcon, SparklesIcon, Trash2Icon } from '@/components/iconos';
 import { Campo } from '@/components/campo';
@@ -22,6 +18,7 @@ import { db } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { variantesDelAlta } from './alta';
 import { productoParaGuardar, productoSchema } from './esquema';
+import { useCategorias } from '@/features/tienda/useCategorias';
 
 /**
  * Cargar mercadería nueva con la cámara (v2 Fase 6, ADR-131).
@@ -108,10 +105,7 @@ export function CargarConCamara() {
   const [errorDeGuardado, setErrorDeGuardado] = useState<string | null>(null);
   const [guardado, setGuardado] = useState<string | null>(null);
 
-  const categorias = useQuery({
-    queryKey: ['categorias', tienda.id],
-    queryFn: () => repositorioCatalogo(db).categorias(tienda.id),
-  });
+  const categorias = useCategorias();
 
   /*
    * `settings.write` y no `catalog.write`: el alta gasta la clave de OpenAI del

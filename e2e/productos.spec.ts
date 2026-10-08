@@ -54,3 +54,43 @@ test('las pestañas y los filtros van al servidor, y las bandas llevan a su pant
 
   expect(problemas).toEqual([]);
 });
+
+test('la ficha edita las variantes en la fila y en su diálogo, y descartar vuelve atrás', async ({
+  page,
+}) => {
+  const problemas = vigilar(page);
+  await entrar(page);
+  await page.goto(`${ADMIN}/productos`);
+  await page.getByRole('link', { name: 'Campera cortaviento' }).click();
+
+  // Cuatro variantes: tabla, no «Precio y stock».
+  const editar = page.getByRole('button', { name: /^Editar la variante/ });
+  await expect(editar).toHaveCount(4, { timeout: 15_000 });
+  await expect(page.getByRole('region', { name: 'Cambios sin guardar' })).toHaveCount(0);
+
+  const costos = page.locator('input[name$=".costo"]');
+  const antes = await costos.first().inputValue();
+
+  // «Para todas» copia el costo a todas las filas, y aparece la barra de guardar.
+  if (await page.getByRole('textbox', { name: 'Costo para todas las variantes' }).isVisible()) {
+    await page.getByRole('textbox', { name: 'Costo para todas las variantes' }).fill('123');
+    await page.getByRole('button', { name: 'Aplicar' }).click();
+    await expect(costos.nth(3)).toHaveValue('123');
+  }
+
+  // El diálogo y la fila muestran el mismo campo: lo escrito en uno se ve en el otro.
+  await editar.first().click();
+  const dialogo = page.getByRole('dialog');
+  await dialogo.getByRole('textbox', { name: /^Nombre/ }).fill('Azul / M editada');
+  await page.keyboard.press('Escape');
+  await expect(page.getByText('Azul / M editada')).toBeVisible();
+
+  // Descartar devuelve lo que había, y la barra se va.
+  const barra = page.getByRole('region', { name: 'Cambios sin guardar' });
+  await barra.getByRole('button', { name: 'Descartar' }).click();
+  await expect(barra).toHaveCount(0);
+  await expect(page.getByText('Azul / M editada')).toHaveCount(0);
+  await expect(costos.first()).toHaveValue(antes);
+
+  expect(problemas).toEqual([]);
+});
