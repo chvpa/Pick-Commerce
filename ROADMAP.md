@@ -1828,6 +1828,9 @@ notificaciones, la ayuda y el uso de IA alrededor del avatar— llega con su fas
 
 **Avance: 100%**
 
+Cerrada el 2026-10-08: la suite e2e completa en verde —193 pasan, 12 se saltean
+por correr en un solo proyecto— y el Admin y Treeshop desplegados.
+
 Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
 - [x] Inicio: los números del período, «Para hacer» ordenado por urgencia —avisos
