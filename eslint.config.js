@@ -32,7 +32,23 @@ export default tseslint.config(
   {
     files: ['apps/admin/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
-    rules: reactHooks.configs.recommended.rules,
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      /*
+       * Apagada con motivo: **el compilador de React no está activo** en el Admin.
+       * `@vitejs/plugin-react` lo trae apagado y `vite.config.ts` lo usa sin
+       * opciones; verificado sobre el artefacto, no hay rastro del runtime del
+       * compilador en ningún chunk. Esta regla avisa que el compilador «saltea»
+       * `ListaProductos` por TanStack Table, y el aviso salía en cada corrida
+       * hablando de algo que no corre. Las demás reglas de `react-hooks` siguen
+       * prendidas porque valen solas —el `setState` dentro de un efecto encadena
+       * renders con o sin compilador—.
+       *
+       * Si algún día se activa el compilador, esta línea se borra: ahí el aviso
+       * pasa a decir algo cierto.
+       */
+      'react-hooks/incompatible-library': 'off',
+    },
   },
   {
     files: ['**/*.config.{js,ts,mjs}', '**/*.cjs'],

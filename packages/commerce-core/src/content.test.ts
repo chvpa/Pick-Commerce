@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { categoriasDe, categoriasDeLaSeccion, columnasDe, moverEn, tipoDe } from './content.ts';
+import {
+  categoriasDe,
+  categoriasDeLaSeccion,
+  columnasDe,
+  moverEn,
+  productosDe,
+  tipoDe,
+} from './content.ts';
 
 test('mover cambia el orden sin tocar la lista original', () => {
   const original = ['a', 'b', 'c', 'd'];
@@ -30,6 +37,19 @@ test('las columnas fuera de rango caen al defecto', () => {
   assert.equal(columnasDe({ columns: 2.5 }), 2);
   assert.equal(columnasDe({}), 2);
   assert.equal(columnasDe({ columns: '3' }), 3);
+});
+
+test('la cantidad de productos de un carrusel se acota, y sin dato son ocho', () => {
+  // Lo que pidió Treeshop: diez en su vitrina, sin cambiarle el carrusel a nadie.
+  assert.equal(productosDe({ limit: 10 }), 10);
+  assert.equal(productosDe({ limit: '12' }), 12);
+  // Sin dato, lo de siempre: las secciones que ya existían no cambian.
+  assert.equal(productosDe({}), 8);
+  // Fuera de rango, el default: un jsonb con 500 le pediría la tienda entera a
+  // la portada.
+  assert.equal(productosDe({ limit: 500 }), 8);
+  assert.equal(productosDe({ limit: 0 }), 8);
+  assert.equal(productosDe({ limit: 7.5 }), 8);
 });
 
 test('una colección con reglas es dinámica', () => {

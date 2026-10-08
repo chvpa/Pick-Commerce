@@ -262,8 +262,8 @@ export function FormularioProducto({ id }: { id?: string }) {
   // El handle se propone desde el título mientras nadie lo haya tocado: es la
   // URL pública del producto y cambiarla después rompe los enlaces que ya
   // circulan, así que se propone una vez y no se vuelve a pisar.
-  // `useWatch` y no `watch()`: el compilador de React no puede memoizar la
-  // función que devuelve `useForm`, y saltea el componente entero por eso.
+  // `useWatch` y no `watch()`: `watch()` suscribe el formulario entero y lo
+  // vuelve a dibujar con cada tecla; `useWatch` escucha sólo este campo.
   const title = useWatch({ control, name: 'title' });
   useEffect(() => {
     if (id !== undefined) return;

@@ -95,7 +95,7 @@ export function FormularioColeccion({ id }: { id?: string }) {
    * Los campos se montan **con** el dato, no vacíos y rellenados después.
    *
    * El primer intento usaba un efecto que hacía `setState` al llegar la
-   * consulta, y el compilador de React lo rechaza con razón: eso encadena
+   * consulta, y la regla de `react-hooks` lo rechaza con razón: eso encadena
    * renders, y acá además hay un momento —corto pero real— en el que el
    * formulario muestra valores vacíos sobre una colección que sí existe.
    * Separando la carga del formulario, el estado inicial ya es el correcto.

@@ -74,11 +74,11 @@ const columna = createColumnHelper<ResumenProducto>();
  * ADR-060 dejó escrito que la tabla entraba cuando apareciera la selección
  * múltiple. Apareció acá, y no se migró la de pedidos: no la necesita.
  *
- * Tiene un costo declarado: el compilador de React **no memoiza** este
- * componente, porque `useReactTable` devuelve funciones que no se pueden
- * memoizar sin arriesgar UI vieja. El lint lo avisa y el aviso queda. Con
- * veinte filas por página no se nota; si alguna vez se notara, la salida es
- * virtualizar, no pelearse con el compilador.
+ * `useReactTable` devuelve funciones que un compilador no puede memoizar sin
+ * arriesgar interfaz vieja. Hoy no importa: **el compilador de React no está
+ * activo** en el Admin, y la regla de lint que lo avisaba está apagada con ese
+ * motivo en `eslint.config.js`. Con veinte filas por página no se nota; si
+ * alguna vez se notara, la salida es virtualizar.
  */
 export function ListaProductos() {
   const tienda = useTiendaActiva();

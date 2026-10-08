@@ -115,8 +115,8 @@ export function FormularioPromocion({ id }: { id?: string }) {
   const codigo = useWatch({ control, name: 'code' });
   const minSubtotal = useWatch({ control, name: 'minSubtotal' });
   const minQuantity = useWatch({ control, name: 'minQuantity' });
-  // `useWatch` y no `formulario.watch()`: el segundo devuelve una función que el
-  // compilador de React no puede memoizar, y lo marca el lint.
+  // `useWatch` y no `formulario.watch()`: el segundo vuelve a dibujar el
+  // formulario entero con cada tecla; `useWatch` escucha sólo su campo.
   const combina = useWatch({ control, name: 'stackable' });
   /*
    * Los desplegables ya no son `<select>` nativos, así que `register` no

@@ -1,7 +1,7 @@
 import {
-  PRODUCTOS_POR_SECCION,
   categoriasDe,
   columnasDe,
+  productosDe,
   type Banner,
   type CatalogQuery,
   type CatalogSort,
@@ -211,7 +211,7 @@ export function repositorioCatalogo(db: PickSupabaseClient): RepositorioCatalogo
               productos: await this.porColeccion(
                 storeId,
                 coleccion.handle,
-                PRODUCTOS_POR_SECCION,
+                productosDe(settings),
                 (coleccion.sort as CatalogSort | null) ?? undefined,
                 prefiere,
               ),

@@ -315,8 +315,27 @@ export type SeccionResuelta =
 /** Lo que un carrusel de la home necesita de un producto. Es `Product`. */
 export type ProductoDeSeccion = import('@pick/commerce-types').Product;
 
-/** Cuántos productos entran en un carrusel de la home. */
+/**
+ * Cuántos productos entran en un carrusel de la home **si la sección no dice
+ * otra cosa**. Era una constante para todas las tiendas, y Treeshop pidió diez:
+ * cambiarla le cambiaba el carrusel a cualquier otra. Ahora cada sección lo
+ * declara en `settings.limit` y esto es el default (`productosDe`).
+ */
 export const PRODUCTOS_POR_SECCION = 8;
+
+/** El tope de un carrusel: más que esto es un catálogo, no una vitrina. */
+export const MAXIMO_POR_SECCION = 24;
+
+/** Cuántos productos muestra una sección de productos, acotado. */
+export function productosDe(
+  settings: Readonly<Record<string, string | number | boolean | readonly string[]>>,
+): number {
+  const crudo = settings.limit;
+  const n = typeof crudo === 'number' ? crudo : Number(crudo);
+  // Igual que las columnas: viene de un jsonb, así que fuera de rango o ausente
+  // cae al default en vez de pedirle al catálogo 500 productos para la portada.
+  return Number.isInteger(n) && n >= 1 && n <= MAXIMO_POR_SECCION ? n : PRODUCTOS_POR_SECCION;
+}
 
 /** Columnas por defecto de un bloque de mosaicos. */
 export const COLUMNAS_POR_DEFECTO = 2;

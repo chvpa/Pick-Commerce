@@ -4,10 +4,13 @@ import { useNavigate } from '@tanstack/react-router';
 import { repositorioContenido } from '@pick/adapter-supabase';
 import {
   COLUMNAS_POR_DEFECTO,
+  MAXIMO_POR_SECCION,
+  PRODUCTOS_POR_SECCION,
   TOPE_DE_COLECCIONES,
   categoriasDe,
   columnasDe,
   moverEn,
+  productosDe,
   type Banner,
   type LayoutDeSeccion,
   type SeccionDeHome,
@@ -147,6 +150,9 @@ function Campos({
   const [columns, setColumns] = useState(
     String(inicial ? columnasDe(inicial.settings) : COLUMNAS_POR_DEFECTO),
   );
+  const [limit, setLimit] = useState(
+    String(inicial ? productosDe(inicial.settings) : PRODUCTOS_POR_SECCION),
+  );
   const [collectionId, setCollectionId] = useState(inicial?.collectionId ?? '');
   const [categoryIds, setCategoryIds] = useState<readonly string[]>(
     inicial ? categoriasDe(inicial.settings) : [],
@@ -180,7 +186,9 @@ function Campos({
               ? { columns: Number(columns) || COLUMNAS_POR_DEFECTO }
               : type === 'categories'
                 ? { categoryIds }
-                : {},
+                : type === 'products'
+                  ? { limit: Number(limit) || PRODUCTOS_POR_SECCION }
+                  : {},
           ...(type === 'products' && collectionId ? { collectionId } : {}),
           position,
           published,
@@ -260,6 +268,28 @@ function Campos({
                   {(colecciones.data?.items ?? []).map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.title}
+                    </SelectItem>
+                  ))}
+                </Selector>
+              </Campo>
+            )}
+
+            {/*
+          Cuántos productos muestra el carrusel. Era una constante del core —ocho,
+          para todas las tiendas— y Treeshop pidió diez. Un número por sección y
+          no por tienda: una vitrina de novedades y una de ofertas no tienen por
+          qué medir lo mismo.
+        */}
+            {type === 'products' && (
+              <Campo
+                id="limit"
+                label="Cuántos productos"
+                ayuda={`Hasta ${MAXIMO_POR_SECCION}. Si la colección tiene menos, se muestran los que haya.`}
+              >
+                <Selector id="limit" value={limit} onValueChange={(valor) => setLimit(valor)}>
+                  {[4, 6, 8, 10, 12, 16, 20, 24].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
                     </SelectItem>
                   ))}
                 </Selector>
