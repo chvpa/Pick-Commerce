@@ -118,6 +118,10 @@ function MenuDeCuenta() {
               <span className="text-foreground truncate text-[13.5px] font-medium">
                 {nombre ?? correo}
               </span>
+              {/* Con nombre, el correo sigue a la vista: es con qué cuenta se entró. */}
+              {nombre && (
+                <span className="text-muted-foreground truncate text-xs font-normal">{correo}</span>
+              )}
               <span className="text-muted-foreground truncate text-xs font-normal">
                 {rol ? ETIQUETA_ROL[rol] : 'Sin rol'}
                 {tienda ? ` · ${tienda.name}` : ''}

@@ -1,13 +1,24 @@
 import { useState, type FormEvent } from 'react';
+import { ArrowLeftIcon, CheckCircleIcon, MailIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { Acceso } from './Acceso';
+import { REGLAS_DE_CONTRASENA, contrasenaValida } from './contrasena';
 import { useSesion } from './SesionContext';
 
-/**
- * Estilo compartido con el login: son la misma pantalla en dos estados.
- */
-const CAMPO =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm ' +
-  'focus-visible:outline-2 focus-visible:outline-offset-[-1px] focus-visible:outline-ring';
+function Volver({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-ink-3 hover:text-foreground flex cursor-pointer items-center gap-1.5 self-center text-[13.5px] font-medium"
+    >
+      <ArrowLeftIcon className="size-4" />
+      Volver a ingresar
+    </button>
+  );
+}
 
 /**
  * Pedir el correo de recuperación.
@@ -38,57 +49,53 @@ export function Recuperar({ alVolver }: { alVolver: () => void }) {
     }
   }
 
-  if (enviado) {
-    return (
-      <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">Revisá tu correo</h1>
-          <p className="text-muted-foreground text-sm">
-            Si <strong className="text-foreground font-medium">{email}</strong> tiene acceso al
-            Admin, le mandamos un enlace para elegir una contraseña nueva. Puede tardar unos
-            minutos.
-          </p>
-        </div>
-        <Button variant="outline" onClick={alVolver}>
-          Volver a ingresar
-        </Button>
-      </main>
-    );
-  }
-
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
-      <div className="flex flex-col gap-1">
-        <p className="text-muted-foreground text-sm">Pick Commerce</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Recuperar el acceso</h1>
-      </div>
-
-      <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="email-recuperar" className="text-sm font-medium">
-            Correo
-          </label>
-          <input
-            id="email-recuperar"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            required
-            disabled={enviando}
-            className={CAMPO}
-          />
+    <Acceso titulo="Recuperar contraseña" subtitulo="Te mandamos un enlace para elegir una nueva.">
+      {enviado ? (
+        <div className="flex flex-col gap-5">
+          <p
+            role="status"
+            className="text-ink-2 flex items-start gap-3 rounded-xl bg-[#f4f6fb] px-4 py-3.5 text-[13.5px]"
+          >
+            <MailIcon className="mt-0.5 size-[18px] shrink-0 text-[#3b5bdb]" />
+            <span>
+              Si <strong className="text-foreground font-semibold">{email}</strong> tiene una
+              cuenta, te llega un enlace en unos minutos. Revisá también el correo no deseado.
+            </span>
+          </p>
+          <Volver onClick={alVolver} />
         </div>
+      ) : (
+        <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="email-recuperar" className="text-[13.5px] font-medium">
+              Correo
+            </label>
+            <Input
+              id="email-recuperar"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              required
+              disabled={enviando}
+              className="h-10"
+            />
+          </div>
 
-        <Button type="submit" disabled={enviando} aria-busy={enviando}>
-          {enviando ? 'Enviando…' : 'Enviarme el enlace'}
-        </Button>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={enviando || email.trim() === ''}
+            aria-busy={enviando}
+          >
+            {enviando ? 'Enviando…' : 'Enviar enlace'}
+          </Button>
 
-        <Button type="button" variant="ghost" onClick={alVolver}>
-          Volver
-        </Button>
-      </form>
-    </main>
+          <Volver onClick={alVolver} />
+        </form>
+      )}
+    </Acceso>
   );
 }
 
@@ -97,7 +104,8 @@ export function Recuperar({ alVolver }: { alVolver: () => void }) {
  *
  * Se llega acá con una sesión ya abierta: el enlace del correo la abrió, y esa
  * es la prueba de identidad. Por eso no se pide la contraseña anterior — quien
- * la olvidó no la tiene.
+ * la olvidó no la tiene. Lo que se pide se ve mientras se escribe, en vez de
+ * aparecer como un error al final.
  */
 export function NuevaPassword() {
   const { cambiarPassword, salir } = useSesion();
@@ -106,19 +114,12 @@ export function NuevaPassword() {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const noCoinciden = repetida !== '' && password !== repetida;
+  const lista = contrasenaValida(password) && password === repetida;
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (enviando) return;
-
-    if (password.length < 8) {
-      setError('Usá al menos 8 caracteres.');
-      return;
-    }
-    if (password !== repetida) {
-      setError('Las dos contraseñas no coinciden.');
-      return;
-    }
-
+    if (enviando || !lista) return;
     setEnviando(true);
     setError(null);
     try {
@@ -131,18 +132,16 @@ export function NuevaPassword() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
-      <div className="flex flex-col gap-1">
-        <p className="text-muted-foreground text-sm">Pick Commerce</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Elegí una contraseña nueva</h1>
-      </div>
-
+    <Acceso
+      titulo="Elegí una contraseña nueva"
+      subtitulo="Después de guardarla entrás directo al Admin."
+    >
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="password-nueva" className="text-sm font-medium">
+          <label htmlFor="password-nueva" className="text-[13.5px] font-medium">
             Contraseña nueva
           </label>
-          <input
+          <Input
             id="password-nueva"
             type="password"
             value={password}
@@ -150,15 +149,33 @@ export function NuevaPassword() {
             autoComplete="new-password"
             required
             disabled={enviando}
-            className={CAMPO}
+            className="h-10"
           />
+          <ul aria-label="Lo que tiene que tener" className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
+            {REGLAS_DE_CONTRASENA.map((r) => {
+              const ok = r.cumple(password);
+              return (
+                <li
+                  key={r.etiqueta}
+                  className={cn(
+                    'flex items-center gap-1.5 text-[12.5px]',
+                    ok ? 'text-[#13774a]' : 'text-ink-faint',
+                  )}
+                >
+                  <CheckCircleIcon className="size-3.5" aria-hidden="true" />
+                  {r.etiqueta}
+                  <span className="sr-only">{ok ? ': listo' : ': falta'}</span>
+                </li>
+              );
+            })}
+          </ul>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="password-repetir" className="text-sm font-medium">
+          <label htmlFor="password-repetir" className="text-[13.5px] font-medium">
             Repetila
           </label>
-          <input
+          <Input
             id="password-repetir"
             type="password"
             value={repetida}
@@ -166,15 +183,17 @@ export function NuevaPassword() {
             autoComplete="new-password"
             required
             disabled={enviando}
-            className={CAMPO}
+            aria-invalid={noCoinciden || undefined}
+            className="h-10"
           />
+          {noCoinciden && <span className="text-destructive text-[12.5px]">No coinciden</span>}
         </div>
 
-        <p role="alert" aria-live="polite" className="text-destructive min-h-5 text-sm">
+        <p role="alert" aria-live="polite" className="text-destructive min-h-5 text-[13px]">
           {error}
         </p>
 
-        <Button type="submit" disabled={enviando} aria-busy={enviando}>
+        <Button type="submit" size="lg" disabled={enviando || !lista} aria-busy={enviando}>
           {enviando ? 'Guardando…' : 'Guardar y entrar'}
         </Button>
 
@@ -182,6 +201,6 @@ export function NuevaPassword() {
           Cancelar
         </Button>
       </form>
-    </main>
+    </Acceso>
   );
 }

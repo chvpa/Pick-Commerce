@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    18% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    19% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1826,7 +1826,7 @@ notificaciones, la ayuda y el uso de IA alrededor del avatar— llega con su fas
 
 ## Fase 2 — Las pantallas del Admin, sobre lo que ya existe
 
-**Avance: 92%**
+**Avance: 100%**
 
 Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
@@ -1880,7 +1880,9 @@ Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 - [x] Los avisos por correo de Mi cuenta: un correo al equipo por cada pedido
       nuevo, apagado hasta que cada persona lo prende (ADR-156). Los otros tres del
       handoff no existen y no se muestran.
-- [ ] El inicio de sesión del Admin.
+- [x] El inicio de sesión del Admin: entrar, recuperar y la contraseña nueva como
+      una pantalla en tres estados, con lo que se le pide a la contraseña a la
+      vista (ADR-157).
 
 ---
 
@@ -2412,6 +2414,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-08 | **v3 Fase 2: Importar y Cargar con la cámara** (ADR-154). Importar en tres pasos, con cada fila del archivo y qué va a pasar con ella; la cámara en cuatro, con la cantidad de cada talle, un tope de seis fotos —cada una es una limpieza de fondo paga— y «Guardar borrador». Y lo que apareció: una errata en una fila de un producto existente le borraba esa variante con su stock, porque el archivo manda y la fila mala no venía. Ahora un producto con una fila mala no entra entero                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | v3 Fase 2 |          75% |            83% |
 | 2026-10-08 | **v3 Fase 2: Configuración y Mi cuenta** (ADR-155). Cinco grupos con una dirección por sección; en el teléfono, la lista y cada sección en su pantalla. Mi cuenta es de cualquier rol: el nombre, la contraseña por el enlace del correo y dónde está abierta la cuenta, leído de `auth.sessions` sin sus secretos y con cada sesión cerrable. Y lo que apareció: «Salir» era `signOut()` sin argumentos, que cierra la cuenta en todos los dispositivos; ahora sale de uno, medido con dos navegadores                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | v3 Fase 2 |          83% |            85% |
 | 2026-10-08 | **v3 Fase 2: el aviso de pedido nuevo** (ADR-156). El primer correo que le llega al equipo y no a quien compró: uno por pedido, a cada persona que lo prendió en Mi cuenta, apagado para todos al desplegar. Va por la misma cola sin `order_id`, como el código de acceso, para que un aviso al equipo que falló no aparezca como un comprador sin aviso; y un pedido de demostración no le escribe a nadie                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v3 Fase 2 |          85% |            92% |
+| 2026-10-08 | **v3 Fase 2: el inicio de sesión** (ADR-157). Entrar, recuperar y la contraseña nueva como una pantalla en tres estados, con lo que se le pide a la contraseña marcado mientras se escribe. Sin las cifras de ejemplo del panel ni el soporte que no existe. Y el menú de la cuenta vuelve a mostrar el correo cuando hay un nombre: lo encontró el smoke                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | v3 Fase 2 |          92% |           100% |
 
 ---
 
@@ -2421,9 +2424,9 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 red de puntos de la Fase 9, condicionada a la cantidad de comercios y no a una
 fecha.
 
-**Lo que sigue es la Fase 2 de v3**: las pantallas del Admin sobre lo que ya
-existe, de a una, con el shell de la Fase 1 ya puesto (ADR-144). Las fases van en
-el orden del bloque v3.
+**Lo que sigue es la Fase 3 de v3**: la auditoría —quién cambió qué, con el
+valor de antes y el de después—, que la Fase 2 dejó nombrada en el detalle del
+pedido y en la ficha. Las fases van en el orden del bloque v3.
 
 En paralelo, lo que queda para poder vender está en
 [LIMITACIONES.md](LIMITACIONES.md), casi todo del lado del dueño:

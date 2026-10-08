@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from 'react';
+import { AlertCircleIcon } from '@/components/iconos';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Acceso } from './Acceso';
 import { useSesion } from './SesionContext';
 
 export function Login({ alRecuperar }: { alRecuperar: () => void }) {
@@ -23,23 +26,14 @@ export function Login({ alRecuperar }: { alRecuperar: () => void }) {
     }
   }
 
-  const campo =
-    'h-10 w-full rounded-md border border-input bg-background px-3 text-sm ' +
-    'focus-visible:outline-2 focus-visible:outline-offset-[-1px] focus-visible:outline-ring';
-
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
-      <div className="flex flex-col gap-1">
-        <p className="text-muted-foreground text-sm">Pick Commerce</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Ingresar al Admin</h1>
-      </div>
-
+    <Acceso titulo="Ingresá al Admin" subtitulo="Administrá tu tienda desde un solo lugar.">
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="email" className="text-sm font-medium">
+          <label htmlFor="email" className="text-[13.5px] font-medium">
             Correo
           </label>
-          <input
+          <Input
             id="email"
             type="email"
             value={email}
@@ -47,15 +41,24 @@ export function Login({ alRecuperar }: { alRecuperar: () => void }) {
             autoComplete="email"
             required
             disabled={enviando}
-            className={campo}
+            className="h-10"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="password" className="text-sm font-medium">
-            Contraseña
-          </label>
-          <input
+          <div className="flex items-baseline justify-between gap-3">
+            <label htmlFor="password" className="text-[13.5px] font-medium">
+              Contraseña
+            </label>
+            <button
+              type="button"
+              onClick={alRecuperar}
+              className="text-link hover:text-link-hover cursor-pointer text-[13px] font-medium"
+            >
+              ¿La olvidaste?
+            </button>
+          </div>
+          <Input
             id="password"
             type="password"
             value={password}
@@ -63,7 +66,7 @@ export function Login({ alRecuperar }: { alRecuperar: () => void }) {
             autoComplete="current-password"
             required
             disabled={enviando}
-            className={campo}
+            className="h-10"
           />
         </div>
 
@@ -71,18 +74,19 @@ export function Login({ alRecuperar }: { alRecuperar: () => void }) {
           Región viva siempre presente: si apareciera recién con el mensaje,
           varios lectores de pantalla no anunciarían el error.
         */}
-        <p role="alert" aria-live="polite" className="min-h-5 text-sm text-destructive">
+        <p
+          role="alert"
+          aria-live="polite"
+          className="text-destructive flex min-h-5 items-center gap-1.5 text-[13px]"
+        >
+          {error && <AlertCircleIcon className="size-4 shrink-0" />}
           {error}
         </p>
 
-        <Button type="submit" disabled={enviando} aria-busy={enviando}>
+        <Button type="submit" size="lg" disabled={enviando} aria-busy={enviando}>
           {enviando ? 'Ingresando…' : 'Ingresar'}
         </Button>
-
-        <Button type="button" variant="ghost" onClick={alRecuperar}>
-          ¿Olvidaste tu contraseña?
-        </Button>
       </form>
-    </main>
+    </Acceso>
   );
 }

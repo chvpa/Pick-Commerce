@@ -7874,3 +7874,47 @@ que el modo demostración lo calla y que no aparece entre los avisos del pedido.
 La plantilla dice por qué llega y dónde se apaga. Las dos tiendas aprenden el
 evento: el storefront de la demo lo hace con el próximo push, Treeshop con su
 deploy.
+
+## ADR-157 — El inicio de sesión del Admin, y una contraseña nueva que dice qué le falta
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+Entrar, recuperar la contraseña y elegir una nueva eran tres formularios sueltos
+en una columna. El handoff (ADR-143) los dibuja como una sola pantalla en tres
+estados, con un panel a la derecha que cuenta qué hace el Admin, y la contraseña
+nueva con lo que se le pide a la vista.
+
+**Lo que se mantuvo**
+Lo que ya decidían: el login no distingue usuario inexistente de contraseña
+equivocada, recuperar responde lo mismo exista o no la cuenta, y la contraseña
+nueva se elige con la sesión que abrió el enlace, sin pedir la anterior.
+
+**Lo que el handoff dice y no se puso**
+
+- El panel muestra tareas con números de ejemplo. Antes de entrar no hay datos
+  de nadie, y unos inventados se leerían como de la tienda: el panel cuenta qué
+  hace el Admin, sin cifras.
+- El pie ofrece escribirle a un soporte con una dirección que no existe. Dice a
+  quién pedirle acceso, que es lo que alguien sin cuenta puede hacer hoy.
+- El botón «Ver cómo se muestra un error» es del prototipo.
+
+**La contraseña nueva**
+Ocho caracteres, un número y una mayúscula, cada uno marcado mientras se
+escribe, y «Guardar y entrar» no se habilita hasta que se cumplen y las dos
+coinciden. Es la regla de la pantalla: el proyecto de Supabase pide seis
+caracteres y nada más (`password_min_length`, sin caracteres exigidos), así
+que `pnpm admin:crear` no pasa por acá. Subirla en el proyecto es un cambio de
+configuración que no se hizo sin pedirlo.
+
+**Lo que apareció**
+Con un nombre puesto en «Mi cuenta» (ADR-155), el menú de la cuenta mostraba el
+nombre en lugar del correo, y el correo es con qué cuenta se entró. Ahora van
+los dos. Lo encontró el smoke del Admin, que buscaba el correo en el menú.
+
+**Consecuencias**
+`e2e/acceso.spec.ts` prueba el error de una contraseña equivocada y el pedido del
+enlace, interceptado: un correo de recuperación por corrida a una dirección que
+no existe le bajaría la reputación al dominio que manda los correos de verdad.
+`contrasena.test.ts` prueba las reglas.
