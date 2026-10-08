@@ -16,9 +16,9 @@ Admin en `admin.sontres.shop`—, con el catálogo importado del Supabase de
 Camelot, la portada administrable y el envío por zona entregado (ADR-114). Queda
 el arte del hero y de las marcas, que es del cliente. Es la tienda personal del
 dueño del proyecto tratada como cliente para validar el producto de punta a
-punta: todavía no hay ningún comercio que pague, y lo que falta —el remitente
-propio del correo, una pasarela real— está diferido a propósito y registrado en
-[LIMITACIONES.md](LIMITACIONES.md).
+punta: todavía no hay ningún comercio que pague. Los correos ya salen de su
+propio dominio, `sontres.shop`; lo que falta —una pasarela real— está diferido a
+propósito y registrado en [LIMITACIONES.md](LIMITACIONES.md).
 
 - **Fase 0** — monorepo pnpm, CI, deploy a Cloudflare Workers por push.
 - **Fase 1** — design system: tokens, componentes `.astro` e islands Preact.

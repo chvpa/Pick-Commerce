@@ -659,9 +659,11 @@ cuenta**. Comprobado: un pedido con el correo de otro comprador devuelve un 403
 que lo dice con todas las letras. El pipeline funciona igual —la fila queda en la
 cola y cuenta el intento— pero el comprador no recibe nada.
 
-Sigue así, y es un diferido a propósito, no un olvido: verificar un dominio en
-`resend.com/domains` y cargar `EMAIL_FROM` con una dirección de ese dominio es
-lo que lo destraba, y está registrado en [LIMITACIONES.md](LIMITACIONES.md).
+Treeshop ya salió de ahí: `sontres.shop` está verificado y su Worker tiene
+`EMAIL_FROM`. La demo no lo tiene y sigue en el sandbox. Cada comercio nuevo
+necesita lo mismo —verificar su dominio en `resend.com/domains` y cargar
+`EMAIL_FROM` con una dirección de ese dominio—, y está registrado en
+[LIMITACIONES.md](LIMITACIONES.md).
 
 ### Que los correos de Supabase Auth salgan por Resend
 
@@ -770,8 +772,8 @@ pegan directo contra la base real y no esperan a ningún push.
 - **El CI no bloquea el deploy** (§4).
 - **No hay gateway de pago real.** El contrato existe y hay una pasarela simulada
   declarada como tal; falta elegir proveedor y conseguir credenciales (P-001).
-- **Los correos sólo llegan a la casilla del dueño de la cuenta de Resend**
-  mientras no haya un dominio verificado.
+- **Una tienda sin `EMAIL_FROM` de un dominio verificado** sólo le escribe a la
+  casilla del dueño de la cuenta de Resend. Treeshop lo tiene; la demo no.
 - **La alerta de caída tiene quince minutos de resolución.** El workflow
   `latido.yml` pide seis URLs cada quince minutos —la demo, su catálogo y el
   Admin en `workers.dev`, y `sontres.shop`, su catálogo y `admin.sontres.shop`—

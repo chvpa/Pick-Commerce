@@ -27,20 +27,22 @@ nombra tarjetas: hay que corregirlo antes de abrirle la tienda a desconocidos.
 **Qué lo desbloquea:** elegir proveedor —Bancard, uPay, Pagopar, Dinelco— y
 conseguir credenciales. La decisión está pendiente como P-001.
 
-### Los correos sólo llegan a la casilla del dueño de la cuenta
+### Cada tienda necesita su dominio verificado en Resend
 
-Sin `EMAIL_FROM` configurado el remitente cae a `Pick Commerce
+Treeshop escribe desde `sontres.shop`, verificado en Resend y cargado como
+`EMAIL_FROM` en su Worker: sus correos —los avisos del pedido, el código de
+acceso y el pedido nuevo al equipo (ADR-156)— le llegan a cualquiera. Comprobado
+en la cola: Resend aceptó correos a direcciones que no son la del dueño de la
+cuenta.
+
+La demo no tiene `EMAIL_FROM`, así que cae a `Pick Commerce
 <onboarding@resend.dev>`, y desde ese remitente Resend entrega **sólo a la
-casilla del dueño de la cuenta**: un pedido con el correo de un comprador real
-devuelve 403. El pipeline funciona igual —la fila queda en la cola, el intento se
-cuenta y el fallo se ve en el pedido (ADR-102)—, así que lo que falta es el
-dominio, no código. Lo mismo vale para el aviso de pedido nuevo al equipo
-(ADR-156): hoy le llega sólo a quien es dueño de la cuenta de Resend. Está diferido a propósito mientras el piloto sea la tienda
-del propio dueño.
+casilla del dueño de la cuenta**: un comprador real recibe un 403 en su lugar.
+El pedido se crea igual y el fallo se ve en el pedido (ADR-102).
 
-**Qué lo desbloquea:** verificar un dominio en `resend.com/domains` y cargar
-`EMAIL_FROM` como secreto del Worker
-([INFRAESTRUCTURA.md](INFRAESTRUCTURA.md)). Es media hora y no depende de código.
+**Qué lo desbloquea, para cada comercio nuevo:** verificar su dominio en
+`resend.com/domains` y cargar `EMAIL_FROM` como secreto de su Worker
+([ONBOARDING.md](ONBOARDING.md)). Es media hora y no depende de código.
 
 ### El Admin no puede comprobar que el dominio esté verificado
 
