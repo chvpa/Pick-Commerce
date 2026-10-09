@@ -494,6 +494,12 @@ build` corría la demo y Treeshop a la vez: una de las dos moría con
   `auditar`** (ADR-158), o sus cambios no quedan en el registro de actividad y
   nada falla. Y `audit_log` no se edita ni se borra: un test o un script que
   limpie filas a mano recibe un error del trigger, no un permiso denegado.
+- **Una función que se reescribe entera parte de la última migración que la
+  define**, no de la que se tiene a mano: `git grep -il "function public.<nombre>"
+supabase/migrations` y la más nueva. `catalog_search` tiene veinte versiones y se
+  escribió una sobre la de tres migraciones atrás. Deshizo la búsqueda semántica y
+  llevó el catálogo de 273 a 620 ms, con la suite de PGlite en verde: lo encontró
+  la medición (ADR-163).
 - Un importador que reimporta **pisa lo que la tienda editó** si no mira el
   dueño de cada campo: `field_sources` declara el origen y sólo los campos
   marcados como del ERP se sobreescriben. Y el borrado de medios se acota a los
@@ -508,7 +514,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..162 y tres decisiones pendientes:
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..163 y tres decisiones pendientes:
    P-001 (primer gateway real), P-005 (CLI/provisioner) y P-006 (cómo se le
    cobra la IA a un comercio). P-002, P-003 y P-004 están resueltas.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.

@@ -59,6 +59,26 @@ export interface ProductVariant {
   readonly attributes: Readonly<Record<string, string>>;
 }
 
+/** Cómo se dibuja un modelo en la ficha: la foto de cada uno, una muestra de color o el texto. */
+export type ModelDisplay = 'photo' | 'swatch' | 'text';
+
+export interface ProductModel {
+  readonly display: ModelDisplay;
+  /** Clave de la característica que los distingue —`color`—, si se declaró. */
+  readonly axis?: string;
+  /** Cómo la nombra la tienda —«Color»—. */
+  readonly axisLabel?: string;
+  readonly items: readonly {
+    readonly handle: string;
+    readonly title: string;
+    /** El valor en el eje, leído de su primera variante. */
+    readonly value?: string;
+    readonly image?: string;
+    /** El producto que se está mirando. */
+    readonly current?: boolean;
+  }[];
+}
+
 export interface Product extends TenantScoped {
   readonly id: string;
   readonly handle: string;
@@ -71,6 +91,8 @@ export interface Product extends TenantScoped {
   readonly variants: readonly ProductVariant[];
   /** Agrupa productos hermanos (p. ej. mismo modelo en otro color). Ver ADR-026. */
   readonly productGroupId?: string;
+  /** El modelo y sus hermanos publicados. Sólo viene en el PDP. Ver ADR-163. */
+  readonly model?: ProductModel;
   /** Cuándo entró al catálogo. Es lo que ordena «novedades». */
   readonly createdAt?: string;
   /**

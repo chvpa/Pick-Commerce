@@ -132,3 +132,55 @@ test('quien sólo mira no arma modelos, y alguien de afuera no los ve', async ()
   );
   assert.equal(ajeno[0]!.j.total, 0);
 });
+
+// --- En la tienda (ADR-163) --------------------------------------------------------
+
+interface Busqueda {
+  total: number;
+  items: {
+    handle: string;
+    model?: {
+      display: string;
+      axis: string;
+      items: { handle: string; value?: string; current?: boolean }[];
+    };
+  }[];
+}
+
+async function buscar(extra = ''): Promise<Busqueda> {
+  const r = await db.query<{ j: Busqueda }>(`select catalog_search('${TIENDA}'${extra}) as j`);
+  return r.rows[0]!.j;
+}
+
+test('el catálogo muestra un modelo como una sola tarjeta: la primera', async () => {
+  // A esta altura el modelo es [roja, azul], y la negra está suelta.
+  const r = await buscar();
+  assert.deepEqual(r.items.map((p) => p.handle).sort(), ['mochila-negra', 'mochila-roja']);
+  assert.equal(r.total, 2);
+});
+
+test('con un filtro, la tarjeta del modelo es la que lo cumple', async () => {
+  await db.exec(`
+    insert into attribute_definitions (tenant_id, store_id, name, label, filterable)
+    values ('${TENANT}', '${TIENDA}', 'color', 'Color', true)
+    on conflict do nothing;
+  `);
+  const r = await buscar(`, '{"color":["Azul"]}'::jsonb`);
+  assert.deepEqual(
+    r.items.map((p) => p.handle),
+    ['mochila-azul'],
+  );
+});
+
+test('la ficha trae los otros productos del modelo, en orden y con su valor', async () => {
+  const r = await buscar(`, '{}'::jsonb, '', 'relevance', 1, 24, null, null, 'mochila-azul'`);
+  const modelo = r.items[0]!.model!;
+  assert.equal(modelo.display, 'swatch');
+  assert.deepEqual(
+    modelo.items.map((p) => [p.handle, p.value, p.current ?? false]),
+    [
+      ['mochila-roja', 'Rojo', false],
+      ['mochila-azul', 'Azul', true],
+    ],
+  );
+});

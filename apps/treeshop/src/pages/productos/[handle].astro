@@ -10,6 +10,7 @@ import ProductCardTitle from '@pick/commerce-astro/product/ProductCardTitle.astr
 import ProductCarousel from '@pick/commerce-astro/product/ProductCarousel.astro';
 import Price from '@pick/commerce-astro/product/Price.astro';
 import Reviews from '@pick/commerce-astro/product/Reviews.astro';
+import ProductModel from '@pick/commerce-astro/product/ProductModel.astro';
 import { ProductPurchase } from '@pick/commerce-ui/product/ProductPurchase';
 import WishlistHeart from '@pick/commerce-astro/wishlist/WishlistHeart.astro';
 import { productJsonLd } from '@pick/commerce-core';
@@ -165,6 +166,14 @@ const relacionados = await recomendados([product.id]);
         responde, y el click se pierde sin ninguna señal.
       */
       }
+      {
+        /*
+        El mismo artículo en otro color o material: son otros productos, así
+        que van antes de la compra y como enlaces (ADR-163).
+      */
+      }
+      {product.model && <ProductModel model={product.model} swatches={COLOR_SWATCHES} />}
+
       <ProductPurchase
         client:load
         productTitle={product.title}

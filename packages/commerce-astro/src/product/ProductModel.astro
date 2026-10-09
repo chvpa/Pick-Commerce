@@ -1,0 +1,89 @@
+---
+import type { ProductModel } from '@pick/commerce-types';
+import { Image } from 'astro:assets';
+import { cn } from '@pick/commerce-ui';
+
+/*
+ * Los otros productos del mismo modelo, en la ficha (ADR-163).
+ *
+ * Son enlaces y no botones: cada uno es otro producto, con su URL, su stock y su
+ * precio. Por eso no es una island —no hay estado que compartir con la compra—
+ * y un buscador puede seguirlos.
+ *
+ * Con un solo producto publicado no hay nada que elegir y no se dibuja.
+ */
+interface Props {
+  model: ProductModel;
+  /** Color CSS por valor. Lo aporta el storefront, como en `VariantSelector`. */
+  swatches?: Readonly<Record<string, string>>;
+  class?: string;
+}
+
+const { model, swatches, class: className } = Astro.props;
+const actual = model.items.find((i) => i.current);
+const nombre = (i: ProductModel['items'][number]) => i.value ?? i.title;
+---
+
+{
+  model.items.length > 1 && (
+    <nav
+      aria-label={model.axisLabel ?? 'Otras versiones'}
+      class={cn('flex flex-col gap-2', className)}
+    >
+      <p class="text-sm font-medium">
+        {model.axisLabel ?? 'Otras versiones'}
+        {actual && <span class="text-fg-muted font-normal">{`: ${nombre(actual)}`}</span>}
+      </p>
+      <ul class="flex flex-wrap gap-2">
+        {model.items.map((i) => {
+          const color = model.display === 'swatch' && i.value ? swatches?.[i.value] : undefined;
+          const foto = model.display === 'photo' ? i.image : undefined;
+          return (
+            <li>
+              <a
+                href={`/productos/${i.handle}`}
+                aria-current={i.current ? 'page' : undefined}
+                title={nombre(i)}
+                class={cn(
+                  'block cursor-pointer rounded-md border text-sm transition-colors',
+                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                  foto
+                    ? 'size-16 overflow-hidden p-0.5'
+                    : color
+                      ? 'size-8 p-0.5'
+                      : 'min-w-11 px-3 py-2',
+                  i.current ? 'border-fg' : 'border-border hover:border-border-strong',
+                )}
+              >
+                {foto ? (
+                  <>
+                    <Image
+                      src={foto}
+                      alt=""
+                      width={64}
+                      height={64}
+                      loading="lazy"
+                      class="size-full rounded-[3px] object-cover"
+                    />
+                    <span class="sr-only">{nombre(i)}</span>
+                  </>
+                ) : color ? (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      class="block size-full rounded-[3px]"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span class="sr-only">{nombre(i)}</span>
+                  </>
+                ) : (
+                  nombre(i)
+                )}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  )
+}

@@ -8163,3 +8163,52 @@ previa y quién escribe. El e2e arma un modelo con los productos de la tienda de
 smoke, cambia cuál va al catálogo, llega desde la ficha y lo borra sin borrar los
 productos. Mostrarlo en la tienda —un solo producto en el catálogo y las
 opciones en la ficha— es el ítem siguiente de la fase.
+
+## ADR-163 — Un modelo en la tienda: una tarjeta en el catálogo y sus opciones en la ficha
+
+**Fecha:** 2026-10-09
+**Estado:** Accepted
+
+**Contexto**
+ADR-162 dejó los modelos administrables y nada más: la tienda seguía mostrando
+cada producto por separado. Lo que justifica a los modelos es el catálogo —52
+mochilas casi iguales en la PLP en vez de una— y la ficha que deja pasar de un
+color al otro.
+
+**Decisión**
+Todo vive en `catalog_search`, que es la dueña de qué se ve, y así la PLP, la
+búsqueda, las colecciones y el PDP no pueden divergir:
+
+- **Una tarjeta por modelo**: la primera de su lista **entre las que pasan los
+  filtros**. Con «Azul», la tarjeta es la del azul aunque el modelo empiece por
+  el negro. Un producto sin modelo es su propia tarjeta. El total y la
+  paginación cuentan tarjetas. Las facetas siguen contando productos.
+- **Con `p_handle` se devuelve el producto pedido** aunque no sea el primero de
+  su modelo: el PDP de cada color existe.
+- **Sólo el PDP trae el modelo**: cómo se dibuja, el eje, su nombre y los
+  productos publicados en orden, con su valor y su primera foto. En la PLP no
+  viaja, porque serían 24 listas que nadie mira.
+
+En la ficha son **enlaces y no botones**, en `ProductModel.astro`: cada opción
+es otro producto, con su URL, su stock y su precio. No hace falta una island,
+porque no comparte estado con la compra, y un buscador puede seguir los enlaces.
+Con un solo producto publicado no se dibuja. La muestra de color sale del mismo
+mapa de colores del storefront que usa el selector de variantes.
+
+**Cómo se midió y qué se rompió en el camino**
+La primera versión partió de una copia vieja de la función, la de
+`20260917235748`, y no de la última, `20260928010023`. Así deshizo sin querer
+la búsqueda semántica (ADR-132) y el CTE de `vendidos`: el listado de Treeshop
+pasó de 273 a 620 ms en producción. La suite de PGlite siguió en verde. Lo
+encontró medir con `explain analyze` antes y después, y la causa la confirmó
+restaurar la definición vieja y medir lo mismo. Rehecha sobre la última, cuesta
+lo mismo que antes: de 255 a 274 ms en las páginas 1 y 100. Quedó como
+restricción en `CLAUDE.md`.
+
+**Consecuencias**
+`modelos.test.ts` prueba la tarjeta única, la del filtrado y los hermanos del
+PDP. El e2e arma un modelo con dos productos de la demo, comprueba que el
+catálogo muestra uno y que la ficha lleva al otro, y lo desarma: en el seed
+cambiaría las tarjetas que cuentan los tests de navegación.
+
+Agruparlos solos desde el catálogo del ERP sigue pendiente, en el backlog.
