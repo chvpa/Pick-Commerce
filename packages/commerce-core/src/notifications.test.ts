@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import type { Order } from '@pick/commerce-types';
 import {
   esEventoConocido,
+  plantillaDeCambioSensible,
   plantillaDeCodigo,
   plantillaDeCorreo,
   plantillaDePedidoAlEquipo,
@@ -223,4 +224,25 @@ test('el aviso al equipo dice quién compró, cuánto y si está pago', () => {
   });
   assert.match(pago.texto, /Ya está pago/);
   assert.ok(!pago.html.includes('<b>Eva</b>'), 'el nombre del comprador va escapado');
+});
+
+test('el aviso de un cambio sensible dice quién, qué y cómo apagarlo', () => {
+  const m = plantillaDeCambioSensible({
+    tiendaNombre: 'Pick Demo',
+    currency: 'PYG',
+    actividad: {
+      id: 0,
+      at: '2026-10-08T12:00:00Z',
+      actor: 'Lucía <script>',
+      action: 'update',
+      entity: 'orders',
+      label: '#1042',
+      changes: { status: ['received', 'cancelled'] },
+      sensitive: true,
+    },
+  });
+  assert.match(m.asunto, /anuló el pedido \(#1042\)/);
+  assert.match(m.texto, /Estado: .* → /);
+  assert.match(m.texto, /Registro de actividad/);
+  assert.ok(!m.html.includes('<script>'), 'el nombre va escapado');
 });

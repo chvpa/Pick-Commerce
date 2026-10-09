@@ -1304,6 +1304,7 @@ export type Database = {
           created_at: string
           id: string
           notify_new_order: boolean
+          notify_sensitive: boolean
           role: Database["public"]["Enums"]["member_role"]
           tenant_id: string
           updated_at: string
@@ -1313,6 +1314,7 @@ export type Database = {
           created_at?: string
           id?: string
           notify_new_order?: boolean
+          notify_sensitive?: boolean
           role?: Database["public"]["Enums"]["member_role"]
           tenant_id: string
           updated_at?: string
@@ -1322,6 +1324,7 @@ export type Database = {
           created_at?: string
           id?: string
           notify_new_order?: boolean
+          notify_sensitive?: boolean
           role?: Database["public"]["Enums"]["member_role"]
           tenant_id?: string
           updated_at?: string
@@ -2550,6 +2553,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_activity_log: {
+        Args: {
+          p_actor?: string
+          p_page?: number
+          p_per_page?: number
+          p_sensitive_only?: boolean
+          p_tenant: string
+        }
+        Returns: Json
+      }
       admin_analytics: {
         Args: { p_from: string; p_store_id: string; p_to: string }
         Returns: Json
@@ -2882,6 +2895,10 @@ export type Database = {
         Returns: Json
       }
       set_my_new_order_notice: {
+        Args: { p_on: boolean; p_tenant: string }
+        Returns: undefined
+      }
+      set_my_sensitive_notice: {
         Args: { p_on: boolean; p_tenant: string }
         Returns: undefined
       }

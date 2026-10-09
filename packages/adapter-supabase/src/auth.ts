@@ -226,3 +226,28 @@ export async function guardarAvisoDePedidoNuevo(
   const { error } = await db.rpc('set_my_new_order_notice', { p_tenant: tenantId, p_on: prendido });
   if (error) throw new Error(`No se pudo guardar el aviso: ${error.message}`);
 }
+
+/** Si a esta persona le llega el aviso de los cambios sensibles de otros (ADR-160). */
+export async function avisoDeCambiosSensibles(
+  db: PickSupabaseClient,
+  tenantId: string,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await db
+    .from('memberships')
+    .select('notify_sensitive')
+    .eq('tenant_id', tenantId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throw new Error(`No se pudieron leer tus avisos: ${error.message}`);
+  return data?.notify_sensitive ?? false;
+}
+
+export async function guardarAvisoDeCambiosSensibles(
+  db: PickSupabaseClient,
+  tenantId: string,
+  prendido: boolean,
+): Promise<void> {
+  const { error } = await db.rpc('set_my_sensitive_notice', { p_tenant: tenantId, p_on: prendido });
+  if (error) throw new Error(`No se pudo guardar el aviso: ${error.message}`);
+}

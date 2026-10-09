@@ -1,4 +1,5 @@
 import type { MemberRole, OrderStatus, PaymentStatus, ProductStatus } from '@pick/commerce-types';
+import { ETIQUETA_ROL } from './team.ts';
 import { formatMoney } from './money.ts';
 import { ETIQUETA_ESTADO } from './admin-catalog.ts';
 import { ETIQUETA_ESTADO_PAGO, ETIQUETA_ESTADO_PEDIDO } from './orders.ts';
@@ -75,6 +76,31 @@ const CAMPOS: Readonly<Record<string, string>> = {
   subtotal_amount: 'Subtotal',
   discount_amount: 'Descuento',
   shipping_amount: 'Envío',
+  role: 'Rol',
+  notify_new_order: 'Aviso de pedido nuevo',
+  discount_value: 'Descuento',
+  code: 'Cupón',
+  starts_at: 'Desde',
+  ends_at: 'Hasta',
+  usage_limit: 'Usos',
+  min_subtotal: 'Compra mínima',
+  // Los ajustes van por sección (ADR-158).
+  'settings.payments': 'Medios de pago',
+  'settings.currency': 'Moneda',
+  'settings.shipping': 'Envío',
+  'settings.catalog': 'Catálogo',
+  'settings.accounts': 'Cuentas de comprador',
+  'settings.demo': 'Modo demostración',
+  'settings.loyalty': 'Programa de puntos',
+};
+
+/** Las entradas que escribe una función con su propia acción, de antes del trigger. */
+const ACCIONES: Readonly<Record<string, string>> = {
+  'currency.rate_updated': 'actualizó la tasa de cambio',
+  'ai_credential.saved': 'cargó la clave de OpenAI',
+  'ai_credential.removed': 'quitó la clave de OpenAI',
+  'customer_accounts.enable': 'prendió las cuentas de comprador',
+  'customer_accounts.disable': 'apagó las cuentas de comprador',
 };
 
 function etiquetaDeEstado(entity: string, valor: string): string {
@@ -95,6 +121,12 @@ function valorLegible(
   if (campo === 'status' && typeof valor === 'string') return etiquetaDeEstado(entity, valor);
   if (campo === 'payment_status' && typeof valor === 'string') {
     return ETIQUETA_ESTADO_PAGO[valor as PaymentStatus] ?? valor;
+  }
+  if (campo === 'role' && typeof valor === 'string') {
+    return ETIQUETA_ROL[valor as MemberRole] ?? valor;
+  }
+  if (DINERO.has(campo) && typeof valor === 'string' && /^\d+$/.test(valor)) {
+    return formatMoney({ amount: Number(valor), currency: ctx.currency as 'PYG' }, ctx.locale);
   }
   // Un id no le dice nada a nadie: que cambió alcanza.
   if (campo.endsWith('_id')) return 'otra';
@@ -152,7 +184,23 @@ export function queHizo(e: EntradaDeActividad): string {
       return `editó la variante${cosa}`;
     case 'inventory_levels':
       return 'ajustó el stock';
+    case 'promotions':
+      if (e.action === 'insert') return `creó la promoción${cosa}`;
+      if (e.action === 'delete') return `borró la promoción${cosa}`;
+      return `editó la promoción${cosa}`;
+    case 'store_settings':
+      if (e.action in ACCIONES) return ACCIONES[e.action]!;
+      if (cambios.length === 1 && cambios[0] === 'settings.payments')
+        return 'cambió los medios de pago';
+      return 'cambió la configuración';
+    case 'memberships':
+      if (e.action === 'insert') return 'sumó a alguien al equipo';
+      if (e.action === 'delete') return 'quitó a alguien del equipo';
+      if (e.changes?.role) return 'cambió un rol';
+      if (soloCambio('notify_new_order')) return 'cambió sus avisos';
+      return 'editó el equipo';
     default:
+      if (e.action in ACCIONES) return ACCIONES[e.action]!;
       if (e.action === 'insert') return `creó ${e.entity}${cosa}`;
       if (e.action === 'delete') return `borró ${e.entity}${cosa}`;
       if (e.action === 'update') return `editó ${e.entity}${cosa}`;

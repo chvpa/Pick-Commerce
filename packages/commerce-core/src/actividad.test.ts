@@ -54,3 +54,24 @@ test('crear, borrar y el stock tienen su propia frase', () => {
     'ajustó el stock',
   );
 });
+
+test('los ajustes, el equipo y las acciones de antes del trigger también se leen', () => {
+  assert.equal(
+    queHizo(entrada({ entity: 'store_settings', changes: { 'settings.payments': [{}, {}] } })),
+    'cambió los medios de pago',
+  );
+  assert.equal(
+    queHizo(entrada({ entity: 'store_settings', action: 'currency.rate_updated' })),
+    'actualizó la tasa de cambio',
+  );
+  assert.equal(
+    queHizo(entrada({ entity: 'store', action: 'ai_credential.saved' })),
+    'cargó la clave de OpenAI',
+  );
+
+  const rol = entrada({ entity: 'memberships', changes: { role: ['staff', 'owner'] } });
+  assert.equal(queHizo(rol), 'cambió un rol');
+  const [cambio] = cambiosLegibles(rol, CTX);
+  assert.equal(cambio!.campo, 'Rol');
+  assert.notEqual(cambio!.despues, 'owner');
+});

@@ -35,6 +35,7 @@ import { usePuede } from '@/features/auth/usePuede';
 import { Equipo } from '@/features/equipo/Equipo';
 import { cn } from '@/lib/utils';
 import { MiCuenta } from './MiCuenta';
+import { RegistroDeActividad } from './RegistroDeActividad';
 import { GRUPOS, seccionDe, type SeccionDeConfiguracion } from './secciones';
 import { Sucursales } from './Sucursales';
 
@@ -147,6 +148,8 @@ function Contenido({ seccion }: { seccion: SeccionDeConfiguracion }) {
       return <MiCuenta />;
     case 'equipo':
       return <Equipo />;
+    case 'actividad':
+      return <RegistroDeActividad />;
     case 'sucursales':
       return (
         <Tarjeta>
@@ -168,7 +171,7 @@ function Contenido({ seccion }: { seccion: SeccionDeConfiguracion }) {
 function AjustesDeLaTienda({
   seccion,
 }: {
-  seccion: Exclude<SeccionDeConfiguracion, 'cuenta' | 'equipo' | 'sucursales' | 'ia'>;
+  seccion: Exclude<SeccionDeConfiguracion, 'cuenta' | 'equipo' | 'actividad' | 'sucursales' | 'ia'>;
 }) {
   const tienda = useTiendaActiva();
   const cliente = useQueryClient();

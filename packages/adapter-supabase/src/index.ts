@@ -8,12 +8,19 @@ export {
   type PickSupabaseClient,
 } from './client.ts';
 export { repositorioTiendas } from './tiendas.ts';
-export { historialDe } from './actividad.ts';
 export {
+  historialDe,
+  registroDeActividad,
+  type FilaDelRegistro,
+  type PaginaDelRegistro,
+} from './actividad.ts';
+export {
+  avisoDeCambiosSensibles,
   avisoDePedidoNuevo,
   cerrarSesion,
   cerrarLasDemas,
   cerrarOtraSesion,
+  guardarAvisoDeCambiosSensibles,
   guardarAvisoDePedidoNuevo,
   guardarNombre,
   iniciarSesion,

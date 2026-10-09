@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { historialDe } from '@pick/adapter-supabase';
 import { cambiosLegibles, queHizo, type EntradaDeActividad } from '@pick/commerce-core';
 import { ArrowRightIcon, HourglassIcon, LockIcon } from '@/components/iconos';
@@ -10,6 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { usePuede } from '@/features/auth/usePuede';
 import { haceCuanto } from '@/features/dashboard/tareas';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
@@ -35,6 +37,7 @@ export function Franja({
   creacion?: { readonly por: string; readonly cuando: string };
 }) {
   const tienda = useTiendaActiva();
+  const puede = usePuede();
   const consulta = useQuery({
     queryKey: ['actividad', tienda.id, subjectId],
     queryFn: () => historialDe(db, tienda.id, subjectId),
@@ -141,6 +144,15 @@ export function Franja({
               <LockIcon className="size-3.5" />
               Nadie puede editar ni borrar este registro.
               {total > items.length && ` Se ven los últimos ${items.length} de ${total}.`}
+              {puede('member.manage') && (
+                <Link
+                  to="/configuracion/$seccion"
+                  params={{ seccion: 'actividad' }}
+                  className="text-link hover:text-link-hover ml-auto font-medium"
+                >
+                  Ver toda la actividad
+                </Link>
+              )}
             </p>
           </DialogContent>
         </Dialog>

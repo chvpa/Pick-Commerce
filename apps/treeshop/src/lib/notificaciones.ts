@@ -1,12 +1,15 @@
 import { getSecret } from 'astro:env/server';
 import {
+  EVENTO_CAMBIO_SENSIBLE,
   EVENTO_CODIGO,
   EVENTO_PEDIDO_AL_EQUIPO,
   enlaceDelPedido,
   esEventoConocido,
+  plantillaDeCambioSensible,
   plantillaDeCodigo,
   plantillaDeCorreo,
   plantillaDePedidoAlEquipo,
+  type EntradaDeActividad,
   type MensajeDeCorreo,
   type NotificacionPendiente,
   type NotificationProvider,
@@ -75,12 +78,21 @@ function redactar(
   tiendaNombre: string,
   locale: string,
   instrucciones?: string,
+  currency = 'PYG',
 ): MensajeDeCorreo | null {
   if (pendiente.event === EVENTO_CODIGO) {
     const codigo = pendiente.datos?.codigo;
     const minutos = pendiente.datos?.minutos;
     if (typeof codigo !== 'string' || typeof minutos !== 'number') return null;
     return plantillaDeCodigo({ tiendaNombre, codigo, minutos });
+  }
+
+  // Un cambio sensible, a quien administra el equipo (ADR-160).
+  if (pendiente.event === EVENTO_CAMBIO_SENSIBLE) {
+    const actividad = pendiente.datos?.actividad as EntradaDeActividad | undefined;
+    return actividad
+      ? plantillaDeCambioSensible({ tiendaNombre, actividad, currency, locale })
+      : null;
   }
 
   // Al equipo, no al comprador: va sin enlace al pedido, que es del comprador (ADR-156).
@@ -120,7 +132,7 @@ export async function drenarNotificaciones(): Promise<number> {
   const proveedor = proveedorDeCorreo();
   if (!proveedor) return 0;
 
-  const { storeId, name, locale } = await tiendaActual();
+  const { storeId, name, locale, currency } = await tiendaActual();
   const repo = notificaciones();
   const pendientes = await repo.reclamar(storeId, POR_TANDA);
   if (pendientes.length === 0) return 0;
@@ -130,7 +142,13 @@ export async function drenarNotificaciones(): Promise<number> {
 
   for (const pendiente of pendientes) {
     try {
-      const mensaje = redactar(pendiente, name, locale, formasDePago.bankTransfer?.instructions);
+      const mensaje = redactar(
+        pendiente,
+        name,
+        locale,
+        formasDePago.bankTransfer?.instructions,
+        currency,
+      );
 
       if (!mensaje) {
         // Se marca igual: una fila que este código no sabe redactar se

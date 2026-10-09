@@ -303,3 +303,108 @@ test('alguien de otro comercio no ve la historia', async () => {
   );
   assert.deepEqual(filas[0]!.j, { total: 0, items: [] });
 });
+
+// --- El registro de actividad (ADR-160) ----------------------------------------------
+
+test('el registro pagina, filtra lo sensible y por persona, y dice el nombre del producto', async () => {
+  const todo = await como<{
+    j: { total: number; items: Record<string, unknown>[]; pageCount: number };
+  }>(db, DUENA, `select admin_activity_log('${TENANT}', null, false, 1, 2) as j`);
+  assert.equal(todo[0]!.j.items.length, 2);
+  assert.ok(todo[0]!.j.pageCount >= 2);
+
+  const sensibles = await como<{ j: { items: { sensitive?: boolean }[] } }>(
+    db,
+    DUENA,
+    `select admin_activity_log('${TENANT}', null, true) as j`,
+  );
+  assert.ok(sensibles[0]!.j.items.length > 0);
+  assert.ok(sensibles[0]!.j.items.every((i) => i.sensitive === true));
+
+  const deLaDuena = await como<{
+    j: { items: { actor?: string; entity: string; label?: string }[] };
+  }>(db, DUENA, `select admin_activity_log('${TENANT}', '${DUENA}') as j`);
+  assert.ok(deLaDuena[0]!.j.items.every((i) => i.actor === 'duena@a.test'));
+  const variante = deLaDuena[0]!.j.items.find((i) => i.entity === 'product_variants')!;
+  assert.equal(variante.label, 'Remera lisa', 'una variante se nombra por su producto de hoy');
+});
+
+test('el registro es de quien administra el equipo, y de nadie más', async () => {
+  for (const quien of [PERSONAL, FORASTERA]) {
+    const intento = await intentar(db, quien, `select admin_activity_log('${TENANT}')`);
+    assert.equal(intento.ok, false);
+    assert.match(intento.error ?? '', /No tenés acceso/);
+  }
+});
+
+// --- El aviso de los cambios sensibles (ADR-160) -------------------------------------
+
+async function pedidoNuevo(): Promise<string> {
+  const filas = await comoServicio<{ j: { order: { id: string } } }>(
+    db,
+    `select create_order('${TIENDA}'::uuid, gen_random_uuid(),
+       '{"customer":{"name":"Ana","email":"ana@c.test","phone":"0981123456"},
+         "address":{"street":"Calle 1","city":"Asunción"},"paymentMethod":"bank_transfer",
+         "lines":[{"variantId":"${VARIANTE}","quantity":1}]}'::jsonb) as j`,
+  );
+  return filas[0]!.j.order.id;
+}
+
+async function avisosSensibles(): Promise<{ recipient: string; actor: string; label?: string }[]> {
+  const r = await db.query<{ recipient: string; actor: string; label?: string }>(
+    `select recipient, payload->'actividad'->>'actor' as actor, payload->'actividad'->>'label' as label
+     from notification_outbox where event = 'team_sensitive_change' and order_id is null order by created_at`,
+  );
+  return r.rows;
+}
+
+test('un cambio sensible de otra persona le llega a la dueña que lo pidió', async () => {
+  await comoAdmin(db, DUENA, `select set_my_sensitive_notice('${TENANT}', true)`);
+  const antes = (await avisosSensibles()).length;
+
+  // PERSONAL es administrador desde el test del rol: puede anular, no administra el equipo.
+  const id = await pedidoNuevo();
+  await comoAdmin(db, PERSONAL, `select admin_set_order_status('${TIENDA}', '${id}', 'cancelled')`);
+
+  const nuevos = (await avisosSensibles()).slice(antes);
+  assert.equal(nuevos.length, 1);
+  assert.equal(nuevos[0]!.recipient, 'duena@a.test');
+  assert.equal(nuevos[0]!.actor, 'personal@a.test');
+  assert.match(nuevos[0]!.label ?? '', /^#\d+/);
+});
+
+test('a quien hizo el cambio no le llega su propio aviso', async () => {
+  const antes = (await avisosSensibles()).length;
+  const id = await pedidoNuevo();
+  await comoAdmin(db, DUENA, `select admin_set_order_status('${TIENDA}', '${id}', 'cancelled')`);
+  assert.equal((await avisosSensibles()).length, antes);
+});
+
+test('sólo lo prende quien administra el equipo', async () => {
+  const intento = await intentar(db, PERSONAL, `select set_my_sensitive_notice('${TENANT}', true)`);
+  assert.equal(intento.ok, false);
+  assert.match(intento.error ?? '', /administra el equipo/);
+});
+
+test('una tienda en modo demostración no avisa', async () => {
+  await comoServicio(
+    db,
+    `insert into store_settings (store_id, tenant_id, settings) values ('${TIENDA}', '${TENANT}', '{"demo": true}'::jsonb)
+     on conflict (store_id) do update set settings = store_settings.settings || excluded.settings`,
+  );
+  try {
+    const antes = (await avisosSensibles()).length;
+    const id = await pedidoNuevo();
+    await comoAdmin(
+      db,
+      PERSONAL,
+      `select admin_set_order_status('${TIENDA}', '${id}', 'cancelled')`,
+    );
+    assert.equal((await avisosSensibles()).length, antes);
+  } finally {
+    await comoServicio(
+      db,
+      `update store_settings set settings = settings - 'demo' where store_id = '${TIENDA}'`,
+    );
+  }
+});

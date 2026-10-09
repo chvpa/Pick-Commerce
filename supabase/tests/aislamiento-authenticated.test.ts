@@ -185,6 +185,7 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   ],
   // La historia de un pedido o un producto (ADR-159).
   ['public.admin_subject_activity', `admin_subject_activity('${TIENDA}', '${PRODUCTO}')`],
+  ['public.admin_activity_log', `admin_activity_log('${TENANT}')`],
 ];
 
 /**
@@ -237,6 +238,8 @@ const PUBLICAS = [
   // Prende o apaga el aviso de quien llama, en una organización suya; para
   // cualquier otra, falla. `aviso-al-equipo.test.ts` lo prueba (ADR-156).
   'public.set_my_new_order_notice',
+  // Igual que el anterior, para el aviso de lo sensible; pide `member.manage` (ADR-160).
+  'public.set_my_sensitive_notice',
 ] as const;
 
 let db: PGlite;

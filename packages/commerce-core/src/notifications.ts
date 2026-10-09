@@ -1,4 +1,5 @@
 import type { Order } from '@pick/commerce-types';
+import { cambiosLegibles, queHizo, type EntradaDeActividad } from './actividad.ts';
 import { formatMoney } from './money.ts';
 
 /**
@@ -391,6 +392,52 @@ export function plantillaDePedidoAlEquipo(ctx: {
   <p style="margin:0 0 20px;color:#444">${escapar(pago)}</p>
   <p style="margin:0 0 20px">${items.map((l) => escapar(l)).join('<br>')}<br><strong>Total: ${escapar(total)}</strong></p>
   <p style="margin:0 0 20px;color:#444">Lo ves en el Admin, en Pedidos.</p>
+  <p style="margin:0;color:#666;font-size:13px">${escapar(pie)}</p>
+</div>`;
+
+  return { asunto, html, texto };
+}
+
+/**
+ * El aviso de un cambio sensible a quien administra el equipo (ADR-160). Como el
+ * de pedido nuevo, comparte la cola y nada más. Dice lo mismo que el registro de
+ * actividad, con las mismas palabras: es la misma fila.
+ */
+export const EVENTO_CAMBIO_SENSIBLE = 'team_sensitive_change';
+
+export function plantillaDeCambioSensible(ctx: {
+  readonly tiendaNombre: string;
+  readonly actividad: EntradaDeActividad;
+  readonly currency: string;
+  readonly locale?: string;
+}): MensajeDeCorreo {
+  const locale = ctx.locale ?? 'es-PY';
+  const quien = ctx.actividad.actor ?? 'Alguien del equipo';
+  const que = queHizo(ctx.actividad);
+  const objeto = ctx.actividad.label ? ` (${ctx.actividad.label})` : '';
+  const cambios = cambiosLegibles(ctx.actividad, { currency: ctx.currency, locale }).map(
+    (c) => `${c.campo}: ${c.antes} → ${c.despues}`,
+  );
+  const pie =
+    'Te llega porque lo prendiste en Configuración › Registro de actividad. Se apaga desde ahí.';
+
+  const asunto = `${quien} ${que}${objeto} — ${ctx.tiendaNombre}`;
+  const texto = [
+    `Un cambio sensible en ${ctx.tiendaNombre}:`,
+    '',
+    `${quien} ${que}${objeto}.`,
+    ...cambios.map((c) => `  ${c}`),
+    '',
+    'Lo ves con el resto en Configuración › Registro de actividad.',
+    '',
+    pie,
+  ].join('\n');
+
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.5;color:#111;max-width:560px">
+  <p style="margin:0 0 4px;color:#666">Un cambio sensible en ${escapar(ctx.tiendaNombre)}</p>
+  <h1 style="font-size:18px;margin:0 0 12px">${escapar(quien)} ${escapar(que)}${escapar(objeto)}</h1>
+  ${cambios.length ? `<p style="margin:0 0 20px;color:#444">${cambios.map((c) => escapar(c)).join('<br>')}</p>` : ''}
+  <p style="margin:0 0 20px;color:#444">Lo ves con el resto en Configuración › Registro de actividad.</p>
   <p style="margin:0;color:#666;font-size:13px">${escapar(pie)}</p>
 </div>`;
 

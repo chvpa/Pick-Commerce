@@ -3,6 +3,7 @@ import {
   BankIcon,
   DeliveryTruckIcon,
   EyeIcon,
+  HourglassIcon,
   MoneyIcon,
   SparklesIcon,
   StoreIcon,
@@ -20,8 +21,8 @@ import {
  * propio «Guardar». Cada sección tiene su dirección, así que se puede enlazar
  * desde el Inicio o la paleta.
  *
- * Lo que el handoff agrupa acá y todavía no existe —el registro de actividad, el
- * uso de la IA, las conexiones— no aparece hasta que exista: una entrada que lleva
+ * Lo que el handoff agrupa acá y todavía no existe —el uso de la IA,
+ * las conexiones— no aparece hasta que exista: una entrada que lleva
  * a «próximamente» es una promesa, no una sección.
  */
 export const SECCIONES = [
@@ -35,6 +36,7 @@ export const SECCIONES = [
   'ia',
   'demo',
   'equipo',
+  'actividad',
 ] as const;
 
 export type SeccionDeConfiguracion = (typeof SECCIONES)[number];
@@ -143,6 +145,13 @@ export const GRUPOS: readonly {
         titulo: 'Equipo',
         descripcion: 'Quién entra al Admin y qué puede hacer.',
         icono: UserGroupIcon,
+        permiso: 'member.manage',
+      },
+      {
+        id: 'actividad',
+        titulo: 'Registro de actividad',
+        descripcion: 'Quién cambió qué y cuándo, en todo el Admin.',
+        icono: HourglassIcon,
         permiso: 'member.manage',
       },
     ],

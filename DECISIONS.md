@@ -8024,3 +8024,50 @@ que la tienda no devuelve sus ajustes, y que alguien de afuera recibe nada; la
 función está entre las bloqueadas de la suite de aislamiento. El e2e de pedidos ve
 los dos pasos en la franja sin recargar, y el de importar ve quién creó el
 producto.
+
+## ADR-160 — Configuración › Registro de actividad, y el aviso de lo sensible que hace otro
+
+**Fecha:** 2026-10-08
+**Estado:** Accepted
+
+**Contexto**
+El handoff (ADR-143) cierra el registro antifraude con su pantalla: todo lo que
+hicieron las personas, filtrable por persona y por lo sensible, exportable, y un
+aviso por correo de los cambios sensibles.
+
+**La pantalla**
+Una sección de «Organización», para quien administra el equipo, que es quien
+tiene que poder revisar a cualquiera —otro propietario incluido—. Lee por
+`admin_activity_log`: la tabla no tiene a mano el nombre de quien hizo cada cosa
+—`auth.users` no se consulta— ni el nombre de hoy del producto de una variante.
+Pagina con el corte antes de armar las filas, porque el registro crece dos años.
+Cada fila enlaza a lo que cambió cuando tiene pantalla, y muestra desde qué
+navegador e IP. Exportar baja un CSV con los mismos filtros que se ven. Dice las
+cosas con `queHizo` y `cambiosLegibles` (ADR-159), que ahora también saben de
+promociones, ajustes por sección, roles y las entradas explícitas de antes del
+trigger —la tasa de cambio, la clave de OpenAI, las cuentas de comprador—.
+
+**El aviso**
+`memberships.notify_sensitive`, apagado, que cada propietario prende para sí: lo
+puede prender quien puede leer el registro, porque un aviso de algo que después
+no se puede ver no sirve. Lo escribe el mismo trigger que registra (ADR-158),
+cuando la fila es sensible: un correo a cada propietario que lo pidió **menos a
+quien hizo el cambio** —enterarse de lo propio no protege de nada—, por la cola
+sin `order_id` como el de pedido nuevo (ADR-156), desde la tienda del cambio o la
+primera de la organización. Una tienda en modo demostración no avisa (ADR-108).
+El correo dice lo mismo que la fila, con las mismas palabras.
+
+**Lo que el handoff dice y no se puso**
+
+- El filtro «Asistente IA»: no hay asistente que escriba. Llega con su fase.
+- «Exportar a Excel»: CSV, como el resto del Admin (ADR-154).
+- Las filas con nombre de quien ya no está: el registro guarda el id y la clave
+  foránea lo deja en nulo al borrar la cuenta. La pantalla dice «Alguien que ya no
+  está»; la fila sigue, que es lo que importa de un registro.
+
+**Consecuencias**
+`auditoria.test.ts` prueba la paginación, los filtros, que una variante se nombre
+por su producto, quién lee el registro, y el aviso: a quién llega, que a quien
+cambió no, que sólo lo prende quien administra el equipo y que el modo
+demostración lo calla. `e2e/actividad.spec.ts` hace un cambio por la pantalla y
+lo encuentra en el registro, filtra lo sensible y prende el aviso.
