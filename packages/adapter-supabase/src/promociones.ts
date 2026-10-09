@@ -6,6 +6,7 @@ import type {
   PromotionRules,
   PromotionTarget,
   RepositorioPromociones,
+  VarianteParaRegalar,
 } from '@pick/commerce-core';
 import type { PickSupabaseClient } from './client.ts';
 
@@ -38,6 +39,27 @@ interface FilaPromocion {
   target: unknown;
   min_subtotal: number | null;
   min_quantity: number | null;
+}
+
+interface FilaRegalo {
+  id: string;
+  title: string | null;
+  sku: string;
+  products: { title: string; store_id: string };
+  inventory_levels: { available: number }[];
+}
+
+const COLUMNAS_DE_REGALO =
+  'id, title, sku, products!inner(title, store_id), inventory_levels(available)';
+
+function aRegalo(f: FilaRegalo): VarianteParaRegalar {
+  return {
+    variantId: f.id,
+    title: f.products.title,
+    ...(f.title ? { variantTitle: f.title } : {}),
+    sku: f.sku,
+    stock: f.inventory_levels.reduce((n, il) => n + il.available, 0),
+  };
 }
 
 /** `null` en la base es «ausente» en el contrato, no `null`. */
@@ -221,6 +243,31 @@ export function repositorioPromociones(db: PickSupabaseClient): RepositorioPromo
             }
           : {}),
       };
+    },
+
+    async variantesParaRegalar(storeId, texto): Promise<readonly VarianteParaRegalar[]> {
+      let consulta = db
+        .from('product_variants')
+        .select(COLUMNAS_DE_REGALO)
+        .eq('products.store_id', storeId)
+        .order('id')
+        .limit(20);
+      // Por el nombre del producto, que es como se busca un regalo.
+      if (texto.trim()) consulta = consulta.ilike('products.title', `%${texto.trim()}%`);
+      const { data, error } = await consulta;
+      if (error) throw new Error(`No se pudieron buscar las variantes: ${error.message}`);
+      return ((data ?? []) as unknown as FilaRegalo[]).map(aRegalo);
+    },
+
+    async varianteParaRegalar(storeId, variantId): Promise<VarianteParaRegalar | null> {
+      const { data, error } = await db
+        .from('product_variants')
+        .select(COLUMNAS_DE_REGALO)
+        .eq('products.store_id', storeId)
+        .eq('id', variantId)
+        .maybeSingle();
+      if (error) throw new Error(`No se pudo leer el regalo: ${error.message}`);
+      return data ? aRegalo(data as unknown as FilaRegalo) : null;
     },
   };
 }

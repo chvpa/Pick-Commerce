@@ -24,24 +24,16 @@ import {
 } from '@/components/ui/table';
 import { usePuede } from '@/features/auth/usePuede';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
+import { NOMBRE_DEL_TIPO } from './esquema';
 import { db } from '@/lib/supabase';
 
 const POR_PAGINA = 20;
 
 /** Los tipos de carrito (ADR-164) se nombran; el descuento de siempre dice cuánto. */
-const TIPO: Record<Promotion['kind'], string> = {
-  discount: 'Descuento',
-  buy_x_pay_y: 'Llevá X, pagá Y',
-  second_unit: '2da unidad',
-  quantity: 'Por cantidad',
-  tiered: 'Por monto',
-  gift: 'Regalo',
-  bundle: 'Bundle',
-  free_shipping: 'Envío gratis',
-};
-
 function descuento(p: Promotion, locale: string): string {
-  if (p.kind !== 'discount' || p.discountValue === undefined) return TIPO[p.kind];
+  if (p.kind === 'buy_x_pay_y' && p.rules?.buy && p.rules.pay)
+    return `${p.rules.buy}x${p.rules.pay}`;
+  if (p.kind !== 'discount' || p.discountValue === undefined) return NOMBRE_DEL_TIPO[p.kind];
   return p.discountType === 'percentage'
     ? `${p.discountValue / 100} %`
     : formatMoney({ amount: p.discountValue, currency: 'PYG' }, locale);

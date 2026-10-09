@@ -336,6 +336,15 @@ export interface AlcanceDePromocion {
   readonly ejemplo?: { readonly title: string; readonly price: Money };
 }
 
+/** Una variante que se puede regalar, con su stock para decidir. */
+export interface VarianteParaRegalar {
+  readonly variantId: string;
+  readonly title: string;
+  readonly variantTitle?: string;
+  readonly sku: string;
+  readonly stock: number;
+}
+
 export interface RepositorioPromociones {
   listar(
     storeId: string,
@@ -344,6 +353,15 @@ export interface RepositorioPromociones {
   porId(storeId: string, id: string): Promise<Promotion | null>;
   guardar(storeId: string, datos: DatosDePromocion, id?: string): Promise<string>;
   alcance(storeId: string, target: PromotionTarget): Promise<AlcanceDePromocion>;
+
+  /**
+   * Variantes de la tienda por el nombre del producto, para elegir un regalo. Veinte como
+   * mucho: es un buscador, no una lista. Incluye las no publicadas, porque un
+   * regalo suele ser algo que no se vende (ADR-164).
+   */
+  variantesParaRegalar(storeId: string, texto: string): Promise<readonly VarianteParaRegalar[]>;
+  /** La variante elegida, para mostrar su nombre al editar. */
+  varianteParaRegalar(storeId: string, variantId: string): Promise<VarianteParaRegalar | null>;
 
   /** Prender o apagar una campaña sin abrir su formulario. */
   cambiarEstado(storeId: string, id: string, status: PromotionStatus): Promise<void>;

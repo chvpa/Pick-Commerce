@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { repositorioAdminCatalogo, repositorioPromociones } from '@pick/adapter-supabase';
-import { formatMoney, percentageOf, subtractMoney } from '@pick/commerce-core';
+import { TIPOS_CON_CUPON } from '@pick/commerce-core';
 import { Button } from '@/components/ui/button';
 import {
   BarraDeAcciones,
   Esqueleto,
   PaginaAdmin,
+  Segmentado,
   Selector,
   Tarjeta,
   TituloDeTarjeta,
@@ -21,23 +22,31 @@ import { Campo, atributosDeError } from '@/components/campo';
 import { Switch } from '@/components/ui/switch';
 import { useTiendaActiva } from '@/features/tienda/TiendaContext';
 import { db } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
 import {
-  aCampoDeFecha,
+  TIPOS,
+  VALORES_INICIALES,
   aDatos,
+  aFormulario,
   promocionSchema,
+  usaAlcance,
+  usaCompraMinima,
   type FormularioPromocion as Valores,
   type PromocionValidada,
 } from './esquema';
+import { CamposDelTipo, useColecciones } from './CamposDelTipo';
+import { carritoDeEjemplo, resumen } from './vistaPrevia';
 import { SelectItem } from '@/components/ui/select';
 import { useCategorias } from '@/features/tienda/useCategorias';
 
 /**
- * Alta y edición de una promoción.
+ * Alta y edición de una promoción, de cualquiera de los ocho tipos (ADR-164).
  *
  * Lo que el operador escribe está en sus unidades —«15» por ciento— y se
  * convierte en `aDatos`. El descuento **no se calcula acá**: esto sólo compone
- * el dato. Quien decide cuánto se descuenta es el servidor, y el preview usa las
- * mismas funciones del core que usa él, no una cuenta propia.
+ * el dato. Quien decide cuánto se descuenta es el servidor, y la vista previa
+ * usa la misma función del core que es la especificación del cobro, no una
+ * cuenta propia.
  */
 export function FormularioPromocion({ id }: { id?: string }) {
   const tienda = useTiendaActiva();
@@ -52,92 +61,93 @@ export function FormularioPromocion({ id }: { id?: string }) {
   });
 
   const categorias = useCategorias();
+  const colecciones = useColecciones();
 
   // Tres parámetros como en el formulario de producto: la entrada son strings
   // —lo que el operador escribe— y la salida ya son números, que es lo que el
   // esquema transforma. Sin declarar los dos, el resolver no encaja.
   const formulario = useForm<Valores, unknown, PromocionValidada>({
     resolver: zodResolver(promocionSchema),
-    defaultValues: {
-      title: '',
-      status: 'draft',
-      priority: '0',
-      stackable: false,
-      discountType: 'percentage',
-      discountValue: '',
-      targetKind: 'all',
-      targetIds: [],
-      code: '',
-      startsAt: '',
-      endsAt: '',
-      usageLimit: '',
-      minSubtotal: '',
-      minQuantity: '',
-    },
+    defaultValues: VALORES_INICIALES,
   });
 
   const { register, handleSubmit, control, reset, setValue, formState } = formulario;
 
   // Al editar, el formulario se rellena cuando llega el dato.
   useEffect(() => {
-    const p = existente.data;
-    if (!p) return;
-    reset({
-      title: p.title,
-      status: p.status,
-      priority: String(p.priority),
-      stackable: p.stackable,
-      discountType: p.discountType ?? 'percentage',
-      discountValue:
-        p.discountType === 'percentage'
-          ? String((p.discountValue ?? 0) / 100)
-          : String(p.discountValue ?? ''),
-      targetKind: p.target.kind,
-      targetIds: p.target.kind === 'all' ? [] : [...p.target.ids],
-      code: p.code ?? '',
-      startsAt: aCampoDeFecha(p.startsAt),
-      endsAt: aCampoDeFecha(p.endsAt),
-      usageLimit: p.usageLimit !== undefined ? String(p.usageLimit) : '',
-      minSubtotal: p.minSubtotal !== undefined ? String(p.minSubtotal) : '',
-      minQuantity: p.minQuantity !== undefined ? String(p.minQuantity) : '',
-    });
+    if (existente.data) reset(aFormulario(existente.data));
   }, [existente.data, reset]);
 
-  const tipo = useWatch({ control, name: 'discountType' });
-  const alcance = useWatch({ control, name: 'targetKind' });
-  const ids = useWatch({ control, name: 'targetIds' });
-  const valor = useWatch({ control, name: 'discountValue' });
-  const codigo = useWatch({ control, name: 'code' });
-  const minSubtotal = useWatch({ control, name: 'minSubtotal' });
-  const minQuantity = useWatch({ control, name: 'minQuantity' });
   // `useWatch` y no `formulario.watch()`: el segundo vuelve a dibujar el
-  // formulario entero con cada tecla; `useWatch` escucha sólo su campo.
-  const combina = useWatch({ control, name: 'stackable' });
-  /*
-   * Los desplegables ya no son `<select>` nativos, así que `register` no
-   * alcanza: un control de Base UI no recibe un evento de cambio sino el valor
-   * elegido. Se leen con `useWatch` y se escriben con `setValue`, que es lo que
-   * este formulario ya hacía con `targetKind` y con el interruptor.
-   */
-  const tipoDeDescuento = useWatch({ control, name: 'discountType' });
-  const estado = useWatch({ control, name: 'status' });
+  // formulario entero con cada tecla; `useWatch` escucha sólo lo pedido.
+  const valores = useWatch({ control }) as Valores;
+  const { kind, modo, targetKind: alcance, targetIds: ids = [], stackable: combina } = valores;
+  const estado = valores.status;
 
-  /* Una promoción con cupón o con mínimos no se puede pintar en la grilla: sin
-     carrito no hay subtotal contra el que evaluarla. Decirlo mientras se escribe
-     evita la pregunta de por qué no se ve en la vidriera. */
-  const soloEnElCarrito = Boolean(codigo?.trim() || minSubtotal?.trim() || minQuantity?.trim());
+  // El ejemplo del carrito sale del alcance real de la tienda: cuántos productos
+  // alcanza y uno de ellos con su precio.
+  const objetivo =
+    kind === 'bundle'
+      ? valores.coleccion
+        ? ({ kind: 'collection', ids: [valores.coleccion] } as const)
+        : null
+      : !usaAlcance(kind) || alcance === 'all'
+        ? ({ kind: 'all' } as const)
+        : ids.length > 0
+          ? ({ kind: alcance, ids } as const)
+          : null;
 
-  // El preview sale del servidor —cuántos productos alcanza y uno de ejemplo— y
-  // el precio resultante lo calcula el core, con las mismas funciones que usa
-  // `cart_promotions`. Una cuenta propia acá podría no coincidir con el cobro.
   const preview = useQuery({
-    queryKey: ['alcance', tienda.id, alcance, [...(ids ?? [])].sort().join(',')],
-    queryFn: () =>
-      repositorioPromociones(db).alcance(
-        tienda.id,
-        alcance === 'all' ? { kind: 'all' } : { kind: alcance, ids: ids ?? [] },
-      ),
-    enabled: alcance === 'all' || (ids ?? []).length > 0,
+    queryKey: [
+      'alcance',
+      tienda.id,
+      objetivo?.kind,
+      objetivo && objetivo.kind !== 'all' ? [...objetivo.ids].sort().join(',') : '',
+    ],
+    queryFn: () => repositorioPromociones(db).alcance(tienda.id, objetivo!),
+    enabled: objetivo !== null,
+  });
+
+  /*
+   * La vista previa usa los datos **validados**, sin mostrar errores: si todavía
+   * no valida no hay carrito que armar, y el resumen igual acompaña lo escrito.
+   */
+  const validos = useMemo(() => promocionSchema.safeParse(valores), [valores]);
+  const carrito =
+    validos.success && objetivo
+      ? carritoDeEjemplo(
+          aDatos(validos.data),
+          preview.data?.ejemplo,
+          valores.nombreDelRegalo,
+          tienda.locale,
+        )
+      : null;
+
+  const nombreDeColeccion = colecciones.data?.items.find((c) => c.id === valores.coleccion)?.title;
+  const textoDelAlcance = !usaAlcance(kind)
+    ? ''
+    : alcance === 'all'
+      ? 'en todo el catálogo'
+      : alcance === 'category'
+        ? `en ${
+            (categorias.data ?? [])
+              .filter((c) => ids.includes(c.id))
+              .map((c) => c.name)
+              .join(', ') || '…'
+          }`
+        : alcance === 'collection'
+          ? `en ${
+              (colecciones.data?.items ?? [])
+                .filter((c) => ids.includes(c.id))
+                .map((c) => c.title)
+                .join(', ') || '…'
+            }`
+          : `en ${ids.length} producto${ids.length === 1 ? '' : 's'}`;
+  const frase = resumen(valores, {
+    alcance: textoDelAlcance,
+    ...(nombreDeColeccion ? { coleccion: nombreDeColeccion } : {}),
+    moneda: tienda.currency,
+    locale: tienda.locale,
   });
 
   const guardar = useMutation({
@@ -151,25 +161,14 @@ export function FormularioPromocion({ id }: { id?: string }) {
   });
 
   function alternar(valorId: string): void {
-    const actuales = ids ?? [];
     setValue(
       'targetIds',
-      actuales.includes(valorId) ? actuales.filter((x) => x !== valorId) : [...actuales, valorId],
-      { shouldValidate: true },
+      ids.includes(valorId) ? ids.filter((x) => x !== valorId) : [...ids, valorId],
+      {
+        shouldValidate: true,
+      },
     );
   }
-
-  const ejemplo = preview.data?.ejemplo;
-  const numero = Number(String(valor).replace(',', '.'));
-  const despues =
-    ejemplo && Number.isFinite(numero) && numero > 0
-      ? subtractMoney(
-          ejemplo.price,
-          tipo === 'percentage'
-            ? percentageOf(ejemplo.price, Math.round(numero * 100))
-            : { amount: numero, currency: ejemplo.price.currency },
-        )
-      : null;
 
   if (id && existente.isPending) {
     return (
@@ -197,239 +196,354 @@ export function FormularioPromocion({ id }: { id?: string }) {
           </p>
         )}
 
-        <div className="flex max-w-2xl flex-col gap-5">
-          <Tarjeta sinRelleno>
-            <TituloDeTarjeta>El descuento</TituloDeTarjeta>
-            <div className="flex flex-col gap-4 p-4">
-              <Campo
-                id="title"
-                label="Nombre"
-                error={formState.errors.title?.message}
-                ayuda="Lo ve el comprador en el resumen de su pedido."
-              >
-                <Input
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="flex min-w-0 flex-col gap-5">
+            <Tarjeta sinRelleno>
+              <TituloDeTarjeta>La promoción</TituloDeTarjeta>
+              <div className="flex flex-col gap-4 p-4">
+                <Campo
                   id="title"
-                  {...register('title')}
-                  {...atributosDeError('title', formState.errors.title?.message)}
-                />
-              </Campo>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Campo id="discountType" label="Tipo">
-                  <Selector
-                    id="discountType"
-                    value={tipoDeDescuento}
-                    onValueChange={(v) => setValue('discountType', v as Valores['discountType'])}
-                  >
-                    <SelectItem value="percentage">Porcentaje</SelectItem>
-                    <SelectItem value="fixed">Monto fijo</SelectItem>
-                  </Selector>
-                </Campo>
-
-                <Campo
-                  id="discountValue"
-                  label={tipo === 'percentage' ? 'Porcentaje' : 'Monto'}
-                  error={formState.errors.discountValue?.message}
+                  label="Nombre"
+                  error={formState.errors.title?.message}
+                  ayuda="Lo ve el comprador en el resumen de su pedido."
                 >
                   <Input
-                    id="discountValue"
-                    inputMode="decimal"
-                    placeholder={tipo === 'percentage' ? '15' : '50000'}
-                    {...register('discountValue')}
-                    {...atributosDeError('discountValue', formState.errors.discountValue?.message)}
+                    id="title"
+                    {...register('title')}
+                    {...atributosDeError('title', formState.errors.title?.message)}
                   />
                 </Campo>
-              </div>
 
-              <fieldset className="flex flex-col gap-3">
-                <legend className="mb-1.5 text-sm font-medium">A qué productos alcanza</legend>
-                <Selector
-                  value={alcance}
-                  onValueChange={(valor) => {
-                    setValue('targetKind', valor as Valores['targetKind']);
-                    // Cambiar de tipo con ids de otro tipo dejaría una selección
-                    // que no corresponde a nada.
-                    setValue('targetIds', []);
-                  }}
-                >
-                  <SelectItem value="all">Todo el catálogo</SelectItem>
-                  <SelectItem value="category">Categorías</SelectItem>
-                  <SelectItem value="product">Productos</SelectItem>
-                </Selector>
-
-                {alcance === 'category' && (
-                  <SelectorDeCategorias
-                    categorias={categorias.data ?? []}
-                    cargando={categorias.isPending}
-                    ids={ids ?? []}
-                    alternar={alternar}
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm font-medium">Cómo se aplica</span>
+                  <Segmentado
+                    etiqueta="Cómo se aplica"
+                    opciones={[
+                      { valor: 'auto', etiqueta: 'Automática' },
+                      { valor: 'codigo', etiqueta: 'Con código' },
+                    ]}
+                    valor={modo}
+                    onCambiar={(v) => {
+                      setValue('modo', v);
+                      // Con código sólo hay descuento o envío gratis: si el tipo
+                      // elegido no puede, vuelve al descuento en vez de quedar en
+                      // una combinación que no se puede guardar.
+                      if (v === 'codigo' && !TIPOS_CON_CUPON.includes(kind))
+                        setValue('kind', 'discount');
+                    }}
                   />
-                )}
-
-                {alcance === 'product' && (
-                  <SelectorDeProductos ids={ids ?? []} alternar={alternar} />
-                )}
-
-                {formState.errors.targetIds && (
-                  <span className="text-destructive text-xs">
-                    {formState.errors.targetIds.message}
-                  </span>
-                )}
-              </fieldset>
-
-              {/* Preview: PROJECT.md §15 pide poder simular antes de publicar. */}
-              <div className="bg-muted/40 border-border flex flex-col gap-1 rounded-lg border p-4">
-                <p className="text-sm font-medium">
-                  {preview.isPending && preview.fetchStatus !== 'idle'
-                    ? 'Calculando el alcance…'
-                    : preview.data
-                      ? `Alcanza ${preview.data.count} producto${preview.data.count === 1 ? '' : 's'}.`
-                      : 'Elegí a qué alcanza para ver el impacto.'}
-                </p>
-                {ejemplo && despues && (
-                  <p className="text-muted-foreground text-sm">
-                    Por ejemplo, «{ejemplo.title}» pasa de{' '}
-                    {formatMoney(ejemplo.price, tienda.locale)} a{' '}
-                    <strong className="text-foreground">
-                      {formatMoney(despues, tienda.locale)}
-                    </strong>
-                    .
-                  </p>
-                )}
-                {soloEnElCarrito && (
-                  <p className="text-muted-foreground text-xs">
-                    Con cupón o con un mínimo, el descuento{' '}
-                    <strong>no se muestra en el catálogo</strong>: recién se aplica en el carrito,
-                    que es donde se puede evaluar la condición.
-                  </p>
-                )}
-              </div>
-            </div>
-          </Tarjeta>
-
-          <Tarjeta sinRelleno>
-            <TituloDeTarjeta>Condiciones</TituloDeTarjeta>
-            <div className="grid gap-4 p-4 sm:grid-cols-2">
-              <Campo id="code" label="Código de cupón" error={formState.errors.code?.message}>
-                <Input
-                  id="code"
-                  placeholder="Sin código: se aplica sola"
-                  {...register('code')}
-                  {...atributosDeError('code', formState.errors.code?.message)}
-                />
-              </Campo>
-
-              <Campo
-                id="usageLimit"
-                label="Tope de usos"
-                error={formState.errors.usageLimit?.message}
-                ayuda="Cuántos pedidos pueden aprovecharla. Vacío: sin tope."
-              >
-                <Input
-                  id="usageLimit"
-                  inputMode="numeric"
-                  placeholder="Sin tope"
-                  {...register('usageLimit')}
-                  {...atributosDeError('usageLimit', formState.errors.usageLimit?.message)}
-                />
-              </Campo>
-
-              <Campo id="startsAt" label="Empieza" error={formState.errors.startsAt?.message}>
-                <Input
-                  id="startsAt"
-                  type="datetime-local"
-                  {...register('startsAt')}
-                  {...atributosDeError('startsAt', formState.errors.startsAt?.message)}
-                />
-              </Campo>
-
-              <Campo id="endsAt" label="Termina" error={formState.errors.endsAt?.message}>
-                <Input
-                  id="endsAt"
-                  type="datetime-local"
-                  {...register('endsAt')}
-                  {...atributosDeError('endsAt', formState.errors.endsAt?.message)}
-                />
-              </Campo>
-
-              <Campo
-                id="minSubtotal"
-                label="Compra mínima"
-                error={formState.errors.minSubtotal?.message}
-                ayuda={`Desde cuánto aplica, en ${tienda.currency}. Vacío: sin mínimo.`}
-              >
-                <Input
-                  id="minSubtotal"
-                  inputMode="numeric"
-                  placeholder="Sin mínimo"
-                  {...register('minSubtotal')}
-                  {...atributosDeError('minSubtotal', formState.errors.minSubtotal?.message)}
-                />
-              </Campo>
-
-              <Campo
-                id="minQuantity"
-                label="Cantidad mínima"
-                error={formState.errors.minQuantity?.message}
-                ayuda="Cuántas unidades tiene que llevar. Vacío: sin mínimo."
-              >
-                <Input
-                  id="minQuantity"
-                  inputMode="numeric"
-                  placeholder="Sin mínimo"
-                  {...register('minQuantity')}
-                  {...atributosDeError('minQuantity', formState.errors.minQuantity?.message)}
-                />
-              </Campo>
-            </div>
-          </Tarjeta>
-
-          <Tarjeta sinRelleno>
-            <TituloDeTarjeta>Publicación</TituloDeTarjeta>
-            <div className="flex flex-col gap-4 p-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="status">Estado</Label>
-                  <Selector
-                    id="status"
-                    value={estado}
-                    onValueChange={(v) => setValue('status', v as Valores['status'])}
-                  >
-                    <SelectItem value="draft">Borrador</SelectItem>
-                    <SelectItem value="active">Activa</SelectItem>
-                    <SelectItem value="archived">Archivada</SelectItem>
-                  </Selector>
-                  <span className="text-muted-foreground text-xs">
-                    Sólo las activas descuentan. Se archiva en vez de borrar, para que los pedidos
-                    viejos sigan explicando su descuento.
-                  </span>
                 </div>
+
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="mb-1.5 text-sm font-medium">Tipo</legend>
+                  <div
+                    role="radiogroup"
+                    aria-label="Tipo de promoción"
+                    className="grid gap-2 grid-cols-2 xl:grid-cols-4"
+                  >
+                    {TIPOS.map((t) => {
+                      const elegido = kind === t.kind;
+                      const soloAutomatica = modo === 'codigo' && !TIPOS_CON_CUPON.includes(t.kind);
+                      return (
+                        <button
+                          key={t.kind}
+                          type="button"
+                          role="radio"
+                          aria-checked={elegido}
+                          aria-disabled={soloAutomatica}
+                          disabled={soloAutomatica}
+                          onClick={() =>
+                            setValue('kind', t.kind, { shouldValidate: formState.isSubmitted })
+                          }
+                          className={cn(
+                            'focus-visible:ring-focus-tint flex flex-col items-start gap-0.5 rounded-[10px] border-[1.5px] px-3 py-2.5 text-left outline-none focus-visible:ring-3',
+                            soloAutomatica
+                              ? 'border-border bg-muted/50 cursor-not-allowed opacity-60'
+                              : elegido
+                                ? 'cursor-pointer border-[#3b5bdb] bg-[#f5f7fe]'
+                                : 'border-border hover:border-ink-3 cursor-pointer bg-white',
+                          )}
+                        >
+                          <span className="text-sm font-medium">{t.label}</span>
+                          <span className="text-muted-foreground text-xs">
+                            {soloAutomatica ? 'Sólo automática' : t.ejemplo}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {formState.errors.kind && (
+                    <span role="alert" className="text-destructive text-xs">
+                      {formState.errors.kind.message}
+                    </span>
+                  )}
+                </fieldset>
+              </div>
+            </Tarjeta>
+
+            <Tarjeta sinRelleno>
+              <TituloDeTarjeta>El beneficio</TituloDeTarjeta>
+              <div className="p-4">
+                <CamposDelTipo formulario={formulario} />
+              </div>
+            </Tarjeta>
+
+            {usaAlcance(kind) && (
+              <Tarjeta sinRelleno>
+                <TituloDeTarjeta>A qué productos alcanza</TituloDeTarjeta>
+                <fieldset className="flex flex-col gap-3 p-4">
+                  <legend className="sr-only">A qué productos alcanza</legend>
+                  <Selector
+                    aria-label="A qué productos alcanza"
+                    value={alcance}
+                    onValueChange={(v) => {
+                      setValue('targetKind', v as Valores['targetKind']);
+                      // Cambiar de tipo con ids de otro tipo dejaría una selección
+                      // que no corresponde a nada.
+                      setValue('targetIds', []);
+                    }}
+                  >
+                    <SelectItem value="all">Todo el catálogo</SelectItem>
+                    <SelectItem value="category">Categorías</SelectItem>
+                    <SelectItem value="collection">Colecciones</SelectItem>
+                    <SelectItem value="product">Productos</SelectItem>
+                  </Selector>
+
+                  {alcance === 'category' && (
+                    <SelectorDeCategorias
+                      categorias={categorias.data ?? []}
+                      cargando={categorias.isPending}
+                      ids={ids}
+                      alternar={alternar}
+                    />
+                  )}
+                  {alcance === 'collection' && (
+                    <SelectorDeColecciones
+                      colecciones={colecciones.data?.items ?? []}
+                      cargando={colecciones.isPending}
+                      ids={ids}
+                      alternar={alternar}
+                    />
+                  )}
+                  {alcance === 'product' && <SelectorDeProductos ids={ids} alternar={alternar} />}
+
+                  {formState.errors.targetIds && (
+                    <span role="alert" className="text-destructive text-xs">
+                      {formState.errors.targetIds.message}
+                    </span>
+                  )}
+                  <p className="text-muted-foreground text-sm" aria-live="polite">
+                    {preview.isPending && preview.fetchStatus !== 'idle'
+                      ? 'Calculando el alcance…'
+                      : preview.data
+                        ? `Alcanza ${preview.data.count} producto${preview.data.count === 1 ? '' : 's'}.`
+                        : 'Elegí a qué alcanza para ver el impacto.'}
+                  </p>
+                </fieldset>
+              </Tarjeta>
+            )}
+
+            <Tarjeta sinRelleno>
+              <TituloDeTarjeta>Condiciones</TituloDeTarjeta>
+              <div className="grid gap-4 p-4 sm:grid-cols-2">
+                {modo === 'codigo' && (
+                  <Campo
+                    id="code"
+                    label="Código de cupón"
+                    error={formState.errors.code?.message}
+                    ayuda="El comprador lo escribe al pagar. Sin distinguir mayúsculas."
+                  >
+                    <Input
+                      id="code"
+                      placeholder="VOLVE10"
+                      {...register('code')}
+                      {...atributosDeError('code', formState.errors.code?.message)}
+                    />
+                  </Campo>
+                )}
+
                 <Campo
-                  id="priority"
-                  label="Prioridad"
-                  error={formState.errors.priority?.message}
-                  ayuda="Mayor primero, cuando hay dos que alcanzan al mismo producto."
+                  id="usageLimit"
+                  label="Tope de usos"
+                  error={formState.errors.usageLimit?.message}
+                  ayuda="Cuántos pedidos pueden aprovecharla. Vacío: sin tope."
                 >
                   <Input
-                    id="priority"
+                    id="usageLimit"
                     inputMode="numeric"
-                    {...register('priority')}
-                    {...atributosDeError('priority', formState.errors.priority?.message)}
+                    placeholder="Sin tope"
+                    {...register('usageLimit')}
+                    {...atributosDeError('usageLimit', formState.errors.usageLimit?.message)}
                   />
                 </Campo>
-              </div>
 
-              <label className="flex items-start gap-3">
-                <Switch checked={combina} onCheckedChange={(v) => setValue('stackable', v)} />
-                <span className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium">Se combina con otras</span>
-                  <span className="text-muted-foreground text-xs">
-                    Si no, se aplica sola: la de mayor prioridad gana y las demás no entran.
+                <Campo id="startsAt" label="Empieza" error={formState.errors.startsAt?.message}>
+                  <Input
+                    id="startsAt"
+                    type="datetime-local"
+                    {...register('startsAt')}
+                    {...atributosDeError('startsAt', formState.errors.startsAt?.message)}
+                  />
+                </Campo>
+
+                <Campo id="endsAt" label="Termina" error={formState.errors.endsAt?.message}>
+                  <Input
+                    id="endsAt"
+                    type="datetime-local"
+                    {...register('endsAt')}
+                    {...atributosDeError('endsAt', formState.errors.endsAt?.message)}
+                  />
+                </Campo>
+
+                {usaCompraMinima(kind) && (
+                  <Campo
+                    id="minSubtotal"
+                    label={kind === 'free_shipping' ? 'Envío gratis desde' : 'Compra mínima'}
+                    error={formState.errors.minSubtotal?.message}
+                    ayuda={`Desde cuánto aplica, en ${tienda.currency}. Vacío: sin mínimo.`}
+                  >
+                    <Input
+                      id="minSubtotal"
+                      inputMode="numeric"
+                      placeholder="Sin mínimo"
+                      {...register('minSubtotal')}
+                      {...atributosDeError('minSubtotal', formState.errors.minSubtotal?.message)}
+                    />
+                  </Campo>
+                )}
+
+                {kind === 'discount' && (
+                  <Campo
+                    id="minQuantity"
+                    label="Cantidad mínima"
+                    error={formState.errors.minQuantity?.message}
+                    ayuda="Cuántas unidades tiene que llevar. Vacío: sin mínimo."
+                  >
+                    <Input
+                      id="minQuantity"
+                      inputMode="numeric"
+                      placeholder="Sin mínimo"
+                      {...register('minQuantity')}
+                      {...atributosDeError('minQuantity', formState.errors.minQuantity?.message)}
+                    />
+                  </Campo>
+                )}
+              </div>
+            </Tarjeta>
+
+            <Tarjeta sinRelleno>
+              <TituloDeTarjeta>Publicación</TituloDeTarjeta>
+              <div className="flex flex-col gap-4 p-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="status">Estado</Label>
+                    <Selector
+                      id="status"
+                      value={estado}
+                      onValueChange={(v) => setValue('status', v as Valores['status'])}
+                    >
+                      <SelectItem value="draft">Borrador</SelectItem>
+                      <SelectItem value="active">Activa</SelectItem>
+                      <SelectItem value="archived">Archivada</SelectItem>
+                    </Selector>
+                    <span className="text-muted-foreground text-xs">
+                      Sólo las activas descuentan. Se archiva en vez de borrar, para que los pedidos
+                      viejos sigan explicando su descuento.
+                    </span>
+                  </div>
+                  <Campo
+                    id="priority"
+                    label="Prioridad"
+                    error={formState.errors.priority?.message}
+                    ayuda="Mayor primero, cuando hay dos que alcanzan al mismo producto."
+                  >
+                    <Input
+                      id="priority"
+                      inputMode="numeric"
+                      {...register('priority')}
+                      {...atributosDeError('priority', formState.errors.priority?.message)}
+                    />
+                  </Campo>
+                </div>
+
+                <label className="flex items-start gap-3">
+                  <Switch checked={combina} onCheckedChange={(v) => setValue('stackable', v)} />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium">Se combina con otras</span>
+                    <span className="text-muted-foreground text-xs">
+                      Si no, se aplica sola: la de mayor prioridad gana y las demás no entran.
+                    </span>
                   </span>
+                </label>
+              </div>
+            </Tarjeta>
+          </div>
+
+          {/* Al costado en escritorio y al final en el teléfono: la promoción en una frase y su efecto. */}
+          <aside className="flex flex-col gap-4 lg:sticky lg:top-4" aria-label="Vista previa">
+            <Tarjeta>
+              <div className="flex flex-col gap-2">
+                <h2 className="text-[15px] font-semibold">Resumen</h2>
+                <p className="text-sm leading-6" aria-live="polite">
+                  {frase}
+                </p>
+                {kind === 'discount' &&
+                modo === 'auto' &&
+                !valores.minSubtotal &&
+                !valores.minQuantity ? (
+                  <p className="text-muted-foreground text-xs">
+                    Se ve en el catálogo con el precio tachado.
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground text-xs">
+                    No se muestra en el catálogo: se aplica en el carrito, que es donde se puede
+                    evaluar.
+                  </p>
+                )}
+              </div>
+            </Tarjeta>
+            <Tarjeta>
+              <div
+                className="flex flex-col gap-2.5"
+                aria-label="Así se ve en el carrito"
+                role="group"
+              >
+                <span className="text-muted-foreground text-[12.5px] font-medium">
+                  Así se ve en el carrito
                 </span>
-              </label>
-            </div>
-          </Tarjeta>
+                {carrito ? (
+                  <>
+                    {carrito.filas.map((f, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          'flex justify-between gap-3 text-[13.5px]',
+                          f.promo ? 'text-[#13774a]' : 'text-ink-3',
+                        )}
+                      >
+                        <span className="min-w-0">{f.etiqueta}</span>
+                        <span className="whitespace-nowrap tabular-nums">{f.valor}</span>
+                      </div>
+                    ))}
+                    <div className="bg-border h-px" />
+                    <div className="flex justify-between font-semibold">
+                      <span>Total</span>
+                      <span className="tabular-nums">{carrito.total}</span>
+                    </div>
+                    {carrito.noAplica && (
+                      <p className="text-muted-foreground text-xs">
+                        Con este carrito de ejemplo no aplica. Revisá las condiciones.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    Completá el beneficio para ver el ejemplo.
+                  </p>
+                )}
+              </div>
+            </Tarjeta>
+          </aside>
         </div>
         <BarraDeAcciones>
           <Button
@@ -449,7 +563,36 @@ export function FormularioPromocion({ id }: { id?: string }) {
   );
 }
 
-/** Buscador de productos para acotar el alcance a unos pocos. */
+/** Colecciones para el alcance, con la misma forma que las categorías. */
+function SelectorDeColecciones({
+  colecciones,
+  cargando,
+  ids,
+  alternar,
+}: {
+  colecciones: readonly { id: string; title: string }[];
+  cargando: boolean;
+  ids: readonly string[];
+  alternar: (id: string) => void;
+}) {
+  if (cargando) return <p className="text-muted-foreground text-sm">Cargando colecciones…</p>;
+  if (colecciones.length === 0) {
+    return (
+      <p className="text-muted-foreground text-sm">Esta tienda todavía no tiene colecciones.</p>
+    );
+  }
+  return (
+    <div className="border-border flex max-h-64 flex-col gap-2 overflow-y-auto rounded-lg border p-3">
+      {colecciones.map((c) => (
+        <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+          <Checkbox checked={ids.includes(c.id)} onCheckedChange={() => alternar(c.id)} />
+          {c.title}
+        </label>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Elegir categorías sin desplegar las doscientas.
  *

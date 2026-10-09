@@ -8282,5 +8282,22 @@ stock la promoción se pausa, que el envío gratis sólo vale en su zona y que l
 base rechaza un 3x2 con cupón.
 
 El catálogo de Treeshop cuesta lo mismo: 268 ms la página 1, medido después de
-aplicar. El formulario del Admin y el carrito que muestra lo aplicado son los
-ítems siguientes de la fase.
+aplicar.
+
+**El formulario**
+Un solo formulario para los ocho tipos, con campos planos que `aDatos` junta
+en `rules` y `aFormulario` vuelve a separar. El test de ida y vuelta prueba que
+lo guardado se reabre igual. Las validaciones son las del handoff: pagar menos de
+lo que se lleva, escalones que crecen, un bundle de dos productos o más y su
+colección, al menos una zona, y con código sólo un descuento o un envío gratis.
+
+**El carrito de ejemplo lo calcula `aplicarAlCarrito`**, con el producto de
+ejemplo del alcance real y las cantidades mínimas que hacen aplicar a cada tipo.
+Es la simulación antes de publicar que pide PROJECT.md §15, y no puede mostrar
+otra cuenta que la del cobro. Si con ese carrito la promoción no aplica, lo dice:
+casi siempre es una condición mal puesta.
+
+El regalo se busca entre **todas** las variantes de la tienda, publicadas o no,
+con su stock al lado. Las zonas del envío gratis salen de la configuración de
+envío. Si la tienda no cobra por zona, el envío gratis vale para todo el país.
+Mostrar lo aplicado en el carrito es el ítem siguiente de la fase.
