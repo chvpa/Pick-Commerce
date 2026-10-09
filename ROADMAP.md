@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    28% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    30% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1934,16 +1934,16 @@ El registro antifraude interno, que el handoff marca como pedido explícito.
 
 ## Fase 5 — Promociones de ocho tipos
 
-**Avance: 0%**
+**Avance: 50%**
 
 Revisa ADR-091: llegó el primer «Buy X Get Y» real.
 
-- [ ] NxM, segunda unidad, por cantidad, escalonado por monto, regalo, bundle desde
+- [x] NxM, segunda unidad, por cantidad, escalonado por monto, regalo, bundle desde
       colecciones y envío gratis por zona: primero en el core, que es la
       especificación, y después en `cart_promotions` y `create_order`, con la
-      paridad probada.
-- [ ] El regalo es una línea a precio cero que descuenta stock; si se agota, la
-      promoción se pausa.
+      paridad probada (ADR-164).
+- [x] El regalo es una línea a precio cero que descuenta stock; si se agota, la
+      promoción se pausa (ADR-164).
 - [ ] Las validaciones del formulario: un bundle con dos productos o más, pagar
       menos unidades de las que se llevan, escalones crecientes, al menos una zona.
 - [ ] El carrito muestra lo que se aplicó, el regalo y lo que falta para el envío
@@ -2433,6 +2433,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-09 | **v3 Fase 4: características** (ADR-161). Productos › Características administra lo que antes se sembraba por script: tipo, opciones pegadas de una vez y los tres interruptores, cada uno con su efecto. Las de variante se eligen de una lista en cada variante, las del producto se cargan una vez para todas, y lo obligatorio no se publica sin completar, comprobado en el guardado. Las que ya existían arrancaron con los valores que tenían                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | v3 Fase 4 |           0% |            33% |
 | 2026-10-09 | **v3 Fase 4: modelos** (ADR-162). Productos › Modelos junta productos que son el mismo artículo en otro color: el eje que los distingue, cómo se ven en la ficha y el orden, con el primero en el catálogo. Se arma de una vez y nunca cruza tiendas; borrar el modelo suelta los productos. Avisa del producto sin valor en el eje y de los repetidos, y la ficha dice de qué modelo es parte                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | v3 Fase 4 |          33% |            67% |
 | 2026-10-09 | **v3 Fase 4: modelos en la tienda** (ADR-163). `catalog_search` deja una tarjeta por modelo —la primera que pasa los filtros— y el PDP trae a los demás, que la ficha dibuja como enlaces con foto, muestra o texto. Cuesta lo mismo que antes, medido en producción; la primera versión partió de una copia vieja de la función y deshizo la búsqueda semántica                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | v3 Fase 4 |          67% |           100% |
+| 2026-10-09 | **v3 Fase 5: los ocho tipos de promoción** (ADR-164). `promotions` gana `kind` y `rules`; cada tipo es una función del core con su gemela en SQL. El regalo es una línea a precio cero que descuenta stock y se pausa sin stock, y el envío gratis va por zona. 33 escenarios de paridad, 19 nuevos, y el core saboteado en tres reglas                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | v3 Fase 5 |           0% |            50% |
 
 ---
 

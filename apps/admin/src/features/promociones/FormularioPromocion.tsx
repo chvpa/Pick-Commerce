@@ -87,9 +87,11 @@ export function FormularioPromocion({ id }: { id?: string }) {
       status: p.status,
       priority: String(p.priority),
       stackable: p.stackable,
-      discountType: p.discountType,
+      discountType: p.discountType ?? 'percentage',
       discountValue:
-        p.discountType === 'percentage' ? String(p.discountValue / 100) : String(p.discountValue),
+        p.discountType === 'percentage'
+          ? String((p.discountValue ?? 0) / 100)
+          : String(p.discountValue ?? ''),
       targetKind: p.target.kind,
       targetIds: p.target.kind === 'all' ? [] : [...p.target.ids],
       code: p.code ?? '',

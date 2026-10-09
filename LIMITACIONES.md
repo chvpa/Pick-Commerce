@@ -77,7 +77,17 @@ la emite otro sistema.
 Una tarifa plana con umbral de gratis, o una tabla de zonas —departamentos,
 ciudades— con su tarifa y una general para las que no estén (ADR-107, ADR-114).
 El comprador elige la zona en el checkout y el servidor cobra. No hay tarifas
-por peso, transportistas ni retiro en sucursal: pickup está en v2.
+por peso, transportistas ni retiro en sucursal: pickup está en v2. Una promoción
+puede dejar el envío gratis en algunas zonas (ADR-164).
+
+### Promociones: ocho tipos, sin marca ni segmento
+
+Descuento, llevá X pagá Y, segunda unidad, por cantidad, por monto, regalo,
+bundle y envío gratis (ADR-164). Alcanzan a todo el catálogo, a categorías, a
+colecciones o a productos; no a una marca, a un segmento de clientes ni a la
+primera compra. Sólo el descuento y el envío gratis pueden ser cupón. El regalo
+es uno por pedido, y sin stock la promoción no aplica. Un envío gratis por zona
+no se ve hasta que el comprador elige la zona en el checkout.
 
 ### WhatsApp es un enlace, y los teléfonos son de Paraguay
 

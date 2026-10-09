@@ -56,11 +56,14 @@ interface Escenario {
   readonly promos: readonly Promotion[];
   readonly lineas: readonly LineaParaPromocion[];
   readonly codigo?: string;
+  /** La zona de envío, para el envío gratis. */
+  readonly zona?: string;
 }
 
 function promo(parcial: Partial<Promotion> & Pick<Promotion, 'id'>): Promotion {
   return {
     title: 'Promo',
+    kind: 'discount',
     status: 'active',
     priority: 0,
     stackable: false,
@@ -84,6 +87,28 @@ function linea(parcial: Partial<LineaParaPromocion> = {}): LineaParaPromocion {
   };
 }
 
+/** Una promoción de carrito (ADR-164): sin `discountType`, con lo suyo en `rules`. */
+function deCarrito(parcial: Partial<Promotion> & Pick<Promotion, 'id' | 'kind'>): Promotion {
+  const { discountType: _t, discountValue: _v, ...base } = promo(parcial);
+  return base;
+}
+
+function lineaGorra(parcial: Partial<LineaParaPromocion> = {}): LineaParaPromocion {
+  return linea({
+    variantId: V_GORRA,
+    productId: GORRA,
+    categoryId: undefined,
+    collectionIds: [],
+    listUnitPrice: { amount: PRECIO_GORRA, currency: 'PYG' },
+    ...parcial,
+  });
+}
+
+/** Ids de las promociones de los escenarios nuevos, para que se lean en un fallo. */
+function ID(n: number): string {
+  return `33333333-0000-4000-8000-${String(n).padStart(12, '0')}`;
+}
+
 /** Inserta las promociones del escenario y devuelve lo que calculó el SQL. */
 interface ResultadoSql {
   readonly subtotal: number;
@@ -91,6 +116,9 @@ interface ResultadoSql {
   readonly total: number;
   readonly couponIssue?: string;
   readonly lines: readonly { variantId: string; unitPrice: number; subtotal: number }[];
+  readonly gifts: readonly { promotionId: string; variantId: string; quantity: number }[];
+  readonly freeShipping: boolean;
+  readonly applied: readonly { promotionId: string; kind: string; amount: number }[];
 }
 
 async function enSql(e: Escenario): Promise<ResultadoSql> {
@@ -100,17 +128,18 @@ async function enSql(e: Escenario): Promise<ResultadoSql> {
     await comoServicio(
       db,
       `insert into promotions (
-         id, tenant_id, store_id, title, status, priority, stackable, code,
+         id, tenant_id, store_id, title, kind, status, priority, stackable, code,
          starts_at, ends_at, usage_limit, usage_count,
-         discount_type, discount_value, target, min_subtotal, min_quantity
+         discount_type, discount_value, rules, target, min_subtotal, min_quantity
        ) values (
-         ${sql(p.id)}, ${sql(TENANT)}, ${sql(TIENDA)}, ${sql(p.title)},
+         ${sql(p.id)}, ${sql(TENANT)}, ${sql(TIENDA)}, ${sql(p.title)}, ${sql(p.kind)},
          ${sql(p.status)}, ${p.priority}, ${p.stackable},
          ${p.code ? sql(p.code) : 'null'},
          ${p.startsAt ? `${sql(p.startsAt)}::timestamptz` : 'null'},
          ${p.endsAt ? `${sql(p.endsAt)}::timestamptz` : 'null'},
          ${p.usageLimit ?? 'null'}, ${p.usageCount},
-         ${sql(p.discountType)}, ${p.discountValue},
+         ${p.discountType ? sql(p.discountType) : 'null'}, ${p.discountValue ?? 'null'},
+         ${sql(JSON.stringify(p.rules ?? {}))}::jsonb,
          ${sql(JSON.stringify(p.target))}::jsonb,
          ${p.minSubtotal ?? 'null'}, ${p.minQuantity ?? 'null'}
        )`,
@@ -121,9 +150,25 @@ async function enSql(e: Escenario): Promise<ResultadoSql> {
   const filas = await comoServicio<{ j: ResultadoSql }>(
     db,
     `select cart_promotions(${sql(TIENDA)}::uuid, ${sql(JSON.stringify(lineas))}::jsonb,
-                            ${e.codigo ? sql(e.codigo) : 'null'}) as j`,
+                            ${e.codigo ? sql(e.codigo) : 'null'},
+                            ${e.zona ? sql(e.zona) : 'null'}) as j`,
   );
   return filas[0]!.j;
+}
+
+/**
+ * El stock de lo que se regala, leído de la base: el core lo recibe del que
+ * llama, y para que la paridad pruebe algo tiene que ser el mismo que ve el SQL.
+ */
+async function stockDeRegalos(e: Escenario): Promise<Record<string, number>> {
+  const ids = e.promos.map((p) => p.rules?.giftVariantId).filter((id) => id !== undefined);
+  if (ids.length === 0) return {};
+  const filas = await comoServicio<{ variant_id: string; n: number }>(
+    db,
+    `select variant_id, sum(available)::int as n from inventory_levels
+     where variant_id = any(${sql(`{${ids.join(',')}}`)}::uuid[]) group by variant_id`,
+  );
+  return Object.fromEntries(filas.map((f) => [f.variant_id, f.n]));
 }
 
 before(async () => {
@@ -406,17 +451,226 @@ const ESCENARIOS: readonly Escenario[] = [
     ],
     lineas: [linea()],
   },
+
+  // Los tipos de carrito (ADR-164).
+  {
+    nombre: '3x2 sobre el mismo producto, y la gorra no completa el grupo',
+    promos: [deCarrito({ id: ID(1), kind: 'buy_x_pay_y', rules: { buy: 3, pay: 2 } })],
+    lineas: [linea({ quantity: 4 }), lineaGorra({ quantity: 2 })],
+  },
+  {
+    nombre: '3x2 sobre el precio que ya rebajó el catálogo',
+    promos: [
+      promo({ id: ID(2), discountValue: 1000, stackable: true }),
+      deCarrito({ id: ID(3), kind: 'buy_x_pay_y', rules: { buy: 3, pay: 2 } }),
+    ],
+    lineas: [linea({ quantity: 3 })],
+  },
+  {
+    nombre: 'segunda unidad con el redondeo justo en la mitad',
+    promos: [deCarrito({ id: ID(4), kind: 'second_unit', rules: { percent: 1500 } })],
+    lineas: [lineaGorra({ quantity: 3 })],
+  },
+  {
+    nombre: 'por cantidad, cada producto por su lado',
+    promos: [
+      deCarrito({
+        id: ID(5),
+        kind: 'quantity',
+        rules: {
+          tiers: [
+            { minQuantity: 2, percent: 1000 },
+            { minQuantity: 4, percent: 2000 },
+          ],
+        },
+      }),
+    ],
+    lineas: [linea({ quantity: 4 }), lineaGorra({ quantity: 3 })],
+  },
+  {
+    nombre: 'por cantidad mezclando productos, la más cara entera',
+    promos: [
+      deCarrito({
+        id: ID(6),
+        kind: 'quantity',
+        rules: { mix: true, tiers: [{ minQuantity: 3, percent: 1500 }] },
+      }),
+    ],
+    lineas: [linea(), lineaGorra({ quantity: 2 })],
+  },
+  {
+    nombre: 'por monto, en el último escalón',
+    promos: [
+      deCarrito({
+        id: ID(7),
+        kind: 'tiered',
+        rules: {
+          tiers: [
+            { upTo: 200_000, percent: 0 },
+            { upTo: 400_000, percent: 1000 },
+            { percent: 1500 },
+          ],
+        },
+      }),
+    ],
+    lineas: [linea({ quantity: 3 })],
+  },
+  {
+    nombre: 'por monto, justo en el tope de un escalón',
+    promos: [
+      deCarrito({
+        id: ID(8),
+        kind: 'tiered',
+        rules: { tiers: [{ upTo: 300_000, percent: 1000 }, { percent: 2000 }] },
+      }),
+    ],
+    lineas: [linea({ quantity: 2 })],
+  },
+  {
+    nombre: 'regalo al comprar dos remeras',
+    promos: [
+      deCarrito({
+        id: ID(9),
+        kind: 'gift',
+        target: { kind: 'product', ids: [REMERA] },
+        rules: { buy: 2, giftVariantId: V_GORRA, giftQuantity: 1 },
+      }),
+    ],
+    lineas: [linea({ quantity: 2 })],
+  },
+  {
+    nombre: 'regalo que no llega al mínimo',
+    promos: [
+      deCarrito({
+        id: ID(10),
+        kind: 'gift',
+        rules: { buy: 3, giftVariantId: V_GORRA, giftQuantity: 1 },
+      }),
+    ],
+    lineas: [linea({ quantity: 2 })],
+  },
+  {
+    nombre: 'regalo pedido en más unidades de las que hay',
+    promos: [
+      deCarrito({
+        id: ID(11),
+        kind: 'gift',
+        rules: { buy: 1, giftVariantId: V_GORRA, giftQuantity: 1 },
+      }),
+    ],
+    // La tienda tiene 100 gorras y el carrito ya compra las 100.
+    lineas: [linea(), lineaGorra({ quantity: 100 })],
+  },
+  {
+    nombre: 'bundle de dos productos distintos con porcentaje',
+    promos: [
+      deCarrito({
+        id: ID(12),
+        kind: 'bundle',
+        target: { kind: 'product', ids: [REMERA, GORRA] },
+        rules: { count: 2, benefit: 'percent', value: 1500 },
+      }),
+    ],
+    lineas: [linea(), lineaGorra()],
+  },
+  {
+    nombre: 'un bundle no se arma con un solo producto',
+    promos: [
+      deCarrito({
+        id: ID(13),
+        kind: 'bundle',
+        target: { kind: 'product', ids: [REMERA, GORRA] },
+        rules: { count: 2, benefit: 'fixed', value: 20_000 },
+      }),
+    ],
+    lineas: [linea({ quantity: 3 })],
+  },
+  {
+    nombre: 'bundle con envío gratis',
+    promos: [
+      deCarrito({
+        id: ID(14),
+        kind: 'bundle',
+        target: { kind: 'product', ids: [REMERA, GORRA] },
+        rules: { count: 2, benefit: 'free_shipping' },
+      }),
+    ],
+    lineas: [linea(), lineaGorra()],
+  },
+  {
+    nombre: 'envío gratis en su zona',
+    promos: [deCarrito({ id: ID(15), kind: 'free_shipping', rules: { zones: ['Central'] } })],
+    lineas: [linea()],
+    zona: ' central',
+  },
+  {
+    nombre: 'envío gratis fuera de su zona',
+    promos: [deCarrito({ id: ID(16), kind: 'free_shipping', rules: { zones: ['Central'] } })],
+    lineas: [linea()],
+    zona: 'Itapúa',
+  },
+  {
+    nombre: 'cupón de envío gratis fuera de su zona',
+    promos: [
+      deCarrito({
+        id: ID(17),
+        kind: 'free_shipping',
+        code: 'ENVIO',
+        rules: { zones: ['Central'] },
+      }),
+    ],
+    lineas: [linea()],
+    codigo: 'envio',
+    zona: 'Itapúa',
+  },
+  {
+    nombre: 'un 3x2 que combina deja pasar un descuento con mínimo',
+    promos: [
+      deCarrito({
+        id: ID(18),
+        kind: 'buy_x_pay_y',
+        priority: 5,
+        stackable: true,
+        rules: { buy: 3, pay: 2 },
+      }),
+      promo({ id: ID(19), priority: 1, stackable: true, minQuantity: 2, discountValue: 1000 }),
+    ],
+    lineas: [linea({ quantity: 3 })],
+  },
+  {
+    nombre: 'un 3x2 que no combina corta la cadena',
+    promos: [
+      deCarrito({ id: ID(20), kind: 'buy_x_pay_y', priority: 5, rules: { buy: 3, pay: 2 } }),
+      promo({ id: ID(21), priority: 1, stackable: true, minQuantity: 2, discountValue: 1000 }),
+    ],
+    lineas: [linea({ quantity: 3 })],
+  },
+  {
+    nombre: 'un 3x2 mal configurado no regala nada',
+    promos: [deCarrito({ id: ID(22), kind: 'buy_x_pay_y', rules: { buy: 3, pay: 3 } })],
+    lineas: [linea({ quantity: 6 })],
+  },
 ];
 
 for (const e of ESCENARIOS) {
   test(`paridad SQL/core: ${e.nombre}`, async () => {
     const sqlR = await enSql(e);
-    const coreR = aplicarAlCarrito(e.lineas, e.promos, new Date(), e.codigo);
+    const coreR = aplicarAlCarrito(e.lineas, e.promos, new Date(), e.codigo, {
+      ...(e.zona ? { zona: e.zona } : {}),
+      stockDeRegalos: await stockDeRegalos(e),
+    });
 
     assert.equal(sqlR.subtotal, coreR.subtotal.amount, 'el subtotal difiere');
     assert.equal(sqlR.discount, coreR.discount.amount, 'el descuento difiere');
     assert.equal(sqlR.total, coreR.total.amount, 'el total difiere');
     assert.equal(sqlR.couponIssue, coreR.couponIssue, 'el motivo de rechazo del cupón difiere');
+    assert.equal(sqlR.freeShipping, coreR.freeShipping, 'el envío gratis difiere');
+    assert.deepEqual(sqlR.gifts, coreR.gifts, 'los regalos difieren');
+    assert.deepEqual(
+      sqlR.applied.map((a) => [a.promotionId, a.kind, a.amount]),
+      coreR.applied.map((a) => [a.promotionId, a.kind, a.amount.amount]),
+      'lo aplicado difiere',
+    );
 
     // También por línea: es el precio que ve el comprador en el carrito, y si
     // difiere del que cobra el pedido son dos números para lo mismo.
@@ -438,7 +692,13 @@ interface Pedido {
   readonly discount: { amount: number };
   readonly total: { amount: number };
   readonly appliedPromotions?: readonly { promotionId: string; amount: number }[];
-  readonly items: readonly { unitPrice: { amount: number }; quantity: number }[];
+  readonly items: readonly {
+    variantId: string;
+    unitPrice: { amount: number };
+    quantity: number;
+    isGift?: boolean;
+  }[];
+  readonly shipping: { amount: number };
 }
 
 async function crear(
@@ -723,4 +983,147 @@ test('un carrito inválido no consume el tope de uso', async () => {
     `select usage_count from promotions where code = 'TOPE'`,
   );
   assert.equal(filas[0]!.usage_count, 0, 'un carrito rechazado consumió el cupón');
+});
+
+// ---------------------------------------------------------------------------
+// Los tipos de carrito en el pedido (ADR-164)
+// ---------------------------------------------------------------------------
+
+async function stockDe(variante: string): Promise<number> {
+  const filas = await comoServicio<{ n: number }>(
+    db,
+    `select coalesce(sum(available), 0)::int as n from inventory_levels
+     where variant_id = ${sql(variante)}`,
+  );
+  return filas[0]!.n;
+}
+
+async function ponerStock(variante: string, n: number): Promise<void> {
+  await comoServicio(
+    db,
+    `update inventory_levels set available = ${n} where variant_id = ${sql(variante)}`,
+  );
+}
+
+async function promoDeRegalo(): Promise<void> {
+  await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
+  await comoServicio(
+    db,
+    `insert into promotions (tenant_id, store_id, title, status, kind, rules, target)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, 'Gorra de regalo', 'active', 'gift',
+             ${sql(JSON.stringify({ buy: 2, giftVariantId: V_GORRA, giftQuantity: 1 }))}::jsonb,
+             ${sql(JSON.stringify({ kind: 'product', ids: [REMERA] }))}::jsonb)`,
+  );
+}
+
+test('el regalo entra al pedido a precio cero y descuenta su stock', async () => {
+  await promoDeRegalo();
+  await ponerStock(V_GORRA, 5);
+
+  const o = (await crear([{ variantId: V_REMERA, quantity: 2 }])).order!;
+  const regalo = o.items.find((i) => i.isGift);
+
+  assert.ok(regalo, 'el pedido no trae la línea de regalo');
+  assert.equal(regalo.variantId, V_GORRA);
+  assert.equal(regalo.unitPrice.amount, 0);
+  assert.equal(regalo.quantity, 1);
+  assert.equal(o.items.filter((i) => !i.isGift).length, 1, 'la remera dejó de ser una línea paga');
+  assert.equal(o.total.amount, 300_000, 'el regalo cambió lo que se cobra');
+  assert.equal(o.subtotal.amount, 300_000, 'el regalo entró al subtotal');
+  assert.equal(await stockDe(V_GORRA), 4, 'el regalo no descontó stock');
+
+  await ponerStock(V_GORRA, 100);
+});
+
+test('sin stock del regalo, la promoción se pausa y el pedido se crea igual', async () => {
+  await promoDeRegalo();
+  await ponerStock(V_GORRA, 0);
+
+  const r = await crear([{ variantId: V_REMERA, quantity: 2 }]);
+  assert.ok(r.order, `el pedido no se creó: ${r.error}`);
+  assert.equal(r.order.items.length, 1, 'se regaló algo que no hay');
+  assert.equal(r.order.appliedPromotions, undefined, 'la promoción figura aplicada sin regalo');
+  assert.equal(await stockDe(V_GORRA), 0, 'el stock quedó negativo');
+
+  await ponerStock(V_GORRA, 100);
+});
+
+test('el envío gratis por zona deja el envío en cero sólo en su zona', async () => {
+  await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
+  await comoServicio(
+    db,
+    `insert into promotions (tenant_id, store_id, title, status, kind, rules)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, 'Envío gratis a Central', 'active',
+             'free_shipping', '{"zones": ["Central"]}'::jsonb)`,
+  );
+  await comoServicio(
+    db,
+    `insert into store_settings (store_id, tenant_id, settings)
+     values (${sql(TIENDA)}, ${sql(TENANT)},
+             '{"shipping": {"mode": "flat", "amount": 30000}}'::jsonb)
+     on conflict (store_id) do update set settings = excluded.settings`,
+  );
+
+  try {
+    const direccion = (zone: string) => ({
+      address: { street: 'Siempre Viva 742', city: 'Asunción', zone },
+    });
+    const enCentral = (await crear([{ variantId: V_REMERA, quantity: 1 }], direccion('Central')))
+      .order!;
+    assert.equal(enCentral.shipping.amount, 0);
+    assert.equal(enCentral.total.amount, 150_000);
+
+    const afuera = (await crear([{ variantId: V_REMERA, quantity: 1 }], direccion('Itapúa')))
+      .order!;
+    assert.equal(afuera.shipping.amount, 30_000, 'regaló el envío fuera de su zona');
+    assert.equal(afuera.total.amount, 180_000);
+  } finally {
+    await comoServicio(db, `delete from store_settings where store_id = ${sql(TIENDA)}`);
+  }
+});
+
+test('un 3x2 cobra en el pedido lo mismo que dijo el carrito', async () => {
+  await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
+  await comoServicio(
+    db,
+    `insert into promotions (tenant_id, store_id, title, status, kind, rules)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, '3x2', 'active', 'buy_x_pay_y',
+             '{"buy": 3, "pay": 2}'::jsonb)`,
+  );
+  const o = (await crear([{ variantId: V_REMERA, quantity: 3 }])).order!;
+  assert.equal(o.discount.amount, 150_000);
+  assert.equal(o.total.amount, 300_000);
+  assert.equal(o.total.amount, o.subtotal.amount - o.discount.amount);
+});
+
+test('ni un 3x2 ni un regalo cambian el precio del catálogo', async () => {
+  await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
+  await comoServicio(
+    db,
+    `insert into promotions (tenant_id, store_id, title, status, kind, rules)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, '3x2', 'active', 'buy_x_pay_y',
+             '{"buy": 3, "pay": 2}'::jsonb),
+            (${sql(TENANT)}, ${sql(TIENDA)}, 'Envío', 'active', 'free_shipping', '{}'::jsonb)`,
+  );
+  const remera = porHandle(await catalogo(), 'remera');
+  assert.equal(remera.price.amount, PRECIO_REMERA);
+  assert.equal(remera.compareAtPrice, undefined);
+});
+
+test('la base rechaza un 3x2 con cupón y un descuento sin valor', async () => {
+  const cupon = await intentar(
+    db,
+    DUENO,
+    `insert into promotions (tenant_id, store_id, title, kind, code, rules)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, 'X', 'buy_x_pay_y', 'TRES', '{"buy":3,"pay":2}')`,
+  );
+  assert.equal(cupon.ok, false, 'entró un 3x2 con código');
+
+  const sinValor = await intentar(
+    db,
+    DUENO,
+    `insert into promotions (tenant_id, store_id, title, kind)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, 'Y', 'discount')`,
+  );
+  assert.equal(sinValor.ok, false, 'entró un descuento sin tipo ni valor');
 });

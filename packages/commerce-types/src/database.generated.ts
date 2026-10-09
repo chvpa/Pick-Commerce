@@ -1492,6 +1492,7 @@ export type Database = {
         Row: {
           currency: string
           id: string
+          is_gift: boolean
           order_id: string
           position: number
           quantity: number
@@ -1507,6 +1508,7 @@ export type Database = {
         Insert: {
           currency: string
           id?: string
+          is_gift?: boolean
           order_id: string
           position: number
           quantity: number
@@ -1522,6 +1524,7 @@ export type Database = {
         Update: {
           currency?: string
           id?: string
+          is_gift?: boolean
           order_id?: string
           position?: number
           quantity?: number
@@ -2193,13 +2196,15 @@ export type Database = {
         Row: {
           code: string | null
           created_at: string
-          discount_type: string
-          discount_value: number
+          discount_type: string | null
+          discount_value: number | null
           ends_at: string | null
           id: string
+          kind: string
           min_quantity: number | null
           min_subtotal: number | null
           priority: number
+          rules: Json
           stackable: boolean
           starts_at: string | null
           status: Database["public"]["Enums"]["promotion_status"]
@@ -2214,13 +2219,15 @@ export type Database = {
         Insert: {
           code?: string | null
           created_at?: string
-          discount_type: string
-          discount_value: number
+          discount_type?: string | null
+          discount_value?: number | null
           ends_at?: string | null
           id?: string
+          kind?: string
           min_quantity?: number | null
           min_subtotal?: number | null
           priority?: number
+          rules?: Json
           stackable?: boolean
           starts_at?: string | null
           status?: Database["public"]["Enums"]["promotion_status"]
@@ -2235,13 +2242,15 @@ export type Database = {
         Update: {
           code?: string | null
           created_at?: string
-          discount_type?: string
-          discount_value?: number
+          discount_type?: string | null
+          discount_value?: number | null
           ends_at?: string | null
           id?: string
+          kind?: string
           min_quantity?: number | null
           min_subtotal?: number | null
           priority?: number
+          rules?: Json
           stackable?: boolean
           starts_at?: string | null
           status?: Database["public"]["Enums"]["promotion_status"]
@@ -2784,7 +2793,12 @@ export type Database = {
         Returns: Json
       }
       cart_promotions: {
-        Args: { p_code?: string; p_lines: Json; p_store_id: string }
+        Args: {
+          p_code?: string
+          p_lines: Json
+          p_store_id: string
+          p_zone?: string
+        }
         Returns: Json
       }
       catalog_search: {

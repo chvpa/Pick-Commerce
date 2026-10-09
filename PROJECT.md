@@ -631,6 +631,11 @@ Casos:
 - fecha
 - cupón
 
+Hoy hay ocho tipos —descuento, llevá X pagá Y, segunda unidad, por cantidad, por
+monto, regalo, bundle y envío gratis por zona— sobre todo el catálogo, una
+categoría, una colección o productos (ADR-091, ADR-164). Marca, segmento y
+primera compra todavía no son un alcance.
+
 Antes de publicar promociones complejas debe existir modo simulación/preview cuando sea razonable.
 
 ---

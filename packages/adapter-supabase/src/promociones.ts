@@ -2,6 +2,8 @@ import type {
   AlcanceDePromocion,
   PaginaPromociones,
   Promotion,
+  PromotionKind,
+  PromotionRules,
   PromotionTarget,
   RepositorioPromociones,
 } from '@pick/commerce-core';
@@ -21,6 +23,7 @@ import type { PickSupabaseClient } from './client.ts';
 interface FilaPromocion {
   id: string;
   title: string;
+  kind: PromotionKind;
   status: 'draft' | 'active' | 'archived';
   priority: number;
   stackable: boolean;
@@ -29,8 +32,9 @@ interface FilaPromocion {
   ends_at: string | null;
   usage_limit: number | null;
   usage_count: number;
-  discount_type: 'percentage' | 'fixed';
-  discount_value: number;
+  discount_type: 'percentage' | 'fixed' | null;
+  discount_value: number | null;
+  rules: unknown;
   target: unknown;
   min_subtotal: number | null;
   min_quantity: number | null;
@@ -41,6 +45,7 @@ function aPromocion(f: FilaPromocion): Promotion {
   return {
     id: f.id,
     title: f.title,
+    kind: f.kind,
     status: f.status,
     priority: f.priority,
     stackable: f.stackable,
@@ -49,8 +54,9 @@ function aPromocion(f: FilaPromocion): Promotion {
     ...(f.ends_at ? { endsAt: f.ends_at } : {}),
     ...(f.usage_limit !== null ? { usageLimit: f.usage_limit } : {}),
     usageCount: f.usage_count,
-    discountType: f.discount_type,
-    discountValue: Number(f.discount_value),
+    ...(f.discount_type ? { discountType: f.discount_type } : {}),
+    ...(f.discount_value !== null ? { discountValue: Number(f.discount_value) } : {}),
+    ...(f.kind !== 'discount' ? { rules: f.rules as PromotionRules } : {}),
     target: f.target as PromotionTarget,
     ...(f.min_subtotal !== null ? { minSubtotal: Number(f.min_subtotal) } : {}),
     ...(f.min_quantity !== null ? { minQuantity: f.min_quantity } : {}),
@@ -58,8 +64,8 @@ function aPromocion(f: FilaPromocion): Promotion {
 }
 
 const COLUMNAS =
-  'id, title, status, priority, stackable, code, starts_at, ends_at, usage_limit, ' +
-  'usage_count, discount_type, discount_value, target, min_subtotal, min_quantity';
+  'id, title, kind, status, priority, stackable, code, starts_at, ends_at, usage_limit, ' +
+  'usage_count, discount_type, discount_value, rules, target, min_subtotal, min_quantity';
 
 export function repositorioPromociones(db: PickSupabaseClient): RepositorioPromociones {
   return {
@@ -118,6 +124,7 @@ export function repositorioPromociones(db: PickSupabaseClient): RepositorioPromo
         tenant_id: tienda.tenant_id,
         store_id: storeId,
         title: datos.title,
+        kind: datos.kind,
         status: datos.status,
         priority: datos.priority,
         stackable: datos.stackable,
@@ -125,8 +132,12 @@ export function repositorioPromociones(db: PickSupabaseClient): RepositorioPromo
         starts_at: datos.startsAt ?? null,
         ends_at: datos.endsAt ?? null,
         usage_limit: datos.usageLimit ?? null,
-        discount_type: datos.discountType,
-        discount_value: datos.discountValue,
+        // Sólo el descuento de siempre los usa; los demás tipos van en `rules`
+        // (ADR-164), y la base rechaza un descuento sin ellos.
+        discount_type: datos.kind === 'discount' ? (datos.discountType ?? null) : null,
+        discount_value: datos.kind === 'discount' ? (datos.discountValue ?? null) : null,
+        // Copia plana: el tipo generado no acepta arrays readonly.
+        rules: datos.kind === 'discount' ? {} : JSON.parse(JSON.stringify(datos.rules ?? {})),
         // Copia mutable: el tipo generado de la base no acepta arrays readonly,
         // igual que en las líneas del pedido.
         target:

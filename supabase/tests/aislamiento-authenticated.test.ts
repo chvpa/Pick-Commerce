@@ -150,6 +150,24 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
     `catalog_search('${TIENDA}', '{}'::jsonb, null, null, 1, 20, null, null, null, null)`,
   ],
   ['public.cart_promotions', `cart_promotions('${TIENDA}', '[]'::jsonb, null)`],
+  /*
+   * Las piezas de `cart_promotions` que leen la tienda (ADR-164): `invoker`, así
+   * que el inventario del regalo pasa por RLS. Un forastero que arma una
+   * promoción a mano para preguntar por el stock de A recibe nulo.
+   */
+  [
+    'app.promo_regalo',
+    `app.promo_regalo(jsonb_populate_record(null::promotions,
+       '{"store_id":"${TIENDA}","rules":{"giftVariantId":"${VARIANTE}","giftQuantity":1}}'),
+       '[]'::jsonb, '[]'::jsonb)`,
+  ],
+  [
+    'app.promo_beneficio',
+    `app.promo_beneficio(jsonb_populate_record(null::promotions,
+       '{"store_id":"${TIENDA}","kind":"gift","target":{"kind":"all"},
+         "rules":{"buy":1,"giftVariantId":"${VARIANTE}","giftQuantity":1}}'),
+       '[{"productId":"${PRODUCTO}","unitPrice":1,"quantity":1}]'::jsonb, 1, null, '[]'::jsonb)`,
+  ],
   // Los pedidos del comprador. `security invoker` a propósito: la defensa es
   // RLS, no una comprobación escrita adentro (ADR-121). Un forastero recibe la
   // página vacía.
@@ -218,6 +236,13 @@ const PUBLICAS = [
   // Pura: dice si un producto, con sus señales, cae en una pestaña.
   'app.producto_en_pestana',
   'app.promo_discount',
+  // Piezas de `cart_promotions` (ADR-164). Las tres primeras son aritmética sobre
+  // sus argumentos; `promo_alcanza` lee `collection_products` como `invoker`, y a
+  // un forastero RLS no le muestra ninguna fila.
+  'app.regla_entera',
+  'app.regla_porcentaje',
+  'app.promo_llega',
+  'app.promo_alcanza',
   /*
    * Devuelve ids de productos publicados y un número de parecido, que es
    * información de vitrina: el storefront ya se la sirve a cualquiera sin

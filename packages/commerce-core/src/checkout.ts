@@ -226,6 +226,8 @@ export interface RepositorioCheckout {
     storeId: string,
     lineas: readonly LineaDeCarrito[],
     codigo?: string,
+    /** La zona de envío elegida: el envío gratis por zona depende de ella. */
+    zona?: string,
   ): Promise<PromocionesDelCarrito>;
 
   crearPedido(

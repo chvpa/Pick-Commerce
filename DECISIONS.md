@@ -8212,3 +8212,75 @@ catálogo muestra uno y que la ficha lleva al otro, y lo desarma: en el seed
 cambiaría las tarjetas que cuentan los tests de navegación.
 
 Agruparlos solos desde el catálogo del ERP sigue pendiente, en el backlog.
+
+## ADR-164 — Promociones de ocho tipos: un `kind` con sus reglas, no un intérprete
+
+**Fecha:** 2026-10-09
+**Estado:** Accepted — revisa ADR-091
+
+**Contexto**
+ADR-091 dejó el motor plano y escribió cuándo revisarlo: cuando llegara el primer
+«Buy X Get Y» real. Llegó con el handoff (ADR-143), que pide ocho tipos: el
+descuento de siempre, llevá X pagá Y, segunda unidad, por cantidad, por monto,
+regalo, bundle desde una colección y envío gratis por zona.
+
+**Decisión**
+Sigue siendo plano. `promotions` gana `kind` y `rules`, un jsonb con los
+parámetros de cada tipo. `discount_type` y `discount_value` quedan sólo para el
+descuento de siempre. Cada tipo es **una función del core**, `beneficio` en
+`promotions.ts`, con su gemela en `app.promo_beneficio`. No hay condiciones ni
+acciones genéricas: con ocho casos conocidos, un intérprete agregaría
+abstracción sin cubrir ningún caso nuevo.
+
+Un parámetro que falta o no tiene sentido hace que la promoción **no aplique**,
+en las dos implementaciones. El lado seguro de un error de configuración es no
+regalar nada. Impedir guardarla así es trabajo del formulario, y la base rechaza
+lo que no puede tener sentido: un descuento sin valor, o un 3x2 con cupón.
+
+**La semántica, tipo por tipo**
+
+- **El catálogo no cambia.** Sólo el descuento de siempre, sin condiciones, se
+  pinta en la vidriera. Todos los demás dependen del carrito, igual que un mínimo.
+- **El orden de siempre.** Las promociones automáticas de carrito se recorren
+  por prioridad con la regla de stackability de ADR-091. El descuento de siempre
+  se encadena sobre lo que va quedando. Los tipos nuevos calculan sobre los
+  precios **después del catálogo**: un 3x2 regala la unidad más barata a su
+  precio de vidriera. Se topan en lo que queda, y el total nunca baja de cero.
+- **Llevá X, pagá Y y segunda unidad, por producto.** Dos talles de la misma
+  media cuentan juntos; una media y una remera, no. Lo gratis o lo rebajado
+  son siempre las unidades más baratas del grupo.
+- **Por cantidad:** el escalón más alto alcanzado, sobre todas las unidades. Con
+  «mezclar productos», las unidades se suman entre productos y la más cara se
+  cobra entera, que es lo que dice el formulario del handoff.
+- **Por monto:** cada escalón va desde más que el tope del anterior hasta el
+  suyo, inclusive. Se mide sobre lo alcanzado después del catálogo.
+- **Regalo:** comprando N de lo alcanzado, una línea **aparte**, a precio cero,
+  que descuenta stock como cualquiera y guarda su costo. Una vez por pedido. Sin
+  stock, la promoción no aplica: se pausa sola y el pedido se crea igual.
+  `create_order` bloquea también el inventario de lo que se puede regalar, en
+  el mismo orden determinista, para que dos pedidos no se lleven el último.
+- **Bundle:** N productos **distintos** de lo alcanzado —normalmente una
+  colección—. Tres unidades del mismo producto no son un bundle. Da un
+  porcentaje, un monto por unidad, envío gratis o un regalo.
+- **Envío gratis:** si la zona elegida está en su lista, o sin lista. Va
+  automático o con cupón: sólo el descuento y el envío gratis pueden ser cupón,
+  como en el handoff. Por eso `cart_promotions` recibe la zona: cambió la firma,
+  y se borró y creó de nuevo con los mismos permisos.
+
+**Lo que no entra**
+Marca, segmento y primera compra como alcance, que PROJECT.md §15 lista: ningún
+caso del handoff los pide. Un regalo multiplicado por cada N comprado tampoco.
+
+**Consecuencias**
+La paridad sigue siendo la defensa: `promociones.test.ts` corre 33 escenarios
+contra las dos implementaciones —19 nuevos— y compara también el envío gratis,
+los regalos y lo aplicado, uno por uno. Se saboteó el core en tres reglas —el
+borde de un escalón, el par de la segunda unidad y la unidad más cara de
+«mezclar»— y cada una hizo fallar un escenario. Los tests de `create_order`
+prueban que el regalo es una línea a precio cero que descuenta stock, que sin
+stock la promoción se pausa, que el envío gratis sólo vale en su zona y que la
+base rechaza un 3x2 con cupón.
+
+El catálogo de Treeshop cuesta lo mismo: 268 ms la página 1, medido después de
+aplicar. El formulario del Admin y el carrito que muestra lo aplicado son los
+ítems siguientes de la fase.

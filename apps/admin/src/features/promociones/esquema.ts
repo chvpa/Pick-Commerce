@@ -110,6 +110,7 @@ export type FormularioPromocion = z.input<typeof promocionSchema>;
 export function aDatos(v: PromocionValidada) {
   return {
     title: v.title,
+    kind: 'discount' as const,
     status: v.status,
     priority: v.priority,
     stackable: v.stackable,

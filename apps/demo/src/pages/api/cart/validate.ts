@@ -60,10 +60,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       typeof recibido === 'string' && recibido.trim() !== ''
         ? recibido.trim().slice(0, 64)
         : undefined;
+    // La zona viaja con el carrito sólo para cotizar; la que cuenta es la que
+    // `create_order` lee de la dirección al confirmar.
+    const recibida = (cuerpo as { zone?: unknown } | undefined)?.zone;
+    const zona = typeof recibida === 'string' && recibida.trim() !== '' ? recibida : undefined;
     const dinero = await checkout().promocionesDelCarrito(
       storeId,
       resultado.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
       codigo,
+      zona,
     );
     const porVariante = new Map(dinero.lines.map((l) => [l.variantId, l]));
 
@@ -75,14 +80,32 @@ export const POST: APIRoute = async ({ request, locals }) => {
      * midieran contra cosas distintas, el checkout prometería un envío gratis
      * que la caja después cobraría.
      */
-    // La zona viaja con el carrito sólo para cotizar; la que cuenta es la que
-    // `create_order` lee de la dirección al confirmar.
-    const zona = (cuerpo as { zone?: unknown } | undefined)?.zone;
-    const costoDeEnvio = calcularEnvio(
-      await envio(),
-      dinero.total,
-      typeof zona === 'string' ? zona : undefined,
-    );
+    //
+    // Una promoción de envío gratis (ADR-164) lo deja en cero, como en la base.
+    const tarifa = calcularEnvio(await envio(), dinero.total, zona);
+    const costoDeEnvio = dinero.freeShipping ? { ...tarifa, amount: 0 } : tarifa;
+
+    /*
+     * Los regalos, con su nombre para mostrarlos. Si la variante no está
+     * publicada no viene en esta lectura, y se muestra sin nombre: el pedido la
+     * agrega igual, que es lo que importa.
+     */
+    const delRegalo =
+      dinero.gifts.length > 0
+        ? await checkout().variantesParaCarrito(
+            storeId,
+            dinero.gifts.map((g) => g.variantId),
+          )
+        : [];
+    const regalos = dinero.gifts.map((g) => {
+      const v = delRegalo.find((x) => x.variantId === g.variantId);
+      return {
+        variantId: g.variantId,
+        quantity: g.quantity,
+        ...(v ? { title: v.title } : {}),
+        ...(v?.variantTitle ? { variantTitle: v.variantTitle } : {}),
+      };
+    });
 
     /*
      * Los dos eventos de este endpoint.
@@ -143,6 +166,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // al banco con un número distinto del que vio.
       total: addMoney(dinero.total, costoDeEnvio),
       ...(dinero.applied.length > 0 ? { appliedPromotions: dinero.applied } : {}),
+      ...(regalos.length > 0 ? { gifts: regalos } : {}),
+      ...(dinero.freeShipping ? { freeShipping: true } : {}),
       ...(dinero.couponIssue ? { couponIssue: dinero.couponIssue } : {}),
     });
   } catch (error) {

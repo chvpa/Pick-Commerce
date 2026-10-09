@@ -29,6 +29,7 @@ const MOTIVO_DEL_CUPON: Record<ProblemaDeCupon, string> = {
   expired: 'Ese cupón venció.',
   exhausted: 'Ese cupón ya se agotó.',
   minimum: 'Tu pedido no llega al mínimo que pide ese cupón.',
+  zone: 'Ese cupón no vale para la zona de envío elegida.',
 };
 
 interface Problema {

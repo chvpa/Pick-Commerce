@@ -1,6 +1,8 @@
 import type {
   ProblemaDeCarrito,
   ProblemaDeCupon,
+  PromotionKind,
+  RegaloAplicado,
   RepositorioCheckout,
   ResultadoDePedido,
   VarianteParaCarrito,
@@ -48,11 +50,14 @@ interface RespuestaPromociones {
   applied?: {
     promotionId: string;
     title: string;
+    kind: PromotionKind;
     code?: string;
-    discountType: 'percentage' | 'fixed';
-    discountValue: number;
+    discountType?: 'percentage' | 'fixed';
+    discountValue?: number;
     amount: number;
   }[];
+  gifts?: RegaloAplicado[];
+  freeShipping?: boolean;
   couponIssue?: ProblemaDeCupon;
 }
 
@@ -84,11 +89,13 @@ export function repositorioCheckout(db: PickSupabaseClient): RepositorioCheckout
       }));
     },
 
-    async promocionesDelCarrito(storeId, lineas, codigo) {
+    async promocionesDelCarrito(storeId, lineas, codigo, zona) {
       const { data, error } = await db.rpc('cart_promotions', {
         p_store_id: storeId,
         p_lines: lineas.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
         ...(codigo ? { p_code: codigo } : {}),
+        // El envío gratis por zona depende de ella (ADR-164).
+        ...(zona ? { p_zone: zona } : {}),
       });
 
       if (error) throw new Error(`No se pudieron resolver las promociones: ${error.message}`);
@@ -110,6 +117,8 @@ export function repositorioCheckout(db: PickSupabaseClient): RepositorioCheckout
         discount: dinero(r.discount),
         total: dinero(r.total),
         applied: (r.applied ?? []).map((a) => ({ ...a, amount: dinero(a.amount) })),
+        gifts: r.gifts ?? [],
+        freeShipping: r.freeShipping === true,
         ...(r.couponIssue ? { couponIssue: r.couponIssue } : {}),
       };
     },
