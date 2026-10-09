@@ -8,6 +8,12 @@ export {
   type PickSupabaseClient,
 } from './client.ts';
 export { repositorioTiendas } from './tiendas.ts';
+export {
+  repositorioModelos,
+  type Modelo,
+  type ProductoDelModelo,
+  type VistaDeModelo,
+} from './modelos.ts';
 export { repositorioCaracteristicas, type CambiosDeCaracteristica } from './caracteristicas.ts';
 export {
   historialDe,

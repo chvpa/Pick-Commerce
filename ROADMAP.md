@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    26% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    27% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1917,13 +1917,14 @@ El registro antifraude interno, que el handoff marca como pedido explícito.
 
 ## Fase 4 — Características y modelos
 
-**Avance: 33%**
+**Avance: 67%**
 
 - [x] Características: el ABM de `attribute_definitions`, con tipo, opciones, «para
       variantes» y «obligatoria», y la ficha que las ofrece de su lista; lo
       obligatorio lo comprueba el guardado (ADR-161).
-- [ ] Modelos sobre `product_groups`: productos distintos que son el mismo artículo
-      en otro color o material, con su pantalla y su vínculo en la ficha.
+- [x] Modelos sobre `product_groups`: productos distintos que son el mismo artículo
+      en otro color o material, con su pantalla y su vínculo en la ficha (ADR-162).
+      Se arman a mano: proponerlos desde el catálogo del ERP es otro trabajo.
 - [ ] La PDP muestra el modelo como swatches. Es lo que resuelve la fila del backlog
       del ERP que modela cada color como un producto.
 - [ ] Opcional, al final: número de serie por unidad.
@@ -2429,6 +2430,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-08 | **v3 Fase 3: la franja** (ADR-159). El pedido y el producto dicen quién los creó, quién los modificó y cuándo, y «Ver cambios» abre la historia con cada campo de antes y de después. Para cualquier miembro, por una función que nunca devuelve los ajustes ni el equipo; la creación de un pedido la dice el pedido, y lo que no tiene autor no se inventa                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | v3 Fase 3 |          67% |            83% |
 | 2026-10-08 | **v3 Fase 3: el registro de actividad** (ADR-160). Configuración › Registro de actividad para quien administra el equipo: todo lo que hicieron las personas, por persona o sólo lo sensible, con enlace a lo que cambió, desde dónde, paginado y exportable. Y el aviso por correo de lo sensible que hace otro, que cada propietario prende para sí: a quien hizo el cambio no le llega                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | v3 Fase 3 |          83% |           100% |
 | 2026-10-09 | **v3 Fase 4: características** (ADR-161). Productos › Características administra lo que antes se sembraba por script: tipo, opciones pegadas de una vez y los tres interruptores, cada uno con su efecto. Las de variante se eligen de una lista en cada variante, las del producto se cargan una vez para todas, y lo obligatorio no se publica sin completar, comprobado en el guardado. Las que ya existían arrancaron con los valores que tenían                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | v3 Fase 4 |           0% |            33% |
+| 2026-10-09 | **v3 Fase 4: modelos** (ADR-162). Productos › Modelos junta productos que son el mismo artículo en otro color: el eje que los distingue, cómo se ven en la ficha y el orden, con el primero en el catálogo. Se arma de una vez y nunca cruza tiendas; borrar el modelo suelta los productos. Avisa del producto sin valor en el eje y de los repetidos, y la ficha dice de qué modelo es parte                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | v3 Fase 4 |          33% |            67% |
 
 ---
 

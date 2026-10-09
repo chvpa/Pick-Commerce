@@ -1792,7 +1792,9 @@ export type Database = {
       }
       product_groups: {
         Row: {
+          axis: string | null
           created_at: string
+          display: string
           id: string
           name: string
           store_id: string
@@ -1800,7 +1802,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          axis?: string | null
           created_at?: string
+          display?: string
           id?: string
           name: string
           store_id: string
@@ -1808,7 +1812,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          axis?: string | null
           created_at?: string
+          display?: string
           id?: string
           name?: string
           store_id?: string
@@ -2090,6 +2096,7 @@ export type Database = {
           description: string | null
           dimensions: Json | null
           field_sources: Json
+          group_position: number
           handle: string
           id: string
           last_sync_at: string | null
@@ -2112,6 +2119,7 @@ export type Database = {
           description?: string | null
           dimensions?: Json | null
           field_sources?: Json
+          group_position?: number
           handle: string
           id?: string
           last_sync_at?: string | null
@@ -2134,6 +2142,7 @@ export type Database = {
           description?: string | null
           dimensions?: Json | null
           field_sources?: Json
+          group_position?: number
           handle?: string
           id?: string
           last_sync_at?: string | null
@@ -2631,6 +2640,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_group_products: { Args: { p_group_id: string }; Returns: Json }
       admin_inventory_aging: {
         Args: {
           p_bucket?: string
@@ -2667,6 +2677,15 @@ export type Database = {
         Returns: Json
       }
       admin_product_counts: { Args: { p_store_id: string }; Returns: Json }
+      admin_product_groups: {
+        Args: {
+          p_page?: number
+          p_per_page?: number
+          p_q?: string
+          p_store_id: string
+        }
+        Returns: Json
+      }
       admin_product_performance: {
         Args: {
           p_from: string
@@ -2729,6 +2748,10 @@ export type Database = {
       admin_section_performance: {
         Args: { p_days?: number; p_store_id: string }
         Returns: Json
+      }
+      admin_set_group_products: {
+        Args: { p_group_id: string; p_products: string[] }
+        Returns: undefined
       }
       admin_set_order_status: {
         Args: {

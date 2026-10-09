@@ -188,6 +188,10 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   ['public.admin_activity_log', `admin_activity_log('${TENANT}')`],
   // Cuántos productos usan cada característica (ADR-161). `invoker`: RLS acota.
   ['public.admin_attribute_usage', `admin_attribute_usage('${TIENDA}')`],
+  // Los modelos (ADR-162): `invoker`, RLS acota.
+  ['public.admin_product_groups', `admin_product_groups('${TIENDA}')`],
+  ['public.admin_group_products', `admin_group_products(gen_random_uuid())`],
+  ['public.admin_set_group_products', `admin_set_group_products(gen_random_uuid(), '{}'::uuid[])`],
 ];
 
 /**

@@ -1,4 +1,5 @@
 import { Franja } from '@/features/actividad/Franja';
+import { repositorioModelos } from '@pick/adapter-supabase';
 import {
   CaracteristicasDeVariante,
   CaracteristicasDelProducto,
@@ -710,6 +711,7 @@ export function FormularioProducto({ id }: { id?: string }) {
                   ))}
                 </datalist>
               </Campo>
+              {id && <ModeloDelProducto productId={id} />}
             </Tarjeta>
             <CaracteristicasDeTarjeta comun={comun} />
           </div>
@@ -1467,5 +1469,39 @@ function CaracteristicasDeTarjeta({
     <Tarjeta className="flex flex-col gap-4 empty:hidden">
       <CaracteristicasDelProducto comun={comun} />
     </Tarjeta>
+  );
+}
+
+/**
+ * El modelo del producto, si es parte de uno (ADR-162). Se arma en Modelos: acá
+ * se dice y se llega, porque un modelo son varios productos y no se edita desde
+ * uno solo.
+ */
+function ModeloDelProducto({ productId }: { productId: string }) {
+  const modelo = useQuery({
+    queryKey: ['modelo-de', productId],
+    queryFn: () => repositorioModelos(db).deProducto(productId),
+  });
+  if (modelo.isPending || modelo.isError) return null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[13.5px] font-medium">Modelo</span>
+      {modelo.data ? (
+        <Link
+          to="/productos/modelos"
+          search={{ modelo: modelo.data.id }}
+          className="text-link hover:text-link-hover text-sm"
+        >
+          {modelo.data.name}
+        </Link>
+      ) : (
+        <span className="text-ink-3 text-[13px]">
+          No es parte de un modelo.{' '}
+          <Link to="/productos/modelos" className="text-link hover:text-link-hover">
+            Armar uno
+          </Link>
+        </span>
+      )}
+    </div>
   );
 }

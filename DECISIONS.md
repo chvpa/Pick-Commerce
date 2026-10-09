@@ -8119,3 +8119,47 @@ quitar una definición sería perder datos por ordenar una lista.
 por producto y la obligatoria al publicar. `e2e/caracteristicas.spec.ts` crea,
 pega opciones, edita y borra, y ve en la ficha de la demo que el color se elige
 de una lista.
+
+## ADR-162 — Los modelos: el mismo artículo en otro color, armado a mano
+
+**Fecha:** 2026-10-09
+**Estado:** Accepted
+
+**Contexto**
+`product_groups` existe desde v1 (ADR-026) y nadie lo usaba. El caso que lo
+justificó está medido en el ERP del piloto: 457 artículos llegan como códigos
+separados que sólo difieren en el color, y el peor llega a 52 —la PLP mostraría 52
+mochilas casi iguales—. El handoff (ADR-143) lo administra en Productos ›
+Modelos: un nombre que sólo ve el comercio, por qué característica se
+diferencian, cómo se ve en la ficha y los productos en orden.
+
+**Qué se guarda**
+El modelo guarda su eje —la clave de la característica que los distingue, la de
+`attribute_definitions` (ADR-161)— y cómo se muestra: foto, muestra o texto. El
+producto guarda su lugar: el primero es el que va al catálogo. El valor de cada
+producto en el eje no se copia: sale de su primera variante, que es donde ya
+está.
+
+**Se arma de una vez**
+`admin_set_group_products` recibe la lista entera en orden: los que vienen
+quedan con su lugar, los que ya no vienen se sueltan. Es `invoker` —escribir
+productos y grupos pide `catalog.write`, y RLS lo exige— y rechaza un producto
+de otra tienda aunque sea de la misma organización. Borrar el modelo suelta a sus
+productos: la clave foránea los deja sin modelo y cada uno vuelve a verse solo.
+
+**A mano, no por heurística**
+El backlog lo dejó escrito: agrupar lo que manda el ERP exige inferir el modelo
+de un nombre en texto libre. Acá se arma a mano, con avisos de lo que conviene
+mirar —un producto sin el valor que los distingue, dos con el mismo—. Una
+propuesta automática para el catálogo del ERP es otro trabajo, con su medición.
+
+**La ficha**
+Dice de qué modelo es parte y lleva a él, o que no es parte de ninguno. No se
+edita desde ahí: un modelo son varios productos.
+
+**Consecuencias**
+`modelos.test.ts` prueba el orden, soltar, el rechazo de otra tienda, la vista
+previa y quién escribe. El e2e arma un modelo con los productos de la tienda del
+smoke, cambia cuál va al catálogo, llega desde la ficha y lo borra sin borrar los
+productos. Mostrarlo en la tienda —un solo producto en el catálogo y las
+opciones en la ficha— es el ítem siguiente de la fase.

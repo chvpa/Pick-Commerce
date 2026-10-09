@@ -69,6 +69,10 @@ const ImportarProductos = pantalla(
   () => import('@/features/productos/ImportarProductos'),
   'ImportarProductos',
 );
+const Modelos = pantalla<{ inicial?: string }>(
+  () => import('@/features/productos/Modelos'),
+  'Modelos',
+);
 const Caracteristicas = pantalla(
   () => import('@/features/productos/Caracteristicas'),
   'Caracteristicas',
@@ -325,6 +329,17 @@ const descripcionesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/productos/descripciones',
   component: Descripciones,
+});
+
+const modelosRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/productos/modelos',
+  validateSearch: (s: Record<string, unknown>): { modelo?: string } =>
+    typeof s.modelo === 'string' ? { modelo: s.modelo } : {},
+  component: function ModelosConElegido() {
+    const { modelo } = modelosRoute.useSearch();
+    return <Modelos {...(modelo ? { inicial: modelo } : {})} />;
+  },
 });
 
 const caracteristicasRoute = createRoute({
@@ -597,6 +612,7 @@ const arbol = rootRoute.addChildren([
   nuevoRoute,
   importarRoute,
   caracteristicasRoute,
+  modelosRoute,
   sinFotoRoute,
   stockQuietoRoute,
   resenasRoute,
