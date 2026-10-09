@@ -1893,6 +1893,9 @@ Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 
 **Avance: 100%**
 
+Cerrada el 2026-10-08: la suite e2e completa en verde —197 pasan, 12 se saltean
+por correr en un solo proyecto— y el Admin y Treeshop desplegados.
+
 El registro antifraude interno, que el handoff marca como pedido explícito.
 
 - [x] Cada cambio en productos, variantes, stock, pedidos, promociones, ajustes y
