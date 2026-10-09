@@ -1,4 +1,8 @@
 import { Franja } from '@/features/actividad/Franja';
+import {
+  CaracteristicasDeVariante,
+  CaracteristicasDelProducto,
+} from './CaracteristicasDelProducto';
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import {
   useFieldArray,
@@ -161,36 +165,6 @@ function Entrada({
           shouldValidate: validar,
         })
       }
-      {...props}
-    />
-  );
-}
-
-/** Igual que `Entrada`, para los atributos de una variante. */
-function AreaDeTexto({
-  control,
-  setValue,
-  name,
-  validar,
-  ...props
-}: {
-  control: ControlDelProducto;
-  setValue: UseFormSetValue<Valores>;
-  name: Path<Valores>;
-  validar: boolean;
-} & Omit<ComponentProps<'textarea'>, 'name' | 'value' | 'onChange'>) {
-  const valor = useWatch({ control, name }) as string | undefined;
-  return (
-    <textarea
-      name={name}
-      value={valor ?? ''}
-      onChange={(e) =>
-        setValue(name, e.currentTarget.value as never, {
-          shouldDirty: true,
-          shouldValidate: validar,
-        })
-      }
-      className={claseTextarea}
       {...props}
     />
   );
@@ -737,6 +711,7 @@ export function FormularioProducto({ id }: { id?: string }) {
                 </datalist>
               </Campo>
             </Tarjeta>
+            <CaracteristicasDeTarjeta comun={comun} />
           </div>
         </div>
 
@@ -982,14 +957,12 @@ function CamposDeVariante({
       >
         <Entrada {...comun} name={`variantes.${i}.precioAnterior`} inputMode="numeric" />
       </Campo>
-      <Campo
-        label="Atributos"
-        error={errores?.atributos?.message}
-        ayuda="Uno por línea, como color: Azul. Arman los filtros de la tienda."
-        className="sm:col-span-2"
-      >
-        <AreaDeTexto {...comun} name={`variantes.${i}.atributos`} rows={2} />
-      </Campo>
+      <CaracteristicasDeVariante i={i} comun={comun} />
+      {errores?.atributos?.message && (
+        <span className="text-destructive text-xs sm:col-span-3" role="alert">
+          {errores.atributos.message}
+        </span>
+      )}
     </div>
   );
 }
@@ -1480,6 +1453,19 @@ function VistaDeGoogle({
           </Campo>
         </div>
       )}
+    </Tarjeta>
+  );
+}
+
+/** Las características del producto en su tarjeta; si la tienda no declaró ninguna, nada. */
+function CaracteristicasDeTarjeta({
+  comun,
+}: {
+  comun: Parameters<typeof CaracteristicasDelProducto>[0]['comun'];
+}) {
+  return (
+    <Tarjeta className="flex flex-col gap-4 empty:hidden">
+      <CaracteristicasDelProducto comun={comun} />
     </Tarjeta>
   );
 }

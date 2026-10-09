@@ -16,6 +16,9 @@ import {
   Download04Icon as Download,
   File01Icon as File01,
   ComputerIcon as Computer,
+  FilterIcon as Filter,
+  PaintBoardIcon as PaintBoard,
+  TextIcon as TextT,
   SmartPhone01Icon as SmartPhone,
   SquareLock02Icon as SquareLock,
   CheckmarkCircle02Icon as CheckmarkCircle,
@@ -171,6 +174,9 @@ export const TagIcon = icono(Tag);
 export const UploadIcon = icono(Upload);
 export const FileIcon = icono(File01);
 export const ComputerIcon = icono(Computer);
+export const FilterIcon = icono(Filter);
+export const PaintBoardIcon = icono(PaintBoard);
+export const TextIcon = icono(TextT);
 export const SmartPhoneIcon = icono(SmartPhone);
 export const LockIcon = icono(SquareLock);
 export const UserAddIcon = icono(UserAdd);

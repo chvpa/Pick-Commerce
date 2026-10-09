@@ -32,6 +32,7 @@ import {
   NoteEditIcon,
   SparklesIcon,
   PlusIcon,
+  TagsIcon,
   UploadIcon,
   EyeIcon,
   ArchiveIcon,
@@ -446,6 +447,13 @@ export function ListaProductos() {
         */
         escribe && (
           <>
+            <Link
+              to="/productos/caracteristicas"
+              className={buttonVariants({ variant: 'outline', size: 'lg' })}
+            >
+              <TagsIcon aria-hidden="true" />
+              Características
+            </Link>
             <Link
               to="/productos/importar"
               className={buttonVariants({ variant: 'outline', size: 'lg' })}

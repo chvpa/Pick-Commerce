@@ -158,10 +158,14 @@ export type Database = {
           category_id: string | null
           created_at: string
           filterable: boolean
+          for_variants: boolean
           id: string
+          kind: string
           label: string
           name: string
+          options: Json
           position: number
+          required: boolean
           searchable: boolean
           sortable: boolean
           store_id: string
@@ -174,10 +178,14 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           filterable?: boolean
+          for_variants?: boolean
           id?: string
+          kind?: string
           label: string
           name: string
+          options?: Json
           position?: number
+          required?: boolean
           searchable?: boolean
           sortable?: boolean
           store_id: string
@@ -190,10 +198,14 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           filterable?: boolean
+          for_variants?: boolean
           id?: string
+          kind?: string
           label?: string
           name?: string
+          options?: Json
           position?: number
+          required?: boolean
           searchable?: boolean
           sortable?: boolean
           store_id?: string
@@ -2575,6 +2587,7 @@ export type Database = {
         Args: { p_ids: string[]; p_store_id: string }
         Returns: number
       }
+      admin_attribute_usage: { Args: { p_store_id: string }; Returns: Json }
       admin_customer_cohorts: {
         Args: { p_months?: number; p_store_id: string; p_tz?: string }
         Returns: Json

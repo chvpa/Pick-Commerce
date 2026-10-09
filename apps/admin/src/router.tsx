@@ -69,6 +69,10 @@ const ImportarProductos = pantalla(
   () => import('@/features/productos/ImportarProductos'),
   'ImportarProductos',
 );
+const Caracteristicas = pantalla(
+  () => import('@/features/productos/Caracteristicas'),
+  'Caracteristicas',
+);
 const ListaPedidos = pantalla(() => import('@/features/pedidos/ListaPedidos'), 'ListaPedidos');
 const DetallePedido = pantalla<{ id: string }>(
   () => import('@/features/pedidos/DetallePedido'),
@@ -321,6 +325,12 @@ const descripcionesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/productos/descripciones',
   component: Descripciones,
+});
+
+const caracteristicasRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/productos/caracteristicas',
+  component: Caracteristicas,
 });
 
 const importarRoute = createRoute({
@@ -586,6 +596,7 @@ const arbol = rootRoute.addChildren([
   descripcionesRoute,
   nuevoRoute,
   importarRoute,
+  caracteristicasRoute,
   sinFotoRoute,
   stockQuietoRoute,
   resenasRoute,

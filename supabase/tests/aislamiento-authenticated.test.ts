@@ -186,6 +186,8 @@ const BLOQUEADAS: readonly (readonly [string, string])[] = [
   // La historia de un pedido o un producto (ADR-159).
   ['public.admin_subject_activity', `admin_subject_activity('${TIENDA}', '${PRODUCTO}')`],
   ['public.admin_activity_log', `admin_activity_log('${TENANT}')`],
+  // Cuántos productos usan cada característica (ADR-161). `invoker`: RLS acota.
+  ['public.admin_attribute_usage', `admin_attribute_usage('${TIENDA}')`],
 ];
 
 /**

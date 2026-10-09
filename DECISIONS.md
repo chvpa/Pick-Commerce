@@ -8071,3 +8071,51 @@ por su producto, quién lee el registro, y el aviso: a quién llega, que a quien
 cambió no, que sólo lo prende quien administra el equipo y que el modo
 demostración lo calla. `e2e/actividad.spec.ts` hace un cambio por la pantalla y
 lo encuentra en el registro, filtra lo sensible y prende el aviso.
+
+## ADR-161 — Las características, administrables, y qué significa cada interruptor
+
+**Fecha:** 2026-10-09
+**Estado:** Accepted
+
+**Contexto**
+`attribute_definitions` existe desde v1 y decide qué filtros tiene el catálogo,
+pero no tenía pantalla: se sembraba por script. El handoff (ADR-143) la
+administra en Productos › Características, con su tipo, sus opciones y tres
+interruptores: filtro en la tienda, para variantes y obligatoria.
+
+**La clave no se edita**
+`name` es la clave con la que el valor viaja en `product_variants.attributes` y
+en la URL del filtro. Cambiarla dejaría a cada variante con una clave que nadie
+declara, así que se fija al crear —sale del nombre, única en la tienda— y lo que
+se edita es la etiqueta.
+
+**Lo que ya existía arranca completo**
+Las características que había viven en las variantes, que es el único lugar
+donde hubo atributos: quedaron «para variantes», y sus opciones son los valores
+que ya tenían. Treeshop arrancó con 135 colores, 180 talles y 56 tipos, y no con
+una pantalla vacía.
+
+**Qué hace cada interruptor**
+
+- _Filtro en la tienda_ es `filterable`, el de siempre: arma las facetas.
+- _Para variantes_: en la ficha, se elige en cada variante de su lista. Las que no
+  lo son —material, origen— se cargan una vez en la tarjeta «Características» y
+  van a todas las variantes, que es donde las leen los filtros y el guardado. Lo
+  que nadie declaró sigue en un campo libre: un catálogo importado trae
+  atributos que todavía no tienen definición, y no se pierden.
+- _Obligatoria_: `admin_save_product` no publica un producto con una variante
+  sin ese valor, y lo dice en una línea. Va en el guardado y no en la pantalla
+  porque por ahí pasan el formulario y el import de CSV; un borrador se guarda
+  igual. El importador del ERP escribe por su camino y no la mira: el ERP manda
+  sobre sus productos (PROJECT.md).
+
+**Borrar**
+Dice cuántos productos la usan, y los productos conservan el dato: deja de ser
+filtro y de ofrecerse al cargar. Borrar los valores de cientos de variantes por
+quitar una definición sería perder datos por ordenar una lista.
+
+**Consecuencias**
+`caracteristicas.test.ts` prueba quién escribe, el tipo y las opciones, el uso
+por producto y la obligatoria al publicar. `e2e/caracteristicas.spec.ts` crea,
+pega opciones, edita y borra, y ve en la ficha de la demo que el color se elige
+de una lista.
