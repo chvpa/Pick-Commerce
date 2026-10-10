@@ -8380,3 +8380,59 @@ tienda. Así no puede servirlo una copia vieja.
 de cuenta, wishlist, reseñas y recomendados, el carrito, el pedido por enlace y
 el sitemap. Mudarlas es mecánico y va de a una, con su e2e. El checkout en tres
 pasos es la unidad siguiente, y ya sobre una sola copia.
+
+## ADR-166 — El checkout en tres pasos, y el documento para la factura obligatorio
+
+**Fecha:** 2026-10-10
+**Estado:** Accepted
+
+**Contexto**
+El checkout era una página con todos los campos a la vista y el botón al costado.
+El handoff (ADR-143) lo pide en tres pasos —«Tus datos», «Entrega» y «Pago»—
+que validan antes de avanzar y, terminados, quedan en una línea con «Cambiar».
+En «Tus datos» pide la **CI o el RUC para la factura, obligatorio**, y la razón
+social cuando el documento es un RUC.
+
+**Decisión**
+
+- **Una sola validación, partida por paso.** Cada paso corre
+  `validarDatosDeCheckout` —la misma del endpoint— y se queda con los errores de
+  sus campos. No hay una segunda regla en el island que pueda divergir del
+  servidor. Si al confirmar, o el servidor, encuentra un error de un paso
+  anterior, el formulario vuelve a ese paso con el error puesto.
+- **Los pasos se esconden, no se desmontan.** Los campos no son controlados, y
+  desmontarlos se llevaría lo escrito. El formulario manda todo junto al final,
+  igual que antes: la clave de idempotencia, la guarda contra el doble submit y
+  la revalidación del carrito no cambiaron.
+- **Enter es «Continuar» hasta el último paso.** Antes, Enter en cualquier campo
+  enviaba el pedido. Con pasos, eso crearía un pedido desde «Tus datos».
+- **El documento es obligatorio, y con RUC también la razón social.** Un RUC es
+  un documento que termina en guion y dígito verificador (`esRuc`). Con CI la
+  razón social no se guarda, porque no hay factura a nombre de nadie más. La
+  regla vive en el core, así que el endpoint la exige igual.
+- **El envío dice «Se calcula en la entrega» mientras dependa de una zona que
+  todavía no se eligió**, y el total lo deja afuera. El handoff lo dice hasta el
+  paso 2. Acá se dice sólo cuando el número realmente depende de la zona: con
+  tarifa plana el envío se conoce desde el principio, y esconderlo sería esconder
+  un dato.
+- **En el teléfono el resumen va arriba y plegado, con el total a la vista**,
+  como el handoff. Se pliega con una clase y no con `<details>`, porque en
+  escritorio tiene que estar siempre abierto.
+
+El foco acompaña al paso: al avanzar va al título del siguiente, y con un error
+al primer campo marcado.
+
+**Lo que no entra en esta unidad**, cada cosa con su ítem de la Fase 6: el aviso
+por WhatsApp, el retiro en sucursal y los métodos de envío, el IVA, el pago en la
+pantalla del proveedor y la sesión de checkout en el servidor. El banner de la
+Cuenta Pick es de la Fase 7.
+
+**Consecuencias**
+Los specs que compran pasan por un helper, `e2e/_checkout.ts`, y no llenan
+cada uno los campos a su manera. Un e2e nuevo prueba el comportamiento de los
+pasos: vacío no avanza, el RUC pide la razón social, Enter no crea el pedido, y
+«Cambiar» abre el paso con lo escrito. Los que llaman a `/api/checkout`
+directamente mandan el documento.
+
+Un pedido nuevo siempre trae la CI o el RUC del comprador, que era uno de los
+tres datos que ADR-086 nombró como faltantes para mandar un pedido al ERP.

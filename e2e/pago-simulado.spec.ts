@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { clienteDeServidor } from '@pick/adapter-supabase';
+import { botonDeConfirmar, completarCheckout } from './_checkout.ts';
 
 /**
  * La Definition of Done de la Fase 7, ejecutable.
@@ -102,16 +103,12 @@ async function comprarConTarjeta(page: Page, correo: string): Promise<void> {
   }, variante as string);
 
   await page.goto('/checkout');
-  const tarjeta = page.locator('input[name="paymentMethod"][value="simulated_card"]');
-  await tarjeta.waitFor();
-  await tarjeta.check();
-
-  await page.fill('input[name="name"]', 'Ana Prueba');
-  await page.fill('input[name="email"]', correo);
-  await page.fill('input[name="phone"]', '0981 123 456');
-  await page.fill('input[name="street"]', 'Avda. Siempre Viva 742');
-  await page.fill('input[name="city"]', 'Asunción');
-  await page.getByRole('button', { name: /confirmar/i }).click();
+  await completarCheckout(page, {
+    correo,
+    calle: 'Avda. Siempre Viva 742',
+    metodo: 'simulated_card',
+  });
+  await botonDeConfirmar(page).click();
 }
 
 /** El número de pedido, tal como lo muestra la página de pago. */

@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { clienteDeServidor } from '@pick/adapter-supabase';
 import { IDS, INVENTARIO, PRODUCTOS, VARIANTES } from '../scripts/seed-data.ts';
+import { verResumen } from './_checkout.ts';
 
 /**
  * Lo que las promociones le hacen al carrito, en la tienda (ADR-164): el 3x2
@@ -153,6 +154,7 @@ test('con tres, el 3x2 descuenta una y el total lo dice', async ({ page }) => {
 
   // El checkout dice lo mismo: es el mismo cálculo.
   await page.goto('/checkout');
+  await verResumen(page);
   await expect(page.getByText(`${MARCA} 3x2`)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(`1 × ${mochila.title}`)).toBeVisible();
 });

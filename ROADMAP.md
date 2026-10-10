@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    34% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    35% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1955,13 +1955,14 @@ Revisa ADR-091: llegó el primer «Buy X Get Y» real.
 
 ## Fase 6 — Un checkout para todas las tiendas
 
-**Avance: 14%**
+**Avance: 29%**
 
 Un solo código, servido en el dominio de cada tienda, con su logo y su color.
 
 - [x] Un solo código: `@pick/storefront` inyecta el checkout en cada tienda y
       trae la `lib` que las apps copiaban (ADR-165).
-- [ ] Tres pasos que validan antes de avanzar y quedan colapsados en una línea.
+- [x] Tres pasos que validan antes de avanzar y quedan colapsados en una línea,
+      con el documento para la factura obligatorio (ADR-166).
 - [ ] Una sesión de checkout en el servidor, que guarda el contacto desde el
       primer paso.
 - [ ] Retiro en sucursal, métodos de envío con su tiempo estimado, aviso por
@@ -2442,6 +2443,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-09 | **v3 Fase 5: el formulario de ocho tipos** (ADR-164). Elegir el tipo cambia los campos; automática o con código, y con código sólo descuento o envío gratis. Las validaciones del handoff frenan el guardado, el resumen acompaña cada tecla y el carrito de ejemplo lo calcula el core. El regalo se busca con su stock y las zonas salen del envío                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | v3 Fase 5 |          50% |            75% |
 | 2026-10-10 | **v3 Fase 5 cerrada: el carrito** (ADR-164). Drawer, carrito y checkout muestran lo descontado, el regalo y cuánto falta para el envío gratis, con la cuenta del servidor; el pedido y el correo dicen «Regalo». Las recomendaciones decían «Gs. 0» con un 3x2 activo: `catalog_items` no filtraba `kind` y un descuento sin tipo valía el precio                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | v3 Fase 5 |          75% |           100% |
 | 2026-10-10 | **v3 Fase 6: un solo código** (ADR-165). `@pick/storefront` trae la `lib` que demo y Treeshop copiaban byte a byte e inyecta el checkout con `injectRoute`; cada app declara su dominio y su hoja de estilos. El checkout tiene su propio marco, sin el menú del catálogo. Lo que sigue copiado queda en el backlog                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | v3 Fase 6 |           0% |            14% |
+| 2026-10-10 | **v3 Fase 6: el checkout en tres pasos** (ADR-166). Tus datos, entrega y pago, cada uno validado con la misma función del endpoint y colapsado en una línea con «Cambiar». La CI o el RUC son obligatorios, y con RUC la razón social. Enter ya no crea el pedido desde el primer paso, y en el teléfono el resumen va arriba y plegado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | v3 Fase 6 |          14% |            29% |
 
 ---
 

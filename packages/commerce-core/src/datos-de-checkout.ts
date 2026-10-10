@@ -45,6 +45,15 @@ export function enlaceDeWhatsApp(telefono: string, mensaje?: string): string | n
     : `https://wa.me/${numero}`;
 }
 
+/**
+ * Si un documento es un RUC: termina en guion y dígito verificador
+ * —`80012345-6`—. Una CI son sólo números. Es la regla del handoff (ADR-166), y
+ * de ella depende que se pida la razón social.
+ */
+export function esRuc(documento: string): boolean {
+  return /-\s*\d\s*$/.test(documento);
+}
+
 /** Cómo se nombra cada forma de pago. Las que no están, por su clave. */
 export const ETIQUETA_METODO_DE_PAGO: Readonly<Record<string, string>> = {
   bank_transfer: 'Transferencia bancaria',
@@ -97,14 +106,23 @@ export function validarDatosDeCheckout(entrada: unknown): {
   const telefono = telefonoLocal(phone);
   if (!telefono) errores.phone = 'Revisá el teléfono, por ejemplo 0981 123 456.';
 
+  /*
+   * El documento es obligatorio, y con RUC también la razón social (ADR-166). Es
+   * lo que el handoff pide en «Tus datos»: la factura la emite el comercio, fuera
+   * del core, pero el dato lo junta el checkout, y uno que falta se descubre
+   * recién al facturar.
+   */
+  const taxId = texto(cliente.taxId);
+  const taxName = texto(cliente.taxName);
+  if (!taxId) errores.taxId = 'Lo necesitamos para la factura.';
+  else if (esRuc(taxId) && !taxName) errores.taxName = 'Falta la razón social.';
+
   if (street.length < 4) errores.street = 'Escribí la dirección de entrega.';
   if (city.length < 2) errores.city = 'Escribí la ciudad.';
   if (!paymentMethod) errores.paymentMethod = 'Elegí una forma de pago.';
 
   if (Object.keys(errores).length > 0 || !telefono) return { errores };
 
-  const taxId = texto(cliente.taxId);
-  const taxName = texto(cliente.taxName);
   const reference = texto(direccion.reference);
   // La zona se valida contra la tabla de la tienda en el servidor, que es
   // quien la conoce; acá sólo se limpia y se deja pasar.
@@ -120,8 +138,9 @@ export function validarDatosDeCheckout(entrada: unknown): {
         name,
         email,
         phone: telefono,
-        ...(taxId ? { taxId } : {}),
-        ...(taxName ? { taxName } : {}),
+        taxId,
+        // Sólo con RUC: con una CI no hay factura a nombre de nadie más.
+        ...(esRuc(taxId) ? { taxName } : {}),
       },
       address: { street, city, ...(zone ? { zone } : {}), ...(reference ? { reference } : {}) },
       paymentMethod,

@@ -1,6 +1,7 @@
 import { clienteDeServidor } from '@pick/adapter-supabase';
 import { expect, test, type Page } from '@playwright/test';
 import { entrar } from './_admin.ts';
+import { botonDeConfirmar, completarCheckout } from './_checkout.ts';
 
 /**
  * La tubería de eventos, de punta a punta.
@@ -61,13 +62,11 @@ test('la navegación de la tienda llega al panel del Admin', async ({ page }) =>
   await page.goto('/checkout');
   await expect(page.getByRole('heading', { name: /confirmá tu pedido/i })).toBeVisible();
 
-  await page.fill('input[name="name"]', 'Ana Analytics');
-  await page.fill('input[name="email"]', `analytics-${Date.now()}@e2e.test`);
-  await page.fill('input[name="phone"]', '0981 123 456');
-  await page.fill('input[name="street"]', 'Avda. de Prueba 123');
-  await page.fill('input[name="city"]', 'Asunción');
-  await expect(page.getByRole('button', { name: /confirmar pedido/i })).toBeEnabled();
-  await page.getByRole('button', { name: /confirmar pedido/i }).click();
+  await completarCheckout(page, {
+    nombre: 'Ana Analytics',
+    correo: `analytics-${Date.now()}@e2e.test`,
+  });
+  await botonDeConfirmar(page).click();
   await expect(page).toHaveURL(/\/checkout\/confirmacion/);
 
   // --- Y ahora el panel ------------------------------------------------------

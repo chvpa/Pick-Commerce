@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { NOMBRE_E2E as NOMBRE_DE_LA_TIENDA } from '../../scripts/preparar-storefront-e2e.ts';
+import { botonDeConfirmar, completarCheckout } from '../_checkout.ts';
 
 /**
  * El storefront del primer cliente real.
@@ -161,15 +162,8 @@ test('se puede comprar de punta a punta', async ({ page }) => {
   await expect(page.getByText('Compra segura')).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Principal' })).toHaveCount(0);
   // El resumen lo arma el servidor: hasta que responde hay un skeleton.
-  await expect(page.getByRole('button', { name: /confirmar pedido/i })).toBeEnabled();
-
-  await page.fill('input[name="name"]', 'Ana Prueba');
-  await page.fill('input[name="email"]', `ana-treeshop-${Date.now()}@e2e.test`);
-  await page.fill('input[name="phone"]', '0981 123 456');
-  await page.fill('input[name="street"]', 'Avda. de Prueba 123');
-  await page.fill('input[name="city"]', 'Asunción');
-
-  await page.getByRole('button', { name: /confirmar pedido/i }).click();
+  await completarCheckout(page, { correo: `ana-treeshop-${Date.now()}@e2e.test` });
+  await botonDeConfirmar(page).click();
 
   await expect(page).toHaveURL(/\/checkout\/confirmacion/);
   /*

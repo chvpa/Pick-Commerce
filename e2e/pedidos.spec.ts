@@ -43,6 +43,7 @@ async function crearPedidos(
           name: `Lote ${sello}`,
           email: `lote-${sello}-${i}@e2e.test`,
           phone: '0981 123 456',
+          taxId: '4512873',
         },
         address: { street: 'Calle 1', city: 'Asunción' },
         paymentMethod: 'bank_transfer',

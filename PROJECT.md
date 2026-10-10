@@ -465,6 +465,11 @@ validate availability
 
 ### Checkout
 
+Tres pasos —tus datos, entrega y pago— que validan antes de avanzar (ADR-166).
+El documento para la factura es obligatorio: la CI, o el RUC con su razón social.
+La factura la emite el comercio, fuera del core, pero el dato lo junta el
+checkout.
+
 Antes de confirmar:
 
 ```text

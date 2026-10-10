@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { botonDeConfirmar, checkoutListo, completarCheckout, verResumen } from './_checkout.ts';
 
 /**
  * La Definition of Done de la Fase 5, ejecutable.
@@ -79,14 +80,6 @@ async function sembrarCarrito(page: Page, quantity: number): Promise<string> {
   return id as string;
 }
 
-async function completarFormulario(page: Page): Promise<void> {
-  await page.fill('input[name="name"]', 'Ana Prueba');
-  await page.fill('input[name="email"]', `ana-${Date.now()}@e2e.test`);
-  await page.fill('input[name="phone"]', '0981 123 456');
-  await page.fill('input[name="street"]', 'Avda. de Prueba 123');
-  await page.fill('input[name="city"]', 'Asunción');
-}
-
 test('Home → PDP → carrito → checkout → pedido', async ({ page }) => {
   await page.goto('/');
   await page
@@ -110,10 +103,10 @@ test('Home → PDP → carrito → checkout → pedido', async ({ page }) => {
   await expect(page.getByRole('navigation', { name: 'Principal' })).toHaveCount(0);
 
   // El resumen lo arma el servidor: hasta que responde hay un skeleton.
-  await expect(page.getByRole('button', { name: /confirmar pedido/i })).toBeEnabled();
+  await checkoutListo(page);
 
-  await completarFormulario(page);
-  await page.getByRole('button', { name: /confirmar pedido/i }).click();
+  await completarCheckout(page);
+  await botonDeConfirmar(page).click();
 
   await expect(page).toHaveURL(/\/checkout\/confirmacion/);
   /*
@@ -137,7 +130,12 @@ test('un reintento con la misma clave no crea un segundo pedido', async ({ page,
   const variantId = await sembrarCarrito(page, 1);
 
   const cuerpo = {
-    customer: { name: 'Reintento', email: `retry-${Date.now()}@e2e.test`, phone: '0981 123 456' },
+    customer: {
+      name: 'Reintento',
+      email: `retry-${Date.now()}@e2e.test`,
+      phone: '0981 123 456',
+      taxId: '4512873',
+    },
     address: { street: 'Calle 1', city: 'Asunción' },
     paymentMethod: 'bank_transfer',
     lines: [{ variantId, quantity: 1 }],
@@ -181,6 +179,7 @@ test('el checkout revalida el stock y corrige el carrito', async ({ page, reques
         name: 'Sin stock',
         email: `nostock-${Date.now()}@e2e.test`,
         phone: '0981 123 456',
+        taxId: '4512873',
       },
       address: { street: 'Calle 1', city: 'Asunción' },
       paymentMethod: 'bank_transfer',
@@ -216,8 +215,8 @@ test('un doble click termina en un solo pedido', async ({ page }) => {
   await sembrarCarrito(page, 1);
 
   await page.goto('/checkout');
-  await completarFormulario(page);
-  await page.getByRole('button', { name: /confirmar pedido/i }).click({ clickCount: 2, delay: 10 });
+  await completarCheckout(page);
+  await botonDeConfirmar(page).click({ clickCount: 2, delay: 10 });
 
   await expect(page).toHaveURL(/\/checkout\/confirmacion/);
   /*
@@ -231,6 +230,39 @@ test('un doble click termina en un solo pedido', async ({ page }) => {
 
   await page.goto('/carrito');
   await expect(page.getByText(/tu carrito está vacío/i).first()).toBeVisible();
+});
+
+test('los pasos validan antes de avanzar y quedan en una línea con «Cambiar»', async ({ page }) => {
+  await sembrarCarrito(page, 1);
+  await page.goto('/checkout');
+  await checkoutListo(page);
+
+  // Vacío no avanza: dice qué falta, y la entrega sigue escondida.
+  await page.getByRole('button', { name: 'Continuar a la entrega' }).click();
+  await expect(page.getByText('Lo necesitamos para la factura.')).toBeVisible();
+  await expect(page.locator('input[name="street"]')).toBeHidden();
+
+  // Un RUC pide la razón social; sin ella, tampoco.
+  await page.fill('input[name="name"]', 'Ana Prueba');
+  await page.fill('input[name="email"]', `pasos-${Date.now()}@e2e.test`);
+  await page.fill('input[name="phone"]', '0981 123 456');
+  await page.fill('input[name="taxId"]', '80012345-6');
+  await page.getByRole('button', { name: 'Continuar a la entrega' }).click();
+  await expect(page.getByText('Falta la razón social.')).toBeVisible();
+
+  await page.fill('input[name="taxName"]', 'Comercial S.A.');
+  // Enter en un campo es «Continuar», no «Confirmar»: no crea el pedido.
+  await page.locator('input[name="taxName"]').press('Enter');
+  await expect(page.locator('input[name="street"]')).toBeVisible();
+  await expect(page).toHaveURL(/\/checkout$/);
+
+  // El paso hecho queda en una línea, y «Cambiar» lo abre con lo escrito.
+  const datos = page.getByRole('region', { name: 'Tus datos' });
+  await expect(datos).toContainText('Ana Prueba');
+  await expect(datos).toContainText('RUC 80012345-6');
+  await page.getByRole('button', { name: 'Cambiar tus datos' }).click();
+  await expect(page.locator('input[name="name"]')).toHaveValue('Ana Prueba');
+  await expect(page.locator('input[name="street"]')).toBeHidden();
 });
 
 test('el checkout sin JavaScript explica por qué y ofrece salida', async ({ browser }) => {
@@ -260,7 +292,7 @@ test('el envío se muestra en el checkout y entra en el total', async ({ page })
     if (res.url().endsWith('/api/cart/validate')) validaciones += 1;
   });
   await page.goto('/checkout');
-  await expect(page.getByRole('button', { name: /confirmar pedido/i })).toBeEnabled();
+  await checkoutListo(page);
 
   /*
    * Una validación al montar, y ninguna más: el formulario corrige el espejo
@@ -276,6 +308,7 @@ test('el envío se muestra en el checkout y entra en el total', async ({ page })
    * gratis desde…»— y en el enlace de políticas del pie. El del resumen es el
    * único que es exactamente esa palabra.
    */
+  await verResumen(page);
   const fila = page.getByText('Envío', { exact: true }).locator('..');
   await expect(fila).toBeVisible();
   await expect(fila).toContainText('35.000');
@@ -287,8 +320,9 @@ test('desde el umbral el checkout dice que el envío es gratis', async ({ page }
   // se cobra es parte de lo que decide la compra.
   await sembrarCarrito(page, 2);
   await page.goto('/checkout');
-  await expect(page.getByRole('button', { name: /confirmar pedido/i })).toBeEnabled();
+  await checkoutListo(page);
 
+  await verResumen(page);
   await expect(page.getByText('Envío', { exact: true }).locator('..')).toContainText('Gratis');
 });
 
@@ -306,9 +340,9 @@ test('la confirmación deja un enlace para volver al pedido, y sin el token no a
   await sembrarCarrito(page, 1);
 
   await page.goto('/checkout');
-  await expect(page.getByRole('button', { name: /confirmar pedido/i })).toBeEnabled();
-  await completarFormulario(page);
-  await page.getByRole('button', { name: /confirmar pedido/i }).click();
+  await checkoutListo(page);
+  await completarCheckout(page);
+  await botonDeConfirmar(page).click();
   await expect(page).toHaveURL(/\/checkout\/confirmacion/);
 
   const enlace = page.getByRole('link', { name: 'este enlace' });

@@ -6,7 +6,12 @@ import {
   validarCarrito,
   type VarianteParaCarrito,
 } from './checkout.ts';
-import { enlaceDeWhatsApp, telefonoLocal, validarDatosDeCheckout } from './datos-de-checkout.ts';
+import {
+  enlaceDeWhatsApp,
+  esRuc,
+  telefonoLocal,
+  validarDatosDeCheckout,
+} from './datos-de-checkout.ts';
 
 const PYG = (amount: number) => ({ amount, currency: 'PYG' });
 
@@ -140,7 +145,12 @@ test('sumar monedas distintas falla en vez de dar un número equivocado', () => 
 // --- Datos del checkout --------------------------------------------------------
 
 const VALIDOS = {
-  customer: { name: 'Ana López', email: 'Ana@Cliente.TEST', phone: '0981 123 456' },
+  customer: {
+    name: 'Ana López',
+    email: 'Ana@Cliente.TEST',
+    phone: '0981 123 456',
+    taxId: '4512873',
+  },
   address: { street: 'Avda. Siempre Viva 742', city: 'Asunción' },
   paymentMethod: 'bank_transfer',
 };
@@ -153,13 +163,36 @@ test('los datos válidos se normalizan', () => {
 });
 
 test('los campos opcionales vacíos se omiten, no van vacíos', () => {
-  const r = validarDatosDeCheckout({
-    ...VALIDOS,
-    notes: '   ',
-    customer: { ...VALIDOS.customer, taxId: '' },
-  });
+  const r = validarDatosDeCheckout({ ...VALIDOS, notes: '   ' });
   assert.ok(!('notes' in r.datos!), 'mandó una nota vacía');
-  assert.ok(!('taxId' in r.datos!.customer), 'mandó un RUC vacío');
+  assert.ok(!('taxName' in r.datos!.customer), 'mandó una razón social vacía');
+});
+
+test('el documento para la factura es obligatorio (ADR-166)', () => {
+  const r = validarDatosDeCheckout({ ...VALIDOS, customer: { ...VALIDOS.customer, taxId: ' ' } });
+  assert.equal(r.errores.taxId, 'Lo necesitamos para la factura.');
+});
+
+test('con RUC hace falta la razón social; con CI, no', () => {
+  const ruc = { ...VALIDOS.customer, taxId: '80012345-6' };
+  assert.equal(
+    validarDatosDeCheckout({ ...VALIDOS, customer: ruc }).errores.taxName,
+    'Falta la razón social.',
+  );
+  // Una razón social que llega con una CI no se guarda: no hay factura a nombre de nadie más.
+  const ci = validarDatosDeCheckout({
+    ...VALIDOS,
+    customer: { ...VALIDOS.customer, taxName: 'Sobra S.A.' },
+  });
+  assert.deepEqual(ci.errores, {});
+  assert.ok(!('taxName' in ci.datos!.customer));
+});
+
+test('un RUC es un documento que termina en guion y dígito verificador', () => {
+  assert.equal(esRuc('80012345-6'), true);
+  assert.equal(esRuc('80012345 - 6 '), true);
+  assert.equal(esRuc('4512873'), false);
+  assert.equal(esRuc(''), false);
 });
 
 test('los datos fiscales llegan cuando están', () => {
@@ -197,6 +230,7 @@ test('cada campo inválido dice qué hacer', () => {
     'paymentMethod',
     'phone',
     'street',
+    'taxId',
   ]);
   assert.equal(r.datos, undefined, 'devolvió datos pese a los errores');
 });

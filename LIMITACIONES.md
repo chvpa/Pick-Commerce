@@ -70,7 +70,8 @@ asignada en el [ROADMAP](ROADMAP.md).
 
 Fuera del core, y va a seguir estando: facturación, notas de crédito,
 devoluciones y contabilidad. Pick Commerce vende y orquesta pedidos; la factura
-la emite otro sistema.
+la emite otro sistema. Lo que sí hace es juntar el dato: el checkout pide la CI o
+el RUC, con su razón social, y el pedido lo guarda (ADR-166).
 
 ### Envíos: una tarifa, o una por zona, y nada más
 
