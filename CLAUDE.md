@@ -500,6 +500,11 @@ supabase/migrations` y la más nueva. `catalog_search` tiene veinte versiones y 
   escribió una sobre la de tres migraciones atrás. Deshizo la búsqueda semántica y
   llevó el catálogo de 273 a 620 ms, con la suite de PGlite en verde: lo encontró
   la medición (ADR-163).
+- **Una columna que cambia lo que significa una fila** —`promotions.kind`— obliga
+  a revisar **todas** las funciones que leen esa tabla, no sólo las que se están
+  tocando: `select proname from pg_proc where prosrc ilike '%from promotions%'`.
+  `app.catalog_items` quedó sin el filtro y, con un 3x2 activo, las
+  recomendaciones decían «Gs. 0» (ADR-164).
 - Un importador que reimporta **pisa lo que la tienda editó** si no mira el
   dueño de cada campo: `field_sources` declara el origen y sólo los campos
   marcados como del ERP se sobreescriben. Y el borrado de medios se acota a los

@@ -67,7 +67,8 @@ function escapar(texto: string): string {
 
 function lineaDeItem(item: Order['items'][number], locale: string): string {
   const variante = item.variantTitle ? ` · ${item.variantTitle}` : '';
-  return `${item.quantity} × ${item.title}${variante} — ${formatMoney(item.unitPrice, locale)}`;
+  const precio = item.isGift ? 'de regalo' : formatMoney(item.unitPrice, locale);
+  return `${item.quantity} × ${item.title}${variante} — ${precio}`;
 }
 
 /** Qué dice cada correo, más allá del detalle del pedido. */
@@ -188,13 +189,21 @@ export function plantillaDeCorreo(
           (i) => `<tr>
         <td style="padding:6px 0;border-bottom:1px solid #eee">${escapar(i.title)}${
           i.variantTitle ? ` <span style="color:#666">· ${escapar(i.variantTitle)}</span>` : ''
-        }<br><span style="color:#666;font-size:13px">${i.quantity} × ${escapar(formatMoney(i.unitPrice, locale))}</span></td>
-        <td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${escapar(
-          formatMoney(
-            { amount: i.unitPrice.amount * i.quantity, currency: i.unitPrice.currency },
-            locale,
-          ),
-        )}</td>
+        }<br><span style="color:#666;font-size:13px">${
+          i.isGift
+            ? `${i.quantity} de regalo`
+            : `${i.quantity} × ${escapar(formatMoney(i.unitPrice, locale))}`
+        }</span></td>
+        <td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${
+          i.isGift
+            ? 'Regalo'
+            : escapar(
+                formatMoney(
+                  { amount: i.unitPrice.amount * i.quantity, currency: i.unitPrice.currency },
+                  locale,
+                ),
+              )
+        }</td>
       </tr>`,
         )
         .join('\n      ')}

@@ -8300,4 +8300,22 @@ casi siempre es una condición mal puesta.
 El regalo se busca entre **todas** las variantes de la tienda, publicadas o no,
 con su stock al lado. Las zonas del envío gratis salen de la configuración de
 envío. Si la tienda no cobra por zona, el envío gratis vale para todo el país.
-Mostrar lo aplicado en el carrito es el ítem siguiente de la fase.
+
+**El carrito**
+El drawer, `/carrito` y el checkout muestran lo mismo con un componente,
+`ResumenDePromociones`: lo descontado, el regalo como una línea aparte y cuánto
+falta para el envío gratis, con su barra. Los números salen de
+`/api/cart/validate`, que suma el umbral de la tienda a la respuesta. El drawer
+pregunta **sólo abierto** y medio segundo después del último cambio, y **no
+escribe en el store**: un suscriptor que escribe se llama a sí mismo (ADR-115).
+Si la consulta falla, muestra la suma local de antes. El pedido, la confirmación
+y el correo dicen «Regalo» en la línea a precio cero, en vez de «Gs. 0».
+
+**Lo que se encontró en el camino**
+Con un 3x2 activo, las recomendaciones del carrito decían «Gs. 0». Dos causas:
+`app.catalog_items` leía las promociones de catálogo sin mirar `kind`, porque
+nadie buscó qué otras funciones leen `promotions`. Y `app.promo_discount` con
+tipo nulo caía en el monto fijo, donde `least(null, base)` es la base entera.
+El core devolvía cero. Se arreglaron las dos, con un test de cada una que falla
+sin el arreglo. Lo encontró la captura de pantalla del e2e, no un test: el e2e
+no miraba las recomendaciones. Ahora sí. Quedó como restricción en `CLAUDE.md`.

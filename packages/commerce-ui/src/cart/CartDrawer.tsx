@@ -92,7 +92,7 @@ export function CartDrawer({ locale, checkoutHref = '/checkout', className }: Ca
           </button>
         </header>
 
-        <CartContents lines={lines} locale={locale} checkoutHref={checkoutHref} />
+        <CartContents lines={lines} locale={locale} checkoutHref={checkoutHref} consultar={open} />
         {/* Debajo del resumen: primero lo que la persona vino a hacer. */}
         <CartRecommendations locale={locale} activo={open} />
       </div>

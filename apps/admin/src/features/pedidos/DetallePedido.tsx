@@ -397,13 +397,18 @@ export function DetallePedido({ id }: DetallePedidoProps) {
                       {item.quantity} u.
                     </p>
                   </div>
+                  {/* El regalo sale del stock pero no se cobra (ADR-164). */}
                   <span className="font-medium whitespace-nowrap tabular-nums">
-                    {formatMoney(
-                      {
-                        amount: item.unitPrice.amount * item.quantity,
-                        currency: item.unitPrice.currency,
-                      },
-                      tienda.locale,
+                    {item.isGift ? (
+                      <span className="text-[#13774a]">Regalo</span>
+                    ) : (
+                      formatMoney(
+                        {
+                          amount: item.unitPrice.amount * item.quantity,
+                          currency: item.unitPrice.currency,
+                        },
+                        tienda.locale,
+                      )
                     )}
                   </span>
                 </li>

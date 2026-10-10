@@ -3,6 +3,7 @@ import { cn } from '../lib/cn.ts';
 import { buttonVariants } from '../recipes/button.ts';
 import { removeLine, setQuantity, type CartLine } from './store.ts';
 import { QuantitySelector } from '../product/QuantitySelector.tsx';
+import { ResumenDePromociones, useResumenDelServidor } from './ResumenDePromociones.tsx';
 
 export interface CartContentsProps {
   lines: readonly CartLine[];
@@ -10,6 +11,11 @@ export interface CartContentsProps {
   checkoutHref?: string;
   /** Dónde mandar a quien tiene el carrito vacío. */
   catalogHref?: string;
+  /**
+   * Si se le pregunta al servidor por las promociones. El drawer lo prende sólo
+   * abierto: cerrado, nadie mira el resumen.
+   */
+  consultar?: boolean;
   className?: string;
 }
 
@@ -25,8 +31,11 @@ export function CartContents({
   locale,
   checkoutHref = '/checkout',
   catalogHref = '/catalogo',
+  consultar = true,
   className,
 }: CartContentsProps) {
+  const servidor = useResumenDelServidor(lines, consultar);
+
   /*
    * El total lo suma el core con `addMoney`, que **lanza** si las monedas no
    * coinciden. Antes se sumaba a mano y se rotulaba con la moneda del primer
@@ -107,12 +116,46 @@ export function CartContents({
 
       {lines.length > 0 ? (
         <div className="flex flex-col gap-3 border-t border-border px-5 py-4">
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm text-fg-muted">Subtotal</span>
-            <span className="text-base font-medium" aria-live="polite">
-              {formatMoney(total, locale)}
-            </span>
-          </div>
+          {/*
+            Con la respuesta del servidor, el subtotal es el de lista y debajo va
+            lo que las promociones descuentan o regalan (ADR-164). Sin ella —
+            cargando o con un error—, la suma local de siempre.
+          */}
+          {servidor?.subtotal ? (
+            <>
+              <div className="flex items-baseline justify-between text-sm text-fg-muted">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{formatMoney(servidor.subtotal, locale)}</span>
+              </div>
+              <ResumenDePromociones
+                dinero={servidor}
+                totalDeProductos={{
+                  amount: servidor.subtotal.amount - (servidor.discount?.amount ?? 0),
+                  currency: servidor.subtotal.currency,
+                }}
+                locale={locale}
+              />
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-medium">Total</span>
+                <span className="text-base font-medium tabular-nums" aria-live="polite">
+                  {formatMoney(
+                    {
+                      amount: servidor.subtotal.amount - (servidor.discount?.amount ?? 0),
+                      currency: servidor.subtotal.currency,
+                    },
+                    locale,
+                  )}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm text-fg-muted">Subtotal</span>
+              <span className="text-base font-medium" aria-live="polite">
+                {formatMoney(total, locale)}
+              </span>
+            </div>
+          )}
           {/* El stock se revalida en checkout, siempre. Ver ADR-009. */}
           <p className="text-xs text-fg-subtle">
             El envío y la disponibilidad se confirman en el checkout.

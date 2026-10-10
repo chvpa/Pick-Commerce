@@ -227,6 +227,8 @@ export interface OrderItem {
   readonly sku: string;
   readonly unitPrice: Money;
   readonly quantity: number;
+  /** Una línea que regaló una promoción: precio cero, descuenta stock (ADR-164). */
+  readonly isGift?: boolean;
 }
 
 export interface Order {

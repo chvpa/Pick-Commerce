@@ -76,6 +76,27 @@ test('cada correo lleva el detalle y el total en las dos versiones', () => {
   }
 });
 
+test('un regalo dice «regalo» y no «Gs. 0» (ADR-164)', () => {
+  const conRegalo: Order = {
+    ...PEDIDO,
+    items: [
+      ...PEDIDO.items,
+      {
+        variantId: 'v2',
+        title: 'Medias',
+        sku: 'MED-U',
+        unitPrice: { amount: 0, currency: 'PYG' },
+        quantity: 1,
+        isGift: true,
+      },
+    ],
+  };
+  const m = plantillaDeCorreo('order_received', { ...CTX, order: conRegalo });
+  assert.match(m.texto, /1 × Medias — de regalo/);
+  assert.match(m.html, /1 de regalo/);
+  assert.doesNotMatch(m.html, /Gs\.\s?0</, 'el regalo aparece con precio cero');
+});
+
 test('el texto plano no lleva etiquetas', () => {
   // Un correo transaccional sin versión de texto legible termina en spam.
   const m = plantillaDeCorreo('order_delivered', CTX);

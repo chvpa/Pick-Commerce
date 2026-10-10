@@ -4,6 +4,11 @@ import type { Money } from '@pick/commerce-types';
 import { cn } from '../lib/cn.ts';
 import { buttonVariants } from '../recipes/button.ts';
 import { clear, getLines, replaceLines, subscribe, type CartLine } from '../cart/store.ts';
+import {
+  ResumenDePromociones,
+  type DineroDelCarrito,
+  type RegaloMostrado,
+} from '../cart/ResumenDePromociones.tsx';
 
 interface LineaValidada {
   variantId: string;
@@ -126,6 +131,8 @@ export function CheckoutForm({
   const [subtotal, setSubtotal] = useState<Money | null>(null);
   const [costoDeEnvio, setCostoDeEnvio] = useState<Money | null>(null);
   const [descuento, setDescuento] = useState<Money | null>(null);
+  // Regalos, envío gratis y su umbral (ADR-164): lo que no es un descuento.
+  const [regalos, setRegalos] = useState<DineroDelCarrito>({});
   const [promociones, setPromociones] = useState<
     readonly { promotionId: string; title: string; amount: Money }[]
   >([]);
@@ -213,6 +220,9 @@ export function CheckoutForm({
       discount?: Money;
       shipping?: Money;
       appliedPromotions?: { promotionId: string; title: string; amount: Money }[];
+      gifts?: RegaloMostrado[];
+      freeShipping?: boolean;
+      freeShippingFrom?: Money;
       couponIssue?: ProblemaDeCupon;
     };
 
@@ -263,6 +273,11 @@ export function CheckoutForm({
     setCostoDeEnvio(datos.shipping ?? null);
     setDescuento(datos.discount ?? null);
     setPromociones(datos.appliedPromotions ?? []);
+    setRegalos({
+      ...(datos.gifts ? { gifts: datos.gifts } : {}),
+      ...(datos.freeShipping ? { freeShipping: true } : {}),
+      ...(datos.freeShippingFrom ? { freeShippingFrom: datos.freeShippingFrom } : {}),
+    });
     setProblemaDeCupon(datos.couponIssue ?? null);
 
     // Un cupón que dejó de valer —se agotó, venció, o el carrito bajó del
@@ -727,14 +742,17 @@ export function CheckoutForm({
                 <span class="tabular-nums">{formatMoney(subtotal, locale)}</span>
               </div>
             ) : null}
-            {descuento && descuento.amount > 0
-              ? promociones.map((p) => (
-                  <div key={p.promotionId} class="flex justify-between gap-3 text-success">
-                    <span class="min-w-0 truncate">{p.title}</span>
-                    <span class="shrink-0 tabular-nums">−{formatMoney(p.amount, locale)}</span>
-                  </div>
-                ))
-              : null}
+            {subtotal ? (
+              <ResumenDePromociones
+                dinero={{ appliedPromotions: promociones, ...regalos }}
+                totalDeProductos={{
+                  amount: subtotal.amount - (descuento?.amount ?? 0),
+                  currency: subtotal.currency,
+                }}
+                locale={locale}
+                conLineaDeEnvio
+              />
+            ) : null}
             {/*
               El envío se muestra aunque sea cero, y por eso dice «Gratis» en vez
               de «0»: enterarse de que no se cobra es parte de lo que decide la

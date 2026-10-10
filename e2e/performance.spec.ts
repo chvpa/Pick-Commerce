@@ -88,14 +88,20 @@ const PAGINAS = [
    * con el motivo antes que torcer el diseño por ciento y pico de bytes, y lo
    * que compran esos bytes es que nadie ponga en el carrito más de lo que hay.
    */
-  { ruta: '/productos/campera-cortaviento', que: 'el PDP', js: 26 * 1024 },
+  /*
+   * 27 desde la v3 Fase 5: el drawer dice lo que las promociones descuentan, el
+   * regalo y cuánto falta para el envío gratis (ADR-164). Son unos 600 bytes en
+   * el island del drawer, que viaja en todas las páginas; la home y las de
+   * contenido siguen entrando en 25.
+   */
+  { ruta: '/productos/campera-cortaviento', que: 'el PDP', js: 27 * 1024 },
   /*
    * 29 y no 28 desde la v2 Fase 4: la tira de recomendados del carrito son unos
    * 300 bytes en el island del drawer, que viaja en todas las páginas. Se sube
    * el número con el motivo, que es lo que ADR-106 pide hacer cuando el
    * presupuesto avisa de algo que vale la pena.
    */
-  { ruta: '/catalogo', que: 'el catálogo', js: 29 * 1024 },
+  { ruta: '/catalogo', que: 'el catálogo', js: 30 * 1024 }, // 30: el mismo resumen del drawer.
 ];
 
 for (const { ruta, que, js } of PAGINAS) {

@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    31% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    33% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1934,7 +1934,7 @@ El registro antifraude interno, que el handoff marca como pedido explícito.
 
 ## Fase 5 — Promociones de ocho tipos
 
-**Avance: 75%**
+**Avance: 100%**
 
 Revisa ADR-091: llegó el primer «Buy X Get Y» real.
 
@@ -1948,8 +1948,8 @@ Revisa ADR-091: llegó el primer «Buy X Get Y» real.
       menos unidades de las que se llevan, escalones crecientes, al menos una zona.
       El formulario arma los ocho tipos y muestra el carrito de ejemplo que calcula
       el core (ADR-164).
-- [ ] El carrito muestra lo que se aplicó, el regalo y lo que falta para el envío
-      gratis.
+- [x] El carrito muestra lo que se aplicó, el regalo y lo que falta para el envío
+      gratis; el pedido, la confirmación y el correo dicen «Regalo» (ADR-164).
 
 ---
 
@@ -2437,6 +2437,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-09 | **v3 Fase 4: modelos en la tienda** (ADR-163). `catalog_search` deja una tarjeta por modelo —la primera que pasa los filtros— y el PDP trae a los demás, que la ficha dibuja como enlaces con foto, muestra o texto. Cuesta lo mismo que antes, medido en producción; la primera versión partió de una copia vieja de la función y deshizo la búsqueda semántica                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | v3 Fase 4 |          67% |           100% |
 | 2026-10-09 | **v3 Fase 5: los ocho tipos de promoción** (ADR-164). `promotions` gana `kind` y `rules`; cada tipo es una función del core con su gemela en SQL. El regalo es una línea a precio cero que descuenta stock y se pausa sin stock, y el envío gratis va por zona. 33 escenarios de paridad, 19 nuevos, y el core saboteado en tres reglas                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | v3 Fase 5 |           0% |            50% |
 | 2026-10-09 | **v3 Fase 5: el formulario de ocho tipos** (ADR-164). Elegir el tipo cambia los campos; automática o con código, y con código sólo descuento o envío gratis. Las validaciones del handoff frenan el guardado, el resumen acompaña cada tecla y el carrito de ejemplo lo calcula el core. El regalo se busca con su stock y las zonas salen del envío                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | v3 Fase 5 |          50% |            75% |
+| 2026-10-10 | **v3 Fase 5 cerrada: el carrito** (ADR-164). Drawer, carrito y checkout muestran lo descontado, el regalo y cuánto falta para el envío gratis, con la cuenta del servidor; el pedido y el correo dicen «Regalo». Las recomendaciones decían «Gs. 0» con un 3x2 activo: `catalog_items` no filtraba `kind` y un descuento sin tipo valía el precio                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | v3 Fase 5 |          75% |           100% |
 
 ---
 

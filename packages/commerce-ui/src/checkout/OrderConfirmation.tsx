@@ -127,22 +127,29 @@ export function OrderConfirmation({
         <h2 class="text-sm font-medium">Lo que pediste</h2>
         <ul class="flex flex-col gap-3">
           {order.items.map((item) => (
-            <li key={item.sku} class="flex justify-between gap-3 text-sm">
+            <li
+              key={`${item.sku}${item.isGift ? '-regalo' : ''}`}
+              class="flex justify-between gap-3 text-sm"
+            >
               <span class="min-w-0">
                 <span class="block truncate">{item.title}</span>
                 <span class="text-fg-subtle">
                   {item.variantTitle ? `${item.variantTitle} · ` : ''}
-                  {item.quantity} × {formatMoney(item.unitPrice, locale)}
+                  {item.isGift
+                    ? `${item.quantity} de regalo`
+                    : `${item.quantity} × ${formatMoney(item.unitPrice, locale)}`}
                 </span>
               </span>
-              <span class="shrink-0 tabular-nums">
-                {formatMoney(
-                  {
-                    amount: item.unitPrice.amount * item.quantity,
-                    currency: item.unitPrice.currency,
-                  },
-                  locale,
-                )}
+              <span class={cn('shrink-0 tabular-nums', item.isGift && 'text-success')}>
+                {item.isGift
+                  ? 'Regalo'
+                  : formatMoney(
+                      {
+                        amount: item.unitPrice.amount * item.quantity,
+                        currency: item.unitPrice.currency,
+                      },
+                      locale,
+                    )}
               </span>
             </li>
           ))}

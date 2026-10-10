@@ -82,7 +82,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
      */
     //
     // Una promoción de envío gratis (ADR-164) lo deja en cero, como en la base.
-    const tarifa = calcularEnvio(await envio(), dinero.total, zona);
+    const configDeEnvio = await envio();
+    const tarifa = calcularEnvio(configDeEnvio, dinero.total, zona);
     const costoDeEnvio = dinero.freeShipping ? { ...tarifa, amount: 0 } : tarifa;
 
     /*
@@ -168,6 +169,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       ...(dinero.applied.length > 0 ? { appliedPromotions: dinero.applied } : {}),
       ...(regalos.length > 0 ? { gifts: regalos } : {}),
       ...(dinero.freeShipping ? { freeShipping: true } : {}),
+      // El umbral de la tienda, para que el carrito diga cuánto falta.
+      ...(configDeEnvio.mode !== 'none' && configDeEnvio.freeFrom !== undefined
+        ? { freeShippingFrom: { amount: configDeEnvio.freeFrom, currency: dinero.total.currency } }
+        : {}),
       ...(dinero.couponIssue ? { couponIssue: dinero.couponIssue } : {}),
     });
   } catch (error) {

@@ -1110,6 +1110,30 @@ test('ni un 3x2 ni un regalo cambian el precio del catálogo', async () => {
   assert.equal(remera.compareAtPrice, undefined);
 });
 
+test('un 3x2 no deja en cero las tarjetas de las recomendaciones', async () => {
+  // Lo encontró el e2e del carrito: `app.catalog_items` no miraba `kind`, y un
+  // descuento sin tipo valía el precio entero.
+  await comoServicio(db, `delete from promotions where store_id = ${sql(TIENDA)}`);
+  await comoServicio(
+    db,
+    `insert into promotions (tenant_id, store_id, title, status, kind, rules)
+     values (${sql(TENANT)}, ${sql(TIENDA)}, '3x2', 'active', 'buy_x_pay_y',
+             '{"buy": 3, "pay": 2}'::jsonb)`,
+  );
+  const r = await db.query<{ j: { variants: { price: { amount: number } }[] }[] }>(
+    `select app.catalog_items($1::uuid, $2::uuid[]) as j`,
+    [TIENDA, `{${REMERA}}`],
+  );
+  assert.equal(r.rows[0]!.j[0]!.variants[0]!.price.amount, PRECIO_REMERA);
+});
+
+test('un descuento sin tipo no descuenta nada, como en el core', async () => {
+  const r = await db.query<{ n: string }>(
+    `select app.promo_discount(150000, null, null)::text as n`,
+  );
+  assert.equal(r.rows[0]!.n, '0', 'un tipo nulo regaló el precio');
+});
+
 test('la base rechaza un 3x2 con cupón y un descuento sin valor', async () => {
   const cupon = await intentar(
     db,
