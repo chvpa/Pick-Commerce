@@ -142,6 +142,7 @@ packages/
   commerce-core/     dominio sin framework: dinero, catálogo, variantes, SEO, autorización
   commerce-ui/       tokens de diseño, recetas de clases e islands Preact
   commerce-astro/    componentes .astro de presentación estática
+  storefront/        lo que comparten las tiendas: su `lib` y el checkout (ADR-165)
   adapter-supabase/  clientes, repositorios y sesión
   adapter-resend/    correos transaccionales
   adapter-payment-simulated/  pasarela de prueba; el contrato vive en el core

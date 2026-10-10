@@ -1,10 +1,10 @@
 import type { APIRoute } from 'astro';
-import { guardarFavoritos, quitarFavorito } from '../../lib/cuenta.ts';
-import { hayCuentas } from '../../lib/db.ts';
-import { anotar } from '../../lib/analytics.ts';
-import { demasiadasPeticiones, dentroDelLimite } from '../../lib/limite.ts';
-import { tokenDelComprador } from '../../lib/sesion.ts';
-import { cuerpoJson, falla, json } from './_respuesta.ts';
+import { guardarFavoritos, quitarFavorito } from '@pick/storefront/lib/cuenta.ts';
+import { hayCuentas } from '@pick/storefront/lib/db.ts';
+import { anotar } from '@pick/storefront/lib/analytics.ts';
+import { demasiadasPeticiones, dentroDelLimite } from '@pick/storefront/lib/limite.ts';
+import { tokenDelComprador } from '@pick/storefront/lib/sesion.ts';
+import { cuerpoJson, falla, json } from '@pick/storefront/lib/respuesta.ts';
 
 export const prerender = false;
 

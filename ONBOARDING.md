@@ -58,6 +58,10 @@ Hay dos caminos, y el primero que hay que decidir es cuál:
   header, pie y preset. Es lo que hizo Treeshop (ADR-110). Comparte la base,
   el Admin y los paquetes; lo que mejore en el Core le llega solo.
 
+  El checkout y la `lib` **no se copian**: los trae `@pick/storefront`, que se
+  declara en el `astro.config` de la app con el dominio con el que resuelve su
+  tienda y su hoja de estilos (ADR-165).
+
   El preset es el `global.css` de esa app, y hay tres para arrancar (ADR-139):
 
   ```css

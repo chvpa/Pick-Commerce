@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
-import { escribirResena } from '../../lib/cuenta.ts';
-import { hayCuentas } from '../../lib/db.ts';
-import { demasiadasPeticiones, dentroDelLimite } from '../../lib/limite.ts';
-import { tokenDelComprador } from '../../lib/sesion.ts';
+import { escribirResena } from '@pick/storefront/lib/cuenta.ts';
+import { hayCuentas } from '@pick/storefront/lib/db.ts';
+import { demasiadasPeticiones, dentroDelLimite } from '@pick/storefront/lib/limite.ts';
+import { tokenDelComprador } from '@pick/storefront/lib/sesion.ts';
 
 export const prerender = false;
 

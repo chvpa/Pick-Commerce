@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { cerrarSesion } from '../../../lib/sesion.ts';
+import { cerrarSesion } from '@pick/storefront/lib/sesion.ts';
 
 export const prerender = false;
 

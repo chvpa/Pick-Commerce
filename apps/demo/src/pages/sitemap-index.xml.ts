@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { sitemapIndexXml } from '@pick/commerce-core';
-import { SITE_URL } from '../lib/store-config.ts';
+import { SITE_URL } from '@pick/storefront/lib/store-config.ts';
 
 /**
  * Índice de sitemaps.

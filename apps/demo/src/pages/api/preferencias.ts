@@ -3,9 +3,9 @@ import {
   COOKIE_DE_DISPOSITIVO,
   COOKIE_SIN_PERSONALIZACION,
   olvidarEsteDispositivo,
-} from '../../lib/analytics.ts';
-import { olvidarMisPreferencias } from '../../lib/cuenta.ts';
-import { paginaDeCuenta } from '../../lib/sesion.ts';
+} from '@pick/storefront/lib/analytics.ts';
+import { olvidarMisPreferencias } from '@pick/storefront/lib/cuenta.ts';
+import { paginaDeCuenta } from '@pick/storefront/lib/sesion.ts';
 
 export const prerender = false;
 

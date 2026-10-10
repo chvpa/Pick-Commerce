@@ -4,9 +4,14 @@ import { AccountLogin } from '@pick/commerce-ui/account/AccountLogin';
 import { ETIQUETA_ESTADO_PAGO, ETIQUETA_ESTADO_PEDIDO, formatMoney } from '@pick/commerce-core';
 import type { OrderStatus, PaymentStatus } from '@pick/commerce-types';
 import Base from '../layouts/Base.astro';
-import { MINUTOS_DEL_CODIGO, misPedidos, misPuntos, type PaginaDePedidos } from '../lib/cuenta.ts';
-import { tiendaActual } from '../lib/db.ts';
-import { paginaDeCuenta } from '../lib/sesion.ts';
+import {
+  MINUTOS_DEL_CODIGO,
+  misPedidos,
+  misPuntos,
+  type PaginaDePedidos,
+} from '@pick/storefront/lib/cuenta.ts';
+import { tiendaActual } from '@pick/storefront/lib/db.ts';
+import { paginaDeCuenta } from '@pick/storefront/lib/sesion.ts';
 
 /*
  * On-demand, como todo lo que depende de la sesión.

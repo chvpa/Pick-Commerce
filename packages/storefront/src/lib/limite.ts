@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference -- declara un módulo virtual: no se puede importar
+/// <reference path="../cloudflare.d.ts" />
 import { env } from 'cloudflare:workers';
 
 /**

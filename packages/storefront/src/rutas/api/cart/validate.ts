@@ -2,10 +2,10 @@ import type { APIRoute } from 'astro';
 import { addMoney, calcularEnvio, validarCarrito } from '@pick/commerce-core';
 import { checkout, envio, tiendaActual } from '../../../lib/db.ts';
 import { anotar } from '../../../lib/analytics.ts';
-import { cuerpoJson, falla, json, lineasRecibidas } from '../_respuesta.ts';
+import { cuerpoJson, falla, json, lineasRecibidas } from '../../../lib/respuesta.ts';
 import { demasiadasPeticiones, dentroDelLimite } from '../../../lib/limite.ts';
 
-export const prerender = false;
+// On-demand: lo declara la integración con `prerender: false` (ADR-165).
 
 /**
  * El cart service: qué de este carrito se puede comprar de verdad.

@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { sitemapXml, type EntradaSitemap } from '@pick/commerce-core';
-import { catalogo, contextoSeo, tiendaActual } from '../lib/db.ts';
+import { catalogo, contextoSeo, tiendaActual } from '@pick/storefront/lib/db.ts';
 
 /**
  * Sitemap del sitio.

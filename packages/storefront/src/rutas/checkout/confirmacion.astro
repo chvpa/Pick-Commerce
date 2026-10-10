@@ -1,7 +1,7 @@
 ---
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import { OrderConfirmation } from '@pick/commerce-ui/checkout/OrderConfirmation';
-import Base from '../../layouts/Base.astro';
+import CheckoutLayout from '../../CheckoutLayout.astro';
 import { pagos } from '../../lib/db.ts';
 
 /*
@@ -10,7 +10,7 @@ import { pagos } from '../../lib/db.ts';
  * checkout. No hay lookup público de pedidos —la numeración es secuencial y
  * sería enumerable—.
  */
-export const prerender = false;
+// On-demand: lo declara la integración con `prerender: false` (ADR-165).
 
 const formasDePago = await pagos();
 
@@ -19,7 +19,7 @@ const pago = Astro.url.searchParams.get('pago');
 const resultadoDePago = pago === 'aprobado' || pago === 'rechazado' ? pago : undefined;
 ---
 
-<Base title="Pedido confirmado" description="Recibimos tu pedido." noindex>
+<CheckoutLayout title="Pedido confirmado" description="Recibimos tu pedido.">
   <Container class="flex max-w-2xl flex-col gap-6 py-12">
     <OrderConfirmation
       client:load
@@ -28,4 +28,4 @@ const resultadoDePago = pago === 'aprobado' || pago === 'rechazado' ? pago : und
       locale="es-PY"
     />
   </Container>
-</Base>
+</CheckoutLayout>

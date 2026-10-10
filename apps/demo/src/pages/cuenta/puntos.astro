@@ -2,9 +2,14 @@
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import { formatMoney } from '@pick/commerce-core';
 import Base from '../../layouts/Base.astro';
-import { misPuntos, premiosDisponibles, type MisPuntos, type Premios } from '../../lib/cuenta.ts';
-import { tiendaActual } from '../../lib/db.ts';
-import { paginaDeCuenta } from '../../lib/sesion.ts';
+import {
+  misPuntos,
+  premiosDisponibles,
+  type MisPuntos,
+  type Premios,
+} from '@pick/storefront/lib/cuenta.ts';
+import { tiendaActual } from '@pick/storefront/lib/db.ts';
+import { paginaDeCuenta } from '@pick/storefront/lib/sesion.ts';
 
 export const prerender = false;
 

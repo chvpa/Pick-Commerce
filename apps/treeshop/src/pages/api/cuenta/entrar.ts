@@ -4,11 +4,11 @@ import {
   canjearCodigo,
   faltaParaLasCuentas,
   vincularCuenta,
-} from '../../../lib/cuenta.ts';
-import { demasiadasPeticiones, dentroDelLimite } from '../../../lib/limite.ts';
-import { hayCuentas } from '../../../lib/db.ts';
-import { guardarSesion } from '../../../lib/sesion.ts';
-import { cuerpoJson, falla, json } from '../_respuesta.ts';
+} from '@pick/storefront/lib/cuenta.ts';
+import { demasiadasPeticiones, dentroDelLimite } from '@pick/storefront/lib/limite.ts';
+import { hayCuentas } from '@pick/storefront/lib/db.ts';
+import { guardarSesion } from '@pick/storefront/lib/sesion.ts';
+import { cuerpoJson, falla, json } from '@pick/storefront/lib/respuesta.ts';
 import { EMAIL_VALIDO, emailRecibido } from './_email.ts';
 
 export const prerender = false;

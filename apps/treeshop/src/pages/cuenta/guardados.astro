@@ -3,8 +3,8 @@ import Container from '@pick/commerce-astro/layout/Container.astro';
 import { Image } from 'astro:assets';
 import WishlistHeart from '@pick/commerce-astro/wishlist/WishlistHeart.astro';
 import Base from '../../layouts/Base.astro';
-import { productosGuardados, type ProductoGuardado } from '../../lib/cuenta.ts';
-import { paginaDeCuenta } from '../../lib/sesion.ts';
+import { productosGuardados, type ProductoGuardado } from '@pick/storefront/lib/cuenta.ts';
+import { paginaDeCuenta } from '@pick/storefront/lib/sesion.ts';
 
 export const prerender = false;
 

@@ -4,6 +4,7 @@ import { defineConfig, envField } from 'astro/config';
 import preact from '@astrojs/preact';
 import cloudflare from '@astrojs/cloudflare';
 import tailwindcss from '@tailwindcss/vite';
+import pickStorefront from '@pick/storefront';
 
 /**
  * Dirección pública del sitio.
@@ -42,7 +43,19 @@ export default defineConfig({
    * resuelven on-demand. Un sitemap que no lista productos no sirve de nada, así
    * que se emite desde la base en `sitemap-0.xml.ts`.
    */
-  integrations: [preact()],
+  /*
+   * `@pick/storefront` trae el checkout y la `lib` que comparten todas las
+   * tiendas, servidos en el dominio de ésta (ADR-165). Acá sólo va lo propio: el
+   * `stores.domain` por defecto —el de `dominioDeLaTienda()` cuando falta
+   * `STOREFRONT_DOMAIN`— y la hoja de estilos con el preset de la tienda.
+   */
+  integrations: [
+    preact(),
+    pickStorefront({
+      dominio: 'pick-commerce.chvpa-contacto.workers.dev',
+      estilos: new URL('./src/styles/global.css', import.meta.url),
+    }),
+  ],
   /*
    * Qué hosts de imágenes se pueden optimizar.
    *

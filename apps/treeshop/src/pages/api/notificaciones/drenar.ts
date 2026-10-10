@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
-import { drenarNotificaciones, proveedorDeCorreo } from '../../../lib/notificaciones.ts';
-import { falla, json } from '../_respuesta.ts';
+import { drenarNotificaciones, proveedorDeCorreo } from '@pick/storefront/lib/notificaciones.ts';
+import { falla, json } from '@pick/storefront/lib/respuesta.ts';
 
 export const prerender = false;
 

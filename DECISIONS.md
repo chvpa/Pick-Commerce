@@ -5238,7 +5238,7 @@ misma política. Hoy no existe. `store_events` no tiene columna de cliente y su
 propio comentario reserva el vínculo para «otra tabla»
 (`supabase/migrations/20260830153950_fase10_eventos.sql:28`), y la sesión anónima
 dura treinta minutos rodantes (`MINUTOS_DE_SESION`,
-`apps/treeshop/src/lib/analytics.ts:31`): sin identidad, «según quién mira» es
+`packages/storefront/src/lib/analytics.ts`, entonces copiado en cada app): sin identidad, «según quién mira» es
 «según esta media hora». Definirla una vez evita reabrir las políticas de tres
 fases.
 
@@ -5267,7 +5267,7 @@ transferencia y medir la fuga.
 También se descartó medir esa fuga con `begin_checkout` contra
 `checkout_completed`: ningún evento guarda el método de pago, y con transferencia
 `checkout_completed` se anota **después** de que `create_order` creó el pedido
-(`apps/treeshop/src/pages/api/checkout.ts:117`), así que la fuga real ocurre
+(`packages/storefront/src/rutas/api/checkout.ts`, entonces copiado en cada app), así que la fuga real ocurre
 fuera de ese par. El dato que sí la mide es la antigüedad de
 `orders.payment_status = 'pending'`, que existe desde la Fase 5.
 
@@ -8319,3 +8319,64 @@ tipo nulo caía en el monto fijo, donde `least(null, base)` es la base entera.
 El core devolvía cero. Se arreglaron las dos, con un test de cada una que falla
 sin el arreglo. Lo encontró la captura de pantalla del e2e, no un test: el e2e
 no miraba las recomendaciones. Ahora sí. Quedó como restricción en `CLAUDE.md`.
+
+## ADR-165 — `@pick/storefront`: el checkout y la `lib` de las tiendas, una sola vez
+
+**Fecha:** 2026-10-10
+**Estado:** Accepted
+
+**Contexto**
+ADR-110 armó Treeshop copiando `apps/demo`. Medido antes de esta unidad: de las
+45 páginas y archivos de `lib/` de las dos apps, **41 eran idénticos byte a
+byte**. Los cuatro distintos eran la portada, el catálogo y dos archivos que sólo
+cambiaban el dominio por defecto. Cada arreglo entraba dos veces, y la regla
+«mantenerlos iguales» la cumplía la disciplina, no el código. La Fase 6 de v3
+pide un checkout para todas las tiendas, servido en el dominio de cada una
+(ADR-143): seguir copiando era la tercera copia.
+
+**Decisión**
+Un paquete, `@pick/storefront`, con dos cosas:
+
+- **La `lib` de los storefronts** —base de datos, cuenta, sesión, analytics,
+  notificaciones, límites, pagos y el helper de respuestas—. Las apps la importan
+  como `@pick/storefront/lib/<archivo>.ts`. El dominio por defecto, lo único que
+  cambiaba, entra por la integración.
+- **Una integración de Astro que inyecta las rutas del checkout**:
+  `/checkout`, `/checkout/confirmacion`, `/pago/simulado`, `/api/checkout`,
+  `/api/cart/validate` y `/api/webhooks/pago`. La app la declara en su
+  `astro.config` con su `dominio` y su hoja de `estilos`, y no tiene ninguna de
+  esas páginas.
+
+`injectRoute` acepta un especificador de paquete como `entrypoint`, siempre que
+el `package.json` lo exporte. `updateConfig` suma plugins de Vite, que es como
+se arman los dos módulos virtuales: `virtual:pick/storefront` con el dominio y
+`virtual:pick/estilos` con la hoja de la app. Las dos cosas están en la doc de la
+API de integraciones:
+https://docs.astro.build/en/reference/integrations-reference/
+
+**El marco del checkout es del paquete**, `CheckoutLayout.astro`: el nombre de
+la tienda, «Compra segura» y nada más. Sin el menú del catálogo, el buscador ni
+el carrito, como el handoff. Los colores siguen siendo los del preset de la
+tienda, porque la hoja de estilos es la suya.
+
+**Lo que costó, para quien venga atrás**
+
+- La ruta de la hoja de estilos llega como `URL`, y su `pathname` deja los
+  espacios como `%20`. El build no encontraba el archivo en una carpeta con un
+  espacio. Va `fileURLToPath`.
+- Los tipos que antes vivían en cada app pasan al paquete y se traen con
+  `/// <reference>` desde el archivo que los usa: `App.Locals`,
+  `cloudflare:workers` y `cfContext` del adapter. Así entran también al
+  programa de cada app, sin copias.
+- El `@source` del paquete va en `tokens.css`, como el de `commerce-astro`. Sin
+  él sus clases no se generan, y nada falla (ADR-044).
+
+**Consecuencias**
+El e2e del checkout, del pago, de la cuenta y de Treeshop pasa contra las rutas
+inyectadas, y afirma que `/checkout` tiene su propio marco sin el menú de la
+tienda. Así no puede servirlo una copia vieja.
+
+**Quedan copiadas**, con su fila en el backlog: la cuenta del comprador, la API
+de cuenta, wishlist, reseñas y recomendados, el carrito, el pedido por enlace y
+el sitemap. Mudarlas es mecánico y va de a una, con su e2e. El checkout en tres
+pasos es la unidad siguiente, y ya sobre una sola copia.

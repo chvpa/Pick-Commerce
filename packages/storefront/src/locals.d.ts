@@ -1,3 +1,4 @@
+/// <reference types="@astrojs/cloudflare/types.d.ts" />
 import type { EventoDeTienda } from '@pick/commerce-core';
 
 /**

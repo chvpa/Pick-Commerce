@@ -2,9 +2,9 @@ import type { APIRoute } from 'astro';
 import { pagosDelGateway, tiendaActual } from '../../../lib/db.ts';
 import { drenarNotificaciones, enSegundoPlano } from '../../../lib/notificaciones.ts';
 import { proveedorDePago, secretoDelWebhook } from '../../../lib/proveedor-de-pago.ts';
-import { falla, json } from '../_respuesta.ts';
+import { falla, json } from '../../../lib/respuesta.ts';
 
-export const prerender = false;
+// On-demand: lo declara la integración con `prerender: false` (ADR-165).
 
 /**
  * El aviso del gateway: el pago salió bien o no.

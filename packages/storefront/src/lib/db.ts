@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference -- declara un módulo virtual: no se puede importar
+/// <reference path="../virtual.d.ts" />
+import { DOMINIO_POR_DEFECTO } from 'virtual:pick/storefront';
 import { getSecret } from 'astro:env/server';
 import {
   clienteDeServidor,
@@ -70,9 +73,9 @@ let cliente: PickSupabaseClient | undefined;
  */
 function dominioDeLaTienda(): string {
   try {
-    return getSecret('STOREFRONT_DOMAIN') || 'pick-commerce.chvpa-contacto.workers.dev';
+    return getSecret('STOREFRONT_DOMAIN') || DOMINIO_POR_DEFECTO;
   } catch {
-    return 'pick-commerce.chvpa-contacto.workers.dev';
+    return DOMINIO_POR_DEFECTO;
   }
 }
 

@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
-import { sugerenciasDeBusqueda } from '../../../lib/db.ts';
-import { demasiadasPeticiones, dentroDelLimite } from '../../../lib/limite.ts';
-import { json } from '../_respuesta.ts';
+import { sugerenciasDeBusqueda } from '@pick/storefront/lib/db.ts';
+import { demasiadasPeticiones, dentroDelLimite } from '@pick/storefront/lib/limite.ts';
+import { json } from '@pick/storefront/lib/respuesta.ts';
 
 export const prerender = false;
 

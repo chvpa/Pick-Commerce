@@ -2,7 +2,7 @@
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import { formatMoney } from '@pick/commerce-core';
 import { firmarResultado, verificarToken } from '@pick/adapter-payment-simulated';
-import Base from '../../layouts/Base.astro';
+import CheckoutLayout from '../../CheckoutLayout.astro';
 import { secretoDelWebhook } from '../../lib/proveedor-de-pago.ts';
 
 /*
@@ -16,7 +16,7 @@ import { secretoDelWebhook } from '../../lib/proveedor-de-pago.ts';
  * dependa de una island no es purismo — es que el camino del dinero tenga la
  * menor cantidad de cosas que puedan fallar.
  */
-export const prerender = false;
+// On-demand: lo declara la integración con `prerender: false` (ADR-165).
 
 const secreto = secretoDelWebhook();
 const token = Astro.url.searchParams.get('token') ?? '';
@@ -40,7 +40,7 @@ const tokenRechazado = await firmarResultado(datos, 'failed', secreto);
 const total = formatMoney({ amount: datos.amount, currency: datos.currency }, 'es-PY');
 ---
 
-<Base title="Pago de prueba" description="Pago simulado." noindex>
+<CheckoutLayout title="Pago de prueba" description="Pago simulado.">
   <Container class="flex max-w-md flex-col gap-6 py-12">
     <div class="rounded-md border border-border bg-surface-muted px-4 py-3">
       <p class="text-sm font-medium">Pago simulado — modo de prueba</p>
@@ -84,4 +84,4 @@ const total = formatMoney({ amount: datos.amount, currency: datos.currency }, 'e
       coordinarlo por otro medio.
     </p>
   </Container>
-</Base>
+</CheckoutLayout>

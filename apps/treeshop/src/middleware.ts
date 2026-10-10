@@ -1,6 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
 import { getSecret } from 'astro:env/server';
-import { drenarNotificaciones, enSegundoPlano } from './lib/notificaciones.ts';
+import { drenarNotificaciones, enSegundoPlano } from '@pick/storefront/lib/notificaciones.ts';
 import {
   COOKIE_DE_DISPOSITIVO,
   COOKIE_DE_SESION,
@@ -14,7 +14,7 @@ import {
   recalcularAfinidad,
   tocaPurgar,
   volcar,
-} from './lib/analytics.ts';
+} from '@pick/storefront/lib/analytics.ts';
 
 /**
  * Falla legible cuando falta configuración.

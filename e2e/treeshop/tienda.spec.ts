@@ -157,6 +157,9 @@ test('se puede comprar de punta a punta', async ({ page }) => {
 
   await page.goto('/checkout');
   await expect(page.getByRole('heading', { name: /confirmá tu pedido/i })).toBeVisible();
+  // El checkout es el del paquete (ADR-165): su propio marco, sin el menú de la tienda.
+  await expect(page.getByText('Compra segura')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Principal' })).toHaveCount(0);
   // El resumen lo arma el servidor: hasta que responde hay un skeleton.
   await expect(page.getByRole('button', { name: /confirmar pedido/i })).toBeEnabled();
 

@@ -1,0 +1,33 @@
+{
+  "name": "@pick/storefront",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/integration.ts",
+    "./lib/*": "./src/lib/*",
+    "./rutas/*": "./src/rutas/*"
+  },
+  "scripts": {
+    "typecheck": "astro check"
+  },
+  "dependencies": {
+    "@pick/adapter-payment-simulated": "workspace:*",
+    "@pick/adapter-resend": "workspace:*",
+    "@pick/adapter-supabase": "workspace:*",
+    "@pick/commerce-astro": "workspace:*",
+    "@pick/commerce-core": "workspace:*",
+    "@pick/commerce-types": "workspace:*",
+    "@pick/commerce-ui": "workspace:*"
+  },
+  "peerDependencies": {
+    "astro": "^7.2.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@astrojs/cloudflare": "^14.2.3",
+    "astro": "^7.2.4",
+    "preact": "^10.29.8",
+    "typescript": "^6.0.3"
+  }
+}

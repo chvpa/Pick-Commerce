@@ -128,6 +128,8 @@ packages/
   commerce-core/     dominio sin framework: dinero, catálogo, variantes, SEO, autorización
   commerce-ui/       tokens de diseño, recetas de clases e islands Preact
   commerce-astro/    componentes .astro de presentación estática
+  storefront/        la `lib` de las tiendas y la integración que inyecta el
+                     checkout en cada una (ADR-165)
   adapter-supabase/  clientes, repositorios y sesión
   adapter-resend/    envío de correos transaccionales
   adapter-payment-simulated/  pasarela de prueba; el contrato vive en el core
@@ -138,7 +140,9 @@ apps/
                      + `worker/`: las rutas /api/* que necesitan un secreto
   demo/              Astro 7 + Preact islands + Tailwind v4 + adapter Cloudflare
   treeshop/          el primer cliente real, misma anatomía que demo; header, pie y
-                     preset propios (ADR-110). Corre en 4322 en local
+                     preset propios (ADR-110). Corre en 4322 en local. El
+                     checkout y la `lib` no son de ninguna de las dos: los trae
+                     `@pick/storefront`
 supabase/            migraciones y pruebas de aislamiento entre tenants
 design_handoff_pick_commerce/  la referencia de diseño de v3 (ADR-143); no es código
 e2e/                 Playwright: el storefront de la demo (4321), el Admin y el
@@ -519,7 +523,7 @@ Este proyecto trata los docs como autoridad, no como notas. Leer en orden antes 
 
 1. [PROJECT.md](PROJECT.md) — qué es Pick Commerce, stack aprobado, arquitectura, scope de v1.
 2. [ROADMAP.md](ROADMAP.md) — fases, checkboxes, avance, backlog.
-3. [DECISIONS.md](DECISIONS.md) — ADR-001..164 y tres decisiones pendientes:
+3. [DECISIONS.md](DECISIONS.md) — ADR-001..165 y tres decisiones pendientes:
    P-001 (primer gateway real), P-005 (CLI/provisioner) y P-006 (cómo se le
    cobra la IA a un comercio). P-002, P-003 y P-004 están resueltas.
 4. [ENGINEERING_HARNESS.md](ENGINEERING_HARNESS.md) — versión extendida del harness de arriba.

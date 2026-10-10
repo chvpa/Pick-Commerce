@@ -1,0 +1,68 @@
+---
+import SeoHead from '@pick/commerce-astro/seo/SeoHead.astro';
+import { contextoSeo } from './lib/db.ts';
+import 'virtual:pick/estilos';
+
+/*
+ * El marco del checkout, el mismo en todas las tiendas (ADR-165).
+ *
+ * Sin navegación del catálogo, sin buscador y sin carrito, como en el handoff:
+ * quien llegó acá vino a pagar, y cada enlace de más es una salida. Queda el
+ * nombre de la tienda, que lleva de vuelta, y la tienda sigue siendo la suya:
+ * los estilos son los de su preset, que la app declara en la integración.
+ *
+ * Nada de esto se indexa: es un formulario a mitad de compra.
+ */
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const seo = await contextoSeo();
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <SeoHead
+      title={`${title} · ${seo.storeName}`}
+      description={description}
+      siteUrl={seo.siteUrl}
+      storeName={seo.storeName}
+      noindex
+    />
+  </head>
+  <body class="flex min-h-dvh flex-col bg-surface text-fg antialiased">
+    <header class="border-b border-border">
+      <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+        <a
+          href="/"
+          class="cursor-pointer font-display text-lg font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          {seo.storeName}
+        </a>
+        <span class="flex items-center gap-1.5 text-sm text-fg-muted">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            class="size-4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="5" y="11" width="14" height="10" rx="2"></rect>
+            <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+          </svg>
+          Compra segura
+        </span>
+      </div>
+    </header>
+
+    <main class="flex-1">
+      <slot />
+    </main>
+  </body>
+</html>

@@ -1,9 +1,9 @@
 import type { APIRoute } from 'astro';
-import { faltaParaLasCuentas, pedirCodigo } from '../../../lib/cuenta.ts';
-import { drenarNotificaciones, proveedorDeCorreo } from '../../../lib/notificaciones.ts';
-import { hayCuentas } from '../../../lib/db.ts';
-import { demasiadasPeticiones, dentroDelLimite } from '../../../lib/limite.ts';
-import { cuerpoJson, falla, json } from '../_respuesta.ts';
+import { faltaParaLasCuentas, pedirCodigo } from '@pick/storefront/lib/cuenta.ts';
+import { drenarNotificaciones, proveedorDeCorreo } from '@pick/storefront/lib/notificaciones.ts';
+import { hayCuentas } from '@pick/storefront/lib/db.ts';
+import { demasiadasPeticiones, dentroDelLimite } from '@pick/storefront/lib/limite.ts';
+import { cuerpoJson, falla, json } from '@pick/storefront/lib/respuesta.ts';
 import { EMAIL_VALIDO, emailRecibido } from './_email.ts';
 
 export const prerender = false;

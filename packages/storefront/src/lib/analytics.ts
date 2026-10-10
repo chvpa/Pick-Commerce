@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference -- declara un módulo virtual: no se puede importar
+/// <reference path="../locals.d.ts" />
 import { destinoSupabase } from '@pick/adapter-supabase';
 import {
   cuentaComoVista,

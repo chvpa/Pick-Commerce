@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
-import { recomendadosParaVariantes } from '../../lib/db.ts';
-import { demasiadasPeticiones, dentroDelLimite } from '../../lib/limite.ts';
+import { recomendadosParaVariantes } from '@pick/storefront/lib/db.ts';
+import { demasiadasPeticiones, dentroDelLimite } from '@pick/storefront/lib/limite.ts';
 
 export const prerender = false;
 

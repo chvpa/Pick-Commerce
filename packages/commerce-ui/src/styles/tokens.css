@@ -24,6 +24,7 @@
  */
 @source '../';
 @source '../../../commerce-astro/src';
+@source '../../../storefront/src';
 
 @theme {
   /* --- Color ---------------------------------------------------------------

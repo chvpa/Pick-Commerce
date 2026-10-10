@@ -26,11 +26,11 @@ import {
   sugerenciasDeBusqueda,
   tiendaActual,
   asegurarVectorDeBusqueda,
-} from '../lib/db.ts';
+} from '@pick/storefront/lib/db.ts';
 import WishlistHeart from '@pick/commerce-astro/wishlist/WishlistHeart.astro';
-import { anotar } from '../lib/analytics.ts';
-import { misFavoritos } from '../lib/cuenta.ts';
-import { paginaDeCuenta } from '../lib/sesion.ts';
+import { anotar } from '@pick/storefront/lib/analytics.ts';
+import { misFavoritos } from '@pick/storefront/lib/cuenta.ts';
+import { paginaDeCuenta } from '@pick/storefront/lib/sesion.ts';
 import { ClientRouter } from 'astro:transitions';
 import Base from '../layouts/Base.astro';
 

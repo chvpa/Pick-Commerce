@@ -4,10 +4,10 @@ import { checkout, envio, pagos, tiendaActual } from '../../lib/db.ts';
 import { drenarNotificaciones, enSegundoPlano } from '../../lib/notificaciones.ts';
 import { anotar } from '../../lib/analytics.ts';
 import { proveedorDePago } from '../../lib/proveedor-de-pago.ts';
-import { cuerpoJson, falla, json, lineasRecibidas } from './_respuesta.ts';
+import { cuerpoJson, falla, json, lineasRecibidas } from '../../lib/respuesta.ts';
 import { demasiadasPeticiones, dentroDelLimite } from '../../lib/limite.ts';
 
-export const prerender = false;
+// On-demand: lo declara la integración con `prerender: false` (ADR-165).
 
 /** Un uuid v4 de verdad, no cualquier texto: es la clave del `unique` de la base. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

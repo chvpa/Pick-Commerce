@@ -2,7 +2,7 @@
 import { anotar } from '../../lib/analytics.ts';
 import Container from '@pick/commerce-astro/layout/Container.astro';
 import { CheckoutForm } from '@pick/commerce-ui/checkout/CheckoutForm';
-import Base from '../../layouts/Base.astro';
+import CheckoutLayout from '../../CheckoutLayout.astro';
 import { ETIQUETA_METODO_DE_PAGO, formatMoney } from '@pick/commerce-core';
 import { envio, pagos, tiendaActual, tiendaEsDemo } from '../../lib/db.ts';
 import { emailDelComprador, misDirecciones, type DireccionDeEnvio } from '../../lib/cuenta.ts';
@@ -12,7 +12,7 @@ import { paginaDeCuenta } from '../../lib/sesion.ts';
  * On-demand: las formas de pago salen de la configuración de la tienda, y el
  * comercio puede cambiarlas sin que nadie reconstruya el sitio.
  */
-export const prerender = false;
+// On-demand: lo declara la integración con `prerender: false` (ADR-165).
 
 const [formasDePago, esDemo, configuracionEnvio, tienda] = await Promise.all([
   pagos(),
@@ -80,7 +80,7 @@ if (token) {
 anotar(Astro.locals, 'begin_checkout', Astro.url.pathname);
 ---
 
-<Base title="Checkout" description="Confirmá tu pedido." noindex>
+<CheckoutLayout title="Checkout" description="Confirmá tu pedido.">
   <Container class="flex max-w-4xl flex-col gap-8 py-12">
     <h1 class="font-display text-2xl font-semibold tracking-tight">Confirmá tu pedido</h1>
 
@@ -118,4 +118,4 @@ anotar(Astro.locals, 'begin_checkout', Astro.url.pathname);
       locale="es-PY"
     />
   </Container>
-</Base>
+</CheckoutLayout>

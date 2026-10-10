@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { llmsTxt } from '@pick/commerce-core';
-import { categorias, contextoSeo } from '../lib/db.ts';
+import { categorias, contextoSeo } from '@pick/storefront/lib/db.ts';
 
 /**
  * Índice para agentes de IA (llmstxt.org).
