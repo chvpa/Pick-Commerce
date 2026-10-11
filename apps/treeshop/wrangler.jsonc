@@ -31,6 +31,9 @@
   "ratelimits": [
     { "name": "CHECKOUT_LIMITE", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } },
     { "name": "CARRITO_LIMITE", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } },
+    // La sesión del checkout (ADR-167): aparte del checkout, para no gastarle el
+    // freno a quien compra. Cada «Cambiar» la vuelve a guardar, así que más holgado.
+    { "name": "SESION_LIMITE", "namespace_id": "1006", "simple": { "limit": 60, "period": 60 } },
     // Entrar a la cuenta va más ajustado que comprar: pedir un código es a la
     // vez la superficie de enumeración de cuentas y la de abuso de correo —cada
     // intento manda un mail—, y canjearlo es la de fuerza bruta. Aun así quedan

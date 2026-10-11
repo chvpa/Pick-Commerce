@@ -1,4 +1,6 @@
+import { existsSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { clienteDeServidor } from '@pick/adapter-supabase';
 import { botonDeConfirmar, checkoutListo, completarCheckout, verResumen } from './_checkout.ts';
 
 /**
@@ -15,6 +17,12 @@ import { botonDeConfirmar, checkoutListo, completarCheckout, verResumen } from '
  */
 
 const HANDLE = 'zapatilla-urbana';
+
+if (existsSync('.env')) process.loadEnvFile('.env');
+const admin = clienteDeServidor({
+  url: process.env.SUPABASE_URL!,
+  secretKey: process.env.SUPABASE_SECRET_KEY!,
+});
 
 interface Respuesta {
   status: number;
@@ -263,6 +271,34 @@ test('los pasos validan antes de avanzar y quedan en una línea con «Cambiar»'
   await page.getByRole('button', { name: 'Cambiar tus datos' }).click();
   await expect(page.locator('input[name="name"]')).toHaveValue('Ana Prueba');
   await expect(page.locator('input[name="street"]')).toBeHidden();
+});
+
+test('el primer paso deja el contacto en el servidor, y el pedido lo borra (ADR-167)', async ({
+  page,
+}) => {
+  const correo = `sesion-${Date.now()}@e2e.test`;
+  const variantId = await sembrarCarrito(page, 1);
+  await page.goto('/checkout');
+
+  const guardada = page.waitForResponse((r) => r.url().endsWith('/api/checkout/sesion'));
+  await completarCheckout(page, { nombre: 'Ana Sesión', correo });
+  expect((await guardada).status()).toBe(204);
+
+  // Sólo el contacto y el carrito: el documento es de la factura.
+  const sesion = await admin
+    .from('checkout_sessions')
+    .select('name, phone, lines')
+    .eq('email', correo);
+  expect(sesion.data).toEqual([
+    { name: 'Ana Sesión', phone: '0981123456', lines: [{ variantId, quantity: 1 }] },
+  ]);
+
+  await botonDeConfirmar(page).click();
+  await expect(page).toHaveURL(/\/checkout\/confirmacion/);
+
+  const despues = await admin.from('checkout_sessions').select('id').eq('email', correo);
+  expect(despues.data, 'el pedido no borró la sesión').toEqual([]);
+  expect(problemasDe(page)).toEqual([]);
 });
 
 test('el checkout sin JavaScript explica por qué y ofrece salida', async ({ browser }) => {

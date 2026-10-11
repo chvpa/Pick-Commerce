@@ -176,10 +176,26 @@ export function tocaPurgar(): boolean {
   return true;
 }
 
+/**
+ * Cuánto vive una sesión de checkout que no terminó en pedido (ADR-167): lo que
+ * dura un recordatorio que todavía tiene sentido. Más es guardar el contacto de
+ * alguien que no compró sin para qué.
+ */
+const DIAS_DE_SESION_DE_CHECKOUT = 30;
+
 export async function purgar(): Promise<void> {
   const { tenantId, storeId } = await tiendaActual();
   const borrados = await analytics(tenantId).purgar(storeId, DIAS_DE_RETENCION);
   if (borrados > 0) console.log(`[analytics] purgados ${borrados} eventos`);
+
+  // Las sesiones de checkout van con esta purga porque es la única que corre sola.
+  const limite = new Date(Date.now() - DIAS_DE_SESION_DE_CHECKOUT * 86_400_000).toISOString();
+  const { error } = await clienteDelStorefront()
+    .from('checkout_sessions')
+    .delete()
+    .eq('store_id', storeId)
+    .lt('updated_at', limite);
+  if (error) throw new Error(`No se pudieron purgar las sesiones de checkout: ${error.message}`);
 }
 
 /**

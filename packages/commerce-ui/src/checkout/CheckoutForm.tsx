@@ -457,6 +457,29 @@ export function CheckoutForm({
     setErrores({});
     setResumenes((r) => r.map((s, j) => (j === i ? resumenDelPaso(i) : s)));
     setPaso((i + 1) as IndiceDePaso);
+    if (i === 0) guardarSesion();
+  }
+
+  /**
+   * Deja el contacto en el servidor al pasar «Tus datos» (ADR-167): es lo que
+   * permite escribirle a quien no termina. No se espera ni se avisa, porque
+   * comprar no puede depender de esto. Va sólo el contacto: el documento es de
+   * la factura, y una factura sólo existe si hay pedido.
+   */
+  function guardarSesion(): void {
+    const { name, email, phone } = leerEntrada().customer;
+    fetch('/api/checkout/sesion', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      // Quien cierra la pestaña justo después de continuar es justo a quien hay
+      // que poder escribirle: `keepalive` deja terminar la petición.
+      keepalive: true,
+      body: JSON.stringify({
+        idempotencyKey: clave.current,
+        customer: { name, email, phone },
+        lines: getLines().map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
+      }),
+    }).catch(() => undefined);
   }
 
   async function enviar(evento: Event): Promise<void> {

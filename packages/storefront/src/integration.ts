@@ -29,6 +29,7 @@ const RUTAS = [
   ['/checkout/confirmacion', 'checkout/confirmacion.astro'],
   ['/pago/simulado', 'pago/simulado.astro'],
   ['/api/checkout', 'api/checkout.ts'],
+  ['/api/checkout/sesion', 'api/checkout/sesion.ts'],
   ['/api/cart/validate', 'api/cart/validate.ts'],
   ['/api/webhooks/pago', 'api/webhooks/pago.ts'],
 ] as const;

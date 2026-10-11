@@ -10,6 +10,7 @@ import {
   enlaceDeWhatsApp,
   esRuc,
   telefonoLocal,
+  validarContacto,
   validarDatosDeCheckout,
 } from './datos-de-checkout.ts';
 
@@ -240,6 +241,21 @@ test('una entrada que no es un objeto no rompe', () => {
     const r = validarDatosDeCheckout(entrada);
     assert.ok(Object.keys(r.errores).length > 0, `aceptó ${JSON.stringify(entrada)}`);
   }
+});
+
+test('el contacto se valida sin dirección ni forma de pago (ADR-167)', () => {
+  // Es lo que guarda la sesión al pasar el primer paso, antes de que exista el resto.
+  const r = validarContacto({ customer: VALIDOS.customer });
+  assert.deepEqual(r.contacto, {
+    name: 'Ana López',
+    email: 'ana@cliente.test',
+    phone: '0981123456',
+  });
+  assert.ok(!('taxId' in r.contacto!), 'el documento es de la factura, no del contacto');
+
+  const mal = validarContacto({ customer: { name: 'A', email: 'sin-arroba', phone: '123' } });
+  assert.deepEqual(Object.keys(mal.errores).sort(), ['email', 'name', 'phone']);
+  assert.equal(mal.contacto, undefined);
 });
 
 // --- Formas de pago -------------------------------------------------------------

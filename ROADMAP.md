@@ -22,7 +22,7 @@
 | ------- | ------------------------------------------- | -----: | -----: |
 | v1      | Commerce Core vendible + primer piloto real |   DONE |   100% |
 | v2      | Operación avanzada, AI Commerce y escala    |    WIP |    90% |
-| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    35% |
+| v3      | Pick UI, Cuenta Pick e IA de Pick           |    WIP |    36% |
 | v4      | MCP y Campaign Intelligence                 |   TODO |     0% |
 
 ---
@@ -1871,7 +1871,8 @@ Rediseño sin backend nuevo, salvo lo que se nombra. Una pantalla por vez.
 - [x] Analytics: un rango de fechas propio con atajos y validado antes de
       pedir, las cifras en tarjetas, el embudo con lo que se pierde en cada paso y
       las búsquedas sin resultado en rojo (ADR-153). «Recuperar» los checkouts
-      abandonados va con la Fase 6: hoy no hay contacto a quien escribirle.
+      abandonados va con la Fase 6, que ya guarda el contacto desde el primer paso
+      (ADR-167).
 - [x] Importar y Cargar con la cámara: tres pasos con la revisión fila por fila,
       y cuatro con la cantidad de cada talle, hasta seis fotos y «Guardar
       borrador» (ADR-154). De paso, una errata en una fila ya no borra la
@@ -1955,7 +1956,7 @@ Revisa ADR-091: llegó el primer «Buy X Get Y» real.
 
 ## Fase 6 — Un checkout para todas las tiendas
 
-**Avance: 29%**
+**Avance: 43%**
 
 Un solo código, servido en el dominio de cada tienda, con su logo y su color.
 
@@ -1963,8 +1964,8 @@ Un solo código, servido en el dominio de cada tienda, con su logo y su color.
       trae la `lib` que las apps copiaban (ADR-165).
 - [x] Tres pasos que validan antes de avanzar y quedan colapsados en una línea,
       con el documento para la factura obligatorio (ADR-166).
-- [ ] Una sesión de checkout en el servidor, que guarda el contacto desde el
-      primer paso.
+- [x] Una sesión de checkout en el servidor, que guarda el contacto desde el
+      primer paso; el pedido la borra, y si no hay pedido dura treinta días (ADR-167).
 - [ ] Retiro en sucursal, métodos de envío con su tiempo estimado, aviso por
       WhatsApp e IVA incluido. Con el retiro, el filtro «Entrega» de Pedidos.
 - [ ] El pago dentro de la pantalla segura del proveedor —iframe—, además de la
@@ -2444,6 +2445,7 @@ Cuando el hallazgo implique una decisión arquitectónica, crear además una ent
 | 2026-10-10 | **v3 Fase 5 cerrada: el carrito** (ADR-164). Drawer, carrito y checkout muestran lo descontado, el regalo y cuánto falta para el envío gratis, con la cuenta del servidor; el pedido y el correo dicen «Regalo». Las recomendaciones decían «Gs. 0» con un 3x2 activo: `catalog_items` no filtraba `kind` y un descuento sin tipo valía el precio                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | v3 Fase 5 |          75% |           100% |
 | 2026-10-10 | **v3 Fase 6: un solo código** (ADR-165). `@pick/storefront` trae la `lib` que demo y Treeshop copiaban byte a byte e inyecta el checkout con `injectRoute`; cada app declara su dominio y su hoja de estilos. El checkout tiene su propio marco, sin el menú del catálogo. Lo que sigue copiado queda en el backlog                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | v3 Fase 6 |           0% |            14% |
 | 2026-10-10 | **v3 Fase 6: el checkout en tres pasos** (ADR-166). Tus datos, entrega y pago, cada uno validado con la misma función del endpoint y colapsado en una línea con «Cambiar». La CI o el RUC son obligatorios, y con RUC la razón social. Enter ya no crea el pedido desde el primer paso, y en el teléfono el resumen va arriba y plegado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | v3 Fase 6 |          14% |            29% |
+| 2026-10-11 | **v3 Fase 6: la sesión del checkout** (ADR-167). Al pasar «Tus datos», el contacto y el carrito quedan en el servidor con la clave del pedido: es a quién escribirle si no termina. El pedido la borra, por la clave y por el correo, y si no hay pedido dura treinta días. Tiene su propio freno: compartiendo el del checkout, cada compra gastaba dos                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | v3 Fase 6 |          29% |            43% |
 
 ---
 

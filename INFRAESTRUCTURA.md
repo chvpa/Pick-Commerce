@@ -611,9 +611,16 @@ después lo tiene sin que nadie se acuerde.
   { "name": "CARRITO_LIMITE", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } },
   { "name": "CODIGO_LIMITE", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } },
   { "name": "ENTRAR_LIMITE", "namespace_id": "1004", "simple": { "limit": 15, "period": 60 } },
-  { "name": "BUSQUEDA_LIMITE", "namespace_id": "1005", "simple": { "limit": 180, "period": 60 } }
+  { "name": "BUSQUEDA_LIMITE", "namespace_id": "1005", "simple": { "limit": 180, "period": 60 } },
+  { "name": "SESION_LIMITE", "namespace_id": "1006", "simple": { "limit": 60, "period": 60 } }
 ]
 ```
+
+`SESION_LIMITE` frena la sesión del checkout (ADR-167). Va aparte del checkout
+porque, compartiendo su contador, cada compra gastaba dos. Es más holgado porque
+cada «Cambiar» la vuelve a guardar. Dos bindings con el mismo `namespace_id`
+comparten contador **aunque estén en Workers distintos de la cuenta**: un endpoint
+nuevo con su propio freno necesita un número nuevo.
 
 `BUSQUEDA_LIMITE` es el único que frena un GET: `/api/busqueda/sugerencias`, que
 el buscador pide en cada pausa al escribir. Por eso es el más holgado, y por eso

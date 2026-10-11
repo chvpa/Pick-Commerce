@@ -58,6 +58,7 @@ export const POLITICAS = [
     titulo: 'Privacidad',
     parrafos: [
       'Usamos tus datos para procesar el pedido y comunicarnos sobre su estado. No los compartimos con terceros ajenos a la entrega y el cobro.',
+      'Si empezás una compra y no la terminás, guardamos tu nombre, tu correo, tu teléfono y lo que tenías en el carrito durante 30 días, para poder recordártelo. Si comprás, lo borramos: queda sólo el pedido.',
       'Podés pedir la baja de tus datos escribiéndonos.',
     ],
   },

@@ -940,3 +940,63 @@ test('un `demo` que no es el booleano no apaga los correos', async () => {
   assert.equal(p.isDemo, undefined, 'ausente, no false: es lo que hace `strip_nulls`');
   assert.equal(await contar('notification_outbox'), antes + 1);
 });
+
+// --- La sesión del checkout (ADR-167) -----------------------------------------
+
+async function sesiones(): Promise<string[]> {
+  const r = await db.query<{ id: string }>(`select id::text from checkout_sessions order by id`);
+  return r.rows.map((f) => f.id);
+}
+
+test('el pedido borra su sesión de checkout, por la clave y por el correo', async () => {
+  const clave = 'c0000000-0000-4000-8000-000000000001';
+  const recargada = 'c0000000-0000-4000-8000-000000000002';
+  const deOtraPersona = 'c0000000-0000-4000-8000-000000000003';
+  const deOtraTienda = 'c0000000-0000-4000-8000-000000000004';
+  await comoServicio(
+    db,
+    `insert into checkout_sessions (tenant_id, store_id, id, name, email, phone, lines) values
+       ('${TENANT}', '${TIENDA}', '${clave}', 'Ana', 'ana@cliente.test', '0981123456', '[]'),
+       -- La misma persona, que recargó el checkout y empezó con otra clave.
+       ('${TENANT}', '${TIENDA}', '${recargada}', 'Ana', 'ana@cliente.test', '0981123456', '[]'),
+       ('${TENANT}', '${TIENDA}', '${deOtraPersona}', 'Beto', 'beto@cliente.test', '0981123456', '[]'),
+       ('${OTRO_TENANT}', '${OTRA_TIENDA}', '${deOtraTienda}', 'Ana', 'ana@cliente.test', '0981123456', '[]')`,
+  );
+
+  // El correo del pedido, con mayúsculas: el trigger compara en minúsculas.
+  pedido(
+    await crear([{ variantId: V_ENVIO, quantity: 1 }], {
+      clave,
+      cliente: { ...CLIENTE, email: 'Ana@Cliente.test' },
+    }),
+  );
+
+  assert.deepEqual(await sesiones(), [deOtraPersona, deOtraTienda]);
+  await db.exec(`delete from checkout_sessions`);
+});
+
+test('las sesiones de checkout no las alcanza nadie más que el servicio', async () => {
+  // Llevan el contacto de quien no compró: ni el browser ni el Admin las leen
+  // por la tabla. Quien las necesite trae su propio camino.
+  for (const usuario of [null, DUENO]) {
+    const leer = await intentar(db, usuario, `select count(*) from checkout_sessions`);
+    assert.equal(leer.ok, false, `${usuario ?? 'anon'} leyó las sesiones`);
+    const escribir = await intentar(
+      db,
+      usuario,
+      `insert into checkout_sessions (tenant_id, store_id, id, name, email, phone)
+       values ('${TENANT}', '${TIENDA}', gen_random_uuid(), 'X', 'x@x.test', '0981123456')`,
+    );
+    assert.equal(escribir.ok, false, `${usuario ?? 'anon'} escribió una sesión`);
+  }
+});
+
+test('una sesión de checkout guarda el correo en minúsculas o no se guarda', async () => {
+  await assert.rejects(
+    comoServicio(
+      db,
+      `insert into checkout_sessions (tenant_id, store_id, id, name, email, phone)
+       values ('${TENANT}', '${TIENDA}', gen_random_uuid(), 'X', 'X@x.test', '0981123456')`,
+    ),
+  );
+});

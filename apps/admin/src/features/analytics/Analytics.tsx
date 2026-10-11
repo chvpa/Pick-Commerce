@@ -280,12 +280,13 @@ export function Analytics() {
                   Llegaron a confirmar el pedido y no lo terminaron.
                 </span>
                 {/*
-                  El handoff ofrece recuperarlos. Para eso hace falta el contacto,
-                  y hoy el checkout lo guarda recién al confirmar: llega con el
-                  checkout por pasos de la Fase 6.
+                  El handoff ofrece recuperarlos. El contacto ya se guarda desde
+                  el primer paso del checkout (ADR-167); escribirles es el último
+                  ítem de la Fase 6.
                 */}
                 <span className="text-ink-faint text-[12.5px]">
-                  Recuperarlos por correo o WhatsApp llega con el checkout nuevo.
+                  Ya guardamos el contacto de quien deja sus datos y no termina. Escribirle por
+                  correo o WhatsApp es lo próximo.
                 </span>
               </Tarjeta>
             </div>

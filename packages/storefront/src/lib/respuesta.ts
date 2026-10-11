@@ -43,6 +43,9 @@ export function falla(donde: string, error: unknown, status = 500): Response {
   );
 }
 
+/** Un uuid v4 de verdad, no cualquier texto: las claves y los ids de la base lo son. */
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /** Lee el cuerpo como JSON. Un cuerpo ilegible es un 400, no un 500. */
 export async function cuerpoJson(request: Request): Promise<unknown | undefined> {
   try {

@@ -434,6 +434,50 @@ export type Database = {
           },
         ]
       }
+      checkout_sessions: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          lines: Json
+          name: string
+          phone: string
+          store_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          lines?: Json
+          name: string
+          phone: string
+          store_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          lines?: Json
+          name?: string
+          phone?: string
+          store_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkout_sessions_store_id_fkey"
+            columns: ["store_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id", "tenant_id"]
+          },
+        ]
+      }
       collection_products: {
         Row: {
           collection_id: string

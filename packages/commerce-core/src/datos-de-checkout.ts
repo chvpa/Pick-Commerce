@@ -68,6 +68,49 @@ export interface DatosDeCheckout {
   readonly notes?: string;
 }
 
+/** Con qué se le escribe a quien compra: lo que guarda la sesión del checkout (ADR-167). */
+export interface Contacto {
+  readonly name: string;
+  readonly email: string;
+  readonly phone: string;
+}
+
+const texto = (valor: unknown): string => (typeof valor === 'string' ? valor.trim() : '');
+
+/**
+ * El nombre, el correo y el teléfono, con las mismas reglas del pedido.
+ *
+ * Existe aparte porque la sesión del checkout se guarda al pasar el primer paso,
+ * antes de que haya dirección o forma de pago: validar el formulario entero no
+ * daría nunca el contacto.
+ */
+export function validarContacto(entrada: unknown): {
+  readonly contacto?: Contacto;
+  readonly errores: Readonly<Record<string, string>>;
+} {
+  const errores: Record<string, string> = {};
+  const cliente = (((entrada ?? {}) as Record<string, unknown>).customer ?? {}) as Record<
+    string,
+    unknown
+  >;
+
+  const name = texto(cliente.name);
+  const email = texto(cliente.email).toLowerCase();
+
+  if (name.length < 2) errores.name = 'Escribí tu nombre y apellido.';
+
+  // Deliberadamente laxa: exige la forma mínima de un email y nada más. Una
+  // expresión estricta rechaza direcciones válidas, y quien se equivoca de mail
+  // no se entera igual —lo que confirma una dirección es un mensaje que llega—.
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errores.email = 'Revisá el correo.';
+
+  const phone = telefonoLocal(texto(cliente.phone));
+  if (!phone) errores.phone = 'Revisá el teléfono, por ejemplo 0981 123 456.';
+
+  if (Object.keys(errores).length > 0 || !phone) return { errores };
+  return { errores, contacto: { name, email, phone } };
+}
+
 /**
  * Valida lo que la persona escribió.
  *
@@ -82,29 +125,15 @@ export function validarDatosDeCheckout(entrada: unknown): {
   readonly datos?: DatosDeCheckout;
   readonly errores: Readonly<Record<string, string>>;
 } {
-  const errores: Record<string, string> = {};
+  const { contacto, errores: delContacto } = validarContacto(entrada);
+  const errores: Record<string, string> = { ...delContacto };
   const bruto = (entrada ?? {}) as Record<string, unknown>;
   const cliente = (bruto.customer ?? {}) as Record<string, unknown>;
   const direccion = (bruto.address ?? {}) as Record<string, unknown>;
 
-  const texto = (valor: unknown): string => (typeof valor === 'string' ? valor.trim() : '');
-
-  const name = texto(cliente.name);
-  const email = texto(cliente.email).toLowerCase();
-  const phone = texto(cliente.phone);
   const street = texto(direccion.street);
   const city = texto(direccion.city);
   const paymentMethod = texto(bruto.paymentMethod);
-
-  if (name.length < 2) errores.name = 'Escribí tu nombre y apellido.';
-
-  // Deliberadamente laxa: exige la forma mínima de un email y nada más. Una
-  // expresión estricta rechaza direcciones válidas, y quien se equivoca de mail
-  // no se entera igual —lo que confirma una dirección es un mensaje que llega—.
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errores.email = 'Revisá el correo.';
-
-  const telefono = telefonoLocal(phone);
-  if (!telefono) errores.phone = 'Revisá el teléfono, por ejemplo 0981 123 456.';
 
   /*
    * El documento es obligatorio, y con RUC también la razón social (ADR-166). Es
@@ -121,7 +150,7 @@ export function validarDatosDeCheckout(entrada: unknown): {
   if (city.length < 2) errores.city = 'Escribí la ciudad.';
   if (!paymentMethod) errores.paymentMethod = 'Elegí una forma de pago.';
 
-  if (Object.keys(errores).length > 0 || !telefono) return { errores };
+  if (Object.keys(errores).length > 0 || !contacto) return { errores };
 
   const reference = texto(direccion.reference);
   // La zona se valida contra la tabla de la tienda en el servidor, que es
@@ -135,9 +164,7 @@ export function validarDatosDeCheckout(entrada: unknown): {
       // Los opcionales se omiten en vez de mandarse vacíos: la base guarda
       // ausencia, no cadena vacía (ADR-059).
       customer: {
-        name,
-        email,
-        phone: telefono,
+        ...contacto,
         taxId,
         // Sólo con RUC: con una CI no hay factura a nombre de nadie más.
         ...(esRuc(taxId) ? { taxName } : {}),

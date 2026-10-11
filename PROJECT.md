@@ -470,6 +470,10 @@ El documento para la factura es obligatorio: la CI, o el RUC con su razón socia
 La factura la emite el comercio, fuera del core, pero el dato lo junta el
 checkout.
 
+Al pasar el primer paso, el contacto y el carrito quedan treinta días en una
+sesión del servidor, para poder escribirle a quien no termine. El pedido la borra
+(ADR-167).
+
 Antes de confirmar:
 
 ```text

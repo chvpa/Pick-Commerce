@@ -8436,3 +8436,67 @@ directamente mandan el documento.
 
 Un pedido nuevo siempre trae la CI o el RUC del comprador, que era uno de los
 tres datos que ADR-086 nombró como faltantes para mandar un pedido al ERP.
+
+## ADR-167 — La sesión del checkout: el contacto del primer paso, en el servidor
+
+**Fecha:** 2026-10-11
+**Estado:** Accepted
+
+**Contexto**
+El checkout guardaba a quien compra recién al confirmar. De un checkout abandonado
+no quedaba a quién escribirle, y por eso Analytics cuenta los abandonos sin
+ofrecer «Recuperar» (ADR-153). ADR-065 había descartado una tabla `carts` porque
+ninguna pantalla la consumía. Ahora hay una, recuperar los carritos, pero lo que
+necesita no es el carrito: es **a quién escribirle y qué dejó**.
+
+**Decisión**
+
+- **Una sesión por checkout, con la clave de idempotencia como id.** El island la
+  genera al montarse y es la misma con la que se crea el pedido. Al pasar «Tus
+  datos» manda el nombre, el correo, el teléfono y las líneas, con variante y
+  cantidad. No espera la respuesta, porque comprar no depende de esto. Va con
+  `keepalive`: quien cierra la pestaña justo después de continuar es justo a
+  quien hay que poder escribirle. «Cambiar» la vuelve a guardar sobre la misma fila.
+- **El carrito sigue siendo un espejo** (ADR-065). La sesión es una foto del
+  primer paso, no su autoridad: no guarda precios ni títulos, que pone la base
+  cuando alguien la lea. Lo que se cobra lo sigue calculando `create_order`.
+- **El contacto se valida con la regla del pedido.** `validarContacto`, en el
+  core, es la parte de `validarDatosDeCheckout` que no necesita dirección ni forma
+  de pago, y la validación completa la usa: no hay dos reglas para el mismo
+  correo. El documento no viaja, porque es de la factura y una factura sólo
+  existe si hay pedido.
+- **El pedido borra la sesión**, con un trigger sobre `orders`. Borra por la
+  clave y también por el correo: quien recargó el checkout empezó con otra clave,
+  y su primera sesión diría que abandonó cuando en realidad compró. Se borra en
+  vez de marcarse porque una copia del contacto de quien ya compró no le sirve a
+  nadie. Va en un trigger y no en el endpoint para que lo cumpla todo pedido, en
+  su misma transacción.
+- **Treinta días.** Se borra con la purga de los eventos, que es la única que
+  corre sola porque viaja con el tráfico (ADR-099), y comparte su techo: una
+  tienda sin visitas no se limpia.
+- **Nadie la lee todavía.** Tiene RLS sin políticas, como `notification_outbox`:
+  sólo la secret key del storefront escribe y borra. Recuperar los carritos traerá
+  su propio camino desde el Admin.
+- **Tiene su propio freno, `SESION_LIMITE`**, y no el del checkout. Al principio
+  compartía `CHECKOUT_LIMITE`, y lo encontró el e2e: cada compra gastaba dos, y las
+  cinco compras de la corrida en el teléfono recibieron un 429. En producción, a
+  quien compra desde la IP de una oficina le habría quedado la mitad del margen.
+- **Lo dice la política de privacidad:** qué se guarda, por cuánto tiempo, y que
+  comprar lo borra.
+
+**Lo que hereda la unidad que recupere los carritos**
+Una sesión puede sobrevivir a su pedido si la petición del primer paso llega
+después de la del pedido. Es improbable, pero posible. Por eso la lectura descarta
+las sesiones cuya clave ya tiene pedido. Además filtra la fecha aunque la purga
+exista, porque la purga sólo corre con visitas.
+
+**Consecuencias**
+
+- **PGlite:**
+  - el pedido borra la sesión por la clave y por el correo, sin tocar la de otra
+    persona ni la de otra tienda; el test falla si se saca el correo del trigger;
+  - ni anon ni el dueño de la tienda leen o escriben la tabla;
+  - un correo con mayúsculas no entra.
+- **Core:** el contacto se valida sin el resto del formulario.
+- **E2E:** pasar el primer paso deja una sesión con el contacto y el carrito, sin
+  el documento, y confirmar el pedido la borra.
